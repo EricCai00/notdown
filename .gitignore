@@ -1,0 +1,10 @@
+node_modules/
+dist/
+vault/
+test-results/
+*.log
+public/vendor/
+.run/
+.env
+.env.*
+!.env.example
