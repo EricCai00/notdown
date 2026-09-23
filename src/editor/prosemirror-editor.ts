@@ -1,0 +1,1688 @@
+import { isListItem } from "../document/list-items";
+import { hasSupplementalAttributes, needsMarkdownTable, hasOfficialDateTime } from "../document/notdown-boundary";
+import { localObjectPlugins } from "../markdown-engine/presets";
+import { footnotePresentation, projectFootnotes, restoreFootnotes } from "./footnotes";
+import { PageMetadataView, protectPageMetadata } from "../features/metadata/page-metadata-view";
+import { replacePandocTitle } from "../features/metadata/pandoc-page-title";
+import { metadataSourceTransaction } from "../features/metadata/metadata-source";
+import { preserveSelectionDecorations } from "./block-selection";
+import { objectNodeViews } from "./object-views";
+import { LinkPreviewView } from "../features/links/link-preview-view";
+import { DateMentionView } from "../features/dates/date-view";
+import { dateMentionInput } from "../features/dates/date-input";
+import { PersonMentionView } from "../features/people/person-view";
+import { personId } from "../features/people/person";
+import "../features/people/people.css";
+import "../features/dates/date.css";
+import { linkPaste } from "../features/links/link-paste";
+import { linkTarget } from "../features/links/link-preview";
+import { bookmarkUrl } from "../features/bookmarks/bookmark";
+import "../features/links/link-preview.css";
+import "./object-styles.css";
+import "./block-spacing.css";
+import "../blocks/breadcrumb.css";
+import { contentCommand } from "../document/content-objects";
+import { latexMacroEditing } from "../markdown-engine/latex-macros";
+import { tableControls } from "./table-commands";
+import { objectProperties } from "./object-properties";
+import { blockProperties, blockPropertyFields, openBlockProperties } from "./block-properties";
+import { definitionControls } from "./definition-commands";
+import { markProperties } from "./mark-properties";
+import { selectionMenu } from "./selection-menu";
+import { exampleLists } from "./example-lists";
+import {
+  Fragment,
+  Slice,
+  DOMSerializer,
+  type Node as PMNode,
+} from "prosemirror-model";
+const importSyntaxDOM = (spec: import("prosemirror-model").DOMOutputSpec) =>
+  DOMSerializer.renderSpec(document, spec).dom as HTMLElement;
+import {
+  EditorState,
+  Plugin,
+  Selection,
+  TextSelection,
+  NodeSelection,
+  type SelectionBookmark,
+  type Transaction,
+  type Command,
+} from "prosemirror-state";
+import {
+  EditorView,
+  Decoration,
+  DecorationSet,
+  type NodeView,
+} from "prosemirror-view";
+import {
+  baseKeymap,
+  chainCommands,
+  setBlockType,
+  toggleMark,
+  wrapIn,
+  lift,
+  exitCode,
+} from "prosemirror-commands";
+import { history, undo, redo, closeHistory } from "prosemirror-history";
+import { keymap } from "prosemirror-keymap";
+import { undoInputRule } from "prosemirror-inputrules";
+import { HtmlBlockView, htmlInlineView } from "../markdown-engine/html-view.js";
+import { inTableCell, tableEditing, tableLineBreak } from "./editor-table.js";
+import {
+  SyntaxBlockView,
+  inlineTransclusionView,
+  refreshProductViews,
+} from "../markdown-engine/product-view.js";
+import {
+  wrapInList,
+  splitListItem,
+} from "prosemirror-schema-list";
+import { createElement, GripVertical, Plus, type IconNode } from "lucide";
+import { blockTypeLabel } from "../catalog/block-catalog-data";
+import { editorSchema as schema } from "../document/editor-schema";
+import {
+  parseEditorMarkdown,
+  serializeEditorMarkdown,
+} from "../document/editor-markdown";
+import {
+  blockAtPos,
+  moveEditorBlocks,
+  indentEditorBlock,
+  backspaceEditorBlock,
+  exitEmptyList,
+  outdentEditorBlock,
+  deleteEditorBlock,
+  deleteEditorBlocks,
+  duplicateEditorBlock,
+  type EditorBlock,
+  type BlockPlacement,
+} from "./editor-blocks";
+import {
+  createSlashPlugin,
+  getSlashState,
+  consumeSlash,
+  cancelSlash,
+  slashPluginKey,
+} from "./editor-slash";
+import {
+  createPageNodeViews,
+  linkRangeAtSelection,
+  type LinkedPage,
+} from "./editor-links";
+import { renderMarkdown } from "../document/markdown";
+import { markdownRules, itemAtSelection } from "./editor-input-rules";
+import { convertListItem, convertTextblockToCode } from "./editor-convert";
+import {
+  parseNotionMarkdown,
+  serializeNotionMarkdown,
+} from "../document/notion-markdown";
+import type { BodyFormat } from "../document/notion-syntax";
+import { notionNodeViews, refreshEmbeddedToc } from "./notion-nodeviews";
+import { EmbedView } from "../blocks/embed-view";
+import { CodeBlockView } from "./code-block-view";
+import { codeHighlighting } from "./code-highlighting";
+import "katex/dist/katex.min.css";
+import { moveTableCell, tableAppearance } from "./editor-table";
+
+type BlockType =
+  | "text"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "heading4"
+  | "heading5"
+  | "heading6"
+  | "list"
+  | "number"
+  | "task"
+  | "quote"
+  | "code"
+  | "divider";
+interface Options {
+  metadataHost?: HTMLElement;
+  value: string;
+  bodyFormat?: BodyFormat;
+  pages: () => LinkedPage[];
+  currentPage?: () => import("../blocks/breadcrumb-view").BreadcrumbPage | undefined;
+  onChange: (value: string, format: BodyFormat) => void;
+  onInsert: () => void;
+  onError: (error: unknown) => void;
+  codec?: {
+    parse(source: string): PMNode;
+    serialize(doc: PMNode): string;
+    format: BodyFormat;
+  };
+  onDocumentChange?: (doc: PMNode, isolateHistory?: boolean) => void;
+  onHistory?: (direction: "undo" | "redo") => boolean;
+  canCommand?: (name: string) => boolean;
+  onOpenPage?: (id: string) => void;
+}
+
+class ListItemView implements NodeView {
+  dom = document.createElement("li");
+  contentDOM = document.createElement("div");
+  private checkbox?: HTMLInputElement;
+  constructor(
+    private node: PMNode,
+    private view: EditorView,
+    private getPos: () => number | undefined,
+  ) {
+    this.contentDOM.className = "pm-item-content";
+    this.dom.append(this.contentDOM);
+    this.render();
+  }
+  render() {
+    this.dom.dataset.listItem = this.node.type.name.replace("_list_item", "");
+    if (typeof this.node.attrs.checked === "boolean") {
+      this.dom.dataset.checked = String(this.node.attrs.checked);
+      if (!this.checkbox) {
+        this.checkbox = document.createElement("input");
+        this.checkbox.type = "checkbox";
+        this.checkbox.contentEditable = "false";
+        this.checkbox.setAttribute("aria-label", "Complete to-do");
+        this.checkbox.addEventListener("change", () => {
+          const pos = this.getPos();
+          if (pos === undefined) return;
+          this.view.dispatch(
+            this.view.state.tr.setNodeMarkup(pos, undefined, {
+              ...this.node.attrs,
+              checked: this.checkbox!.checked,
+            }),
+          );
+        });
+        this.dom.prepend(this.checkbox);
+      }
+      this.checkbox.checked = this.node.attrs.checked;
+    } else {
+      delete this.dom.dataset.checked;
+      this.checkbox?.remove();
+      this.checkbox = undefined;
+    }
+  }
+  update(node: PMNode) {
+    if (node.type !== this.node.type) return false;
+    this.node = node;
+    this.render();
+    return true;
+  }
+  stopEvent(event: Event) {
+    return event.target === this.checkbox;
+  }
+  ignoreMutation(mutation: { type: string; target: Node }) {
+    return (
+      mutation.type !== "selection" &&
+      (mutation.target === this.dom || mutation.target === this.checkbox)
+    );
+  }
+}
+
+/** A single ProseMirror document owns selection, history and nested block edits. */
+export class BlockEditor {
+  private sourceProjection?: { source: PMNode; doc: PMNode };
+  private view: EditorView;
+  private bookmark?: SelectionBookmark;
+  private abort = new AbortController();
+  private handle = document.createElement("button");
+  private addButton = document.createElement("button");
+  private marquee = document.createElement("div");
+  private selectedBlocks = new Set<number>();
+  private selectionLayer = document.createElement("div");
+  private selectionResize?: ResizeObserver;
+  private selectionObserved = new Set<Element>();
+  private selectionFrame = 0;
+  private boxStart: { x: number; y: number; moved: boolean } | null = null;
+  private dropLine = document.createElement("div");
+  private hovered: EditorBlock | null = null;
+  private dragFrom: number | null = null;
+  private handlePressed = false;
+  private dropTarget: { block: EditorBlock; placement: BlockPlacement } | null =
+    null;
+  private menu?: HTMLElement;
+  private linkDialog?: HTMLDialogElement;
+  private destroyed = false;
+  private folded = new Set<number>();
+  private bodyFormat: BodyFormat;
+
+  constructor(
+    private root: HTMLElement,
+    private options: Options,
+  ) {
+    this.bodyFormat = options.bodyFormat || "markdown";
+    root.classList.add("pm-editor");
+    const self = this;
+    const placeholder = new Plugin({
+      props: {
+        decorations(state) {
+          const decorations: Decoration[] = [];
+          for (const pos of self.selectedBlocks) {
+            const node = state.doc.nodeAt(pos);
+            if (node)
+              decorations.push(
+                Decoration.node(pos, pos + node.nodeSize, {
+                  class: "pm-block-selected",
+                }),
+              );
+          }
+          const { $from } = state.selection;
+          if (
+            $from.parent.type === schema.nodes.paragraph &&
+            !$from.parent.content.size &&
+            !inTableCell(state)
+          )
+            decorations.push(
+              Decoration.node($from.before(), $from.after(), {
+                "data-placeholder": "Type text, or press / to choose a block",
+              }),
+            );
+          state.doc.forEach((node, pos) => {
+            if (!self.folded.has(pos) || node.type !== schema.nodes.heading)
+              return;
+            decorations.push(
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: "pm-folded-heading",
+                title:
+                  "This heading is collapsed. Expand it from the block menu.",
+              }),
+            );
+            let next = pos + node.nodeSize;
+            while (next < state.doc.content.size) {
+              const following = state.doc.nodeAt(next)!;
+              if (
+                following.type === schema.nodes.heading &&
+                following.attrs.level <= node.attrs.level
+              )
+                break;
+              decorations.push(
+                Decoration.node(next, next + following.nodeSize, {
+                  class: "pm-folded-content",
+                }),
+              );
+              next += following.nodeSize;
+            }
+          });
+          return DecorationSet.create(state.doc, decorations);
+        },
+      },
+    });
+    const splitItem: Command = (state, dispatch) => {
+      const item = itemAtSelection(state);
+      if (!item) return false;
+      return splitListItem(
+        item.node.type,
+        item?.node.attrs.checked !== null ? { checked: false } : undefined,
+      )(state, dispatch);
+    };
+    const keys: Record<string, Command> = {
+      "Mod-z": (state, dispatch, view) =>
+        options.onHistory
+          ? options.onHistory("undo")
+          : undo(state, dispatch, view),
+      "Shift-Mod-z": (state, dispatch, view) =>
+        options.onHistory
+          ? options.onHistory("redo")
+          : redo(state, dispatch, view),
+      "Mod-y": (state, dispatch, view) =>
+        options.onHistory
+          ? options.onHistory("redo")
+          : redo(state, dispatch, view),
+      "Mod-b": toggleMark(schema.marks.strong),
+      "Mod-i": toggleMark(schema.marks.em),
+      "Mod-u": (state, dispatch, view) =>
+        options.canCommand?.("underline") === false
+          ? true
+          : toggleMark(schema.marks.underline)(state, dispatch, view),
+      "Mod-`": toggleMark(schema.marks.code),
+      "Mod-k": () => {
+        this.showLinkEditor();
+        return true;
+      },
+      "Mod-Enter": (state, dispatch) => {
+        const item = itemAtSelection(state);
+        if (typeof item?.node.attrs.checked !== "boolean")
+          return exitCode(state, dispatch);
+        dispatch?.(
+          state.tr.setNodeMarkup(item.pos, undefined, {
+            ...item.node.attrs,
+            checked: !item.node.attrs.checked,
+          }),
+        );
+        return true;
+      },
+      Enter: chainCommands(
+        tableLineBreak,
+        (state, dispatch, view) => splitListItem(schema.nodes.example_list_item, { label: "", number: (state.selection.$from.node(-1)?.attrs.number || 0) + 1 })(state, dispatch, view),
+        exitEmptyList,
+        splitItem,
+        baseKeymap.Enter,
+      ),
+      "Shift-Enter": (state, dispatch) => {
+        if (!state.selection.$from.parent.isTextblock) return false;
+        dispatch?.(
+          (state.selection.$from.parent.type.spec.code
+            ? state.tr.insertText("\n")
+            : state.tr.replaceSelectionWith(schema.nodes.hard_break.create())
+          ).scrollIntoView(),
+        );
+        return true;
+      },
+      Tab: (state, dispatch, view) => {
+        if (moveTableCell(1)(state, dispatch, view)) return true;
+        if (
+          options.canCommand?.("nesting") === false &&
+          !itemAtSelection(state)
+        )
+          return true;
+        indentEditorBlock(state, dispatch, view);
+        return true;
+      },
+      "Shift-Tab": (state, dispatch, view) => {
+        if (moveTableCell(-1)(state, dispatch, view)) return true;
+        outdentEditorBlock(state, dispatch, view);
+        return true;
+      },
+      Backspace: (_state, _dispatch, view) => {
+        // Native Home/arrow selection may precede selectionchange on Windows.
+        // Read it before choosing between removing a marker and joining rows.
+        const active = view || this.view;
+        (
+          active as unknown as { domObserver: { flush(): void } }
+        ).domObserver.flush();
+        return chainCommands(
+          backspaceEditorBlock,
+          undoInputRule,
+          baseKeymap.Backspace,
+        )(active.state, active.dispatch, active);
+      },
+    };
+    this.view = new EditorView(root, {
+      state: EditorState.create({
+        schema,
+        doc: projectFootnotes(options.codec
+          ? options.codec.parse(options.value)
+          : this.bodyFormat === "notion-markdown"
+            ? parseNotionMarkdown(options.value)
+            : parseEditorMarkdown(options.value)),
+        plugins: [
+          new Plugin({ filterTransaction: tr => {
+            if (!tr.docChanged || options.canCommand?.("notion_custom") === true) return true;
+            let allowed = true;
+            tr.doc.descendants(node => {
+              if (localObjectPlugins[node.type.name] || hasSupplementalAttributes(node) || needsMarkdownTable(node)) allowed = false;
+            });
+            return allowed;
+          } }),
+          footnotePresentation(),
+          ...(options.metadataHost ? [protectPageMetadata()] : []),
+          history(),
+          codeHighlighting(),
+          dateMentionInput(() => options.canCommand?.("date_or_reminder") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("mention_person") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("notion_custom") === true),
+          linkPaste(() => options.canCommand?.("link_preview") ?? false, () => options.canCommand?.("web_bookmark") ?? false),
+          latexMacroEditing(),
+          tableAppearance(),
+          tableEditing(),
+          tableControls(options.canCommand),
+          definitionControls(),
+          markProperties(),
+          blockProperties(() => options.canCommand?.("notion_custom") === true),
+          selectionMenu({
+            canCommand: name => options.canCommand?.(name) ?? (name !== "color" && name !== "underline" || this.bodyFormat === "notion-markdown"),
+            convert: type => { this.bookmark = undefined; this.insertBlockType(type); },
+            link: () => this.showLinkEditor(),
+          }),
+          exampleLists(),
+          objectProperties(source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), () => options.canCommand?.("notion_custom") === true),
+          createSlashPlugin((match) =>
+            queueMicrotask(() => {
+              if (this.destroyed) return;
+              if (
+                match &&
+                getSlashState(this.view.state) &&
+                !document.querySelector("#dialog")
+              )
+                this.options.onInsert();
+              this.root.dispatchEvent(
+                new CustomEvent("editor-slash-update", { bubbles: true }),
+              );
+            }),
+          ),
+          markdownRules(options.canCommand),
+          keymap(keys),
+          keymap(baseKeymap),
+          placeholder,
+        ],
+      }),
+      attributes: {
+        class: "pm-document",
+        "aria-label": "Note content",
+        role: "textbox",
+        "aria-multiline": "true",
+        spellcheck: "false",
+      },
+      nodeViews: preserveSelectionDecorations({
+        code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
+        ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true),
+        syntax_block: (node, view, getPos) =>
+          options.metadataHost && node.attrs.kind === "metadata"
+            ? new PageMetadataView(node, view, getPos, options.metadataHost, source => this.options.codec!.parse(source))
+            : node.attrs.kind === "embed" ? new EmbedView(node, view, getPos) : new SyntaxBlockView(node, view, getPos),
+        syntax_inline: (node) =>
+          node.attrs.kind === "transclusion"
+            ? inlineTransclusionView(node)
+            : node.attrs.html
+              ? htmlInlineView(node)
+              : {
+                  dom: (() => {
+                    const spec = schema.nodes.syntax_inline.spec.toDOM!(node);
+                    return importSyntaxDOM(spec);
+                  })(),
+                },
+        html_block: (node, view, getPos) =>
+          new HtmlBlockView(node, view, getPos),
+        html_inline: htmlInlineView,
+        ...notionNodeViews(() => options.canCommand?.("notion_custom") === true),
+        ...createPageNodeViews(options.pages),
+        link_preview: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
+        link_mention: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
+        mention: (node, view, getPos) => node.attrs.kind === "date" && options.canCommand?.("notion_custom") === true && !hasOfficialDateTime(node) ? new DateMentionView(node, view, getPos) : node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url) ? new PersonMentionView(node) : { dom: importSyntaxDOM(schema.nodes.mention.spec.toDOM!(node)) },
+        bullet_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
+        numbered_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
+        task_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
+        opaque_block: (node, view, getPos) => {
+          if (options.metadataHost && node.attrs.metadataForm)
+            return new PageMetadataView(node, view, getPos, options.metadataHost, source => this.options.codec!.parse(source));
+          const dom = document.createElement("div");
+          dom.className = "pm-preserved-block";
+          dom.contentEditable = "false";
+          // The shared renderer disables raw HTML and escapes custom syntax.
+          if (options.codec) {
+            const raw = document.createElement("pre");
+            raw.textContent = node.attrs.raw;
+            dom.append(raw);
+          } else
+            dom.innerHTML = renderMarkdown(node.attrs.raw, options.pages());
+          return { dom, ignoreMutation: () => true };
+        },
+      }),
+      dispatchTransaction: (tr) => this.dispatch(tr),
+      handlePaste: (view, event) => {
+        const plain = event.clipboardData?.getData("text/plain");
+        if (plain && ((linkTarget(plain.trim()) && options.canCommand?.("link_preview")) || (bookmarkUrl(plain.trim()) && options.canCommand?.("web_bookmark")))) return false;
+        if (!plain || event.clipboardData?.getData("text/html")) return false;
+        if (view.state.selection.$from.parent.type.spec.code) return false;
+        this.bookmark = undefined;
+        this.insertValue(plain);
+        return true;
+      },
+      handleDrop: (_view, event) => {
+        if (this.dragFrom === null) return false;
+        this.finishDrop(event);
+        return true;
+      },
+    });
+    refreshEmbeddedToc(this.view);
+    refreshProductViews(this.view);
+    this.view.dom.addEventListener(
+      "click",
+      (event) => {
+        const link = (event.target as Element).closest("a[href]");
+        if (!link) return;
+        const href = link.getAttribute("href") || "";
+        if (/^(https?:|mailto:)/i.test(href)) {
+          event.preventDefault();
+          if (event.ctrlKey || event.metaKey)
+            window.open(href, "_blank", "noopener,noreferrer");
+          return;
+        }
+        if (href.startsWith("#") && !href.startsWith("#page/")) {
+          const id = decodeURIComponent(href.slice(1));
+          const target = [
+            ...(
+              this.view.dom.parentElement || this.view.dom
+            ).querySelectorAll<HTMLElement>("[data-md-id],[id]"),
+          ].find(
+            (el) =>
+              el.dataset.mdId === id || el.id === id || el.id === "md-" + id,
+          );
+          if (target) {
+            event.preventDefault();
+            target.scrollIntoView({ block: "center" });
+          }
+        } else if (/\.md(?:#.*)?$/i.test(href) && !/^\w+:/.test(href)) {
+          const title = decodeURIComponent(href.split("#")[0])
+            .replace(/^.*\//, "")
+            .replace(/\.md$/i, "");
+          const page = this.options
+            .pages()
+            .find((p) => p.title === title || p.id === title);
+          if (page) {
+            event.preventDefault();
+            this.options.onOpenPage?.(page.id);
+          }
+        }
+      },
+      { signal: this.abort.signal },
+    );
+    this.handle.className = "pm-block-handle";
+    this.handle.type = "button";
+    this.handle.draggable = true;
+    this.handle.setAttribute("aria-label", "Drag block or click to open menu");
+    this.handle.title = "Drag to move · Click for menu";
+    this.handle.append(
+      createElement(GripVertical as IconNode, {
+        width: 18,
+        height: 18,
+        "stroke-width": 1.7,
+      }),
+    );
+    this.dropLine.className = "pm-drop-line";
+    this.addButton.className = "pm-block-add";
+    this.addButton.type = "button";
+    this.addButton.append(
+      createElement(Plus as IconNode, {
+        width: 18,
+        height: 18,
+        "stroke-width": 1.7,
+      }),
+    );
+    this.addButton.setAttribute("aria-label", "Add block below");
+    this.addButton.title = "Add block below";
+    this.marquee.className = "pm-selection-box";
+    this.selectionLayer.className = "pm-block-selection-layer";
+    this.selectionLayer.setAttribute("aria-hidden", "true");
+    this.root.append(this.selectionLayer, this.addButton, this.handle, this.dropLine);
+    this.selectionResize = new ResizeObserver(() => this.scheduleSelectionPaint());
+    this.selectionResize.observe(this.view.dom);
+    this.selectionObserved.add(this.view.dom);
+    document.body.append(this.marquee);
+    const signal = this.abort.signal;
+    this.root.addEventListener("load", () => this.scheduleSelectionPaint(), { capture: true, signal });
+    window.addEventListener("resize", () => this.scheduleSelectionPaint(), { signal });
+    document.addEventListener("scroll", () => this.scheduleSelectionPaint(), { capture: true, signal });
+    this.addButton.addEventListener(
+      "pointerdown",
+      (event) => event.preventDefault(),
+      { signal },
+    );
+    this.addButton.addEventListener("click", () => this.addBlankBlock(), {
+      signal,
+    });
+    document.addEventListener("pointerdown", (event) => this.startBox(event), {
+      signal,
+    });
+    document.addEventListener("pointermove", (event) => this.updateBox(event), {
+      signal,
+    });
+    document.addEventListener("pointerup", () => {
+      if (this.boxStart?.moved && this.selectedBlocks.size) this.view.focus();
+      this.cancelBox();
+    }, { signal });
+    document.addEventListener("pointercancel", () => this.cancelBox(), {
+      signal,
+    });
+    window.addEventListener("blur", () => this.cancelBox(), { signal });
+    document.addEventListener("pointermove", (event) => this.hover(event), {
+      signal,
+    });
+    this.handle.addEventListener(
+      "pointerdown",
+      () => {
+        this.handlePressed = true;
+      },
+      { signal },
+    );
+    document.addEventListener(
+      "pointerup",
+      () => {
+        this.handlePressed = false;
+      },
+      { signal },
+    );
+    this.handle.addEventListener("click", () => this.showBlockMenu(), {
+      signal,
+    });
+    this.handle.addEventListener(
+      "dragstart",
+      (event) => {
+        if (!this.hovered || !event.dataTransfer) return;
+        this.closeMenu();
+        this.dragFrom = this.hovered.pos;
+        if (!this.selectedBlocks.has(this.dragFrom)) this.selectBlocks([]);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData(
+          "application/x-notdown-block",
+          String(this.dragFrom),
+        );
+        event.dataTransfer.setData("text/plain", this.hovered.node.textContent);
+        const dom = this.view.nodeDOM(this.dragFrom);
+        if (dom instanceof HTMLElement)
+          event.dataTransfer.setDragImage(dom, 0, 0);
+        this.root.classList.add("pm-dragging");
+      },
+      { signal },
+    );
+    this.root.addEventListener("dragover", (event) => this.previewDrop(event), {
+      signal,
+    });
+    this.root.addEventListener("drop", (event) => this.finishDrop(event), {
+      signal,
+    });
+    document.addEventListener("dragend", () => this.resetDrag(), { signal });
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (
+          !this.menu?.contains(event.target as Node) &&
+          !this.handle.contains(event.target as Node)
+        )
+          this.closeMenu();
+      },
+      { signal },
+    );
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        const target = event.target as Element;
+        const ownsKey = this.view.dom.contains(target) ||
+          this.menu?.contains(target) || this.handle.contains(target);
+        if (this.selectedBlocks.size && ownsKey && !event.isComposing &&
+          !this.view.composing && !target.closest("input, textarea, select")) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            this.selectBlocks([]);
+            this.view.focus();
+          } else if (this.view.editable && !event.ctrlKey && !event.metaKey && !event.altKey &&
+            (event.key === "Delete" || event.key === "Backspace")) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.getValue();
+            const tr = deleteEditorBlocks(this.view.state, [...this.selectedBlocks]);
+            this.cancelBox();
+            this.closeMenu();
+            if (tr) this.view.dispatch(closeHistory(tr));
+            this.view.focus();
+            return;
+          }
+        }
+        if (event.key === "Escape") {
+          this.cancelBox();
+          if (this.selectedBlocks.size) this.selectBlocks([]);
+          this.closeMenu();
+          this.handle.classList.remove("visible");
+          this.addButton.classList.remove("visible");
+        }
+      },
+      { signal, capture: true },
+    );
+    document.querySelector("#main")?.addEventListener(
+      "scroll",
+      () => {
+        this.closeMenu();
+        this.handle.classList.remove("visible");
+        this.addButton.classList.remove("visible");
+      },
+      { signal },
+    );
+  }
+
+  private dispatch(tr: Transaction) {
+    if (this.destroyed) return;
+    try {
+      if (tr.docChanged) this.selectedBlocks.clear();
+      if (this.bookmark) this.bookmark = this.bookmark.map(tr.mapping);
+      this.folded = new Set(
+        [...this.folded].flatMap((pos) => {
+          const mapped = tr.mapping.mapResult(pos);
+          return mapped.deleted ? [] : [mapped.pos];
+        }),
+      );
+      const result = this.view.state.applyTransaction(tr);
+      this.view.updateState(result.state);
+      if (result.transactions.some((change) => change.docChanged))
+        refreshEmbeddedToc(this.view);
+      refreshProductViews(this.view);
+      this.paintBlockSelection();
+      if (result.transactions.some((change) => change.docChanged)) {
+        if (this.dragFrom !== null) this.resetDrag();
+        this.bodyFormat = this.options.codec?.format ?? "notion-markdown";
+        if (this.options.onDocumentChange)
+          this.options.onDocumentChange(restoreFootnotes(result.state.doc), result.transactions.some(change => change.getMeta("isolateHistory")));
+        else
+          this.options.onChange(
+            this.options.codec?.serialize(restoreFootnotes(result.state.doc)) ??
+              serializeNotionMarkdown(restoreFootnotes(result.state.doc)),
+            this.bodyFormat,
+          );
+        this.handle.classList.remove("visible");
+        this.addButton.classList.remove("visible");
+        this.hovered = null;
+      }
+    } catch (error) {
+      this.options.onError(error);
+    }
+  }
+
+  getValue(): string {
+    // Before page/source switches, include DOM input whose MutationObserver
+    // callback has not run yet. This is the only pinned PM internal adapter.
+    if (!this.isComposing())
+      (
+        this.view as unknown as { domObserver: { flush(): void } }
+      ).domObserver.flush();
+    if (this.options.codec)
+      return this.options.codec.serialize(restoreFootnotes(this.view.state.doc));
+    return this.bodyFormat === "notion-markdown"
+      ? serializeNotionMarkdown(restoreFootnotes(this.view.state.doc))
+      : serializeEditorMarkdown(restoreFootnotes(this.view.state.doc));
+  }
+  getBodyFormat(): BodyFormat {
+    return this.bodyFormat;
+  }
+  getDocument() {
+    return restoreFootnotes(this.view.state.doc);
+  }
+  setPageTitle(title: string) {
+    const node = this.view.state.doc.firstChild;
+    if (node?.attrs.metadataForm !== "pandoc" || !this.options.codec) return;
+    const raw = replacePandocTitle(node.attrs.raw, title);
+    const tr = metadataSourceTransaction(this.view.state, 0, node, raw, this.options.codec.parse);
+    if (tr) this.view.dispatch(tr);
+  }
+  setEditable(value: boolean) {
+    this.view.setProps({ editable: () => value });
+  }
+  /** Pair fresh file ranges with the same projection used by the live view. */
+  sourceBlocks(sourceDoc: PMNode): { node: PMNode; element: HTMLElement }[] {
+    if (this.sourceProjection?.source !== sourceDoc)
+      this.sourceProjection = { source: sourceDoc, doc: projectFootnotes(sourceDoc) };
+    const projected = this.sourceProjection.doc;
+    const live = this.view.state.doc;
+    if (projected.childCount !== live.childCount) return [];
+    const blocks: { node: PMNode; element: HTMLElement }[] = [];
+    const add = (node: PMNode, pos: number) => {
+      const element = this.view.nodeDOM(pos);
+      if (element instanceof HTMLElement && typeof node.attrs.sourceStart === "number")
+        blocks.push({ node, element });
+    };
+    live.forEach((node, pos, index) => {
+      const mapped = projected.child(index);
+      if (mapped.type !== node.type) return;
+      if (node.type.name === "footnote_section") {
+        node.forEach((definition, offset) => {
+          // Keys are projection-local. Labels identify the definition after sorting.
+          mapped.forEach(candidate => {
+            if (candidate.attrs.label === definition.attrs.label)
+              add(candidate, pos + 1 + offset);
+          });
+        });
+      } else add(mapped, pos);
+    });
+    return blocks;
+  }
+  setCodec(codec: NonNullable<Options["codec"]>) {
+    this.options.codec = codec;
+    this.bodyFormat = codec.format;
+  }
+  replaceDocument(doc: PMNode) {
+    doc = projectFootnotes(doc);
+    this.selectedBlocks.clear();
+    this.cancelBox();
+    this.resetDrag();
+    const previous = this.view.state.doc;
+    let tr = this.view.state.tr;
+    const from = previous.content.findDiffStart(doc.content);
+    if (from !== null) {
+      const ends = previous.content.findDiffEnd(doc.content)!;
+      const overlap = from - Math.min(ends.a, ends.b);
+      if (overlap > 0) {
+        ends.a += overlap;
+        ends.b += overlap;
+      }
+      tr = tr.replace(from, ends.a, doc.slice(from, ends.b));
+    }
+    for (const [key, value] of Object.entries(doc.attrs))
+      if (previous.attrs[key] !== value) tr.setDocAttribute(key, value);
+    tr.setMeta("addToHistory", false).setMeta("pageMetadataProjection", true);
+    this.bookmark = undefined;
+    this.view.updateState(this.view.state.apply(tr));
+    refreshEmbeddedToc(this.view);
+    refreshProductViews(this.view);
+    this.paintBlockSelection();
+  }
+  isComposing() {
+    return (
+      this.view.composing ||
+      !!slashPluginKey.getState(this.view.state)?.composing
+    );
+  }
+  revealHeading(heading: HTMLElement) {
+    if (this.destroyed || !this.view.dom.contains(heading)) return;
+    for (
+      let parent = heading.parentElement;
+      parent && parent !== this.view.dom;
+      parent = parent.parentElement
+    ) {
+      if (parent.classList.contains("pm-toggle-closed"))
+        parent
+          .querySelector<HTMLButtonElement>(":scope > .pm-toggle-chevron")
+          ?.dispatchEvent(new Event("reveal-content"));
+    }
+    const target = this.view.posAtDOM(heading, 0);
+    const ancestors: { pos: number; level: number }[] = [];
+    this.view.state.doc.forEach((node, pos) => {
+      if (pos > target || node.type !== schema.nodes.heading) return;
+      while (ancestors.length && ancestors.at(-1)!.level >= node.attrs.level)
+        ancestors.pop();
+      ancestors.push({ pos, level: node.attrs.level });
+    });
+    let revealed = false;
+    for (const ancestor of ancestors)
+      if (this.folded.delete(ancestor.pos)) revealed = true;
+    if (revealed)
+      this.view.dispatch(this.view.state.tr.setMeta("addToHistory", false));
+  }
+  focus() {
+    this.restoreSelection();
+    this.view.focus();
+  }
+  captureSelection() {
+    this.bookmark = this.view.state.selection.getBookmark();
+  }
+  private restoreSelection() {
+    if (!this.bookmark) return;
+    const bookmark = this.bookmark;
+    this.bookmark = undefined;
+    try {
+      this.view.dispatch(
+        this.view.state.tr.setSelection(bookmark.resolve(this.view.state.doc)),
+      );
+    } catch {
+      /* The current selection remains valid if the saved block disappeared. */
+    }
+  }
+  getSlashQuery() {
+    return getSlashState(this.view.state)?.query ?? null;
+  }
+  consumeSlash() {
+    consumeSlash(this.view);
+  }
+  cancelSlash() {
+    if (!this.destroyed) cancelSlash(this.view);
+  }
+
+  insertFootnote() {
+    if (this.options.canCommand?.("footnote") === false) return;
+    if (this.view.hasFocus()) this.bookmark = undefined;
+    else this.restoreSelection();
+    const state = this.view.state;
+    if (!state.selection.$from.parent.inlineContent || state.selection.$from.parent.type.spec.code) return;
+    const used = new Set<string>();
+    state.doc.descendants(node => {
+      if (node.type === schema.nodes.footnote || node.type === schema.nodes.footnote_reference)
+        used.add(String(node.attrs.label));
+    });
+    let label = "note", number = 1;
+    while (used.has(label)) label = "note" + ++number;
+    const tr = state.tr.replaceSelectionWith(schema.nodes.footnote_reference.create({ label }));
+    tr.insert(tr.doc.content.size, schema.nodes.footnote.create({ label },
+      schema.nodes.paragraph.create(null, schema.text("Footnote text."))));
+    this.view.dispatch(tr.scrollIntoView());
+    this.bookmark = undefined;
+    this.view.focus();
+  }
+
+  insertValue(markdown: string) {
+    if (this.view.hasFocus()) this.bookmark = undefined;
+    else this.restoreSelection();
+    const doc =
+      this.options.codec?.parse(markdown) ?? parseNotionMarkdown(markdown);
+    if (
+      inTableCell(this.view.state) &&
+      !(doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph)
+    ) {
+      const nodes: PMNode[] = [];
+      markdown.split(/\r?\n/).forEach((line, index) => {
+        if (index) nodes.push(schema.nodes.hard_break.create());
+        if (line) nodes.push(schema.text(line));
+      });
+      this.view.dispatch(
+        this.view.state.tr
+          .replaceSelection(new Slice(Fragment.fromArray(nodes), 0, 0))
+          .scrollIntoView(),
+      );
+      this.bookmark = undefined;
+      this.view.focus();
+      return;
+    }
+    const inline =
+      doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph;
+    const slice = inline
+      ? new Slice(doc.firstChild!.content, 0, 0)
+      : new Slice(doc.content, 0, 0);
+    const tr = this.view.state.tr.replaceSelection(slice).scrollIntoView();
+    this.view.dispatch(tr);
+    this.bookmark = undefined;
+    this.view.focus();
+    if (inline && doc.firstChild?.childCount === 1 && doc.firstChild.firstChild?.type === schema.nodes.mention && doc.firstChild.firstChild.attrs.kind === "date" && !doc.firstChild.firstChild.attrs.nfmAttrs.start) {
+      this.view.state.doc.descendants((node, pos) => {
+        if (node === doc.firstChild!.firstChild) this.view.nodeDOM(pos)?.dispatchEvent(new Event("notdown-edit-date"));
+      });
+    }
+    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes.equation) {
+      this.view.state.doc.descendants((node, pos) => {
+        if (node === doc.firstChild) this.view.nodeDOM(pos)?.dispatchEvent(new Event("notdown-edit-equation"));
+      });
+    }
+    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes.button && doc.firstChild.attrs.actions === "[]") {
+      const pos = this.view.state.selection.from;
+      const buttonPos = this.view.state.doc.nodeAt(pos)?.type === schema.nodes.button ? pos : pos - 1;
+      if (this.view.state.doc.nodeAt(buttonPos)?.type === schema.nodes.button) openBlockProperties(this.view, buttonPos);
+    }
+  }
+
+  private run(command: Command) {
+    return command(this.view.state, this.view.dispatch, this.view);
+  }
+
+  insertBlockType(type: BlockType) {
+    if (this.options.canCommand?.(type) === false) return;
+    this.restoreSelection();
+    this.bookmark = undefined;
+    const state = this.view.state;
+    if (inTableCell(state)) return;
+    const item = itemAtSelection(state);
+    if (item && type !== "divider") {
+      const tr = convertListItem(state, type);
+      if (tr) this.view.dispatch(tr.scrollIntoView());
+      this.view.focus();
+      return;
+    }
+    if (type === "code") {
+      const tr = convertTextblockToCode(state);
+      if (tr) this.view.dispatch(tr.scrollIntoView());
+      this.view.focus();
+      return;
+    }
+    if (["list", "number", "task"].includes(type)) {
+      const listType =
+        type === "number"
+          ? schema.nodes.ordered_list
+          : schema.nodes.bullet_list;
+      if (!state.selection.$from.parent.isTextblock)
+        this.run(setBlockType(schema.nodes.paragraph));
+      this.run(wrapInList(listType));
+      const created = itemAtSelection(this.view.state);
+      if (created && type === "task")
+        this.view.dispatch(
+          this.view.state.tr.setNodeMarkup(created.pos, schema.nodes.task_list_item, {
+            ...created.node.attrs,
+            checked: false,
+          }),
+        );
+    } else {
+      if (item) this.run(outdentEditorBlock);
+      if (type === "quote") this.run(wrapIn(schema.nodes.blockquote));
+      else if (type === "divider") {
+        const tr = this.view.state.tr
+          .replaceSelectionWith(schema.nodes.horizontal_rule.create())
+          .scrollIntoView();
+        const after = Math.min(tr.selection.to, tr.doc.content.size);
+        if (after === tr.doc.content.size)
+          tr.insert(after, schema.nodes.paragraph.create());
+        tr.setSelection(
+          Selection.near(
+            tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)),
+          ),
+        );
+        this.view.dispatch(tr);
+      } else {
+        const target = type.startsWith("heading")
+          ? schema.nodes.heading
+          : schema.nodes.paragraph;
+        if (
+          type === "text" &&
+          this.view.state.selection.$from.parent.type === target
+        )
+          this.run(lift);
+        this.run(
+          setBlockType(
+            target,
+            type.startsWith("heading")
+              ? { level: Number(type.slice(-1)) }
+              : undefined,
+          ),
+        );
+      }
+    }
+    this.view.focus();
+  }
+
+  private selectBlocks(positions: number[]) {
+    if (positions.length === this.selectedBlocks.size && positions.every(pos => this.selectedBlocks.has(pos))) return;
+    this.selectedBlocks = new Set(positions);
+    this.view.dispatch(this.view.state.tr.setMeta("addToHistory", false));
+  }
+
+  private scheduleSelectionPaint() {
+    if (this.destroyed || !this.selectedBlocks.size || this.selectionFrame) return;
+    this.selectionFrame = requestAnimationFrame(() => {
+      this.selectionFrame = 0;
+      this.paintBlockSelection();
+    });
+  }
+
+  /** Paint above block backgrounds, outside the editable document. An overlay
+   * also covers markers/checkboxes and cannot be erased by NodeView renders. */
+  private paintBlockSelection() {
+    const observed = new Set<Element>([this.view.dom]);
+    const origin = this.root.getBoundingClientRect();
+    const highlights = [];
+    for (const pos of this.selectedBlocks) {
+      const block = blockAtPos(this.view.state.doc, pos);
+      if (!block || block.pos !== pos) continue;
+      const rect = this.selectionRect(block);
+      if (!rect) continue;
+      const dom = this.view.nodeDOM(pos);
+      if (dom instanceof Element) observed.add(dom);
+      const highlight = document.createElement("div");
+      highlight.className = "pm-block-highlight";
+      highlight.dataset.blockPos = String(pos);
+      Object.assign(highlight.style, {
+        left: `${rect.left - origin.left + this.root.scrollLeft}px`,
+        top: `${rect.top - origin.top + this.root.scrollTop}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+      });
+      if (dom instanceof Element) highlight.style.borderRadius =
+        Math.max(4, parseFloat(getComputedStyle(dom).borderTopLeftRadius) || 0) + "px";
+      highlights.push(highlight);
+    }
+    this.selectionLayer.replaceChildren(...highlights);
+    for (const dom of this.selectionObserved) if (!observed.has(dom)) this.selectionResize?.unobserve(dom);
+    for (const dom of observed) if (!this.selectionObserved.has(dom)) this.selectionResize?.observe(dom);
+    this.selectionObserved = observed;
+  }
+
+  /** Full block bounds for painting, head-only list bounds for hit testing so
+   * a nested child can still be selected without selecting its parent. */
+  private selectionRect(block: EditorBlock, hit = false): DOMRect | null {
+    const dom = this.view.nodeDOM(block.pos);
+    if (!(dom instanceof HTMLElement) || !dom.getClientRects().length) return null;
+    let rect = dom.getBoundingClientRect();
+    if (hit && (isListItem(block.node) || (block.node.type.name === "nested_block" && !dom.classList.contains("pm-toggle")))) {
+      const head = this.rowRect(block);
+      if (head) rect = new DOMRect(rect.left, head.top, rect.width, head.height);
+    }
+    if (isListItem(block.node) && dom.parentElement) {
+      // List markers and task checkboxes live in the list's padding, outside li.
+      const left = dom.parentElement.getBoundingClientRect().left;
+      rect = new DOMRect(left, rect.top, rect.right - left, rect.height);
+    }
+    if (block.node.type.name === "horizontal_rule" && rect.height < 12)
+      rect = new DOMRect(rect.left, rect.top - (12 - rect.height) / 2, rect.width, 12);
+    return rect.width && rect.height ? rect : null;
+  }
+
+  private cancelBox() {
+    this.boxStart = null;
+    this.marquee.classList.remove("visible");
+    this.root.classList.remove("pm-box-selecting");
+  }
+
+  private addBlankBlock(atEnd = false) {
+    if (!this.view.editable) return;
+    this.getValue(); // Flush pending DOM input before choosing a position.
+    const doc = this.view.state.doc;
+    let pos = doc.content.size;
+    const tr = this.view.state.tr;
+    if (
+      atEnd &&
+      doc.lastChild?.type === schema.nodes.paragraph &&
+      !doc.lastChild.content.size
+    ) {
+      pos -= doc.lastChild.nodeSize;
+    } else {
+      const block = this.hovered && blockAtPos(doc, this.hovered.pos);
+      pos = !atEnd && block ? block.end : pos;
+      const paragraph = schema.nodes.paragraph.create();
+      if (!atEnd && isListItem(block?.node)) {
+        tr.insert(
+          pos,
+          block!.node.type.create(
+            {
+              checked:
+                typeof block!.node.attrs.checked === "boolean" ? false : null,
+            },
+            paragraph,
+          ),
+        );
+        pos++;
+      } else tr.insert(pos, paragraph);
+    }
+    tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+    this.bookmark = undefined;
+    if (!atEnd) tr.setMeta(slashPluginKey, { type: "open", from: pos + 1 });
+    this.view.dispatch(closeHistory(tr).scrollIntoView());
+    this.view.focus();
+  }
+
+  private startBox(event: PointerEvent) {
+    if (event.button !== 0 || !this.view.editable || this.destroyed) return;
+    const target = event.target as Element;
+    if (this.handle.contains(target) || this.addButton.contains(target)) return;
+    const bounds = this.view.dom.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const surface = this.root.closest(".markdown-workspace[data-mode='split']")
+      ? this.root.closest(".page-pane")
+      : this.root.closest("#main") || this.root.parentElement;
+    if (
+      !surface?.contains(target) ||
+      target.closest("button, input, textarea, a, .cm-editor, .pm-block-menu")
+    )
+      return;
+    if (this.selectedBlocks.size) this.selectBlocks([]);
+    const last = this.view.dom.lastElementChild?.getBoundingClientRect();
+    if (event.clientX >= bounds.left && event.clientX <= bounds.right) {
+      if (
+        last &&
+        event.clientY > last.bottom &&
+        event.clientY <=
+          Math.max(bounds.bottom, surface.getBoundingClientRect().bottom) &&
+        !target.closest(".pm-document > *")
+      ) {
+        event.preventDefault();
+        this.addBlankBlock(true);
+      }
+      return;
+    }
+    if (
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom ||
+      this.view.dom.contains(target)
+    )
+      return;
+    event.preventDefault();
+    this.closeMenu();
+    this.boxStart = { x: event.clientX, y: event.clientY, moved: false };
+  }
+
+  private updateBox(event: PointerEvent) {
+    const start = this.boxStart;
+    if (!start) return;
+    if (
+      !start.moved &&
+      Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4
+    )
+      return;
+    start.moved = true;
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    this.root.classList.add("pm-box-selecting");
+    const left = Math.min(start.x, event.clientX),
+      right = Math.max(start.x, event.clientX);
+    const top = Math.min(start.y, event.clientY),
+      bottom = Math.max(start.y, event.clientY);
+    Object.assign(this.marquee.style, {
+      left: left + "px",
+      top: top + "px",
+      width: right - left + "px",
+      height: bottom - top + "px",
+    });
+    this.marquee.classList.add("visible");
+    const rows: number[] = [];
+    this.view.state.doc.descendants((node, pos) => {
+      if (!node.isBlock) return;
+      const block = blockAtPos(this.view.state.doc, pos);
+      if (
+        !block ||
+        block.pos !== pos ||
+        ["bullet_list", "ordered_list", "column"].includes(node.type.name)
+      )
+        return;
+      const rect = this.selectionRect(block, true);
+      if (
+        rect &&
+        rect.height &&
+        rect.right > left &&
+        rect.left < right &&
+        rect.bottom > top &&
+        rect.top < bottom
+      ) {
+        rows.push(pos);
+        return false;
+      }
+    });
+    this.selectBlocks(rows);
+  }
+
+  private rowRect(block: EditorBlock) {
+    const dom = this.view.nodeDOM(block.pos);
+    if (!(dom instanceof HTMLElement)) return null;
+    if (dom.matches(".pm-content-object, .pm-embed")) return dom.getBoundingClientRect();
+    if (block.node.type.name === "callout") {
+      // The first content row represents the entire callout. Keep its vertical
+      // hit area, but anchor the gutter to the container's outside edge.
+      const bounds = dom.getBoundingClientRect();
+      const head = dom.querySelector(".pm-callout-content > :first-child") || dom.firstElementChild;
+      const line = head?.getBoundingClientRect() || bounds;
+      return new DOMRect(bounds.left, bounds.top, bounds.width, Math.max(32, line.bottom - bounds.top));
+    }
+    const row = [
+      "nested_block",
+      "toggle_block",
+      "callout",
+      "synced_block",
+      "blockquote",
+    ].includes(block.node.type.name)
+      ? dom.querySelector(".pm-toggle-content > :first-child") ||
+        dom.firstElementChild ||
+        dom
+      : isListItem(block.node)
+        ? dom.querySelector(".pm-item-content > p") || dom
+        : dom;
+    return row.getBoundingClientRect();
+  }
+
+  private candidate(x: number, y: number): EditorBlock | null {
+    const bounds = this.view.dom.getBoundingClientRect();
+    if (
+      y < bounds.top - 3 ||
+      y > bounds.bottom + 3 ||
+      x < bounds.left - 60 ||
+      x > bounds.right + 24
+    )
+      return null;
+    // Node-view headers, previews and padding belong to the container itself.
+    // posAtCoords can otherwise resolve them to a neighboring content paragraph.
+    const target = document.elementFromPoint(x, y);
+    const object = target?.closest(".pm-content-object, .pm-embed");
+    if (object && this.view.dom.contains(object) && !object.querySelector(":scope > .pm-object-content")?.contains(target)) {
+      let container: EditorBlock | null = null;
+      this.view.state.doc.descendants((node, pos) => {
+        if (container) return false;
+        if (node.isBlock && this.view.nodeDOM(pos) === object) { container = blockAtPos(this.view.state.doc, pos); return false; }
+      });
+      if (container) return container;
+    }
+    const hit = this.view.posAtCoords({
+      left: Math.max(bounds.left + 1, Math.min(x, bounds.right - 1)),
+      top: y,
+    });
+    const block = hit ? blockAtPos(this.view.state.doc, hit.pos) : null;
+    if (!block) return null;
+    // posAtCoords in the indentation gutter may resolve to a parent. Pick the
+    // deepest visible row on this line, so a nested child is independently draggable.
+    let best = block;
+    this.view.state.doc.descendants((node, pos) => {
+      if (
+        !node.isBlock ||
+        ["bullet_list", "ordered_list", "column", "doc"].includes(
+          node.type.name,
+        )
+      )
+        return;
+      const candidate = blockAtPos(this.view.state.doc, pos);
+      if (!candidate || candidate.pos !== pos) return;
+      const rect = this.rowRect(candidate);
+      if (
+        rect &&
+        rect.height &&
+        y >= rect.top &&
+        y <= rect.bottom &&
+        x >= rect.left - 52 &&
+        candidate.depth >= best.depth
+      )
+        best = candidate;
+    });
+    return best;
+  }
+
+  private hover(event: PointerEvent) {
+    // Column gutters also host block controls. Give the resize strip priority,
+    // including when a previously positioned block handle covers the pointer.
+    if (this.view.dom.querySelector(".pm-columns-resizing") ||
+      Array.from(this.view.dom.querySelectorAll<HTMLElement>(".pm-column-resizer:not([hidden])")).some(handle => {
+        const rect = handle.getBoundingClientRect();
+        return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+      })) {
+      this.handle.classList.remove("visible");
+      this.addButton.classList.remove("visible");
+      return;
+    }
+    if (
+      !this.view.editable ||
+      this.boxStart ||
+      this.handlePressed ||
+      this.dragFrom !== null ||
+      this.menu ||
+      this.destroyed
+    )
+      return;
+    if (
+      this.handle.contains(event.target as Node) ||
+      this.addButton.contains(event.target as Node)
+    )
+      return;
+    if ((event.target as Element).closest?.(".pm-toggle-chevron")) {
+      this.handle.classList.remove("visible");
+      this.addButton.classList.remove("visible");
+      return;
+    }
+    // Keep the current row while crossing its left gutter. Container padding
+    // (e.g. Tabs) can hit an ancestor, and posAtCoords outside a node view can
+    // resolve to an adjacent block before the pointer reaches the controls.
+    if (this.hovered && this.handle.classList.contains("visible")) {
+      const row = this.rowRect(this.hovered);
+      const grip = this.handle.getBoundingClientRect();
+      const add = this.addButton.getBoundingClientRect();
+      if (row && row.width && row.height &&
+        event.clientX >= add.left && event.clientX <= row.left &&
+        event.clientY >= Math.min(row.top, grip.top) &&
+        event.clientY <= Math.max(row.bottom, grip.bottom)) return;
+    }
+    const block = this.candidate(event.clientX, event.clientY);
+    const rect = block && this.rowRect(block);
+    if (
+      !block ||
+      !rect ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom ||
+      event.clientX > rect.right + 4 ||
+      event.clientX < rect.left - 80
+    ) {
+      this.handle.classList.remove("visible");
+      this.addButton.classList.remove("visible");
+      return;
+    }
+    this.hovered = block;
+    const rootRect = this.root.getBoundingClientRect();
+    const dom = this.view.nodeDOM(block.pos) as HTMLElement;
+    // List markers occupy the list wrapper's padding. Anchor controls outside
+    // that wrapper, just as other blocks use their outer edge, not their text.
+    // A nested list has its own wrapper, so its gutter retains the indentation.
+    const edge = (isListItem(block.node) ? dom.parentElement : dom)!
+      .getBoundingClientRect().left;
+    this.handle.style.left = `${edge - rootRect.left - 36}px`;
+    this.handle.style.top = `${rect.top - rootRect.top + Math.max(0, (Math.min(rect.height, 32) - 24) / 2)}px`;
+    this.addButton.style.left = parseFloat(this.handle.style.left) - 24 + "px";
+    this.addButton.style.top = this.handle.style.top;
+    this.addButton.classList.add("visible");
+    this.handle.dataset.blockPos = String(block.pos);
+    this.handle.classList.add("visible");
+  }
+
+  private previewDrop(event: DragEvent) {
+    if (this.dragFrom === null) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    const block = this.candidate(event.clientX, event.clientY);
+    const rect = block && this.rowRect(block);
+    if (!block || !rect) {
+      this.dropTarget = null;
+      this.dropLine.classList.remove("visible");
+      return;
+    }
+    const placement: BlockPlacement =
+      [
+        schema.nodes.bullet_list_item,
+        schema.nodes.numbered_list_item,
+        schema.nodes.task_list_item,
+        schema.nodes.nested_block,
+        schema.nodes.paragraph,
+        schema.nodes.heading,
+        schema.nodes.toggle_block,
+        schema.nodes.callout,
+        schema.nodes.synced_block,
+        schema.nodes.blockquote,
+      ].includes(block.node.type) && event.clientX > rect.left + 36
+        ? "inside"
+        : event.clientY < rect.top + rect.height / 2
+          ? "before"
+          : "after";
+    this.dropTarget = { block, placement };
+    const source = blockAtPos(this.view.state.doc, this.dragFrom);
+    if (
+      !source ||
+      (block.pos >= source.pos && block.pos < source.end) ||
+      [...this.selectedBlocks].some((pos) => {
+        const row = blockAtPos(this.view.state.doc, pos);
+        return row && block.pos >= row.pos && block.pos < row.end;
+      }) ||
+      (placement === "inside" &&
+        this.options.canCommand?.("nesting") === false &&
+        !isListItem(block.node))
+    ) {
+      this.dropTarget = null;
+      this.dropLine.classList.remove("visible");
+      return;
+    }
+    const rootRect = this.root.getBoundingClientRect();
+    const offset = placement === "inside" ? 24 : 0;
+    this.dropLine.style.left = `${rect.left - rootRect.left + offset}px`;
+    this.dropLine.style.top = `${(placement === "before" ? rect.top : rect.bottom) - rootRect.top}px`;
+    this.dropLine.style.width = `${rect.width - offset}px`;
+    this.dropLine.classList.add("visible");
+  }
+
+  private finishDrop(event: DragEvent) {
+    if (this.dragFrom === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.previewDrop(event);
+    if (this.dropTarget) {
+      const tr = moveEditorBlocks(
+        this.view.state,
+        this.selectedBlocks.has(this.dragFrom)
+          ? [...this.selectedBlocks]
+          : [this.dragFrom],
+        this.dropTarget.block.pos,
+        this.dropTarget.placement,
+      );
+      if (tr) this.view.dispatch(closeHistory(tr).scrollIntoView());
+    }
+    this.resetDrag();
+    this.view.focus();
+  }
+  private resetDrag() {
+    this.handlePressed = false;
+    this.dragFrom = null;
+    this.dropTarget = null;
+    this.dropLine.classList.remove("visible");
+    this.root.classList.remove("pm-dragging");
+    this.handle.classList.remove("visible");
+    this.addButton.classList.remove("visible");
+  }
+  private closeMenu() {
+    this.menu?.remove();
+    this.menu = undefined;
+    this.handle.classList.remove("menu-open");
+  }
+
+  private showBlockMenu() {
+    if (!this.hovered) return;
+    this.closeMenu();
+    const block = this.hovered;
+    this.selectBlocks([block.pos]);
+    const menu = document.createElement("div");
+    menu.className = "pm-block-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", "Block actions");
+    const add = (title: string, action: () => void, hint = "", opensDialog = false) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("role", "menuitem");
+      button.textContent = title;
+      if (hint) {
+        const kbd = document.createElement("kbd");
+        kbd.textContent = hint;
+        button.append(kbd);
+      }
+      button.addEventListener("click", () => {
+        this.closeMenu();
+        action();
+        if (!opensDialog) this.view.focus();
+      });
+      menu.append(button);
+    };
+    const choose = () => {
+      const pos = Math.min(
+        block.pos + (isListItem(block.node) ? 2 : 1),
+        this.view.state.doc.content.size,
+      );
+      this.view.dispatch(
+        this.view.state.tr.setSelection(
+          block.node.isAtom
+            ? NodeSelection.create(this.view.state.doc, block.pos)
+            : Selection.near(this.view.state.doc.resolve(pos)),
+        ),
+      );
+      this.bookmark = undefined;
+    };
+    const currentType = document.createElement("div");
+    currentType.className = "pm-block-type";
+    currentType.textContent = blockTypeLabel(block.node, block.listNode);
+    menu.append(currentType);
+    if (blockPropertyFields(block.node).length) {
+      add("Properties…", () => openBlockProperties(this.view, block.pos), "", true);
+      menu.append(document.createElement("hr"));
+    }
+    const label = document.createElement("small");
+    label.textContent = "Turn into";
+    menu.append(label);
+    for (const [type, title] of [
+      ["text", "Text"],
+      ["heading1", "Heading 1"],
+      ["heading2", "Heading 2"],
+      ["heading3", "Heading 3"],
+      ["list", "Bulleted list"],
+      ["number", "Numbered list"],
+      ["task", "To-do list"],
+      ["quote", "Quote"],
+      ["code", "Code"],
+    ] as [BlockType, string][])
+      if (this.options.canCommand?.(type) !== false)
+        add(contentCommand(type).label || title, () => {
+          choose();
+          this.insertBlockType(type);
+        });
+    menu.append(document.createElement("hr"));
+    if (block.node.type === schema.nodes.heading)
+      add(
+        this.folded.has(block.pos) ? "Expand heading" : "Collapse heading",
+        () => {
+          if (this.folded.has(block.pos)) this.folded.delete(block.pos);
+          else this.folded.add(block.pos);
+          this.view.dispatch(this.view.state.tr.setMeta("addToHistory", false));
+        },
+      );
+    add("Duplicate block", () => {
+      const tr = duplicateEditorBlock(this.view.state, block.pos);
+      if (tr) this.view.dispatch(closeHistory(tr));
+    });
+    add("Delete", () => {
+      const tr = deleteEditorBlock(this.view.state, block.pos);
+      if (tr) this.view.dispatch(closeHistory(tr));
+    });
+    document.body.append(menu);
+    const rect = this.handle.getBoundingClientRect();
+    const margin = 8, gap = 8;
+    const width = menu.offsetWidth;
+    const left = rect.left - gap - width;
+    if (left >= margin) {
+      // Open away from the content, with the grip beside the menu's midpoint.
+      menu.style.left = `${left}px`;
+      menu.style.top = `${Math.max(margin, Math.min(rect.top + rect.height / 2 - menu.offsetHeight / 2, innerHeight - menu.offsetHeight - margin))}px`;
+    } else {
+      // A narrow viewport has no side gutter: use the larger space above/below
+      // the block and scroll the actions instead of covering its text.
+      const dom = this.view.nodeDOM(block.pos) as HTMLElement;
+      const bounds = dom.getBoundingClientRect();
+      const above = Math.max(0, bounds.top - gap - margin);
+      const below = Math.max(0, innerHeight - bounds.bottom - gap - margin);
+      const placeBelow = below >= above;
+      const available = placeBelow ? below : above;
+      menu.style.maxHeight = `${Math.min(innerHeight - margin * 2, Math.max(80, available))}px`;
+      menu.style.left = `${Math.max(margin, Math.min(rect.left, innerWidth - width - margin))}px`;
+      menu.style.top = `${Math.max(margin, Math.min(placeBelow ? bounds.bottom + gap : bounds.top - gap - menu.offsetHeight, innerHeight - menu.offsetHeight - margin))}px`;
+    }
+    this.menu = menu;
+    this.handle.classList.add("menu-open");
+    this.addButton.classList.remove("visible");
+    menu.querySelector("button")?.focus();
+  }
+
+  private showLinkEditor() {
+    this.captureSelection();
+    this.linkDialog?.remove();
+    const { selection } = this.view.state;
+    const linkRange = linkRangeAtSelection(this.view.state);
+    const link = linkRange?.mark;
+    const dialog = document.createElement("dialog");
+    dialog.className = "pm-link-dialog";
+    const form = document.createElement("form");
+    form.method = "dialog";
+    const label = document.createElement("label");
+    label.textContent = "Link";
+    const input = document.createElement("input");
+    input.type = "url";
+    input.placeholder = "Paste a link…";
+    input.value = link?.attrs.href || "";
+    input.setAttribute("aria-label", "Link address");
+    label.append(input);
+    form.append(label);
+    const submit = document.createElement("button");
+    submit.textContent = "Apply";
+    submit.type = "submit";
+    form.append(submit);
+    const remove = document.createElement("button");
+    remove.textContent = "Remove link";
+    remove.type = "button";
+    form.append(remove);
+    const apply = (href: string) => {
+      this.restoreSelection();
+      this.bookmark = undefined;
+      const state = this.view.state;
+      let { from, to } = state.selection;
+      const range = linkRangeAtSelection(state);
+      if (from === to && range) {
+        from = range.from;
+        to = range.to;
+      }
+      let tr = state.tr.removeMark(from, to, schema.marks.link);
+      if (href && from === to)
+        tr = tr.replaceSelectionWith(
+          schema.text(href, [schema.marks.link.create({ href })]),
+        );
+      else if (href) tr.addMark(from, to, schema.marks.link.create({ href }));
+      this.view.dispatch(tr);
+      dialog.close();
+      this.view.focus();
+    };
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (input.value.trim()) apply(input.value.trim());
+    });
+    remove.addEventListener("click", () => apply(""));
+    dialog.addEventListener("close", () => dialog.remove());
+    dialog.append(form);
+    document.body.append(dialog);
+    this.linkDialog = dialog;
+    dialog.showModal();
+    input.focus();
+  }
+
+  destroy() {
+    this.destroyed = true;
+    this.selectionResize?.disconnect();
+    cancelAnimationFrame(this.selectionFrame);
+    this.abort.abort();
+    this.closeMenu();
+    this.linkDialog?.remove();
+    this.view.destroy();
+    this.handle.remove();
+    this.addButton.remove();
+    this.marquee.remove();
+    this.selectionLayer.remove();
+    this.dropLine.remove();
+  }
+}

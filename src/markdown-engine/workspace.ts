@@ -14,11 +14,11 @@ import {
   syntaxHighlighting,
   defaultHighlightStyle,
 } from "@codemirror/language";
-import { BlockEditor } from "../prosemirror-editor.js";
-import type { Page } from "../types.js";
-import { escape as escapeHtml } from "../types.js";
+import { BlockEditor } from "../editor/prosemirror-editor.js";
+import type { Page } from "../shared/types.js";
+import { escape as escapeHtml } from "../shared/types.js";
 import { DocumentSession } from "./session.js";
-import { extensionCategoryHeading } from "../extension-categories";
+import { extensionCategoryHeading } from "../catalog/extension-categories";
 import {
   commandEnabled,
   dialects,
@@ -35,8 +35,8 @@ import { parseNative, serializeNative } from "./codec.js";
 import { mapScroll, type Anchor } from "../markdown-lab/scroll.js";
 import "./workspace.css";
 import "./products.css";
-import { groupExtensions, extensionProvenanceHtml, pandocDefaultVersion, isBuiltInSyntax } from "../extension-provenance";
-import "../extension-provenance.css";
+import { groupExtensions, extensionProvenanceHtml, pandocDefaultVersion, isBuiltInSyntax } from "../catalog/extension-provenance";
+import "../catalog/extension-provenance.css";
 
 export type EditMode = "document" | "source" | "split";
 interface Options {

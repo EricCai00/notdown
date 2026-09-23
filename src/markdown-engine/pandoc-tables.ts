@@ -1,6 +1,6 @@
 import type MarkdownIt from "markdown-it";
 import type { Node as PMNode } from "prosemirror-model";
-import { editorSchema as schema } from "../editor-schema";
+import { editorSchema as schema } from "../document/editor-schema";
 import { enabled, type SyntaxConfig } from "./config";
 import { readAttributes, writeAttributes } from "./attributes";
 

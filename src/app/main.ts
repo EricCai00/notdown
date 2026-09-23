@@ -1,0 +1,2377 @@
+import { insertMenuItems } from "../editor/insert-menu";
+import { contentCommand } from "../document/content-objects";
+import { pandocPageTitle, renamePandocPageSource } from "../features/metadata/pandoc-page-title";
+import { openCalloutIconPicker } from "../blocks/callout-icon-picker";
+import { emojiStyle, emojiStyleOptions, initializeEmojiStyle, setEmojiStyle, type EmojiStyle } from "../blocks/emoji-style";
+import { objectSamples } from "../document/object-model";
+import { mountServiceSettings } from "./service-settings";
+import { openPeople } from "../features/people/people-view";
+import { openPeopleEvent, refreshPeople } from "../features/people/people-client";
+import { personMention } from "../features/people/person";
+import { plainText } from "../shared/plain-text";
+import { startReminders } from "../features/dates/reminders";
+import { BlockEditor } from "../editor/prosemirror-editor";
+import { MarkdownWorkspace, type EditMode } from "../markdown-engine/workspace";
+import {
+  defaultSyntax,
+  syntaxFormat,
+  usesNotionSyntax,
+  commandEnabled,
+  enabled,
+} from "../markdown-engine/config";
+import { refreshIcons } from "../shared/icons";
+import "./style.css";
+import "../editor/notion-blocks.css";
+import { api, ApiError, escape as e, type Page } from "../shared/types";
+import {
+  getOutline,
+  extractLinks,
+  htmlDocument,
+  type OutlineNode,
+} from "../document/document-format";
+import { escapeXml, pageUrl } from "../document/notion-syntax";
+import { toMyBase } from "../integrations/mybase";
+import { searchPages } from "../features/pages/page-search";
+import { showPageContextMenu, pageActionsHTML, type PageAction } from "../features/pages/page-context-menu";
+import { closePageContextMenu } from "../features/pages/page-context-menu";
+import { comparePageOrder, type PageMoveInput } from "../features/pages/page-order";
+import { installSidebarDrag } from "./sidebar-drag";
+import { installSidebarLayout } from "./sidebar-layout";
+import { renderBreadcrumb } from "../blocks/breadcrumb-view";
+import { PageNavigation, parseRoute } from "../features/pages/page-navigation";
+import { isPageCoverPath, openPageCoverPicker } from "../features/pages/page-cover-picker";
+import "../features/pages/page-cover-picker.css";
+
+type View = "document" | "outline" | "mindmap" | "source" | "split";
+initializeEmojiStyle();
+type LibraryView = "gallery" | "list" | "tree" | "graph";
+let pages: Page[] = [];
+let current: Page | null = null;
+let editor: BlockEditor | undefined;
+let workspace: MarkdownWorkspace | undefined;
+let editorChanged = false;
+let editorReady = false;
+let editorGeneration = 0;
+let view: View = "document";
+let libraryView: LibraryView = "gallery";
+let library = false;
+let dirty = false;
+let saving: Promise<boolean> | null = null;
+let saveTimer: ReturnType<typeof setTimeout>;
+let conflict: any = null;
+let search = "";
+let vaultPath = "";
+let sourceSelection: { start: number; end: number } | null = null;
+let draftWarningShown = false;
+let slashCleanup: (() => void) | undefined;
+let tocCleanup: (() => void) | undefined;
+let pageActionBusy = false;
+let pageIconCleanup: (() => void) | undefined;
+let coverPickerCleanup: (() => void) | undefined;
+let coverRepositionCleanup: (() => void) | undefined;
+let sidebarLayout: ReturnType<typeof installSidebarLayout>;
+let navigation: PageNavigation | undefined;
+
+function updateNavigationButtons() {
+  const back = document.querySelector<HTMLButtonElement>('[data-action="history-back"]');
+  const forward = document.querySelector<HTMLButtonElement>('[data-action="history-forward"]');
+  if (back) back.disabled = !navigation?.canBack;
+  if (forward) forward.disabled = !navigation?.canForward;
+}
+// Keep existing preferences and window-specific drafts across the app rename.
+for (const storageName of ["localStorage", "sessionStorage"] as const) {
+  try {
+    const storage = window[storageName];
+    if (storage.getItem("notdown-storage-migrated") === "1") continue;
+    const oldKeys = Array.from({ length: storage.length }, (_, i) =>
+      storage.key(i),
+    ).filter((key): key is string => key !== null && key.startsWith("yejian-"));
+    for (const key of oldKeys) {
+      const nextKey = `notdown-${key.slice("yejian-".length)}`;
+      if (storage.getItem(nextKey) === null) {
+        const value = storage.getItem(key);
+        if (value !== null) storage.setItem(nextKey, value);
+      }
+    }
+    storage.setItem("notdown-storage-migrated", "1");
+  } catch {
+    // Storage can be disabled or full; preserve the old data for a later retry.
+  }
+}
+const draftSession = (() => {
+  try {
+    const id = sessionStorage.getItem("notdown-session") || crypto.randomUUID();
+    sessionStorage.setItem("notdown-session", id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+})();
+const draftKey = (id: string) => `notdown-draft:${id}:${draftSession}`;
+const collapsed = new Set<string>();
+function recentPages(): string[] {
+  try {
+    const value = JSON.parse(
+      localStorage.getItem("notdown-recent-pages") || "[]",
+    );
+    return Array.isArray(value)
+      ? value.filter((id) => typeof id === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+const app = document.querySelector<HTMLDivElement>("#app")!;
+const icon = (name: string, cls = "") =>
+  `<i data-lucide="${name}" class="${cls}"></i>`;
+const button = (action: string, name: string, title: string, extra = "") =>
+  `<button class="icon-button" data-action="${action}" title="${title}" aria-label="${title}" ${extra}>${icon(name)}</button>`;
+
+function toast(message: string) {
+  document.querySelector(".toast")?.remove();
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = message;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 4500);
+}
+function report(error: unknown) {
+  console.error(error);
+  toast(error instanceof Error ? error.message : "Operation failed. Please try again.");
+}
+function persistDraft(page: Page) {
+  try {
+    localStorage.setItem(draftKey(page.id), JSON.stringify(page));
+  } catch {
+    if (!draftWarningShown) {
+      toast("Browser draft storage is full. Saving to disk will continue; confirm that saving succeeds before closing.");
+      draftWarningShown = true;
+    }
+  }
+}
+function removeDraft(id: string) {
+  try {
+    localStorage.removeItem(draftKey(id));
+  } catch {
+    /* 磁盘保存不依赖浏览器缓存。 */
+  }
+}
+function readDraft(id: string) {
+  try {
+    return localStorage.getItem(draftKey(id));
+  } catch {
+    return null;
+  }
+}
+function status(text: string, kind = "") {
+  const el = document.querySelector("#save-status");
+  if (el) {
+    el.className = kind;
+    el.innerHTML = `${icon(kind === "error" ? "circle-alert" : "circle-check")}<span>${e(text)}</span>`;
+    refreshIcons();
+  }
+}
+function markDirty() {
+  if (!current) return;
+  dirty = true;
+  persistDraft(current);
+  status("Unsaved", "pending");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => void save().catch(report), 750);
+  updateCounts();
+}
+async function save(): Promise<boolean> {
+  captureEditor();
+  clearTimeout(saveTimer);
+  if (saving) {
+    await saving;
+    return dirty && !conflict ? save() : !conflict && !dirty;
+  }
+  if (!dirty || !current) return true;
+  if (conflict) return false;
+  const draft = structuredClone(current);
+  status("Saving Markdown…", "pending");
+  saving = (async () => {
+    try {
+      const saved = await api<Page>(`/pages/${draft.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ ...draft, baseRevision: draft.revision }),
+      });
+      pages = pages.map((page) => (page.id === saved.id ? saved : page));
+      if (current?.id === saved.id) {
+        captureEditor();
+        const unchanged =
+          current.body === draft.body &&
+          current.bodyFormat === draft.bodyFormat &&
+          JSON.stringify(current.syntax) === JSON.stringify(draft.syntax) &&
+          current.title === draft.title &&
+          current.parent === draft.parent &&
+          current.icon === draft.icon &&
+          current.favorite === draft.favorite &&
+          current.trashed === draft.trashed &&
+          current.sidebarOrder === draft.sidebarOrder &&
+          JSON.stringify(current.properties) ===
+            JSON.stringify(draft.properties);
+        current.revision = saved.revision;
+        current.updated = saved.updated;
+        dirty = !unchanged;
+        if (!dirty) removeDraft(saved.id);
+        else persistDraft(current);
+      }
+      status(dirty ? "Editing…" : "Saved locally", dirty ? "pending" : "");
+      sidebarDrag.saved(saved.id, draft.revision, saved.revision);
+      renderSidebar();
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        conflict = error.data;
+        status("Conflict · Both versions preserved", "error");
+        showConflict();
+      } else {
+        status("Save failed · Draft preserved in browser", "error");
+        report(error);
+      }
+      return false;
+    } finally {
+      saving = null;
+    }
+  })();
+  const success = await saving;
+  return success && dirty ? save() : success;
+}
+
+function pageIcon(page: Page) {
+  return page.icon && /[^a-z-]/.test(page.icon)
+    ? `<span class="emoji">${e(page.icon)}</span>`
+    : icon(page.icon || "file-text");
+}
+function renderSidebar() {
+  if (sidebarDrag.isDragging()) return;
+  const container = document.querySelector("#page-tree");
+  if (!container) return;
+  const visited = new Set<string>();
+  function rows(parent: string | null, depth: number): string {
+    return pages
+      .filter((p) => p.parent === parent)
+      .sort(comparePageOrder)
+      .map((p) => {
+        if (visited.has(p.id)) return "";
+        visited.add(p.id);
+        const children = pages.some((c) => c.parent === p.id);
+        return `<div data-page-row="${e(p.id)}" class="tree-row ${current?.id === p.id && !library ? "active" : ""}" style="--depth:${depth}">
+        <button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}">${children ? icon(collapsed.has(p.id) ? "chevron-right" : "chevron-down") : ""}</button>
+        <button class="tree-page" draggable="true" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span></button>
+        <button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button><button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button></div>${collapsed.has(p.id) ? "" : rows(p.id, depth + 1)}`;
+      })
+      .join("");
+  }
+  container.innerHTML =
+    rows(null, 0) || `<p class="empty-small">No pages yet. Write down your first idea.</p>`;
+  const favorites = document.querySelector("#favorite-pages");
+  if (favorites) favorites.innerHTML = pages.some((page) => page.favorite)
+    ? `<div class="section-label">Favorites</div>${pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="true" data-open="${e(page.id)}">${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
+  const count = document.querySelector("#page-count");
+  if (count) count.textContent = String(pages.length);
+  refreshBreadcrumbs();
+  refreshIcons();
+}
+
+function shell() {
+  app.innerHTML = `<aside class="sidebar" id="sidebar">
+    <button class="workspace-switch" data-action="settings"><span class="workspace-avatar">${icon("notebook-pen")}</span><span><strong>Notdown workspace</strong></span>${icon("chevrons-up-down")}</button>
+    <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
+    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
+    <div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
+    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
+    <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
+  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span><details id="page-options" class="page-options">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
+  const resizer = document.createElement("div");
+  resizer.className = "sidebar-resizer";
+  resizer.tabIndex = 0;
+  resizer.setAttribute("role", "separator");
+  resizer.setAttribute("aria-label", "Resize sidebar");
+  resizer.setAttribute("aria-orientation", "vertical");
+  resizer.setAttribute("aria-controls", "sidebar");
+  resizer.title = "Drag to resize sidebar; double-click to reset";
+  app.append(resizer);
+  sidebarLayout = installSidebarLayout();
+  renderSidebar();
+}
+
+function captureEditor() {
+  if (!editor || !editorReady || !current) return;
+  if (workspace) {
+    const snapshot = workspace.capture();
+    editorChanged = false;
+    if (
+      snapshot.source !== current.body ||
+      (current.syntax &&
+        JSON.stringify(current.syntax) !== JSON.stringify(snapshot.config))
+    ) {
+      current.body = snapshot.source;
+      current.syntax = snapshot.config;
+      current.bodyFormat = syntaxFormat(snapshot.config);
+      markDirty();
+    }
+    return;
+  }
+  const body = editor.getValue();
+  editorChanged = false;
+  if (body !== current.body) {
+    current.body = body;
+    current.bodyFormat = editor.getBodyFormat();
+    markDirty();
+  }
+}
+function destroyEditor() {
+  pageIconCleanup?.();
+  pageIconCleanup = undefined;
+  coverPickerCleanup?.();
+  coverPickerCleanup = undefined;
+  coverRepositionCleanup?.();
+  coverRepositionCleanup = undefined;
+  if (document.querySelector(".insert-dialog")) closeModal();
+  captureEditor();
+  tocCleanup?.();
+  tocCleanup = undefined;
+  editorGeneration++;
+  if (editor) {
+    if (workspace) {
+      workspace.destroy();
+      workspace = undefined;
+    } else editor.destroy();
+    editor = undefined;
+  }
+  editorChanged = false;
+  editorReady = false;
+}
+async function openPage(id: string, allowTrashed = false) {
+  return navigation?.navigate({ kind: "page", id }, allowTrashed);
+}
+
+async function loadPage(id: string, allowTrashed = false, isCurrent = () => true): Promise<boolean> {
+  if (!(await save()) || !isCurrent()) return false;
+  // A rapid Back then Forward can return to the still-mounted page. Keep its
+  // editor/undo history instead of fetching a snapshot that could become stale.
+  if (!library && current?.id === id) return true;
+  closeModal();
+  closePageContextMenu();
+  const activePages = await api<Page[]>("/pages");
+  if (!isCurrent()) return false;
+  if (!allowTrashed && !activePages.some((page) => page.id === id)) {
+    toast("This page is in Trash or no longer exists.");
+    return false;
+  }
+  const page = await api<Page>(`/pages/${encodeURIComponent(id)}`);
+  if (!isCurrent() || !(await save()) || !isCurrent()) return false;
+  // Input may have arrived while fetching the destination. Save it before
+  // destroying the outgoing DOM; never pair it with the destination revision.
+  pages = activePages;
+  destroyEditor();
+  current = page;
+  library = false;
+  search = "";
+  const draft = readDraft(id);
+  if (draft) {
+    try {
+      const recovered = JSON.parse(draft) as Page;
+      if (
+        recovered.id === id &&
+        (recovered.body !== page.body ||
+          recovered.bodyFormat !== page.bodyFormat ||
+          JSON.stringify(recovered.syntax) !== JSON.stringify(page.syntax) ||
+          recovered.title !== page.title ||
+          recovered.parent !== page.parent ||
+          recovered.icon !== page.icon ||
+          recovered.favorite !== page.favorite ||
+          recovered.trashed !== page.trashed ||
+          recovered.sidebarOrder !== page.sidebarOrder ||
+          JSON.stringify(recovered.properties) !==
+            JSON.stringify(page.properties))
+      ) {
+        current = recovered;
+        dirty = true;
+        toast("Your unsaved draft has been restored. File revisions will be checked when saving.");
+      } else removeDraft(id);
+    } catch {
+      toast("Could not read the browser draft. Opened the disk version.");
+    }
+  }
+  localStorage.setItem("notdown-page", id);
+  try {
+    localStorage.setItem(
+      "notdown-recent-pages",
+      JSON.stringify(
+        [id, ...recentPages().filter((pageId) => pageId !== id)].slice(0, 30),
+      ),
+    );
+  } catch {
+    /* Navigation also works with unavailable local storage. */
+  }
+  renderDocument();
+  renderSidebar();
+  if (dirty) markDirty();
+  return true;
+}
+function refreshBreadcrumbs() {
+  const header = document.querySelector("#breadcrumb");
+  if (!header) return;
+  if (!current || library) {
+    header.innerHTML = `${icon("library")}<strong>Vault</strong>`;
+    return;
+  }
+  header.replaceChildren(renderBreadcrumb(pages, current));
+  // Refresh only non-editable navigation DOM; leave editor input and undo history intact.
+  document.querySelectorAll("#document-content .pm-object-breadcrumb .pm-breadcrumb").forEach(nav => {
+    nav.replaceChildren(...renderBreadcrumb(pages, current!).childNodes);
+  });
+}
+function renderDocument() {
+  if (!current) return;
+  destroyEditor();
+  const linkedTitle = pandocPageTitle(current.body, current.syntax ?? defaultSyntax(current.bodyFormat));
+  if (linkedTitle !== undefined && !linkedTitle.trim() && current.title.trim()) {
+    current.body = renamePandocPageSource(current.body, current.syntax ?? defaultSyntax(current.bodyFormat), current.title);
+    markDirty();
+  }
+  if (linkedTitle?.trim() && linkedTitle.length <= 500 && linkedTitle !== current.title) {
+    current.title = linkedTitle;
+    pages = pages.map(page => page.id === current!.id ? { ...current! } : page);
+    markDirty();
+  }
+  const p = current;
+  refreshBreadcrumbs();
+  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  document.querySelector("#main")!.innerHTML =
+    `<div class="document-wrap ${view === "mindmap" ? "wide" : ""}">
+    <div id="page-cover-region" class="page-cover-region"></div>
+    <article class="document"><header class="page-header"><div id="page-decoration"></div><textarea id="page-title" class="page-title" rows="1" aria-label="Page title" placeholder="New page">${e(p.title)}</textarea></header>
+    <details class="page-properties"><summary>Properties${icon("chevron-down")}</summary><div class="properties"><div class="property-row"><span>${icon("folder-tree")}Parent page</span><select id="parent-select" aria-label="Parent page"><option value="">Vault root</option>${pages
+      .filter((x) => x.id !== p.id)
+      .map(
+        (x) =>
+          `<option value="${e(x.id)}" ${p.parent === x.id ? "selected" : ""}>${e(x.title)}</option>`,
+      )
+      .join("")}</select></div>
+    <div class="property-row"><span>${icon("tags")}Properties</span><button data-action="properties" class="property-values">${
+      Object.entries(p.properties || {})
+        .slice(0, 4)
+        .map(
+          ([key, value]) =>
+            `<span class="tag">${e(key)} · ${e(Array.isArray(value) ? value.join(", ") : String(value))}</span>`,
+        )
+        .join("") || `<span class="muted">Add page properties</span>`
+    }</button></div><div id="page-metadata"></div></div></details>
+    <div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents"></aside></div>`;
+  renderContent();
+  renderPageDecoration();
+  const title = document.querySelector<HTMLTextAreaElement>("#page-title")!;
+  title.style.height = `${title.scrollHeight}px`;
+  renderRelations();
+  updateCounts();
+  status(dirty ? "Unsaved" : "Saved locally", dirty ? "pending" : "");
+  refreshIcons();
+}
+function renderPageDecoration() {
+  if (!current) return;
+  coverRepositionCleanup?.();
+  coverRepositionCleanup = undefined;
+  const p = current, host = document.querySelector("#page-decoration"), coverHost = document.querySelector("#page-cover-region");
+  if (!host || !coverHost) return;
+  const hasIcon = !!p.icon && p.icon !== "file-text";
+  const cover = typeof p.properties?.cover === "string" ? p.properties.cover : "";
+  const hasCover = !!cover && isPageCoverPath(cover);
+  const rawPosition = p.properties?.coverPosition;
+  const position = typeof rawPosition === "number" && Number.isFinite(rawPosition) ? Math.max(0, Math.min(100, rawPosition)) : 50;
+  document.querySelector(".document-wrap")?.classList.toggle("has-page-cover", hasCover);
+  coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(cover)}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition">Reposition</button><a href="${e(cover)}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover">${icon("download")}</a></div>` : "";
+  host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon">${pageIcon(p)}</button>` : ""}<div class="page-decoration-actions"><button data-action="page-icon">${icon("smile")}${hasIcon ? "Change icon" : "Add icon"}</button><button data-action="page-cover">${icon("image")}${cover ? "Change cover" : "Add cover"}</button></div>`;
+  refreshIcons();
+}
+function pageOptions() {
+  if (library)
+    return `<summary class="icon-button" aria-label="Workspace options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu"><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+  const modes: [View, string, string][] = [
+    ["document", "file-text", "Page"],
+    ["outline", "list-tree", "Outline"],
+    ["mindmap", "network", "Mind map"],
+    ["source", "code-xml", "Markdown source"],
+    ["split", "columns-2", "Source and page"],
+  ];
+  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+}
+function renderContent() {
+  if (!current) return;
+  const content = document.querySelector<HTMLDivElement>("#document-content")!;
+  if (["document", "source", "split"].includes(view)) {
+    const generation = ++editorGeneration,
+      pageId = current.id;
+    content.innerHTML = '<div id="editing-workspace"></div>';
+    workspace = new MarkdownWorkspace(
+      content.querySelector<HTMLElement>("#editing-workspace")!,
+      {
+        metadataHost: document.querySelector<HTMLElement>("#page-metadata")!,
+        source: current.body,
+        config:
+          current.syntax ?? defaultSyntax(current.bodyFormat || "markdown"),
+        mode: view as EditMode,
+        pages: () => pages,
+        currentPage: () => current?.id === pageId ? current : undefined,
+        onChange: (source, config) => {
+          if (generation !== editorGeneration || current?.id !== pageId) return;
+          editorChanged = false;
+          current.body = source;
+          current.syntax = config;
+          current.bodyFormat = syntaxFormat(config);
+          const linkedTitle = pandocPageTitle(source, config);
+          if (linkedTitle !== undefined && current.title !== linkedTitle) {
+            current.title = linkedTitle;
+            const title = document.querySelector<HTMLTextAreaElement>("#page-title");
+            if (title) {
+              title.value = linkedTitle;
+              title.style.height = "auto";
+              title.style.height = `${title.scrollHeight}px`;
+            }
+            pages = pages.map(page => page.id === current!.id ? { ...current! } : page);
+            renderSidebar();
+          }
+          markDirty();
+          scheduleToc();
+        },
+        onMode: (mode) => {
+          view = mode;
+          document.querySelector("#page-options")!.innerHTML = pageOptions();
+          renderToc();
+        },
+        onInsert: showInsert,
+        onError: report,
+        onOpenPage: (id) => {
+          void openPage(id).catch(report);
+        },
+      },
+    );
+    editor = workspace.blocks;
+    editorReady = true;
+  } else {
+    const outline = getOutline(
+      current.body,
+      current.bodyFormat,
+      current.syntax,
+    );
+    content.innerHTML = `<p class="view-description">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="${view === "mindmap" ? "mindmap" : "outline-view"}">${view === "mindmap" ? `<div class="mindmap-root">${e(current.title)}</div>` : ""}${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3>Give your notes some structure</h3><p>Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button">Start editing</button></div>`}`;
+  }
+  renderToc();
+  refreshIcons();
+}
+function outlineHTML(nodes: OutlineNode[]): string {
+  return `<ul>${nodes.map((node) => `<li><details open><summary><span class="outline-dot"></span>${e(node.text)}</summary>${node.children.length ? outlineHTML(node.children) : ""}</details></li>`).join("")}</ul>`;
+}
+function documentHeadings() {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(
+      "#editor .pm-document :is(h1,h2,h3,h4,h5,h6)",
+    ),
+  );
+}
+function renderToc() {
+  tocCleanup?.();
+  tocCleanup = undefined;
+  const toc = document.querySelector<HTMLElement>("#floating-toc");
+  if (!toc) return;
+  const headings = documentHeadings();
+  toc.hidden = view !== "document" || !headings.length;
+  if (toc.hidden) {
+    toc.replaceChildren();
+    return;
+  }
+  const baseLevel = Math.min(
+    ...headings.map((h) => Number(h.tagName.slice(1))),
+  );
+  const previousScroll = toc.querySelector(".toc-list")?.scrollTop ?? 0;
+  toc.innerHTML = `<nav aria-label="Heading navigation"><ol class="toc-list">${headings
+    .map((heading, index) => {
+      const level = Number(heading.tagName.slice(1));
+      const text = heading.textContent?.trim() || "Untitled heading";
+      return `<li><button type="button" data-heading="${index}" style="--depth:${level - baseLevel}" title="${e(text)}" aria-label="${e(text)}"><span class="toc-line" aria-hidden="true"></span><span class="toc-text">${e(text)}</span></button></li>`;
+    })
+    .join("")}</ol></nav>`;
+  toc.classList.toggle(
+    "pinned",
+    localStorage.getItem("notdown-toc") === "pinned",
+  );
+  const main = document.querySelector<HTMLElement>("#main")!;
+  const list = toc.querySelector<HTMLElement>(".toc-list")!;
+  list.scrollTop = previousScroll;
+  const buttons = Array.from(toc.querySelectorAll<HTMLButtonElement>("button"));
+  const abort = new AbortController();
+  const { signal } = abort;
+  let activeIndex = -1;
+  let requestedIndex: number | null = null;
+  let frame = 0;
+  const updateActive = () => {
+    frame = 0;
+    // Match the reading position below the top bar, ignoring folded sections.
+    const readingTop = main.getBoundingClientRect().top + 96;
+    const atEnd =
+      main.scrollHeight > main.clientHeight + 1 &&
+      main.scrollTop + main.clientHeight >= main.scrollHeight - 2;
+    let next = -1;
+    headings.forEach((heading, index) => {
+      if (!heading.getClientRects().length) return;
+      if (
+        next < 0 ||
+        atEnd ||
+        heading.getBoundingClientRect().top <= readingTop
+      )
+        next = index;
+    });
+    // A click stays selected through the animation and at the scroll boundary.
+    // Resume following the reading position when the user scrolls or edits.
+    if (requestedIndex !== null) next = requestedIndex;
+    if (next === activeIndex) return;
+    buttons[activeIndex]?.removeAttribute("aria-current");
+    buttons[next]?.setAttribute("aria-current", "location");
+    activeIndex = next;
+    // Keep the current marker in a long outline without interrupting browsing.
+    if (next >= 0 && !toc.matches(":hover, :focus-within")) {
+      const row = buttons[next].getBoundingClientRect();
+      const bounds = list.getBoundingClientRect();
+      if (row.top < bounds.top || row.bottom > bounds.bottom)
+        list.scrollTop +=
+          row.top - bounds.top - (bounds.height - row.height) / 2;
+    }
+  };
+  const scheduleUpdate = () => {
+    if (!frame) frame = requestAnimationFrame(updateActive);
+  };
+  buttons.forEach((button, index) => {
+    // Bind to the rendered heading, rather than resolving a fresh DOM index.
+    const heading = headings[index];
+    button.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        if (!heading.isConnected) return;
+        editor?.revealHeading(heading);
+        if (!heading.getClientRects().length) return;
+        requestedIndex = index;
+        main.scrollTo({
+          top:
+            main.scrollTop +
+            heading.getBoundingClientRect().top -
+            main.getBoundingClientRect().top -
+            80,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches
+            ? "instant"
+            : "smooth",
+        });
+        scheduleUpdate();
+      },
+      { signal },
+    );
+  });
+  const resumeReading = (event: Event) => {
+    if (toc.contains(event.target as Node)) return;
+    if (requestedIndex !== null) {
+      requestedIndex = null;
+      // Stop an in-flight jump before a wheel, touch, or keyboard scroll.
+      main.scrollTo({ top: main.scrollTop, behavior: "instant" });
+      scheduleUpdate();
+    }
+  };
+  main.addEventListener("wheel", resumeReading, { passive: true, signal });
+  main.addEventListener("pointerdown", resumeReading, { signal });
+  main.addEventListener("keydown", resumeReading, { signal });
+  main.addEventListener("scroll", scheduleUpdate, { passive: true, signal });
+  const resize = new ResizeObserver(scheduleUpdate);
+  resize.observe(main);
+  resize.observe(document.querySelector("#document-content")!);
+  scheduleUpdate();
+  tocCleanup = () => {
+    abort.abort();
+    resize.disconnect();
+    cancelAnimationFrame(frame);
+  };
+}
+let tocUpdateTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleToc() {
+  clearTimeout(tocUpdateTimer);
+  tocUpdateTimer = setTimeout(renderToc, 120);
+}
+function renderRelations() {
+  if (!current) return;
+  const children = pages.filter((p) => p.parent === current!.id);
+  document.querySelector("#children-links")!.innerHTML = children.length
+    ? `<section class="relations"><h3>${icon("files")}Child page <span>${children.length}</span></h3>${children.map((p) => `<button class="child-card" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span>${icon("arrow-up-right")}</button>`).join("")}</section>`
+    : "";
+  const incoming = pages.filter(
+    (p) =>
+      p.id !== current!.id &&
+      extractLinks(p.body, p.bodyFormat, p.syntax).some(
+        (target) => target === current!.id || target === current!.title,
+      ),
+  );
+  document.querySelector("#backlinks")!.innerHTML = incoming.length
+    ? `<section class="relations"><h3>${icon("link-2")}Backlinks <span>${incoming.length}</span></h3>${incoming.map((p) => `<button class="backlink" data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button>`).join("")}</section>`
+    : "";
+}
+function updateCounts() {
+  const el = document.querySelector("#word-count");
+  if (el)
+    el.textContent =
+      current && !library
+        ? `${current.body.replace(/\s/g, "").length.toLocaleString()} characters · UTF-8`
+        : `${pages.length} pages · Markdown`;
+}
+
+async function showLibrary(selected = libraryView) {
+  return navigation?.navigate({ kind: "vault", view: selected });
+}
+
+async function loadLibrary(selected = libraryView, isCurrent = () => true): Promise<boolean> {
+  if (!(await save()) || !isCurrent()) return false;
+  closeModal();
+  closePageContextMenu();
+  const loaded = await api<Page[]>("/pages");
+  if (!isCurrent() || !(await save()) || !isCurrent()) return false;
+  destroyEditor();
+  library = true;
+  libraryView = selected;
+  pages = loaded;
+  renderLibrary();
+  renderSidebar();
+  updateCounts();
+  return true;
+}
+function renderLibrary() {
+  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  refreshBreadcrumbs();
+  const filtered = pages.filter((p) =>
+    `${p.title} ${p.body} ${JSON.stringify(p.properties)}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  const modes: [LibraryView, string, string][] = [
+    ["gallery", "layout-grid", "Gallery"],
+    ["list", "table-2", "List"],
+    ["tree", "list-tree", "Page tree"],
+    ["graph", "waypoints", "Graph"],
+  ];
+  document.querySelector("#main")!.innerHTML =
+    `<section class="library"><div class="library-intro"><div><h1>Vault</h1></div><button class="primary-button" data-action="new">${icon("plus")}New page</button></div>
+    <div class="library-toolbar"><div class="tabs">${modes.map(([v, i, label]) => `<button data-library-view="${v}" class="${libraryView === v ? "selected" : ""}">${icon(i)}${label}</button>`).join("")}</div><label class="library-search">${icon("search")}<input id="library-search" aria-label="Filter pages" placeholder="Filter pages…" value="${e(search)}" /></label></div>
+    <div id="library-results">${libraryView === "gallery" ? galleryHTML(filtered) : libraryView === "list" ? listHTML(filtered) : libraryView === "graph" ? graphHTML(filtered) : libraryTreeHTML(filtered)}</div></section>`;
+  refreshIcons();
+}
+function galleryHTML(list: Page[]) {
+  return list.length
+    ? `<div class="gallery">${list
+        .map(
+          (p, i) =>
+            `<button class="gallery-card" data-open="${e(p.id)}"><div class="card-cover tone-${i % 4}"><span>${pageIcon(p)}</span><div class="card-pattern"></div></div><div class="card-body"><h3>${e(p.title)}</h3><p>${e(
+              p.body
+                .replace(/^#{1,6}\s+.*$/gm, "")
+                .replace(/[*\[\]`>:]/g, "")
+                .trim()
+                .slice(0, 98) || "An idea waiting to take shape.",
+            )}</p><div class="card-footer"><span>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title || "Child page" : "Root page")}</span>${icon("arrow-up-right")}</div></div></button>`,
+        )
+        .join("")}</div>`
+    : `<p class="empty-state">No matching pages.</p>`;
+}
+function listHTML(list: Page[]) {
+  return `<div class="table-scroll"><table class="pages-table"><thead><tr><th>Page name</th><th>Parent page</th><th>Properties</th><th>Last modified</th></tr></thead><tbody>${list
+    .map(
+      (p) =>
+        `<tr><td><button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button></td><td>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title : "—")}</td><td>${Object.entries(
+          p.properties,
+        )
+          .map(
+            ([key, value]) =>
+              `<span class="tag">${e(key)}: ${e(String(value))}</span>`,
+          )
+          .join(" ")}</td><td>${formatDate(p.updated)}</td></tr>`,
+    )
+    .join("")}</tbody></table></div>`;
+}
+function libraryTreeHTML(list: Page[]) {
+  const ids = new Set(list.map((p) => p.id));
+  const seen = new Set<string>();
+  const row = (p: Page): string => {
+    if (seen.has(p.id)) return "";
+    seen.add(p.id);
+    return `<li><details open><summary><button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button><span class="muted">${p.body.length} characters</span></summary><ul>${list
+      .filter((c) => c.parent === p.id)
+      .map(row)
+      .join("")}</ul></details></li>`;
+  };
+  return `<div class="library-tree"><ul>${list
+    .filter((p) => !p.parent || !ids.has(p.parent))
+    .map(row)
+    .join("")}</ul></div>`;
+}
+function graphHTML(list: Page[]) {
+  const width = 900,
+    height = 540;
+  const positions = new Map(
+    list.map((p, i) => [
+      p.id,
+      {
+        x:
+          width / 2 +
+          Math.cos((i * Math.PI * 2) / Math.max(1, list.length) - Math.PI / 2) *
+            Math.min(320, 85 + list.length * 20),
+        y:
+          height / 2 +
+          Math.sin((i * Math.PI * 2) / Math.max(1, list.length) - Math.PI / 2) *
+            195,
+      },
+    ]),
+  );
+  const edges = list
+    .flatMap((p) => {
+      const targets = [
+        ...extractLinks(p.body, p.bodyFormat, p.syntax).map(
+          (t) => pages.find((x) => x.id === t || x.title === t)?.id,
+        ),
+        p.parent,
+      ];
+      return [...new Set(targets)]
+        .filter((id): id is string => !!id && positions.has(id))
+        .map((id) => {
+          const from = positions.get(p.id)!,
+            to = positions.get(id)!;
+          return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="${id === p.parent ? "parent-edge" : "link-edge"}" />`;
+        });
+    })
+    .join("");
+  return `<div class="graph-view"><div class="graph-legend"><span class="legend-line"></span>Page links<span class="legend-line dashed"></span>Page hierarchy</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Vault page graph">${edges}${list
+    .map((p) => {
+      const pos = positions.get(p.id)!;
+      return `<a href="#page/${e(p.id)}"><circle cx="${pos.x}" cy="${pos.y}" r="${p.parent ? 11 : 17}" /><text x="${pos.x}" y="${pos.y + 37}" text-anchor="middle">${e(p.title.slice(0, 19))}</text></a>`;
+    })
+    .join("")}</svg></div>`;
+}
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function modal(title: string, body: string, wide = false) {
+  closeModal();
+  const dialog = document.createElement("dialog");
+  dialog.id = "dialog";
+  dialog.className = wide ? "wide-dialog" : "";
+  dialog.innerHTML = `<div class="dialog-heading"><h2>${e(title)}</h2>${button("close-dialog", "x", "Close")}</div>${body}`;
+  document.body.append(dialog);
+  dialog.showModal();
+  refreshIcons();
+  return dialog;
+}
+function closeModal() {
+  slashCleanup?.();
+  slashCleanup = undefined;
+  editor?.cancelSlash();
+  const dialog = document.querySelector("#dialog");
+  if (dialog instanceof HTMLDialogElement) dialog.close();
+  document.querySelector("#dialog")?.remove();
+}
+async function newPage(parent: string | null = null, embed = false) {
+  if (!(await save())) return;
+  const ownerId = current?.id;
+  const page = await api<Page>("/pages", {
+    method: "POST",
+    body: JSON.stringify({
+      title: "New page",
+      parent,
+      icon: "file-text",
+      body: "",
+      properties: {},
+    }),
+  });
+  pages.push(page);
+  if (embed && current?.id === ownerId) {
+    insertMarkdown(
+      `\n<page${workspace?.session.snapshot.config.variant === "notdown" ? ' role="child"' : ''} url="${escapeXml(pageUrl(page.id))}">${escapeXml(page.title)}</page>\n`,
+    );
+    if (!(await save())) return;
+  }
+  closeModal();
+  view = "document";
+  await openPage(page.id);
+  const title = document.querySelector<HTMLInputElement>("#page-title");
+  title?.focus();
+  title?.select();
+}
+type PageMetadataPatch = Partial<Pick<Page, "title" | "parent" | "favorite" | "trashed" | "sidebarOrder">>;
+
+async function requirePageActions() {
+  const info = await api<{ capabilities?: { pageActions?: number; sidebarDrag?: number; systemRecycleBin?: boolean } }>("/status");
+  if (!info.capabilities?.pageActions)
+    throw new Error("The local server needs to be restarted to use page actions. Your page has not been changed.");
+  return info;
+}
+
+async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplicate", move?: PageMoveInput): Promise<boolean> {
+  if (pageActionBusy) return false;
+  pageActionBusy = true;
+  app.inert = true;
+  try {
+    const info = await requirePageActions();
+    if (move && !info.capabilities?.sidebarDrag) throw new Error("Restart the local server to enable page dragging. Your page has not been moved.");
+    const localId = current?.id, localRevision = current?.revision;
+    if (!(await save())) return false;
+    if (move && localId && current?.id === localId && move.baseRevisions[localId] === localRevision)
+      move.baseRevisions[localId] = current.revision;
+    const base = current?.id === page.id ? current : page;
+    const renamedBody = patch !== "duplicate" && patch.title !== undefined
+      ? renamePandocPageSource(base.body, base.syntax ?? defaultSyntax(base.bodyFormat), patch.title)
+      : base.body;
+    const saved = await api<Page>(`/pages/${page.id}${move ? "/move" : patch === "duplicate" ? "/duplicate" : ""}`, {
+      method: move || patch === "duplicate" ? "POST" : "PUT",
+      body: JSON.stringify({ ...(move ?? (patch === "duplicate" ? {} : patch)), ...(renamedBody !== base.body ? { body: renamedBody } : {}), baseRevision: base.revision }),
+    });
+    if (patch !== "duplicate" && Object.entries(patch).some(([key, value]) => saved[key as keyof Page] !== value))
+      throw new Error("The server did not apply the page action. Restart the local server and try again.");
+    if (patch !== "duplicate" && current?.id === saved.id) {
+      if (renamedBody !== base.body) {
+        destroyEditor();
+        current = saved;
+        renderDocument();
+      }
+      // The editor still owns its body and undo history; only metadata changed.
+      Object.assign(current, patch, { revision: saved.revision, updated: saved.updated });
+      const title = document.querySelector<HTMLTextAreaElement>("#page-title");
+      if (title && patch.title !== undefined) title.value = saved.title;
+      const parent = document.querySelector<HTMLSelectElement>("#parent-select");
+      if (parent) parent.value = saved.parent ?? "";
+    }
+    pages = await api<Page[]>("/pages");
+    closeModal();
+    if (current && !pages.some((item) => item.id === current!.id)) {
+      destroyEditor();
+      current = null;
+      dirty = false;
+      await showLibrary();
+    } else if (patch === "duplicate") {
+      await openPage(saved.id);
+    } else if (library) renderLibrary();
+    else if (current) renderRelations();
+    renderSidebar();
+    document.querySelector("#page-options")!.innerHTML = pageOptions();
+    refreshIcons();
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      if (current?.id === page.id) {
+        if (patch !== "duplicate") Object.assign(current, patch);
+        persistDraft(current);
+        dirty = true;
+        conflict = error.data;
+        showConflict();
+      } else {
+        toast("The page changed. Both versions are preserved in Conflicts and versions; the action was not retried.");
+      }
+    } else report(error);
+    return false;
+  } finally {
+    app.inert = false;
+    pageActionBusy = false;
+  }
+}
+
+function pageActionForm(page: Page, action: "rename" | "move") {
+  const descendants = new Set([page.id]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const candidate of pages) if (candidate.parent && descendants.has(candidate.parent) && !descendants.has(candidate.id)) {
+      descendants.add(candidate.id);
+      changed = true;
+    }
+  }
+  const dialog = modal(action === "rename" ? "Rename page" : "Move page", `<form class="page-action-form">
+    ${action === "rename" ? `<label>Page name<input name="title" required maxlength="500" value="${e(page.title)}"></label>` : `<p class="muted">Move ${e(page.title)} and its child pages.</p><label>Destination<select name="parent"><option value="">Vault root</option>${pages.filter((candidate) => !descendants.has(candidate.id)).map((candidate) => `<option value="${e(candidate.id)}" ${candidate.id === page.parent ? "selected" : ""}>${e(candidate.title)}</option>`).join("")}</select></label>`}
+    <div class="dialog-actions"><button type="button" class="secondary-button" data-action="close-dialog">Cancel</button><button type="submit" class="primary-button">${action === "rename" ? "Save name" : "Move page"}</button></div></form>`);
+  const input = dialog.querySelector<HTMLInputElement>("input");
+  input?.select();
+  dialog.querySelector("form")!.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const title = input?.value.trim();
+    if (action === "rename" && !title) { input?.setCustomValidity("Enter a page name."); input?.reportValidity(); return; }
+    const submit = dialog.querySelector<HTMLButtonElement>("[type=submit]")!;
+    submit.disabled = true;
+    void mutateSidebarPage(page, action === "rename" ? { title } : { parent: dialog.querySelector("select")!.value || null }).finally(() => { submit.disabled = false; });
+  });
+  input?.addEventListener("input", () => input.setCustomValidity(""));
+}
+
+async function handlePageAction(page: Page, action: PageAction) {
+  if (action === "link") {
+    const url = new URL(location.href);
+    url.hash = pageUrl(page.id);
+    try { await navigator.clipboard.writeText(url.href); toast("Page link copied."); }
+    catch {
+      const dialog = modal("Copy page link", `<label>Page link<input readonly value="${e(url.href)}"></label><p class="muted">Select and copy this link.</p>`);
+      dialog.querySelector("input")?.select();
+    }
+  } else if (action === "rename" || action === "move") pageActionForm(page, action);
+  else if (action === "favorite") await mutateSidebarPage(page, { favorite: !page.favorite });
+  else if (action === "duplicate") {
+    if (await mutateSidebarPage(page, "duplicate")) toast("Page duplicated. Child pages and linked pages are not copied.");
+  } else if (action === "trash") {
+    if (await mutateSidebarPage(page, { trashed: true })) toast("Moved to Trash with its child pages. You can restore it from Trash.");
+  }
+}
+
+async function showTrash() {
+  const info = await requirePageActions();
+  const all = await api<Page[]>("/pages?includeTrashed=true");
+  const entries = all.filter((page) => page.trashed);
+  const dialog = modal("Trash", `<p class="muted">Restore returns a page and its children to the vault. Delete moves their Markdown files to the Windows Recycle Bin, where you can recover them.</p>${!info.capabilities?.systemRecycleBin ? '<p class="muted">System Recycle Bin requires an up-to-date Windows server.</p>' : ""}<div class="trash-list">${entries.length ? entries.map((page) => `<div><span>${e(page.title)}</span><div class="trash-row-actions"><button class="secondary-button" data-restore="${e(page.id)}">${icon("undo-2")}Restore</button><button class="secondary-button danger" data-recycle="${e(page.id)}" title="Move to system Recycle Bin" ${info.capabilities?.systemRecycleBin ? "" : "disabled"}>${icon("trash-2")}Delete</button></div></div>`).join("") : '<p class="empty-small">Trash is empty.</p>'}</div>`);
+  dialog.addEventListener("click", (event) => {
+    const recycle = (event.target as Element).closest<HTMLButtonElement>("[data-recycle]");
+    if (recycle) {
+      const target = entries.find((entry) => entry.id === recycle.dataset.recycle);
+      if (!target || pageActionBusy) return;
+      recycle.disabled = true;
+      recycle.textContent = "Deleting…";
+      void recycleTrashPage(target, all).catch(report).finally(() => { recycle.disabled = false; recycle.textContent = "Delete"; });
+      return;
+    }
+    const restore = (event.target as Element).closest<HTMLButtonElement>("[data-restore]");
+    const page = entries.find((entry) => entry.id === restore?.dataset.restore);
+    if (!restore || !page) return;
+    restore.disabled = true;
+    void mutateSidebarPage(page, { trashed: false }).then(async (success) => {
+      if (success) { toast("Page restored."); await showTrash(); }
+    }).catch(report).finally(() => { restore.disabled = false; });
+  });
+}
+
+async function recycleTrashPage(page: Page, all: Page[]) {
+  if (pageActionBusy) return;
+  pageActionBusy = true;
+  app.inert = true;
+  try {
+    const info = await requirePageActions();
+    if (!info.capabilities?.systemRecycleBin) throw new Error("System Recycle Bin requires an up-to-date Windows server.");
+    if (!(await save())) return;
+    const selected = new Map([[page.id, page.revision]]);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const item of all) if (item.parent && selected.has(item.parent) && !selected.has(item.id)) {
+        selected.set(item.id, item.revision); changed = true;
+      }
+    }
+    await api(`/pages/${page.id}/recycle`, {
+      method: "POST",
+      body: JSON.stringify({ baseRevision: page.revision, baseRevisions: Object.fromEntries(selected) }),
+    });
+    pages = await api<Page[]>("/pages");
+    renderSidebar();
+    if (current && selected.has(current.id)) {
+      destroyEditor();
+      current = null;
+      dirty = false;
+      await showLibrary();
+    } else if (library) renderLibrary();
+    await showTrash();
+    toast(`Moved ${selected.size === 1 ? "page" : `${selected.size} pages`} to the Windows Recycle Bin.`);
+  } finally {
+    app.inert = false;
+    pageActionBusy = false;
+  }
+}
+
+function sidebarContextMenu(target: Element, x?: number, y?: number) {
+  const row = target.closest<HTMLElement>("[data-page-row]");
+  if (!row || pageActionBusy) return;
+  captureEditor();
+  const page = current?.id === row.dataset.pageRow ? current : pages.find((item) => item.id === row.dataset.pageRow);
+  if (!page) return;
+  const anchor = row.querySelector<HTMLElement>("[data-page-menu]")!;
+  const rect = anchor.getBoundingClientRect();
+  showPageContextMenu(structuredClone(page), x ?? rect.right, y ?? rect.bottom, anchor, (action) => void handlePageAction(structuredClone(page), action).catch(report));
+}
+
+document.addEventListener("contextmenu", (event) => {
+  if (!(event.target as Element).closest("[data-page-row]")) return;
+  event.preventDefault();
+  sidebarContextMenu(event.target as Element, event.clientX, event.clientY);
+});
+document.addEventListener("keydown", (event) => {
+  if ((event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) && (event.target as Element).closest("[data-page-row]")) {
+    event.preventDefault();
+    sidebarContextMenu(event.target as Element);
+  }
+});
+
+function showProperties() {
+  if (!current) return;
+  captureEditor();
+  const dialog = modal(
+    "Page properties",
+    `<p class="muted">Properties are stored in Markdown YAML front matter and shared by the list view and MyBase metadata export.</p><form id="properties-form"><label>Properties (JSON object)<textarea name="properties" class="code-input" rows="10" spellcheck="false">${e(JSON.stringify(current.properties, null, 2))}</textarea></label><p class="muted">Example: {"status": "In progress", "tags": ["Design", "Knowledge management"]}</p><div class="dialog-actions"><button type="submit" class="primary-button">Save properties</button></div></form>`,
+  );
+  const initialCover = typeof current.properties.cover === "string" ? current.properties.cover : "";
+  const coverRow = document.createElement("label"), coverInput = document.createElement("input"); coverRow.textContent = "Cover image URL";
+  coverInput.name = "cover"; coverInput.setAttribute("aria-label", "Cover image URL"); coverInput.value = initialCover; coverRow.append(coverInput); dialog.querySelector("form")!.prepend(coverRow);
+  dialog.querySelector("form")!.addEventListener("submit", (event) => {
+    event.preventDefault();
+    try {
+      const value = JSON.parse(
+        String(new FormData(event.target as HTMLFormElement).get("properties")),
+      );
+      if (!value || Array.isArray(value) || typeof value !== "object")
+        throw new Error("Properties must be a JSON object.");
+      if (coverInput.value !== initialCover) {
+        if (coverInput.value) value.cover = coverInput.value; else delete value.cover;
+      }
+      current!.properties = value;
+      markDirty();
+      closeModal();
+      renderDocument();
+    } catch (error) {
+      report(error);
+    }
+  });
+}
+function showPageIcon(anchor: HTMLElement) {
+  if (!current) return;
+  captureEditor();
+  const page = current;
+  coverPickerCleanup?.();
+  coverPickerCleanup = undefined;
+  pageIconCleanup?.();
+  pageIconCleanup = openCalloutIconPicker(anchor, value => {
+    pageIconCleanup = undefined;
+    if (current !== page) return;
+    captureEditor();
+    current.icon = value;
+    markDirty();
+    pages = pages.map(p => p.id === current!.id ? { ...current! } : p);
+    renderPageDecoration();
+    renderSidebar();
+    refreshBreadcrumbs();
+    refreshIcons();
+    document.querySelector<HTMLButtonElement>('[data-action="page-icon"]')?.focus();
+  }, "Page icon");
+}
+function showPageCover(anchor: HTMLElement) {
+  if (!current) return;
+  captureEditor();
+  const page = current;
+  const cover = typeof page.properties.cover === "string" ? page.properties.cover : "";
+  const apply = (value: string) => {
+    if (current !== page) return;
+    captureEditor();
+    if (value) page.properties.cover = value;
+    else delete page.properties.cover;
+    if (value !== cover) delete page.properties.coverPosition;
+    markDirty();
+    renderPageDecoration();
+  };
+  coverPickerCleanup?.();
+  coverPickerCleanup = openPageCoverPicker(anchor, {
+    cover,
+    onSelect: value => { coverPickerCleanup = undefined; apply(value); },
+    onRemove: () => { coverPickerCleanup = undefined; apply(""); },
+    onUpload: async file => {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.readAsDataURL(file);
+      });
+      const uploaded = await api<{ path: string }>("/assets", {
+        method: "POST",
+        body: JSON.stringify({ name: file.name, contentType: file.type, data }),
+      });
+      if (current !== page) { toast("Image uploaded. Return to the original page to use it."); return; }
+      coverPickerCleanup = undefined;
+      apply(uploaded.path);
+    },
+    onError: report,
+  });
+}
+
+function startCoverReposition() {
+  if (!current) return;
+  const page = current;
+  const region = document.querySelector<HTMLElement>("#page-cover-region");
+  const image = region?.querySelector<HTMLImageElement>(".page-cover");
+  const toolbar = region?.querySelector<HTMLElement>(".page-cover-toolbar");
+  if (!region || !image || !toolbar) return;
+  coverPickerCleanup?.();
+  coverPickerCleanup = undefined;
+  coverRepositionCleanup?.();
+  const raw = page.properties.coverPosition;
+  let candidate = typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 50;
+  const preview = () => { image.style.objectPosition = `50% ${candidate}%`; };
+  const pointerDown = (event: PointerEvent) => {
+    if (event.target !== image || !image.naturalWidth || !image.naturalHeight) return;
+    event.preventDefault();
+    const scale = Math.max(region.clientWidth / image.naturalWidth, region.clientHeight / image.naturalHeight);
+    const overflow = image.naturalHeight * scale - region.clientHeight;
+    if (overflow <= 0) return;
+    const startY = event.clientY, startPosition = candidate;
+    image.setPointerCapture(event.pointerId);
+    const move = (moveEvent: PointerEvent) => {
+      candidate = Math.max(0, Math.min(100, startPosition - (moveEvent.clientY - startY) * 100 / overflow));
+      preview();
+    };
+    const stop = () => {
+      image.removeEventListener("pointermove", move);
+      image.removeEventListener("pointerup", stop);
+      image.removeEventListener("pointercancel", stop);
+    };
+    image.addEventListener("pointermove", move);
+    image.addEventListener("pointerup", stop);
+    image.addEventListener("pointercancel", stop);
+  };
+  const keydown = (event: KeyboardEvent) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    candidate = Math.max(0, Math.min(100, candidate + (event.key === "ArrowUp" ? 5 : -5)));
+    preview();
+  };
+  const click = (event: MouseEvent) => {
+    const target = event.target as Element;
+    if (target.closest("[data-cover-position-save]")) {
+      if (current === page) {
+        captureEditor();
+        page.properties.coverPosition = Math.round(candidate);
+        markDirty();
+      }
+      renderPageDecoration();
+    } else if (target.closest("[data-cover-position-cancel]")) renderPageDecoration();
+  };
+  coverRepositionCleanup = () => {
+    region.removeEventListener("pointerdown", pointerDown);
+    region.removeEventListener("keydown", keydown);
+    toolbar.removeEventListener("click", click);
+    region.classList.remove("is-repositioning");
+    region.removeAttribute("tabindex");
+    region.removeAttribute("aria-label");
+  };
+  region.classList.add("is-repositioning");
+  region.tabIndex = 0;
+  region.setAttribute("aria-label", "Reposition cover with drag or arrow keys");
+  toolbar.innerHTML = `<button type="button" data-cover-position-save>Save position</button><button type="button" data-cover-position-cancel>Cancel</button>`;
+  region.addEventListener("pointerdown", pointerDown);
+  region.addEventListener("keydown", keydown);
+  toolbar.addEventListener("click", click);
+  region.focus();
+}
+function showSettings() {
+  const settingsDialog = modal(
+    "Workspace settings",
+    `<div class="settings-section"><h3>Your files belong to you</h3><p>Content and page properties are saved in local Markdown files that any text editor or AI tool can read and write.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies are available. Background sync across devices is not yet implemented.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
+  );
+  const emojiRow = document.createElement("label");
+  emojiRow.className = "switch-row";
+  emojiRow.textContent = "Emoji style";
+  const emojiSelect = document.createElement("select");
+  emojiSelect.setAttribute("aria-label", "Emoji style");
+  for (const { value, label } of emojiStyleOptions) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    emojiSelect.append(option);
+  }
+  emojiSelect.value = emojiStyle();
+  emojiSelect.addEventListener("change", () => setEmojiStyle(emojiSelect.value as EmojiStyle));
+  emojiRow.append(emojiSelect);
+  settingsDialog.querySelectorAll(".settings-section")[1]?.append(emojiRow);
+  void mountServiceSettings(settingsDialog);
+}
+function showConflict() {
+  if (!conflict) return;
+  const disk = conflict.current as Page,
+    proposed = conflict.proposed as Page;
+  modal(
+    "Two versions detected; both have been preserved",
+    `<p class="muted">The file changed while you were editing. Compare both versions, edit the merged content, and save. Further file changes will preserve another conflict.</p><div class="conflict-columns"><label>Version on disk<pre>${e(disk?.body || "")}</pre></label><label>Your edits<pre>${e(proposed?.body || current?.body || "")}</pre></label></div><label>Merged content<textarea id="merged-body" rows="10" class="code-input">${e(current?.body || proposed?.body || "")}</textarea></label><p class="muted">Your edited title and properties will be used. The complete disk metadata remains in history.</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">Resolve later</button><button class="primary-button" data-action="resolve-conflict">Save merged version</button></div>`,
+    true,
+  );
+}
+async function resolveConflict() {
+  const body =
+    document.querySelector<HTMLTextAreaElement>("#merged-body")!.value;
+  const draft =
+    current?.id === conflict.proposed?.id ? current : conflict.proposed;
+  try {
+    const saved = await api<Page>(`/conflicts/${conflict.conflictId}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({
+        baseRevision: conflict.current.revision,
+        body,
+        bodyFormat: draft.bodyFormat || "markdown",
+        syntax: draft.syntax ?? null,
+        title: draft.title,
+        parent: draft.parent,
+        properties: draft.properties,
+        icon: draft.icon,
+        favorite: draft.favorite,
+        trashed: draft.trashed,
+        sidebarOrder: draft.sidebarOrder,
+      }),
+    });
+    const oldId = current?.id;
+    destroyEditor();
+    current = saved;
+    dirty = false;
+    conflict = null;
+    if (oldId) removeDraft(oldId);
+    pages = await api<Page[]>("/pages");
+    closeModal();
+    if (pages.some((page) => page.id === saved.id)) renderDocument();
+    else { current = null; await showLibrary(); }
+    renderSidebar();
+    toast("Merged version saved to Markdown.");
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      conflict = error.data;
+      if (current && current.id === conflict.proposed?.id) {
+        current.body = body;
+        persistDraft(current);
+      }
+      showConflict();
+    } else report(error);
+  }
+}
+async function showConflicts() {
+  if (conflict) {
+    showConflict();
+    return;
+  }
+  const entries = await api<any[]>("/conflicts");
+  const dialog = modal(
+    "Conflicts and versions",
+    `<p class="muted">Every save checks the source file revision. Conflicting edits are preserved as separate Markdown files without overwriting the disk content.</p><div class="conflict-list">${entries.length ? entries.map((entry, i) => `<div><strong>${e(entry.proposed?.title || entry.title || entry.pageId || entry.id || entry.conflictId)}</strong><p>${e(entry.resolved ? "Merged" : "Both versions are preserved. Open them to merge manually.")}</p>${entry.resolved ? "" : `<button class="secondary-button" data-conflict-entry="${i}">Review and merge</button>`}</div>`).join("") : `<div class="empty-state">${icon("git-branch")}<h3>No conflicts</h3><p>Your notes are safely saved.</p></div>`}</div>`,
+  );
+  dialog
+    .querySelectorAll<HTMLButtonElement>("[data-conflict-entry]")
+    .forEach((el) =>
+      el.addEventListener(
+        "click",
+        () =>
+          void (async () => {
+            if (!(await save())) return;
+            const entry = entries[Number(el.dataset.conflictEntry)];
+            await openPage(entry.pageId || entry.proposed.id, true);
+            if (current?.id !== (entry.pageId || entry.proposed.id)) return;
+            const fresh = await api<Page>(
+              `/pages/${entry.pageId || entry.proposed.id}`,
+            );
+            captureEditor();
+            const recovered =
+              dirty && current?.id === entry.proposed.id
+                ? structuredClone(current)
+                : null;
+            destroyEditor();
+            conflict = {
+              ...entry,
+              conflictId: entry.conflictId || entry.id,
+              current: fresh,
+            };
+            current = recovered || {
+              ...entry.proposed,
+              revision: fresh.revision,
+            };
+            dirty = true;
+            persistDraft(current!);
+            renderDocument();
+            showConflict();
+          })().catch(report),
+      ),
+    );
+}
+function showSearch() {
+  captureEditor();
+  const dialog = modal(
+    "Search vault",
+    `<label class="dialog-search">${icon("search")}<input id="search-input" aria-label="Search vault" role="combobox" aria-expanded="true" aria-controls="search-results" placeholder="Search pages or content…" autocomplete="off" autofocus /><kbd>Esc</kbd></label><div class="search-section-label">Recently visited</div><div id="search-results" role="listbox" aria-label="Search results"></div><div class="search-hints"><span>↑ ↓ Select</span><span>Enter Open</span><span>Esc Close</span></div>`,
+  );
+  dialog.classList.add("search-dialog");
+  const input = dialog.querySelector<HTMLInputElement>("#search-input")!;
+  const results = dialog.querySelector<HTMLElement>("#search-results")!;
+  let selected = 0;
+  let matches: Page[] = [];
+  const highlight = (value: string, query: string) => {
+    const term = query.replace(/^"|"$/g, "").trim();
+    const position = value
+      .toLocaleLowerCase()
+      .indexOf(term.toLocaleLowerCase());
+    if (!term || position < 0) return e(value);
+    return `${e(value.slice(0, position))}<mark>${e(value.slice(position, position + term.length))}</mark>${e(value.slice(position + term.length))}`;
+  };
+  const selection = () => {
+    results
+      .querySelectorAll<HTMLElement>("[role=option]")
+      .forEach((row, index) => {
+        row.classList.toggle("selected", index === selected);
+        row.setAttribute("aria-selected", String(index === selected));
+      });
+    input.setAttribute(
+      "aria-activedescendant",
+      matches[selected] ? `result-${matches[selected].id}` : "",
+    );
+  };
+  const render = (q: string) => {
+    const searchable = pages.map((page) =>
+      current?.id === page.id ? current : page,
+    );
+    matches = searchPages(searchable, q, recentPages()).slice(0, 40);
+    selected = 0;
+    dialog.querySelector(".search-section-label")!.textContent = q.trim()
+      ? `${matches.length} results`
+      : "Recently visited";
+    results.innerHTML =
+      matches
+        .map((p, index) => {
+          const parent = pages.find((parent) => parent.id === p.parent);
+          const plain = p.body.replace(/[#*`]/g, "").replace(/\s+/g, " ");
+          const at = plain
+            .toLocaleLowerCase()
+            .indexOf(q.replace(/^"|"$/g, "").toLocaleLowerCase());
+          const snippet = q.trim()
+            ? plain.slice(Math.max(0, at - 25), Math.max(0, at - 25) + 100)
+            : "";
+          return `<button id="result-${e(p.id)}" role="option" data-open="${e(p.id)}" data-result-index="${index}" class="search-result">${pageIcon(p)}<span><strong>${highlight(p.title, q)}</strong><small class="search-result-path">${e(parent?.title || "Private pages")}</small>${snippet ? `<small>${highlight(snippet, q)}</small>` : ""}</span>${icon("corner-down-left")}</button>`;
+        })
+        .join("") || '<div class="search-empty">No matching pages found</div>';
+    selection();
+    refreshIcons();
+  };
+  input.addEventListener("input", () => render(input.value));
+  results.addEventListener("pointermove", (event) => {
+    const row = (event.target as Element).closest<HTMLElement>(
+      "[data-result-index]",
+    );
+    if (row) {
+      selected = Number(row.dataset.resultIndex);
+      selection();
+    }
+  });
+  dialog.addEventListener("keydown", (event) => {
+    if (event.isComposing) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      selected =
+        (selected + (event.key === "ArrowDown" ? 1 : -1) + matches.length) %
+        Math.max(1, matches.length);
+      selection();
+      results
+        .querySelector('[aria-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    } else if (event.key === "Enter" && matches[selected]) {
+      event.preventDefault();
+      const id = matches[selected].id;
+      closeModal();
+      void openPage(id).catch(report);
+    }
+  });
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeModal();
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeModal();
+  });
+  render("");
+  input.focus();
+}
+function insertMarkdown(text: string) {
+  closeModal();
+  if (workspace) {
+    workspace.insert(text);
+    sourceSelection = null;
+    return;
+  }
+  if (view === "document" && editor) {
+    editor.insertValue(text);
+    current!.body = editor.getValue();
+    current!.bodyFormat = editor.getBodyFormat();
+  } else if (view === "source") {
+    const el = document.querySelector<HTMLTextAreaElement>("#source-editor")!;
+    el.setRangeText(
+      text,
+      sourceSelection?.start ?? el.selectionStart,
+      sourceSelection?.end ?? el.selectionEnd,
+      "end",
+    );
+    current!.body = el.value;
+    el.focus();
+  } else {
+    current!.body += `\n\n${text}`;
+    renderDocument();
+  }
+  sourceSelection = null;
+  markDirty();
+}
+function showInsert() {
+  if (!current || library) return;
+  const initialQuery = editor?.getSlashQuery();
+  const inline = initialQuery !== undefined && initialQuery !== null;
+  const source = workspace
+    ? null
+    : document.querySelector<HTMLTextAreaElement>("#source-editor");
+  sourceSelection = source
+    ? { start: source.selectionStart, end: source.selectionEnd }
+    : null;
+  const selection = window.getSelection();
+  const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+  const caret = range?.getBoundingClientRect();
+  const fallback = (
+    document.activeElement?.closest(".pm-document") ||
+    source ||
+    document.querySelector("#editor")
+  )?.getBoundingClientRect();
+  const anchor = caret?.height ? caret : fallback;
+  editor?.captureSelection();
+  const items = insertMenuItems(workspace?.session.snapshot.config);
+  let dialog: HTMLElement;
+  if (inline) {
+    slashCleanup?.();
+    document.querySelector("#dialog")?.remove();
+    dialog = document.createElement("div");
+    dialog.id = "dialog";
+    dialog.className = "inline-slash";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-label", "Choose block type");
+    dialog.innerHTML =
+      '<div class="dialog-heading"><h2>Insert content</h2></div><div class="insert-grid" role="listbox" aria-label="Block types"></div>';
+    document.body.append(dialog);
+  } else {
+    dialog = modal(
+      "Insert content",
+      `<label class="insert-search">${icon("search")}<input aria-label="Search block types" placeholder="Search block types…" /></label><div class="insert-grid" role="listbox" aria-label="Block types"></div>`,
+    );
+  }
+  dialog.classList.add("insert-dialog");
+  const left = Math.max(
+    12,
+    Math.min(anchor?.left ?? 300, window.innerWidth - 336),
+  );
+  const top = Math.max(
+    12,
+    Math.min((anchor?.bottom ?? 160) + 5, window.innerHeight - 380),
+  );
+  dialog.style.left = `${left}px`;
+  dialog.style.top = `${top}px`;
+  let selected = 0;
+  let filtered = items;
+  const input = dialog.querySelector<HTMLInputElement>("input");
+  const list = dialog.querySelector<HTMLElement>(".insert-grid")!;
+  const paint = () => {
+    let previousGroup = "";
+    list.innerHTML = filtered.map(([id, i, title, desc, , group], index) => {
+      const heading = group !== previousGroup ? '<div class="insert-group-heading" role="presentation">' + e(group) + '</div>' : "";
+      previousGroup = group;
+      return heading + `<button id="insert-option-${id}" role="option" aria-selected="${index === selected}" data-insert="${id}" class="${index === selected ? "selected" : ""}">${icon(i)}<span><strong>${e(title)}</strong><small>${e(desc)}</small></span></button>`;
+    }).join("") || '<p class="muted">No matching blocks</p>';
+    refreshIcons();
+    (input || dialog).setAttribute(
+      "aria-activedescendant",
+      filtered[selected] ? `insert-option-${filtered[selected][0]}` : "",
+    );
+  };
+  input?.setAttribute("role", "combobox");
+  input?.setAttribute("aria-expanded", "true");
+  const filter = (text: string) => {
+    const query = text
+      .replace(/^[/、]/, "")
+      .toLowerCase()
+      .trim();
+    filtered = items.filter((item) =>
+      item.join(" ").toLowerCase().includes(query),
+    );
+    selected = 0;
+    paint();
+  };
+  input?.addEventListener("input", () => filter(input.value));
+  const keydown = (event: KeyboardEvent) => {
+    if (event.isComposing || editor?.isComposing()) return;
+    if (inline && event.key === "Enter" && event.shiftKey) {
+      closeModal();
+      return;
+    }
+    if (inline && editor?.getSlashQuery() == null) {
+      closeModal();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      selected =
+        (selected + (event.key === "ArrowDown" ? 1 : -1) + filtered.length) %
+        Math.max(filtered.length, 1);
+      paint();
+      list
+        .querySelector('[aria-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    } else if (event.key === "Enter" && filtered[selected]) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void handleInsert(filtered[selected][0]).catch(report);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeModal();
+      if (!inline) {
+        editor?.focus();
+        source?.focus();
+      }
+    } else if (
+      inline &&
+      ["Enter", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"].includes(
+        event.key,
+      )
+    ) {
+      closeModal();
+    }
+  };
+  if (inline) {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    slashCleanup = () => controller.abort();
+    document.addEventListener("keydown", keydown, { signal, capture: true });
+    const updateQuery = (event: Event) => {
+      if (!(event.target as Element).closest("#editor")) return;
+      queueMicrotask(() => {
+        if (signal.aborted || editor?.isComposing()) return;
+        const query = editor?.getSlashQuery();
+        if (query == null) closeModal();
+        else filter(query);
+      });
+    };
+    document.addEventListener("input", updateQuery, { signal });
+    document.addEventListener("compositionend", updateQuery, { signal });
+    document.addEventListener("editor-slash-update", updateQuery, { signal });
+    document.addEventListener(
+      "selectionchange",
+      () => {
+        if (!editor?.isComposing() && editor?.getSlashQuery() == null)
+          closeModal();
+      },
+      { signal },
+    );
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (dialog.contains(event.target as Node)) event.preventDefault();
+        else closeModal();
+      },
+      { signal },
+    );
+    document
+      .querySelector("#main")
+      ?.addEventListener("scroll", () => closeModal(), { signal, once: true });
+    filter(initialQuery!);
+  } else {
+    dialog.addEventListener("keydown", keydown);
+    paint();
+    input?.focus();
+  }
+}
+async function handleInsert(id: string) {
+  if (document.querySelector(".inline-slash")) {
+    if (editor?.getSlashQuery() == null) {
+      closeModal();
+      return;
+    }
+    editor.consumeSlash();
+    editor.captureSelection();
+  }
+  if (id === "mention_person") {
+    const ownerId = current?.id;
+    captureEditor();
+    closeModal();
+    openPeople({ onSelect: person => {
+      if (current?.id === ownerId) insertMarkdown(personMention(person));
+    } });
+    return;
+  }
+  if (id === "footnote" && (workspace || (view === "document" && editor))) {
+    closeModal();
+    if (workspace) workspace.insertFootnote();
+    else { editor!.insertFootnote(); captureEditor(); }
+    sourceSelection = null;
+    return;
+  }
+  if (id === "html_embed" || id === "embed") {
+    const localWeb = !workspace || enabled(workspace.session.snapshot.config, "notion_web_embed");
+    insertMarkdown("\n\n" + (id === "html_embed" ? '<html-embed/>' : localWeb ? '<web-embed/>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
+    return;
+  }
+  if (objectSamples[id]) {
+    closeModal();
+    insertMarkdown("\n\n" + (id === "button" ? '<button label="Button" actions="[]"/>' : id === "web_bookmark" ? '<bookmark/>' : objectSamples[id]) + "\n\n");
+    return;
+  }
+  const blockTypes = [
+    "text",
+    "heading1",
+    "heading2",
+    "heading3",
+    "heading4",
+    "heading5",
+    "heading6",
+    "list",
+    "number",
+    "task",
+    "quote",
+    "code",
+    "divider",
+  ] as const;
+  const blockType = blockTypes.find((type) => type === id);
+  if (
+    blockType &&
+    (view === "document" ||
+      (view === "split" && workspace?.activePane === "document")) &&
+    editor
+  ) {
+    closeModal();
+    editor.insertBlockType(blockType);
+    captureEditor();
+    return;
+  }
+  const snippets: Record<string, string> = {
+    inline_equation: '$x^2$', bold: '**Bold text**', italic: '*Italic text*',
+    underline: '<span underline="true">Underlined text</span>', strike: '~~Struck-through text~~',
+    color: '<span color="blue">Colored text</span>', background: '<span color="yellow_bg">Highlighted text</span>',
+    subscript: '~subscript~', superscript: '^superscript^', highlight: '==Highlighted text==', emoji: '😀',
+    synced_block: '\n<synced_block>\nShared content\n</synced_block>\n',
+    date_or_reminder: workspace?.session.snapshot.config.variant === "notdown" ? '<mention-date/>' : `<mention-date start="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}"/>`,
+    native_span: '[Text]{.custom}', small_caps: '[Small capitals]{.smallcaps}',
+    raw_inline: '`\\LaTeX`{=latex}', raw_tex: '\n\n\\begin{center}\nRaw TeX\n\\end{center}\n\n', inline_note: '^[Note text]',
+    diagram: "\n\n```mermaid\nflowchart LR\nA[Start] --> B[Done]\n```\n\n",
+    alert: "\n\n> [!NOTE]\n> Note content\n\n",
+    comment: "\n\n%%\nComment content\n%%\n\n",
+    transclusion: "\n\n{{file.txt}}\n\n",
+    embed:
+      '\n\n<iframe src="https://example.com" title="Embedded page"></iframe>\n\n',
+    html: "\n\n<div>\n  <h2>HTML heading</h2>\n  <p>Write HTML content here.</p>\n</div>\n\n",
+    definitions: "\n\nTerm\n:   Write a definition here.\n\n",
+    footnote: "",
+    lines: "\n\n| First line\n| Second line\n\n",
+    div: "\n\n::: {.container}\nContainer content\n:::\n\n",
+    text: "\n\n",
+    toggle_heading: '\n## Toggle heading {toggle="true"}\n\tChild content\n',
+    example_list_item: "\n\n(@example) Example text\n\n",
+    heading1: "\n# ",
+    heading2: "\n## ",
+    heading3: "\n### ",
+    heading4: "\n#### ",
+    heading5: "\n##### ",
+    heading6: "\n###### ",
+    list: "\n- ",
+    number: "\n1. ",
+    task: "\n- [ ] ",
+    quote: "\n> ",
+    code: "\n```text\n\n```\n",
+    divider: "\n---\n",
+    inline: "`Inline code`",
+    columns:
+      "\n<columns>\n\t<column>\n\t\tLeft column content\n\t</column>\n\t<column>\n\t\tRight column content\n\t</column>\n</columns>\n",
+    callout:
+      '\n<callout icon="💡" color="gray_bg">\n\tWrite a note here\n</callout>\n',
+    toggle:
+      "\n<details>\n<summary>Toggle list</summary>\n\t<empty-block/>\n</details>\n",
+    table:
+      '\n<table header-row="true">\n\t<tr>\n\t\t<td>Name</td>\n\t\t<td>Content</td>\n\t</tr>\n\t<tr>\n\t\t<td></td>\n\t\t<td></td>\n\t</tr>\n</table>\n',
+    toc: "\n<table_of_contents/>\n",
+    equation: "\n$$\n\n$$\n",
+  };
+  if (
+    id === "toc" &&
+    workspace && enabled(workspace.session.snapshot.config, "toc_directives") && !usesNotionSyntax(workspace.session.snapshot.config)
+  )
+    snippets.toc = "\n\n[toc]\n\n";
+  if (id === "callout" && workspace && !usesNotionSyntax(workspace.session.snapshot.config) && enabled(workspace.session.snapshot.config, "alerts"))
+    snippets.callout = snippets.alert;
+  if (id === "footnote") {
+    let label = "note",
+      number = 1;
+    while (current!.body.includes("[^" + label + "]"))
+      label = "note" + ++number;
+    snippets.footnote = `[^${label}]\n\n[^${label}]: Footnote text.\n\n`;
+  }
+  if (
+    id === "table" &&
+    workspace &&
+    (enabled(workspace.session.snapshot.config, "pipe_tables") || enabled(workspace.session.snapshot.config, "mmd_tables"))
+  )
+    snippets.table = "\n| Name | Content |\n| --- | --- |\n|  |  |\n";
+  if (
+    workspace &&
+    !enabled(workspace.session.snapshot.config, "notion_colors")
+  )
+    snippets.callout = snippets.callout.replace(' color="gray_bg"', "");
+  if (snippets[id]) {
+    insertMarkdown(snippets[id]);
+    return;
+  }
+  if (id === "child") {
+    closeModal();
+    await newPage(current!.id, true);
+    return;
+  }
+  if (id === "link" || id === "mention") {
+    modal(
+      "Link to page",
+      `<div>${pages
+        .filter((p) => p.id !== current!.id)
+        .map(
+          (p) =>
+            `<button class="search-result" data-insert-link="${e(p.id)}" data-inline-mention="${id === "mention"}">${pageIcon(p)}${e(p.title)}</button>`,
+        )
+        .join("")}</div>`,
+    );
+    return;
+  }
+  if (id === "file") {
+    closeModal();
+    const ownerId = current!.id;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.addEventListener(
+      "change",
+      () =>
+        void (async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          if (file.size > 15 * 1024 * 1024)
+            throw new Error("Attachments can be up to 15 MB.");
+          const data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = reject;
+            reader.onload = () => resolve(String(reader.result).split(",")[1]);
+            reader.readAsDataURL(file);
+          });
+          const result = await api<{ path: string }>("/assets", {
+            method: "POST",
+            body: JSON.stringify({
+              name: file.name,
+              contentType: file.type || "application/octet-stream",
+              data,
+            }),
+          });
+          const alt = file.name.replace(/[\[\]\\]/g, "_");
+          if (current?.id !== ownerId) {
+            toast("File uploaded. Return to the original page to insert it.");
+            return;
+          }
+          const mediaType = file.type.startsWith("audio/")
+            ? "audio"
+            : file.type.startsWith("video/")
+              ? "video"
+              : file.type === "application/pdf"
+                ? "pdf"
+                : "file";
+          insertMarkdown(
+            file.type.startsWith("image/")
+              ? `![${alt}](${result.path})`
+              : workspace &&
+                  !enabled(workspace.session.snapshot.config, "notion_media")
+                ? `[${alt}](${result.path})`
+                : `<${mediaType} src="${escapeXml(result.path)}">${escapeXml(file.name)}</${mediaType}>`,
+          );
+        })().catch(report),
+    );
+    input.click();
+  }
+}
+function download(name: string, content: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function exportHTML() {
+  if (!current) return;
+  if (!(await save())) return;
+  download(
+    `${current.title.replace(/[<>:"/\\|?*]/g, "_")}.html`,
+    htmlDocument(
+      current.title,
+      current.body,
+      pages,
+      current.bodyFormat,
+      current.syntax,
+    ),
+    "text/html;charset=utf-8",
+  );
+  toast("HTML exported. Attachments use relative paths; keep the assets folder alongside the export.");
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target as Element;
+  const actionEl = target.closest<HTMLElement>(
+    "[data-action],[data-current-page-action],[data-page-menu],[data-open],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
+  );
+  if (!actionEl) return;
+  event.preventDefault();
+  actionEl
+    .closest<HTMLDetailsElement>(".page-options")
+    ?.removeAttribute("open");
+  void (async () => {
+    if (actionEl.dataset.currentPageAction && current && !library) {
+      captureEditor();
+      await handlePageAction(structuredClone(current), actionEl.dataset.currentPageAction as PageAction);
+      return;
+    }
+    if (actionEl.dataset.pageMenu) {
+      sidebarContextMenu(actionEl);
+      return;
+    }
+    if (actionEl.dataset.open) {
+      closeModal();
+      await openPage(actionEl.dataset.open);
+      return;
+    }
+    if (actionEl.matches("a[href^='#page/']")) {
+      const id = decodeURIComponent(actionEl.getAttribute("href")!.slice(6));
+      if (pages.some((p) => p.id === id)) await openPage(id);
+      else toast("Linked page not found.");
+      return;
+    }
+    if (actionEl.dataset.view) {
+      const next = actionEl.dataset.view as View;
+      if (workspace && ["document", "source", "split"].includes(next)) {
+        workspace.setMode(next as EditMode);
+        view = next;
+        document.querySelector("#page-options")!.innerHTML = pageOptions();
+        renderToc();
+        return;
+      }
+      view = next;
+      renderDocument();
+      return;
+    }
+    if (actionEl.dataset.libraryView) {
+      await showLibrary(actionEl.dataset.libraryView as LibraryView);
+      return;
+    }
+    if (actionEl.dataset.toggle) {
+      const id = actionEl.dataset.toggle;
+      collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
+      renderSidebar();
+      return;
+    }
+    if (actionEl.dataset.child) {
+      await newPage(actionEl.dataset.child);
+      return;
+    }
+    if (actionEl.dataset.insert) {
+      await handleInsert(actionEl.dataset.insert);
+      return;
+    }
+    if (actionEl.dataset.insertLink) {
+      const p = pages.find((p) => p.id === actionEl.dataset.insertLink)!;
+      if (
+        actionEl.dataset.inlineMention !== "true" &&
+        workspace &&
+        !usesNotionSyntax(workspace.session.snapshot.config)
+      ) {
+        insertMarkdown(`[[${p.id}|${p.title.replace(/[\[\]|\r\n]/g, " ")}]]`);
+        return;
+      }
+      insertMarkdown(
+        actionEl.dataset.inlineMention === "true"
+          ? `<mention-page url="${escapeXml(pageUrl(p.id))}">${escapeXml(p.title)}</mention-page>`
+          : `\n<page url="${escapeXml(pageUrl(p.id))}">${escapeXml(p.title)}</page>\n`,
+      );
+      return;
+    }
+    switch (actionEl.dataset.action) {
+      case "trash":
+        await showTrash();
+        break;
+      case "home":
+        await showLibrary();
+        break;
+      case "graph":
+        await showLibrary("graph");
+        break;
+      case "new":
+        await newPage();
+        break;
+      case "child":
+        await newPage(current!.id);
+        break;
+      case "search":
+        showSearch();
+        break;
+      case "properties":
+        showProperties();
+        break;
+      case "page-icon":
+        showPageIcon(actionEl!);
+        break;
+      case "page-cover":
+        showPageCover(actionEl!);
+        break;
+      case "cover-reposition":
+        startCoverReposition();
+        break;
+      case "page-properties": {
+        const panel =
+          document.querySelector<HTMLDetailsElement>(".page-properties");
+        if (panel) {
+          panel.open = !panel.open;
+          panel.scrollIntoView({ block: "nearest" });
+        }
+        break;
+      }
+      case "people":
+        captureEditor();
+        closeModal();
+        openPeople();
+        break;
+      case "settings":
+        showSettings();
+        break;
+      case "export":
+        await exportHTML();
+        break;
+      case "export-text":
+        if (current && await save()) download(`${current.title.replace(/[<>:"/\\|?*]/g, "_")}.txt`, plainText(current.body, current.syntax || defaultSyntax(current.bodyFormat)), "text/plain;charset=utf-8");
+        break;
+      case "close-dialog":
+        closeModal();
+        break;
+      case "conflicts":
+        await showConflicts();
+        break;
+      case "resolve-conflict":
+        await resolveConflict();
+        break;
+      case "sidebar":
+        sidebarLayout.toggle();
+        break;
+      case "history-back":
+        navigation?.back();
+        break;
+      case "history-forward":
+        navigation?.forward();
+        break;
+      case "mybase-export":
+        if (current) {
+          download(
+            `${current.id}.mybase`,
+            toMyBase(current),
+            "text/plain;charset=utf-8",
+          );
+          toast("MyBase metadata exported. The main MyBase library was not modified.");
+        } else toast("Open a page first.");
+        break;
+    }
+  })().catch(report);
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!(event.target as Element).closest(".page-options"))
+    document.querySelector(".page-options[open]")?.removeAttribute("open");
+});
+document.addEventListener("input", (event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.closest("#editor")) editorChanged = true;
+  if (target.id === "page-title" && current) {
+    captureEditor();
+    current.title = target.value;
+    try {
+      if (workspace) workspace.blocks.setPageTitle(target.value);
+      else current.body = renamePandocPageSource(current.body, current.syntax ?? defaultSyntax(current.bodyFormat), target.value);
+    } catch (error) { report(error); }
+    refreshBreadcrumbs();
+    target.style.height = "auto";
+    target.style.height = `${target.scrollHeight}px`;
+    markDirty();
+  }
+  if (!workspace && target.id === "source-editor" && current) {
+    current.body = target.value;
+    markDirty();
+    renderToc();
+  }
+  if (target.id === "library-search") {
+    const start = target.selectionStart;
+    search = target.value;
+    renderLibrary();
+    const next = document.querySelector<HTMLInputElement>("#library-search")!;
+    next.focus();
+    next.setSelectionRange(start, start);
+  }
+});
+document.addEventListener("change", (event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.id === "parent-select" && current) {
+    const next = target.value || null;
+    let ancestor = pages.find((p) => p.id === next);
+    const seen = new Set<string>();
+    while (ancestor && !seen.has(ancestor.id)) {
+      if (ancestor.id === current.id) {
+        target.value = current.parent || "";
+        toast("A page cannot be moved under its own child.");
+        return;
+      }
+      seen.add(ancestor.id);
+      ancestor = pages.find((p) => p.id === ancestor!.parent);
+    }
+    current.parent = next;
+    refreshBreadcrumbs();
+    markDirty();
+  }
+  if (target.id === "color-headings") {
+    localStorage.setItem("notdown-color", target.checked ? "on" : "off");
+    document.body.classList.toggle("color-headings", target.checked);
+  }
+  if (target.id === "pin-toc") {
+    localStorage.setItem("notdown-toc", target.checked ? "pinned" : "hover");
+    renderToc();
+  }
+});
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.isComposing || editor?.isComposing()) return;
+    const eventTarget = event.target as HTMLElement;
+    if (eventTarget.closest(".people-dialog")) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        eventTarget.closest(".people-dialog")?.querySelector<HTMLFormElement>(".person-form")?.requestSubmit();
+      }
+      return;
+    }
+    if (eventTarget.id === "page-title" && workspace && current &&
+      (event.ctrlKey || event.metaKey) && !event.altKey && ["z", "y"].includes(event.key.toLowerCase()) &&
+      pandocPageTitle(current.body, current.syntax ?? defaultSyntax(current.bodyFormat)) !== undefined) {
+      event.preventDefault();
+      workspace.history(event.key.toLowerCase() === "y" || event.shiftKey ? "redo" : "undo");
+      return;
+    }
+    const options = document.querySelector<HTMLDetailsElement>(
+      ".page-options[open]",
+    );
+    if (options && event.key === "Escape") {
+      event.preventDefault();
+      options.open = false;
+      options.querySelector<HTMLElement>("summary")?.focus();
+      return;
+    }
+    if (
+      options?.contains(eventTarget) &&
+      ["ArrowDown", "ArrowUp"].includes(event.key)
+    ) {
+      event.preventDefault();
+      const items = Array.from(
+        options.querySelectorAll<HTMLButtonElement>("button"),
+      );
+      const currentIndex = items.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      items[
+        (currentIndex + (event.key === "ArrowDown" ? 1 : -1) + items.length) %
+          items.length
+      ]?.focus();
+      return;
+    }
+    if (event.key === "Enter" && eventTarget.id === "page-title") {
+      event.preventDefault();
+      if (view === "document") editor?.focus();
+      return;
+    }
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      event.key.toLowerCase() === "e" &&
+      current &&
+      !library &&
+      !document.querySelector("#dialog, dialog[open]")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      captureEditor();
+      view = view === "source" ? "document" : "source";
+      if (workspace) {
+        workspace.setMode(view);
+        document.querySelector("#page-options")!.innerHTML = pageOptions();
+        renderToc();
+        if (view === "source") workspace.source.focus();
+        else editor?.focus();
+        return;
+      }
+      renderDocument();
+      if (view === "source")
+        document.querySelector<HTMLTextAreaElement>("#source-editor")?.focus();
+      else editor?.focus();
+      return;
+    }
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      (event.key.toLowerCase() === "p" ||
+        (event.key.toLowerCase() === "k" && !eventTarget.closest("#editor")))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      showSearch();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      event.stopPropagation();
+      void save().catch(report);
+      return;
+    }
+    if (
+      event.isComposing ||
+      !(event.key === "/" || event.key === "、") ||
+      !current ||
+      library ||
+      document.querySelector("#dialog, .page-metadata-dialog[open]")
+    )
+      return;
+    const target = event.target as Element;
+    if (!workspace && target.id === "source-editor") {
+      const area = target as HTMLTextAreaElement;
+      const before = area.value.slice(0, area.selectionStart);
+      if (!before || /\s$/.test(before)) {
+        event.preventDefault();
+        event.stopPropagation();
+        showInsert();
+      }
+    }
+  },
+  true,
+);
+document.addEventListener("compositionend", (event) => {
+  if (
+    event.data !== "、" ||
+    !current ||
+    library ||
+    document.querySelector("#dialog")
+  )
+    return;
+  const target = event.target as Element;
+  if (workspace || target.id !== "source-editor") return;
+  const area = target as HTMLTextAreaElement;
+  const pos = area.selectionStart;
+  if (pos >= 1 && (pos === 1 || /\s/.test(area.value[pos - 2]))) {
+    area.setRangeText("", pos - 1, pos, "end");
+    current.body = area.value;
+    markDirty();
+    showInsert();
+  }
+});
+const sidebarDrag = installSidebarDrag({
+  begin: () => {
+    if (pageActionBusy || conflict) return null;
+    captureEditor();
+    closePageContextMenu();
+    return pages.map((page) => current?.id === page.id ? current : page);
+  },
+  drop: (page, move) => {
+    if (move === "trash") void handlePageAction(page, "trash").catch(report);
+    else {
+      if (move.parent) collapsed.delete(move.parent);
+      void mutateSidebarPage(page, { parent: move.parent, sidebarOrder: move.sidebarOrder }, move).then((success) => {
+        if (success) toast("Page moved.");
+      }).catch(report);
+    }
+  },
+  end: () => renderSidebar(),
+});
+
+window.addEventListener("beforeunload", (event) => {
+  captureEditor();
+  if (dirty || saving) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
+async function boot() {
+  const [loaded, info] = await Promise.all([
+    api<Page[]>("/pages"),
+    api<{ vaultPath: string }>("/status"),
+  ]);
+  pages = loaded;
+  vaultPath = info.vaultPath;
+  void refreshPeople().catch(error => console.warn("People refresh:", error));
+  window.addEventListener("focus", () => { void refreshPeople().catch(error => console.warn("People refresh:", error)); });
+  setInterval(() => { if (document.visibilityState === "visible") void refreshPeople().catch(error => console.warn("People refresh:", error)); }, 5000);
+  document.body.classList.toggle(
+    "color-headings",
+    localStorage.getItem("notdown-color") === "on",
+  );
+  shell();
+  const saved = localStorage.getItem("notdown-page");
+  const route = parseRoute(location.hash);
+  const linked = route?.kind === "page" ? route.id : null;
+  if (pages.length && route?.kind !== "vault")
+    await loadPage(pages.find((p) => p.id === linked)?.id || pages.find((p) => p.id === saved)?.id || pages[0].id);
+  else await loadLibrary(route?.kind === "vault" ? route.view : "gallery");
+  navigation = new PageNavigation(
+    current && !library ? { kind: "page", id: current.id } : { kind: "vault", view: libraryView },
+    (route, isCurrent, allowTrashed) => route.kind === "page" ? loadPage(route.id, allowTrashed, isCurrent) : loadLibrary(route.view, isCurrent),
+    updateNavigationButtons,
+    report,
+  );
+  updateNavigationButtons();
+  startReminders(() => pages, vaultPath, toast);
+  setInterval(() => {
+    captureEditor();
+    if (
+      dirty ||
+      editorChanged ||
+      saving ||
+      conflict ||
+      pageActionBusy ||
+      sidebarDrag.isDragging() ||
+      document.querySelector(".page-context-menu") ||
+      document.querySelector("#dialog, .people-dialog[open]")
+    )
+      return;
+    void (async () => {
+      const latest = await api<Page[]>("/pages");
+      const changed =
+        JSON.stringify(latest.map((p) => [p.id, p.revision])) !==
+        JSON.stringify(pages.map((p) => [p.id, p.revision]));
+      captureEditor();
+      if (dirty || editorChanged || saving || conflict || pageActionBusy || sidebarDrag.isDragging() || document.querySelector("#dialog, .page-context-menu, .page-metadata-dialog[open], .people-dialog[open]") || !changed) return;
+      pages = latest;
+      renderSidebar();
+      if (library) renderLibrary();
+      else if (current) {
+        const latestCurrent = latest.find((p) => p.id === current!.id);
+        if (!latestCurrent) {
+          destroyEditor();
+          current = null;
+          await showLibrary();
+          toast("This page was moved to Trash or removed externally.");
+          return;
+        }
+        if (latestCurrent && latestCurrent.revision !== current.revision) {
+          destroyEditor();
+          current = latestCurrent;
+          renderDocument();
+          toast("Loaded external changes to the Markdown file.");
+        }
+      }
+    })().catch((error) => console.warn("Workspace refresh:", error));
+  }, 5000);
+}
+void boot().catch((error) => {
+  app.innerHTML = `<div class="boot-error"><h1>Unable to open the vault</h1><p>${e(error instanceof Error ? error.message : error)}</p><p>Make sure the local server is running:<code>npm run dev</code></p><button onclick="location.reload()">Retry</button></div>`;
+});
+document.addEventListener(openPeopleEvent, event => {
+  captureEditor();
+  closeModal();
+  openPeople((event as CustomEvent).detail);
+});

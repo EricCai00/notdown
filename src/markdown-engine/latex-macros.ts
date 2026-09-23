@@ -1,7 +1,7 @@
 import type MarkdownIt from "markdown-it";
 import type { Node as PMNode } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
-import { editorSchema as schema } from "../editor-schema";
+import { editorSchema as schema } from "../document/editor-schema";
 import { enabled, type SyntaxConfig } from "./config";
 
 /** Read balanced command definitions; a malformed definition stays literal. */

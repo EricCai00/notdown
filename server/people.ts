@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { Document, isMap, parseDocument } from "yaml";
 import { VaultError, assertId } from "./vault.js";
-import { personFields, type Person, type PersonInput } from "../src/person.js";
+import { personFields, type Person, type PersonInput } from "../src/features/people/person.js";
 
 type Storage = {
   root: string;

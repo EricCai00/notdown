@@ -1,6 +1,6 @@
 import type { Node as PMNode } from "prosemirror-model";
 import { metadataValues } from "./products.js";
-import { escapeXml } from "../notion-syntax.js";
+import { escapeXml } from "../document/notion-syntax.js";
 import { renderRawHtml } from "./html.js";
 
 export function syntaxHtml(node: PMNode) {

@@ -1,7 +1,7 @@
 import snapshot from "../../docs/data/pandoc-3.11-extensions.json";
 
 // Audited against upstream specifications, not Pandoc's similarly named readers.
-// Sources and intentional limitations: docs/DIALECT-CONFORMANCE.md.
+// Sources and intentional limitations: docs/reference/DIALECT-CONFORMANCE.md.
 const flags = (names: string): Record<string, boolean> =>
   Object.fromEntries(names.split(/\s+/).filter(Boolean).map(name => [name, true]));
 const common = flags("raw_html backtick_code_blocks fenced_code_blocks all_symbols_escapable escaped_line_breaks intraword_underscores space_in_atx_header shortcut_reference_links startnum lists_without_preceding_blankline");

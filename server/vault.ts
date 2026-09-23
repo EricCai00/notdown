@@ -3,11 +3,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parseDocument, Document, isMap } from "yaml";
 import { replaceFile } from "./file-replace.js";
-import { trashedPageIds } from "../src/page-hierarchy.js";
+import { trashedPageIds } from "../src/features/pages/page-hierarchy.js";
 import { recycleFile } from "./recycle-file.js";
 import { createPeople } from "./people.js";
-import { comparePageOrder, orderBetween, pageOrderKey, type PageMoveInput } from "../src/page-order.js";
-import type { BodyFormat } from "../src/notion-syntax.js";
+import { comparePageOrder, orderBetween, pageOrderKey, type PageMoveInput } from "../src/features/pages/page-order.js";
+import type { BodyFormat } from "../src/document/notion-syntax.js";
 import {
   validSyntax,
   syntaxFormat,

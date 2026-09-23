@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const testPort = Number(process.env.NOTDOWN_E2E_PORT || 4329);
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./tests/e2e",
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
   workers: 1,
@@ -26,7 +26,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "node --import tsx e2e/server.ts",
+    command: "node --import tsx tests/e2e/server.ts",
     url: `http://127.0.0.1:${testPort}/api/status`,
     reuseExistingServer: false,
     timeout: 30_000,

@@ -1,18 +1,19 @@
-import { hasSupplementalAttributes, needsMarkdownTable, canConvertNotionTable } from "../notdown-boundary";
-import { objectTags } from "../object-model";
+import { hasSupplementalAttributes, needsMarkdownTable, canConvertNotionTable } from "../document/notdown-boundary";
+import { encodeCodeCaption } from "../document/code-caption";
+import { objectTags } from "../document/object-model";
 import { localObjectPlugins } from "./presets";
-import { isListItem } from "../list-items";
-import { readObjectBlock, writeObjectBlock } from "../object-codec";
+import { isListItem } from "../document/list-items";
+import { readObjectBlock, writeObjectBlock } from "../document/object-codec";
 import { installAdvancedRules, listMarker } from "./advanced";
 import { installReferenceOptions } from "./reference-options";
 import { installDocumentOptions } from "./document-options";
 import { installLatexMacros } from "./latex-macros";
 import { installPandocTables, writeGridTable, writeSimpleTable } from "./pandoc-tables";
-import { multiMarkdownTable } from "../table-markdown";
+import { multiMarkdownTable } from "../document/table-markdown";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import type { Node as PMNode } from "prosemirror-model";
-import { editorSchema as schema } from "../editor-schema.js";
+import { editorSchema as schema } from "../document/editor-schema.js";
 import {
   parseEditorMarkdown,
   parseInline,
@@ -20,13 +21,13 @@ import {
   inlineMarkdown,
   blockMarkdown,
   editorFingerprint,
-} from "../editor-markdown.js";
+} from "../document/editor-markdown.js";
 import {
   parseNotionMarkdown,
   serializeNotionMarkdown,
   notionBlockMarkdown,
-} from "../notion-markdown.js";
-import { openingTag } from "../notion-syntax.js";
+} from "../document/notion-markdown.js";
+import { openingTag } from "../document/notion-syntax.js";
 import {
   enabled,
   nativeDialect,
@@ -87,6 +88,9 @@ const tags = new Set([
 
 function unavailable(node: PMNode, config: SyntaxConfig): boolean {
   if (node.type.name === "image_block") return true;
+  if (node.type.name === "code_block" &&
+      (node.attrs.markdownAttrs?.caption !== undefined || node.attrs.nfmAttrs?.caption !== undefined) &&
+      (config.variant === "notion-markdown" || config.variant === "notdown" && !enabled(config, "fenced_code_attributes"))) return true;
   if (config.variant !== "notdown" && hasSupplementalAttributes(node)) return true;
   if (config.variant === "notion-markdown" && needsMarkdownTable(node)) return true;
   if (node.type.name === "heading" && node.attrs.toggle && !enabled(config, "notion_nesting")) return true;
@@ -722,6 +726,7 @@ function writeBlock(node: PMNode, config: SyntaxConfig): string {
   if (node.type.name === "code_block" && attrs.literate === "bird") return node.textContent.split("\n").map(line => "> " + line).join("\n");
   if (node.type.name === "code_block" && Object.keys(attrs).length) {
     const lines = written.split("\n");
+    if (attrs.caption !== undefined) attrs.caption = encodeCodeCaption(String(attrs.caption));
     lines[0] += writeAttributes(attrs);
     return lines.join("\n");
   }
@@ -911,7 +916,8 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
 }
 export function serializeNative(doc: PMNode, config: SyntaxConfig): string {
   if (config.variant !== "notdown") doc.descendants(node => {
-    if (localObjectPlugins[node.type.name] || hasSupplementalAttributes(node) || config.variant === "notion-markdown" && needsMarkdownTable(node))
+    if (localObjectPlugins[node.type.name] || hasSupplementalAttributes(node) || config.variant === "notion-markdown" &&
+        (needsMarkdownTable(node) || node.type.name === "code_block" && node.attrs.markdownAttrs?.caption !== undefined))
       throw new Error("Supplemental Notion content can only be written in the Notdown variant. Preserve the original source or switch variants.");
   });
   if (config.variant === "notdown") return serializeEditorMarkdown(doc, node => writeNotdownBlock(node, config));

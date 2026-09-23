@@ -8,7 +8,7 @@ import { tags } from "@lezer/highlight";
 import DOMPurify from "dompurify";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import "../notion-blocks.css";
+import "../editor/notion-blocks.css";
 import "./style.css";
 import {
   variants,
@@ -54,16 +54,23 @@ const draft: Draft = {
   filename: "Untitled.md",
   sync: true,
 };
+let migratedLegacyPandoc = false;
 try {
   const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
   if (
     saved &&
     typeof saved.source === "string" &&
-    saved.source.length <= 128_000 &&
-    variants.some((item) => item.id === saved.variant)
+    saved.source.length <= 128_000
   ) {
     draft.source = saved.source;
-    draft.variant = saved.variant;
+    // Older sessions may have selected the redundant direct Pandoc entry.
+    // Keep the source and use the equivalent Pandoc Markdown reader.
+    migratedLegacyPandoc = saved.variant === "pandoc-cli";
+    draft.variant = saved.variant === "pandoc-cli"
+      ? "markdown"
+      : variants.some((item) => item.id === saved.variant)
+        ? saved.variant
+        : draft.variant;
     if (typeof saved.filename === "string") draft.filename = saved.filename;
     draft.sync = saved.sync !== false;
     if (Array.isArray(saved.plugins))
@@ -92,7 +99,7 @@ $("#lab").innerHTML = `
     <div class="file-actions"><button id="open-file"><span aria-hidden="true">↥</span> Open file</button><button id="download" class="primary"><span aria-hidden="true">↓</span> Download Markdown</button></div>
   </header>
   <div class="lab-toolbar">
-    <div class="format-control"><label for="variant">Renderer / dialect</label><select id="variant"><optgroup label="External programs">${rendererOptions("direct")}</optgroup><optgroup label="Pandoc dialect readers">${rendererOptions("pandoc")}</optgroup><optgroup label="Notdown codecs">${rendererOptions("notdown")}</optgroup></select><button id="configure">Extensions and plugins <span id="extension-count"></span></button></div>
+    <div class="format-control"><label for="variant">Renderer / dialect</label><select id="variant"><optgroup label="Other external programs">${rendererOptions("direct")}</optgroup><optgroup label="Pandoc readers (Pandoc CLI)">${rendererOptions("pandoc")}</optgroup><optgroup label="Notdown codecs">${rendererOptions("notdown")}</optgroup></select><button id="configure">Extensions and plugins <span id="extension-count"></span></button></div>
     <div class="view-controls"><details id="examples"><summary>Load example <span aria-hidden="true">⌄</span></summary><div class="example-menu"><button data-example="gfm">Markdown introduction</button><button data-example="notion-markdown">Notion blocks and columns</button></div></details><button id="sync" aria-pressed="true"><span aria-hidden="true">⇅</span> Sync scrolling</button></div>
   </div>
   <main class="lab-workspace">
@@ -476,7 +483,7 @@ function updateExtensions() {
     (name) => overrides[name] ?? defaults[name],
   ).length;
   $("#extension-count").textContent = direct ? "" : String(active + draft.plugins.length);
-  $("#settings-variant").textContent = selectedVariant.short;
+  $("#settings-variant").textContent = selectedVariant.label;
   const query = $<HTMLInputElement>("#extension-search").value.toLowerCase();
   const labels = draft.variant === "notdown" ? Object.fromEntries(nativeExtensions.map(ext => [ext.id, ext.label])) : extensionLabels;
   $("#extension-note").textContent =
@@ -634,6 +641,7 @@ fileInput.onchange = async () => {
 updateSync();
 updatePosition();
 updateExtensions();
+if (migratedLegacyPandoc) persist();
 void fetch("/api/markdown/capabilities")
   .then(async (response) => {
     if (!response.ok) throw new Error("Unable to read renderer capabilities");

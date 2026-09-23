@@ -1,82 +1,68 @@
 /** Lab profiles are independent of vault BodyFormat until edit/save codecs exist. */
+import { dialects, type Dialect } from "../markdown-engine/config";
+
+const dialectLabel = (id: Dialect) => dialects.find((dialect) => dialect.id === id)!.label;
+
 export const variants = [
   {
     id: "gfm",
-    label: "GitHub Flavored Markdown",
-    short: "GitHub Flavored Markdown",
+    label: dialectLabel("gfm"),
     engine: "pandoc",
   },
   {
     id: "commonmark",
-    label: "CommonMark",
-    short: "CommonMark",
+    label: dialectLabel("commonmark"),
     engine: "pandoc",
   },
   {
     id: "commonmark_x",
-    label: "CommonMark + extensions",
-    short: "CommonMark X",
+    label: dialectLabel("commonmark_x"),
     engine: "pandoc",
   },
   {
     id: "markdown",
-    label: "Pandoc Markdown",
-    short: "Pandoc",
+    label: dialectLabel("markdown"),
     engine: "pandoc",
   },
   {
     id: "markdown_mmd",
-    label: "Pandoc · MultiMarkdown reader",
-    short: "Pandoc MultiMarkdown",
+    label: dialectLabel("markdown_mmd"),
     engine: "pandoc",
   },
   {
     id: "markdown_phpextra",
-    label: "PHP Markdown Extra",
-    short: "PHP Extra",
+    label: dialectLabel("markdown_phpextra"),
     engine: "pandoc",
   },
   {
     id: "markdown_strict",
-    label: "Original Markdown",
-    short: "Original Markdown",
+    label: dialectLabel("markdown_strict"),
     engine: "pandoc",
   },
   {
     id: "markdown_github",
-    label: "Legacy GitHub Markdown",
-    short: "Legacy GitHub",
+    label: dialectLabel("markdown_github"),
     engine: "pandoc",
     deprecated: true,
   },
   {
-    id: "pandoc-cli",
-    label: "Pandoc CLI · direct HTML",
-    short: "Pandoc CLI",
-    engine: "pandoc-cli",
-  },
-  {
     id: "multimarkdown-cli",
     label: "libMultiMarkdown CLI · direct HTML",
-    short: "libMultiMarkdown CLI",
     engine: "multimarkdown-cli",
   },
   {
     id: "markdown-pl",
     label: "Markdown.pl · direct HTML",
-    short: "Markdown.pl",
     engine: "markdown-pl",
   },
   {
     id: "notdown",
-    label: "Notdown",
-    short: "Notdown",
+    label: dialectLabel("notdown"),
     engine: "notdown",
   },
   {
     id: "notion-markdown",
-    label: "Notion-flavored Markdown",
-    short: "Notion",
+    label: dialectLabel("notion-markdown"),
     engine: "notdown",
   },
 ] as const;
@@ -92,7 +78,7 @@ export interface Capabilities {
   error?: string;
   extensions: Partial<Record<Variant, Record<string, boolean>>>;
   sourcePositions: Partial<Record<Variant, boolean>>;
-  renderers?: Partial<Record<"pandoc-cli" | "multimarkdown-cli" | "markdown-pl", {
+  renderers?: Partial<Record<"multimarkdown-cli" | "markdown-pl", {
     available: boolean;
     version: string;
     error?: string;

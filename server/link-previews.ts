@@ -7,7 +7,7 @@ import {
   linkTarget,
   type LinkPreviewData,
   type LinkTarget,
-} from "../src/link-preview";
+} from "../src/features/links/link-preview";
 
 type Credentials = { github: string; onedrive: string };
 const text = (v: unknown, limit = 500) =>

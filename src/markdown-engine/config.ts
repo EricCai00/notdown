@@ -1,6 +1,6 @@
 import { dialectDefaults, localObjectPlugins } from "./presets";
 export { dialectDefaults, localObjectPlugins } from "./presets";
-import type { BodyFormat } from "../notion-syntax.js";
+import type { BodyFormat } from "../document/notion-syntax.js";
 import { nativeAdvancedExtensions, advancedDescriptions } from "./advanced-definitions";
 import pandocSnapshot from "../../docs/data/pandoc-3.11-extensions.json";
 
@@ -441,6 +441,7 @@ export function resetExtensions(config: SyntaxConfig): Record<string, boolean> {
 }
 export function commandEnabled(config: SyntaxConfig, command: string) {
   if (command === "notion_custom") return config.variant === "notdown";
+  if (command === "code_caption") return config.variant !== "notion-markdown" && enabled(config, "fenced_code_attributes");
   if (command === "image_block") return false;
   if (command === "embed") return enabled(config, "notion_web_embed") || (!usesNotionSyntax(config) && enabled(config, "html_embed"));
   if (/^heading[1-6]$/.test(command)) return config.variant !== "notion-markdown" || Number(command.slice(-1)) <= 4;

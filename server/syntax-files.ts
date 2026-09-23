@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { parseNative } from "../src/markdown-engine/codec.js";
-import { renderNotionMarkdown } from "../src/document-format.js";
+import { renderNotionMarkdown } from "../src/document/document-format.js";
 import {
   validSyntax,
   type SyntaxConfig,

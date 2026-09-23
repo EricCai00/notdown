@@ -3,7 +3,7 @@ param([switch]$OpenBrowser)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $node = (Get-Command node.exe -ErrorAction Stop).Source
-$logDirectory = Join-Path $projectRoot '.run'
+$logDirectory = Join-Path $projectRoot '.run/logs'
 $url = 'http://127.0.0.1:4317/'
 $vaultSetting = $env:VAULT_PATH
 if ([string]::IsNullOrWhiteSpace($vaultSetting)) {
@@ -26,7 +26,7 @@ function Test-WebService {
     try {
         $page = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 2
         return $page.StatusCode -eq 200 -and $page.Content.Contains('id="app"') -and
-            ($page.Content.Contains('/src/main.ts') -or $page.Content.Contains('/static/index-'))
+            ($page.Content.Contains('/src/app/main.ts') -or $page.Content.Contains('/static/index-'))
     } catch { return $false }
 }
 
@@ -77,7 +77,7 @@ while ((Get-Date) -lt $deadline) {
     }
     if ((Test-VaultService 4318) -and (Test-WebService) -and (Test-VaultService 4317)) {
         try {
-            $asset = Invoke-WebRequest -UseBasicParsing -Uri "${url}src/prosemirror-editor.ts" -TimeoutSec 3
+            $asset = Invoke-WebRequest -UseBasicParsing -Uri "${url}src/editor/prosemirror-editor.ts" -TimeoutSec 3
             $ready = $asset.StatusCode -eq 200 -and $asset.Content.Contains('EditorView')
         } catch { $ready = $false }
         if ($ready) { break }

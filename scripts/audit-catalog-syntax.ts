@@ -1,6 +1,6 @@
 /** Read-only codec audit; never opens a vault or resolves external resources. */
 import { mkdirSync, writeFileSync } from "node:fs";
-import { syntaxGuides } from "../src/catalog-syntax-index";
+import { syntaxGuides } from "../src/catalog/catalog-syntax-index";
 import { parseNative, serializeNative } from "../src/markdown-engine/codec";
 import type { SyntaxConfig } from "../src/markdown-engine/config";
 

@@ -3,7 +3,7 @@ import { isIP } from "node:net";
 import { get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import { parse, type DefaultTreeAdapterMap } from "parse5";
-import { bookmarkUrl, type BookmarkMetadata } from "../src/bookmark";
+import { bookmarkUrl, type BookmarkMetadata } from "../src/features/bookmarks/bookmark";
 import { VaultError } from "./vault";
 
 // Requests are pinned to the checked IPv4 address, including after redirects.

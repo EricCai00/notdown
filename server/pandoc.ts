@@ -5,8 +5,8 @@ import path from "node:path";
 import { parseFragment, serialize } from "parse5";
 import MarkdownIt from "markdown-it";
 import { z } from "zod";
-import { renderNotionMarkdown } from "../src/document-format.js";
-import { parseNotionMarkdown } from "../src/notion-markdown.js";
+import { renderNotionMarkdown } from "../src/document/document-format.js";
+import { parseNotionMarkdown } from "../src/document/notion-markdown.js";
 import { parseNative } from "../src/markdown-engine/codec.js";
 import { supportsOption } from "../src/markdown-engine/config.js";
 import {
@@ -267,7 +267,6 @@ export async function getMarkdownLabCapabilities(): Promise<Capabilities> {
   return {
     ...pandocCapabilities,
     renderers: {
-      "pandoc-cli": publicStatus({ available: pandocCapabilities.available, version: pandocCapabilities.version, error: pandocCapabilities.error }),
       "multimarkdown-cli": publicStatus(multimarkdown),
       "markdown-pl": publicStatus(markdownPl),
     },
@@ -325,26 +324,16 @@ export async function renderPreview(
   if (!parsed.success)
     throw new PreviewError("Invalid preview options or content exceeds 128,000 characters", 400);
   const { source, variant, extensions, plugins } = parsed.data;
-  if (variant === "pandoc-cli" || variant === "multimarkdown-cli" || variant === "markdown-pl") {
+  if (variant === "multimarkdown-cli" || variant === "markdown-pl") {
     if (Object.keys(extensions).length || plugins.length)
       throw new PreviewError("Direct renderers do not accept Lab extensions or block plugins", 400);
-    let html: string;
-    let engine: string;
-    if (variant === "pandoc-cli") {
-      const capabilities = await getPandocCapabilities();
-      if (!capabilities.available) throw new PreviewError(capabilities.error || "Pandoc unavailable", 503);
-      html = await pandoc(["--sandbox", "-f", "markdown", "-t", "html5", "--mathjax", "--wrap=none"], source, signal);
-      engine = capabilities.version;
-    } else {
-      const program = (await getExternalPrograms())[variant];
-      if (!program.available || !program.executable || !program.args)
-        throw new PreviewError(program.error || `${program.version} unavailable`, 503);
-      html = await runProgram(program.executable, program.args, source, signal, program.version);
-      engine = program.version;
-    }
+    const program = (await getExternalPrograms())[variant];
+    if (!program.available || !program.executable || !program.args)
+      throw new PreviewError(program.error || `${program.version} unavailable`, 503);
+    const html = await runProgram(program.executable, program.args, source, signal, program.version);
     return {
       html,
-      engine,
+      engine: program.version,
       blocks: parseFragment(html).childNodes.filter((node: any) => !!node.tagName).length,
       mapping: "proportional",
       warnings: ["This renderer does not report source positions; scroll sync follows document progress."],

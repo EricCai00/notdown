@@ -1,0 +1,47 @@
+import { test, expect } from "@playwright/test";
+
+test("page icon picker searches the full catalog and remembers the selected graphic style", async ({ page, request }) => {
+  test.setTimeout(60_000);
+  const response = await request.post("/api/pages", { data: { title: "Emoji picker", icon: "file-text", body: "Body 😀 👋🏽" } });
+  expect(response.status()).toBe(201);
+  const note = await response.json();
+  await page.goto(`/#page/${note.id}`);
+  await page.locator("#page-title").hover();
+  await page.getByRole("button", { name: "Add icon", exact: true }).click();
+
+  const picker = page.getByRole("dialog", { name: "Choose page icon" });
+  await expect(picker.locator(".pm-emoji-result-status")).toContainText("3972 emoji");
+  await picker.getByRole("combobox", { name: "Emoji style" }).selectOption("noto");
+  await expect(page.locator("html")).toHaveAttribute("data-emoji-style", "noto");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontFamily)).toContain("Notdown Noto Emoji");
+  await expect.poll(() => page.locator(".pm-document").evaluate(element => getComputedStyle(element).fontFamily)).toContain("Notdown Noto Emoji");
+  expect(await page.evaluate(async () => (await document.fonts.load('24px "Notdown Noto Emoji"', "😀")).length)).toBeGreaterThan(0);
+  await page.screenshot({ path: "test-results/emoji-style-noto.png" });
+  await picker.getByRole("searchbox").fill("beacon");
+  await picker.getByRole("button", { name: "lighthouse", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Change page icon", exact: true })).toHaveText("🛙");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).icon).toBe("🛙");
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-emoji-style", "noto");
+  await page.getByRole("button", { name: "Change page icon", exact: true }).click();
+  await picker.getByRole("combobox", { name: "Emoji style" }).selectOption("openmoji");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontFamily)).toContain("Notdown OpenMoji");
+  await expect.poll(() => page.locator(".pm-document").evaluate(element => getComputedStyle(element).fontFamily)).toContain("Notdown OpenMoji");
+  expect(await page.evaluate(async () => (await document.fonts.load('24px "Notdown OpenMoji"', "😀")).length)).toBeGreaterThan(0);
+  await page.screenshot({ path: "test-results/emoji-style-openmoji.png" });
+  await picker.getByRole("searchbox").fill("woman technologist medium skin tone");
+  await picker.getByRole("button", { name: "woman technologist: medium skin tone", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Change page icon", exact: true })).toHaveText("👩🏽‍💻");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).icon).toBe("👩🏽‍💻");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-emoji-style", "openmoji");
+  await expect(page.getByRole("button", { name: "Change page icon", exact: true })).toHaveText("👩🏽‍💻");
+  await page.locator('.sidebar-bottom [data-action="settings"]').click();
+  const settings = page.getByRole("dialog");
+  await expect(settings.getByRole("heading", { name: "Workspace settings" })).toBeVisible();
+  await settings.getByRole("combobox", { name: "Emoji style" }).selectOption("system");
+  await expect(page.locator("html")).toHaveAttribute("data-emoji-style", "system");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-emoji-style", "system");
+});

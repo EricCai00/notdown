@@ -1,10 +1,10 @@
 import { localObjectPlugins } from "../../src/markdown-engine/presets";
 /** User-visible acceptance specimens. Pure builder: importing never opens a vault. */
 import { dialects, enabled, extensions, usesNotionSyntax, type SyntaxConfig, type Dialect } from "../../src/markdown-engine/config";
-import { contentObjects, resolveContentObject, resolveMarkObject } from "../../src/content-objects";
-import { blockCatalog } from "../../src/block-catalog-data";
-import { catalogExtensions } from "../../src/catalog-relations";
-import { objectSamples } from "../../src/object-model";
+import { contentObjects, resolveContentObject, resolveMarkObject } from "../../src/document/content-objects";
+import { blockCatalog } from "../../src/catalog/block-catalog-data";
+import { catalogExtensions } from "../../src/catalog/catalog-relations";
+import { objectSamples } from "../../src/document/object-model";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 
 export type Resources = { image: string; audio: string; video: string; pdf: string; text: string; bibliography: string; target: string };

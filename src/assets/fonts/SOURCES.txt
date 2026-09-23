@@ -1,0 +1,9 @@
+Noto-COLRv1.ttf
+  https://github.com/googlefonts/noto-emoji/blob/06121655d0e82f9cae6e7ba6feed4fa6fdbfc2a4/2D/fonts/Noto-COLRv1.ttf
+  SHA-256: B8E25EA68DB82F9E4D0AEE921F4420BE2BE39887BD5C893A2AD98710531F9D0C
+  License: SIL Open Font License 1.1 (LICENSE-Noto.txt)
+
+OpenMoji-color.woff2
+  https://github.com/hfg-gmuend/openmoji/blob/aeb8bb3a59e2de39c754ac79180c8131c906acea/font/OpenMoji-color-glyf_colr_0/OpenMoji-color-glyf_colr_0.woff2
+  SHA-256: 918126B7359C661BFF26F9DE2D917A540541321F7ADC008F7CE7893A81E4F165
+  License: Creative Commons Attribution-ShareAlike 4.0 (LICENSE-OpenMoji.txt)

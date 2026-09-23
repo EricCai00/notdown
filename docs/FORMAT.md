@@ -1,32 +1,36 @@
 # Markdown 正文格式 v0.4：方言配置与 Notion Enhanced Markdown
 
+2026-09-23 代码块交互：页面代码块提供语言搜索/切换、复制和 `Wrap code` 显示开关。换行只改变视图，不插入换行符、不改变 Markdown。Notion Block API 的代码块有 caption，但官方 Enhanced Markdown 的代码围栏只定义语言与正文，未定义 caption 编码。`syntax.variant: notdown` 且启用既有 `fenced_code_attributes` 时，单行纯文本 caption 复用 Pandoc 围栏属性，如 `` ```python {caption="说明"} ``；其他围栏属性和原文保留。`notion-markdown` 不新写或解释该属性，遇到带 caption 的围栏保留可恢复源码；页面菜单提示切换到 Notdown。其他 Markdown 方言仅在其 `fenced_code_attributes` 生效时可编辑 caption。本地 caption 不等同于 Notion API 的富文本 caption，无云端往返承诺。
+
 2026-09-23 脚注展示：`[^id]` 与 `[^id]: 正文` 的文件语法不变。页面将定义集中显示在一条横线后的文末区域，按首次引用顺序编号，重复引用复用编号，未引用定义保留在后；原 ID、定义原位置和未知内容不因显示排序而改写。`footnote_anchor` / `footnote_section` / `footnoteKey` 仅为编辑器呈现信息，序列化前还原，不写入 Markdown 或 YAML。定义可编辑，不作为可拖拽的独立页面块。
 
-2026-09-23 最终边界（覆盖下文历史说明）：Notdown 集合已有 Markdown 方言与 Notion。自定义正文语法仅用于补足官方 Enhanced Markdown 不支持的 Notion block、已有 block 的属性、inline 和 style，且只能在 `syntax.variant: notdown` 启用；`notion-markdown` 仅启用官方文档定义的语法，显式扩展开关也不能越过此边界。能用已有方言表达的内容复用该方言，不能另造重复协议。旧文件和未知字段必须可恢复保留，不批量迁移用户内容。 `local_figure` 已移除，旧自定义指令仅原文保留；Lab 专用围栏已停用。日期提醒/格式、列宽、折叠 open、本地同步参数属于 Notdown 专用补充属性，官方 variant 不解释、不新写。官方日期使用 start/end/startTime/timeZone。复杂表格使用已有 Pandoc grid table。详见 [整改清单](CUSTOM-SYNTAX-AUDIT-2026-09-23.md)。
+2026-09-23 最终边界（覆盖下文历史说明）：Notdown 集合已有 Markdown 方言与 Notion。自定义正文语法仅用于补足官方 Enhanced Markdown 不支持的 Notion block、已有 block 的属性、inline 和 style，且只能在 `syntax.variant: notdown` 启用；`notion-markdown` 仅启用官方文档定义的语法，显式扩展开关也不能越过此边界。能用已有方言表达的内容复用该方言，不能另造重复协议。旧文件和未知字段必须可恢复保留，不批量迁移用户内容。 `local_figure` 已移除，旧自定义指令仅原文保留；Lab 专用围栏已停用。日期提醒/格式、列宽、折叠 open、本地同步参数属于 Notdown 专用补充属性，官方 variant 不解释、不新写。官方日期使用 start/end/startTime/timeZone。复杂表格使用已有 Pandoc grid table。详见 [整改清单](./audits/CUSTOM-SYNTAX-AUDIT-2026-09-23.md)。
 
-2026-09-23 People：本地联系人使用独立 `people/<uuid>.yaml`；正文沿用 `<mention-user url="person://<uuid>">后备姓名</mention-user>`，`person://` 是 Notdown 本地身份，不等同于 Notion 用户的 `user://`。改名不批量改写正文，编辑器按稳定 ID 显示当前姓名，离线导出／联系人文件缺失时保留后备姓名；删除设置 `deleted: true`，已有引用与联系人文件可恢复。联系人更新、删除、恢复经 `createVault.people` 使用 `baseRevision`，历史与冲突保存在 `.history/people/`，未知 YAML 字段和注释保留。代码围栏、未知提及属性和已有外部用户引用保持原规则；详见 [People](PEOPLE.md)。
+2026-09-23 People：本地联系人使用独立 `people/<uuid>.yaml`；正文沿用 `<mention-user url="person://<uuid>">后备姓名</mention-user>`，`person://` 是 Notdown 本地身份，不等同于 Notion 用户的 `user://`。改名不批量改写正文，编辑器按稳定 ID 显示当前姓名，离线导出／联系人文件缺失时保留后备姓名；删除设置 `deleted: true`，已有引用与联系人文件可恢复。联系人更新、删除、恢复经 `createVault.people` 使用 `baseRevision`，历史与冲突保存在 `.history/people/`，未知 YAML 字段和注释保留。代码围栏、未知提及属性和已有外部用户引用保持原规则；详见 [People](./features/PEOPLE.md)。
 
-2026-09-22 内容合集修订：`syntax.variant: notdown` 在 Notion 结构边界上接入项目现有 Markdown 内容扩展，H5/H6 保留；`notion-markdown` 不变。`[^label]` 在 Notdown 默认作为脚注引用，容器内混合子块通过各自编码写回；未知属性与未改原文保留。默认内容扩展、语法优先级和服务边界见 [Notdown 内容合集](NOTDOWN-SUPERSET.md)。本条覆盖下文将 Notdown 等同于原 Notion codec 能力范围的历史说明。
+2026-09-22 内容合集修订：`syntax.variant: notdown` 在 Notion 结构边界上接入项目现有 Markdown 内容扩展，H5/H6 保留；`notion-markdown` 不变。`[^label]` 在 Notdown 默认作为脚注引用，容器内混合子块通过各自编码写回；未知属性与未改原文保留。默认内容扩展、语法优先级和服务边界见 [Notdown 内容合集](./reference/NOTDOWN-SUPERSET.md)。本条覆盖下文将 Notdown 等同于原 Notion codec 能力范围的历史说明。
 
 2026-09-22 页面元数据展示：Properties 折叠区以图标和摘要呈现页面 YAML 属性及正文开头已识别的 YAML / MultiMarkdown metadata、Pandoc title block，点击直接打开带高亮的代码编辑器。源码提交校验单一元数据边界并作为一次可撤销事务；原节点继续属于同一个 ProseMirror 文档，源码顺序和保存载体不变。Pandoc title 与外层页面 title 双向联动，编辑页面标题只改标题块第一字段，保留作者、日期及正文；已有不一致页面以非空有效 Pandoc title 为准通过 CAS 更新页面标题。YAML / MMD 的同名 title、所有 author 等字段不合并。页面图标写既有 `icon`，空字符串表示移除；封面继续写 `properties.cover`，不新增正文标签。
+
+2026-09-23 封面图库与位置：内置 Gallery 选择使用稳定的 `/page-covers/<文件名>` 路径，上传封面继续使用当前知识库的 `assets/` 路径；外部 HTTP(S) 图片地址仍可用。纵向位置写页面 YAML 的 `properties.coverPosition`，为 0–100 的数字，缺省按 50 居中；更换封面时清除旧位置。两者均是页面属性，与正文 Markdown 方言无关；旧封面地址、未知 YAML 字段和正文保持原样，保存仍使用 `baseRevision`。
 
 2026-09-22 日期交互修订：继续使用 `<mention-date start="YYYY-MM-DD" end="…"/>`；`<mention-date/>` 是可点击的日期空态。包含时间时写 ISO 日期时间及明确 UTC 偏移。`reminder` 沿用本地提醒的绝对 ISO 时间；新增本地可选 `reminder-offset`（相对 start 提前的分钟数，无时间时以当日 09:00 为基准）、`date-format`（relative/full/iso/us/eu）、`time-format`（12/24）和 `time-zone`（local、Z 或固定偏移）。设置偏移后日期变更重新计算提醒；导入的独立 reminder 时间在用户未选择相对提醒前原样保留。相对日期显示根据 start 动态计算，不把 Today 写成日期真相；原标签文字和未知属性保留，未编辑日期不迁移。新选项是 Notdown 本地扩展，并非宣称完整实现 Notion 的日期编码或通知服务。
 
 2026-09-22 嵌入修订：HTML 文档继续使用 `<html-embed>`，正文中的 `&`、`<`、`>` 按 XML 转义，包含代码围栏的 HTML 仍按文本读取；`<html-embed/>` 表示待输入的空块。新增本地 `<web-embed url="https://example.com" title="…"/>`，`<web-embed/>` 表示待填写链接，属于 `local_web_embed` 扩展，仅在 Notdown 可用并默认开启。两者均保留未知属性；HTML 上传读取文件内容写入正文，不复制其相对路径资源。HTML 使用禁用脚本的 sandbox iframe；Web 仅预览 HTTP(S) URL，禁止同源权限。已有 Typora `<iframe>` 沿用原载体和未知属性，不转换成新标签。编辑通过 ProseMirror 事务与现有 CAS 保存，不写缓存块 JSON。
 
-2026-09-22 Button 修订：`local_button` 的本地 `<button>` 标签新增 `icon`、`variant` 和 XML 转义的 JSON `actions`；旧 `action/target` 及未知字段保留，不批量迁移正文。未闭合模板边界禁止执行，正文变更仍走单次可撤销事务和页面 CAS。它不是 Notion 官方自动化编码，详见 [Button 本地契约](LOCAL-OBJECTS.md#button)。
+2026-09-22 Button 修订：`local_button` 的本地 `<button>` 标签新增 `icon`、`variant` 和 XML 转义的 JSON `actions`；旧 `action/target` 及未知字段保留，不批量迁移正文。未闭合模板边界禁止执行，正文变更仍走单次可撤销事务和页面 CAS。它不是 Notion 官方自动化编码，详见 [Button 本地契约](./reference/LOCAL-OBJECTS.md#button)。
 
-2026-09-22 方言边界修正：新增 `syntax.variant: notdown`，沿用 Notion-flavored Markdown 的语法与 `bodyFormat: notion-markdown`，默认开启全部十类 Notdown 块扩展；显式关闭值仍优先。上游方言仍按各自规范定义默认值，这些项目块默认关闭。`local_*` 仅保留为已有配置的兼容键，界面改称 Notdown blocks。选择方言或开关不会改写正文；旧内容、未知字段和未知配置均保留。详见[方言核对与扩展说明](DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
+2026-09-22 方言边界修正：新增 `syntax.variant: notdown`，沿用 Notion-flavored Markdown 的语法与 `bodyFormat: notion-markdown`，默认开启全部十类 Notdown 块扩展；显式关闭值仍优先。上游方言仍按各自规范定义默认值，这些项目块默认关闭。`local_*` 仅保留为已有配置的兼容键，界面改称 Notdown blocks。选择方言或开关不会改写正文；旧内容、未知字段和未知配置均保留。详见[方言核对与扩展说明](./reference/DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
 
-2026-09-21 元数据修订：MMD metadata 与 YAML front matter 归为一个产品对象，各自保留编码规则。MMD 使用顶格 ASCII 键和纯文本值，键忽略大小写/空格，支持可选分隔符及多行值；不按完整 YAML 转换类型。正文 metadata 不覆盖页面 YAML。Database reference 对象及专用节点已移除，已有标签归入 Unsupported 原文保留。详细规则与其余表外格式依据见[元数据与兼容格式说明](METADATA-AND-COMPATIBILITY.md)。
+2026-09-21 元数据修订：MMD metadata 与 YAML front matter 归为一个产品对象，各自保留编码规则。MMD 使用顶格 ASCII 键和纯文本值，键忽略大小写/空格，支持可选分隔符及多行值；不按完整 YAML 转换类型。正文 metadata 不覆盖页面 YAML。Database reference 对象及专用节点已移除，已有标签归入 Unsupported 原文保留。详细规则与其余表外格式依据见[元数据与兼容格式说明](./architecture/METADATA-AND-COMPATIBILITY.md)。
 
-2026-09-22 目录与配置补充：12 个 `notdown_*` 键统一改为 `notion_*`；旧键兼容读取，新旧并存时新键优先，未知键保留。配置经编辑会写规范键，不批量改写知识库，方言默认值不变。Block Explorer 的对象／方言／扩展双向链接，103 个 Markdown 扩展有本地执行路径，12 个 Outside Markdown scope 项排在最后。详见 [分类与命名说明](CATALOG-RELATIONS.md)。
+2026-09-22 目录与配置补充：12 个 `notdown_*` 键统一改为 `notion_*`；旧键兼容读取，新旧并存时新键优先，未知键保留。配置经编辑会写规范键，不批量改写知识库，方言默认值不变。Block Explorer 的对象／方言／扩展双向链接，103 个 Markdown 扩展有本地执行路径，12 个 Outside Markdown scope 项排在最后。详见 [分类与命名说明](./reference/CATALOG-RELATIONS.md)。
 
-2026-09-21 对象层补充：Callout 与 Alert 共用 `callout`，三种 TOC 写法共用 `table_of_contents`。编码来源保留在编辑器属性 `syntaxForm`，TOC 范围使用 `minLevel/maxLevel`；这些不是新页面 YAML 字段或独立持久格式。编辑原块沿用原编码，未修改原文保持不变。`alerts/notion_callouts` 和 `toc_directives/notion_toc` 仍分别控制相应写法，不因节点合并互相替代。新建 Callout 在支持 alerts 的非 Notion 方言使用提示语法，其他可用情况使用原有标签。完整对象边界见 [对象 Roadmap](CONTENT-OBJECT-ROADMAP.md)。
+2026-09-21 对象层补充：Callout 与 Alert 共用 `callout`，三种 TOC 写法共用 `table_of_contents`。编码来源保留在编辑器属性 `syntaxForm`，TOC 范围使用 `minLevel/maxLevel`；这些不是新页面 YAML 字段或独立持久格式。编辑原块沿用原编码，未修改原文保持不变。`alerts/notion_callouts` 和 `toc_directives/notion_toc` 仍分别控制相应写法，不因节点合并互相替代。新建 Callout 在支持 alerts 的非 Notion 方言使用提示语法，其他可用情况使用原有标签。完整对象边界见 [对象 Roadmap](./architecture/CONTENT-OBJECT-ROADMAP.md)。
 
-新页面默认采用 [Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)，行为同时参考 [Working with markdown content](https://developers.notion.com/guides/data-apis/working-with-markdown-content)。Notion 格式核对日期：2026-09-12。这是 Notion Markdown API 的格式，与界面「Markdown & CSV」ZIP 导出不同。2026-09-15 增加可选 `syntax` 配置；下文块语法描述适用于 Notion 方言，其他原生方言与扩展见 [编辑核心设计](MARKDOWN-ENGINE.md)。
+新页面默认采用 [Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)，行为同时参考 [Working with markdown content](https://developers.notion.com/guides/data-apis/working-with-markdown-content)。Notion 格式核对日期：2026-09-12。这是 Notion Markdown API 的格式，与界面「Markdown & CSV」ZIP 导出不同。2026-09-15 增加可选 `syntax` 配置；下文块语法描述适用于 Notion 方言，其他原生方言与扩展见 [编辑核心设计](./architecture/MARKDOWN-ENGINE.md)。
 
-Notion 方言原有对象使用对应官方标签；新增 Tabs、AI block 等另有本地编码，不能全部视为 Notion 官方语法，见 [本地对象与服务](LOCAL-OBJECTS.md)。[旧语法](FORMAT-LEGACY.md) 保留兼容读取。CommonMark/GFM 启用层级扩展时使用 `:::nest` 表示普通块层级。Notion 中 `[[...]]` 可输入页面提及，修改后使用 `<mention-page>`；CommonMark/GFM 可独立启用双链。
+Notion 方言原有对象使用对应官方标签；新增 Tabs、AI block 等另有本地编码，不能全部视为 Notion 官方语法，见 [本地对象与服务](./reference/LOCAL-OBJECTS.md)。[旧语法](./reference/FORMAT-LEGACY.md) 保留兼容读取。CommonMark/GFM 启用层级扩展时使用 `:::nest` 表示普通块层级。Notion 中 `[[...]]` 可输入页面提及，修改后使用 `<mention-page>`；CommonMark/GFM 可独立启用双链。
 
 ## 文件和迁移
 
@@ -66,9 +70,9 @@ Notion 规范定义正文；页面稳定 ID、唯一父页和 MyBase 属性继�
 
 `raw_html` 显示 HTML 预览并保留标签原文；`definition_lists`、`footnotes`、`line_blocks`、`fenced_divs` 分别启用定义列表、脚注、逐行排版和 Markdown 容器。HTML 在十种 Markdown 预设默认开启，其他规则按方言取默认值，详见支持矩阵。HTML 只执行允许的显示规则；Div 保留未知属性，显示允许的 class、锚点及受限尺寸。Notion codec 尚未提供这五个独立开关。
 
-正文开头的 YAML、Pandoc `%` 标题和 MultiMarkdown 键值标题块按相应扩展识别，原文保留；启用 metadata_values 时提供预览、字段和源码编辑，MMD metadata_variables 可在正文取值。不解释为页面属性，不改写文件外层的知识库 YAML。Typora／Obsidian 及产品附加语法见 [PRODUCT-SYNTAX.md](PRODUCT-SYNTAX.md)。Pandoc 三字段标题支持续行；任意位置元数据和全部上游输出控制语义不在本地编辑契约中。Strict 新增／修改代码块默认写成缩进代码；PHP Extra 支持反引号及波浪线围栏。原有块未修改时保留原写法，修改后只保证当前已实现语法范围内的语义；缩进代码不能表达语言属性。
+正文开头的 YAML、Pandoc `%` 标题和 MultiMarkdown 键值标题块按相应扩展识别，原文保留；启用 metadata_values 时提供预览、字段和源码编辑，MMD metadata_variables 可在正文取值。不解释为页面属性，不改写文件外层的知识库 YAML。Typora／Obsidian 及产品附加语法见 [PRODUCT-SYNTAX.md](./reference/PRODUCT-SYNTAX.md)。Pandoc 三字段标题支持续行；任意位置元数据和全部上游输出控制语义不在本地编辑契约中。Strict 新增／修改代码块默认写成缩进代码；PHP Extra 支持反引号及波浪线围栏。原有块未修改时保留原写法，修改后只保证当前已实现语法范围内的语义；缩进代码不能表达语言属性。
 
-语法示例、Pandoc 各方言的默认值、编辑方式与剩余缺口见 [块类型与实现边界](BLOCKS.md)。以下章节继续描述 Notion Enhanced Markdown。
+语法示例、Pandoc 各方言的默认值、编辑方式与剩余缺口见 [块类型与实现边界](./reference/BLOCKS.md)。以下章节继续描述 Notion Enhanced Markdown。
 
 ## 块、层级与换行
 
@@ -117,7 +121,7 @@ Notion 规范定义正文；页面稳定 ID、唯一父页和 MyBase 属性继�
 <pdf src="assets/paper.pdf">论文</pdf>
 ```
 
-启用本地 Link preview 扩展时还支持行内 `<mention-link url="https://github.com/owner/repo/issues/1">后备名称</mention-link>` 和块级 `<link-preview url="…"/>`。它们属于 Notdown 本地编码，实时外部内容不写入 Markdown；详见 [Link Preview](LINK-PREVIEWS.md)。
+启用本地 Link preview 扩展时还支持行内 `<mention-link url="https://github.com/owner/repo/issues/1">后备名称</mention-link>` 和块级 `<link-preview url="…"/>`。它们属于 Notdown 本地编码，实时外部内容不写入 Markdown；详见 [Link Preview](./features/LINK-PREVIEWS.md)。
 
 插入菜单提供两栏，解析接受两栏以上及嵌套分栏；窄屏纵向排列。列间分隔线可用鼠标拖动调宽，只改变相邻两列，松开后提交一次可撤销事务；Esc 取消，双击恢复该组等宽，聚焦分隔线后左右方向键微调。宽屏列宽随容器按比例变化，窄屏隐藏调宽控件但保留比例。
 
@@ -185,7 +189,7 @@ $$
 
 支持 user/page/database/data-source/date 提及，日期属性按原文保留。Mention agent 已移除：旧标签按字面文本或原始 HTML 保留，未修改内容继续复用原文；文本编辑后可以转义角括号，重新打开仍可恢复完整标签内容。数据库块未实现，`<database>` 只保留 Unsupported 原文。`synced_block` 与 `synced_block_reference` 保存本地内容快照和来源，尚未建立跨页或 Notion 云端联动。
 
-既有 `<unknown>` 引用仍保留，不根据名称自动推断成书签或其他对象。未知标签、未闭合或非法容器保留原文，不解释为可执行 HTML。新的本地 bookmark、link-preview、breadcrumb、meeting-notes 等编码见 [本地对象与服务](LOCAL-OBJECTS.md)；会议转录可使用 Settings 配置的兼容服务。本地 People 通讯录已接入，协作成员及自定义 emoji 资源目录未接入。
+既有 `<unknown>` 引用仍保留，不根据名称自动推断成书签或其他对象。未知标签、未闭合或非法容器保留原文，不解释为可执行 HTML。新的本地 bookmark、link-preview、breadcrumb、meeting-notes 等编码见 [本地对象与服务](./reference/LOCAL-OBJECTS.md)；会议转录可使用 Settings 配置的兼容服务。本地 People 通讯录已接入，协作成员及自定义 emoji 资源目录未接入。
 
 Enhanced Markdown 未修改时保留原文；编辑后未改动顶层子树保留原文，变更子树按规范序列化。旧格式转换会规范化缩进、围栏和分隔，完整旧版本保存在历史中。不承诺任意外部格式或整个 Notion 工作区无损互转。
 
@@ -193,7 +197,7 @@ Enhanced Markdown 未修改时保留原文；编辑后未改动顶层子树保�
 
 编辑器、源码、大纲、引用图、HTML 导出识别同一个 `bodyFormat`。HTML 导出保留分栏、提示、链接、颜色、表格和公式；附件仍为相对路径。
 
-MCP 读页返回 `bodyFormat`；写页使用完整正文及读取时的 `baseRevision`。修改格式时同时提交转换后的正文，保留 `<unknown>` 与其他未知内容。MyBase 属性契约见 [MYBASE.md](MYBASE.md)。
+MCP 读页返回 `bodyFormat`；写页使用完整正文及读取时的 `baseRevision`。修改格式时同时提交转换后的正文，保留 `<unknown>` 与其他未知内容。MyBase 属性契约见 [MYBASE.md](./reference/MYBASE.md)。
 
 
 2026-09-22 对象清理：Inline raw source 是正式内容对象，使用 Pandoc raw_attribute 编码；File transclusion 同时映射块级与行内载体。Inline media 节点及普通本地链接转播放器的规则已移除；`[录音](assets/voice.mp3)` 保持普通链接，音视频播放器使用已有块级媒体标签。Existing content 板块已移除，没有自动迁移用户文件。

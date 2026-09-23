@@ -1,6 +1,6 @@
 import type { Node } from "prosemirror-model";
-import { editorSchema as schema } from "../editor-schema.js";
-import { editorFingerprint } from "../editor-markdown.js";
+import { editorSchema as schema } from "../document/editor-schema.js";
+import { editorFingerprint } from "../document/editor-markdown.js";
 
 /** Project uncovered blank source lines as editable paragraphs, each owning its bytes. */
 export function editableBlankParagraphs(doc: Node): Node {

@@ -1,5 +1,5 @@
 import { parseFragment, type DefaultTreeAdapterMap } from "parse5";
-import { escapeXml } from "../notion-syntax.js";
+import { escapeXml } from "../document/notion-syntax.js";
 
 const allowed = new Set(
   "a abbr b blockquote br caption code col colgroup dd del details div dl dt em figcaption figure h1 h2 h3 h4 h5 h6 hr i img kbd label li mark ol p pre s small span strong sub summary sup table tbody td th thead textarea tfoot time tr u ul".split(

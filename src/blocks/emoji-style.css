@@ -1,0 +1,31 @@
+@font-face {
+  font-family: "Notdown Noto Emoji";
+  src: url("../assets/fonts/Noto-COLRv1.ttf") format("truetype");
+  font-display: swap;
+  /* The fonts also contain a wide space glyph. Limit them to emoji code
+     points so ordinary text keeps the application's normal spacing. */
+  unicode-range: U+A9, U+AE, U+200D, U+203C, U+2049, U+20E3, U+2122,
+    U+2139, U+2194-21FF, U+2300-23FF, U+24C2, U+25AA-25FE,
+    U+2600-27BF, U+2934-2935, U+2B00-2BFF, U+3030, U+303D,
+    U+3297, U+3299, U+1F000-1FAFF, U+E0020-E007F, U+FE0F;
+}
+
+@font-face {
+  font-family: "Notdown OpenMoji";
+  src: url("../assets/fonts/OpenMoji-color.woff2") format("woff2");
+  font-display: swap;
+  unicode-range: U+A9, U+AE, U+200D, U+203C, U+2049, U+20E3, U+2122,
+    U+2139, U+2194-21FF, U+2300-23FF, U+24C2, U+25AA-25FE,
+    U+2600-27BF, U+2934-2935, U+2B00-2BFF, U+3030, U+303D,
+    U+3297, U+3299, U+1F000-1FAFF, U+E0020-E007F, U+FE0F;
+}
+
+html[data-emoji-style="noto"] {
+  font-family: "Notdown Noto Emoji", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+html[data-emoji-style="openmoji"] {
+  font-family: "Notdown OpenMoji", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", sans-serif;
+}

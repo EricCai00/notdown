@@ -1,0 +1,167 @@
+.pm-document .pm-code-block {
+  position: relative;
+  min-width: 0;
+  margin: 8px 0;
+  isolation: isolate;
+}
+
+.pm-document .pm-code-pre {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 116px;
+  margin: 0;
+  padding: 50px 28px 24px;
+  border-radius: 8px;
+  background: #f7f7f5;
+  color: #37352f;
+  font: 14px/1.65 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overflow-wrap: normal;
+  tab-size: 2;
+}
+
+.pm-document .pm-code-wrapped .pm-code-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pm-document .pm-code-pre code {
+  white-space: inherit;
+  overflow-wrap: inherit;
+  font: inherit;
+}
+
+.pm-code-pre .hljs-comment,
+.pm-code-pre .hljs-quote { color: #8b8a86; }
+.pm-code-pre .hljs-keyword,
+.pm-code-pre .hljs-selector-tag,
+.pm-code-pre .hljs-literal { color: #9b4b8f; }
+.pm-code-pre .hljs-string,
+.pm-code-pre .hljs-regexp,
+.pm-code-pre .hljs-attr { color: #a5523d; }
+.pm-code-pre .hljs-number,
+.pm-code-pre .hljs-symbol { color: #9b4b8f; }
+.pm-code-pre .hljs-title,
+.pm-code-pre .hljs-built_in,
+.pm-code-pre .hljs-type { color: #206a9a; }
+.pm-code-pre .hljs-variable,
+.pm-code-pre .hljs-params,
+.pm-code-pre .hljs-property { color: #4f5e77; }
+
+.pm-code-toolbar {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid #e5e5e3;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 1px 3px #0001;
+  color: #5f5e5b;
+  font: 13px/1.2 system-ui, sans-serif;
+}
+
+.pm-code-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 29px;
+  height: 27px;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pm-code-toolbar .pm-code-language { max-width: 170px; padding: 3px 7px; }
+.pm-code-language span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-code-toolbar button:hover,
+.pm-code-toolbar button:focus-visible,
+.pm-code-toolbar button[aria-pressed="true"] { background: #efefed; }
+.pm-code-toolbar button:focus-visible,
+.pm-code-caption:focus-visible { outline: 2px solid #2f76d2; outline-offset: 1px; }
+
+.pm-document .pm-code-caption {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 30px;
+  margin: 4px 0 0;
+  padding: 3px 2px;
+  border: 0;
+  border-radius: 3px;
+  outline: none;
+  background: transparent;
+  color: #787774;
+  font: 14px/1.5 system-ui, sans-serif;
+}
+.pm-document .pm-code-caption[hidden] { display: none; }
+.pm-document .pm-code-caption::placeholder { color: #a4a39f; }
+
+.pm-code-language-menu,
+.pm-code-more-menu {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  border: 1px solid #d9d9d6;
+  border-radius: 10px;
+  background: #fff;
+  color: #37352f;
+  box-shadow: 0 9px 24px #0002;
+  font: 14px/1.45 system-ui, sans-serif;
+}
+.pm-code-language-menu {
+  width: min(300px, calc(100vw - 16px));
+  max-height: min(475px, calc(100vh - 16px));
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+.pm-code-language-menu input {
+  box-sizing: border-box;
+  width: 100%;
+  flex: none;
+  margin-bottom: 7px;
+  padding: 8px 9px;
+  border: 1px solid #d9d9d6;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+}
+.pm-code-language-menu input:focus-visible { outline: 2px solid #2f76d2; outline-offset: 0; }
+.pm-code-language-list { min-height: 0; overflow: auto; }
+.pm-code-language-list button,
+.pm-code-more-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pm-code-language-list button:hover,
+.pm-code-language-list button:focus-visible,
+.pm-code-more-menu button:hover,
+.pm-code-more-menu button:focus-visible { background: #f2f2f0; outline: none; }
+.pm-code-language-list button.is-current { background: #f2f2f0; }
+.pm-code-language-list p,
+.pm-code-more-menu p { margin: 6px 8px; color: #787774; font-size: 12px; }
+.pm-code-more-menu { width: min(260px, calc(100vw - 16px)); padding: 5px; }
+.pm-code-more-menu button:disabled { color: #aaa9a5; cursor: default; }

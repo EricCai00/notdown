@@ -4,7 +4,8 @@ import type { Node as PMNode } from "prosemirror-model";
 import multiTable from "markdown-it-multimd-table";
 import { parse as parseYaml } from "yaml";
 import { parseFragment } from "parse5";
-import { editorSchema as schema } from "../editor-schema.js";
+import { editorSchema as schema } from "../document/editor-schema.js";
+import { decodeCodeCaption } from "../document/code-caption.js";
 import { enabled, type SyntaxConfig } from "./config.js";
 import { readAttributes, slug, domAttributes } from "./attributes.js";
 import { renderRawHtml } from "./html.js";
@@ -342,7 +343,10 @@ export function installProductRules(
       if (t.type === "fence" && (enabled(config, "fenced_code_attributes") || enabled(config, "attributes"))) {
         const attr = /\{([^}]+)\}\s*$/.exec(t.info);
         if (attr && !attr[1].startsWith("=")) {
-          t.meta = { ...t.meta, markdownAttrs: readAttributes(attr[0]) };
+          const markdownAttrs = readAttributes(attr[0]);
+          if (markdownAttrs.caption !== undefined)
+            markdownAttrs.caption = decodeCodeCaption(markdownAttrs.caption);
+          t.meta = { ...t.meta, markdownAttrs };
           t.info =
             t.info.slice(0, attr.index).trim() ||
             t.meta.markdownAttrs.class?.split(" ")[0] ||

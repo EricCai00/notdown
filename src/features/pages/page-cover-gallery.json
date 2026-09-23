@@ -1,0 +1,699 @@
+{
+  "source": ".run/notion-gallery/gallery.json",
+  "groups": [
+    "Color & Gradient",
+    "Texturelabs",
+    "The MET Museum – Hudson River School",
+    "National Museum of Asian Art",
+    "USDA Pomological Watercolors",
+    "Artemis II",
+    "James Webb Telescope",
+    "NASA Archive",
+    "The MET Museum – Patterns",
+    "Rijksmuseum",
+    "The MET Museum – Japanese Prints",
+    "The MET Museum"
+  ],
+  "items": [
+    {
+      "group": "Color & Gradient",
+      "file": "solid_red.png",
+      "asset": "solid_red.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "solid_yellow.png",
+      "asset": "solid_yellow.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "solid_blue.png",
+      "asset": "solid_blue.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "solid_beige.png",
+      "asset": "solid_beige.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_8.png",
+      "asset": "gradients_8.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_4.png",
+      "asset": "gradients_4.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_2.png",
+      "asset": "gradients_2.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_11.jpg",
+      "asset": "gradients_11.jpg"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_10.jpg",
+      "asset": "gradients_10.jpg"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_5.png",
+      "asset": "gradients_5.png"
+    },
+    {
+      "group": "Color & Gradient",
+      "file": "gradients_3.png",
+      "asset": "gradients_3.png"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_glass_132S.jpg",
+      "asset": "texturelabs_glass_132S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_metal_126S.jpg",
+      "asset": "texturelabs_metal_126S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_metal_261S.jpg",
+      "asset": "texturelabs_metal_261S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_glass_125S.jpg",
+      "asset": "texturelabs_glass_125S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_fabric_169S.jpg",
+      "asset": "texturelabs_fabric_169S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_glass_124S.jpg",
+      "asset": "texturelabs_glass_124S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_metal_212S.jpg",
+      "asset": "texturelabs_metal_212S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_metal_285S.jpg",
+      "asset": "texturelabs_metal_285S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_water_135S.jpg",
+      "asset": "texturelabs_water_135S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_concrete_146S.jpg",
+      "asset": "texturelabs_concrete_146S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_wood_244S.jpg",
+      "asset": "texturelabs_wood_244S.jpg"
+    },
+    {
+      "group": "Texturelabs",
+      "file": "texturelabs_paper_253S.jpg",
+      "asset": "texturelabs_paper_253S.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_theOxbow.jpg",
+      "asset": "hudsonRiverSchool_theOxbow.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_lakeGeorge.jpg",
+      "asset": "hudsonRiverSchool_lakeGeorge.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_rockyMountainsLandersPeak.jpg",
+      "asset": "hudsonRiverSchool_rockyMountainsLandersPeak.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_thanatopsis.jpg",
+      "asset": "hudsonRiverSchool_thanatopsis.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_springLandscape.jpg",
+      "asset": "hudsonRiverSchool_springLandscape.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_catskillEarlyAutumn.jpg",
+      "asset": "hudsonRiverSchool_catskillEarlyAutumn.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_aegeanSea.jpg",
+      "asset": "hudsonRiverSchool_aegeanSea.jpg"
+    },
+    {
+      "group": "The MET Museum – Hudson River School",
+      "file": "hudsonRiverSchool_passingOffOfTheStorm.jpg",
+      "asset": "hudsonRiverSchool_passingOffOfTheStorm.jpg"
+    },
+    {
+      "group": "National Museum of Asian Art",
+      "file": "nationalMuseumOfAsianArt_sparrowsFeedingTheirYoung.jpg",
+      "asset": "nationalMuseumOfAsianArt_sparrowsFeedingTheirYoung.jpg"
+    },
+    {
+      "group": "National Museum of Asian Art",
+      "file": "nationalMuseumOfAsianArt_landscapeWithGibbonsAndCranes.jpg",
+      "asset": "nationalMuseumOfAsianArt_landscapeWithGibbonsAndCranes.jpg"
+    },
+    {
+      "group": "National Museum of Asian Art",
+      "file": "nationalMuseumOfAsianArt_mountainMistSpringMorning.jpg",
+      "asset": "nationalMuseumOfAsianArt_mountainMistSpringMorning.jpg"
+    },
+    {
+      "group": "National Museum of Asian Art",
+      "file": "nationalMuseumOfAsianArt_gardenSceneMelonsEggPlantsFlowersAndTwoWeasels.jpg",
+      "asset": "nationalMuseumOfAsianArt_gardenSceneMelonsEggPlantsFlowersAndTwoWeasels.jpg"
+    },
+    {
+      "group": "USDA Pomological Watercolors",
+      "file": "usda_cherries.png",
+      "asset": "usda_cherries.jpg"
+    },
+    {
+      "group": "USDA Pomological Watercolors",
+      "file": "usda_pear.png",
+      "asset": "usda_pear.jpg"
+    },
+    {
+      "group": "USDA Pomological Watercolors",
+      "file": "usda_apple.png",
+      "asset": "usda_apple.jpg"
+    },
+    {
+      "group": "USDA Pomological Watercolors",
+      "file": "usda_oranges.png",
+      "asset": "usda_oranges.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_1.jpg",
+      "asset": "artemis_ii_1.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_2.jpg",
+      "asset": "artemis_ii_2.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_3.jpg",
+      "asset": "artemis_ii_3.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_4.jpg",
+      "asset": "artemis_ii_4.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_5.jpg",
+      "asset": "artemis_ii_5.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_6.jpg",
+      "asset": "artemis_ii_6.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_7.jpg",
+      "asset": "artemis_ii_7.jpg"
+    },
+    {
+      "group": "Artemis II",
+      "file": "artemis_ii_8.jpg",
+      "asset": "artemis_ii_8.jpg"
+    },
+    {
+      "group": "James Webb Telescope",
+      "file": "webb1.jpg",
+      "asset": "webb1.jpg"
+    },
+    {
+      "group": "James Webb Telescope",
+      "file": "webb2.jpg",
+      "asset": "webb2.jpg"
+    },
+    {
+      "group": "James Webb Telescope",
+      "file": "webb3.jpg",
+      "asset": "webb3.jpg"
+    },
+    {
+      "group": "James Webb Telescope",
+      "file": "webb4.jpg",
+      "asset": "webb4.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_the_blue_marble.jpg",
+      "asset": "nasa_the_blue_marble.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_transonic_tunnel.jpg",
+      "asset": "nasa_transonic_tunnel.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_multi-axis_gimbal_rig.jpg",
+      "asset": "nasa_multi-axis_gimbal_rig.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_eva_during_skylab_3.jpg",
+      "asset": "nasa_eva_during_skylab_3.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_eagle_in_lunar_orbit.jpg",
+      "asset": "nasa_eagle_in_lunar_orbit.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_buzz_aldrin_on_the_moon.jpg",
+      "asset": "nasa_buzz_aldrin_on_the_moon.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_ibm_type_704.jpg",
+      "asset": "nasa_ibm_type_704.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_wrights_first_flight.jpg",
+      "asset": "nasa_wrights_first_flight.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_great_sandy_desert_australia.jpg",
+      "asset": "nasa_great_sandy_desert_australia.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_space_shuttle_columbia.jpg",
+      "asset": "nasa_space_shuttle_columbia.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_robert_stewart_spacewalk.jpg",
+      "asset": "nasa_robert_stewart_spacewalk.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_space_shuttle_challenger.jpg",
+      "asset": "nasa_space_shuttle_challenger.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_robert_stewart_spacewalk_2.jpg",
+      "asset": "nasa_robert_stewart_spacewalk_2.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_space_shuttle_columbia_and_sunrise.jpg",
+      "asset": "nasa_space_shuttle_columbia_and_sunrise.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_tim_peake_spacewalk.jpg",
+      "asset": "nasa_tim_peake_spacewalk.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_bruce_mccandless_spacewalk.jpg",
+      "asset": "nasa_bruce_mccandless_spacewalk.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_new_york_city_grid.jpg",
+      "asset": "nasa_new_york_city_grid.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_fingerprints_of_water_on_the_sand.jpg",
+      "asset": "nasa_fingerprints_of_water_on_the_sand.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_carina_nebula.jpg",
+      "asset": "nasa_carina_nebula.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_orion_nebula.jpg",
+      "asset": "nasa_orion_nebula.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_reduced_gravity_walking_simulator.jpg",
+      "asset": "nasa_reduced_gravity_walking_simulator.jpg"
+    },
+    {
+      "group": "NASA Archive",
+      "file": "nasa_earth_grid.jpg",
+      "asset": "nasa_earth_grid.jpg"
+    },
+    {
+      "group": "The MET Museum – Patterns",
+      "file": "met_william_morris_1877_willow.jpg",
+      "asset": "met_william_morris_1877_willow.jpg"
+    },
+    {
+      "group": "The MET Museum – Patterns",
+      "file": "met_william_morris_1875.jpg",
+      "asset": "met_william_morris_1875.jpg"
+    },
+    {
+      "group": "The MET Museum – Patterns",
+      "file": "met_william_morris_1878.jpg",
+      "asset": "met_william_morris_1878.jpg"
+    },
+    {
+      "group": "The MET Museum – Patterns",
+      "file": "met_silk_kashan_carpet.jpg",
+      "asset": "met_silk_kashan_carpet.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_vermeer_the_milkmaid.jpg",
+      "asset": "rijksmuseum_vermeer_the_milkmaid.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_jansz_1649.jpg",
+      "asset": "rijksmuseum_jansz_1649.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_rembrandt_1642.jpg",
+      "asset": "rijksmuseum_rembrandt_1642.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_jansz_1636.jpg",
+      "asset": "rijksmuseum_jansz_1636.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_jansz_1641.jpg",
+      "asset": "rijksmuseum_jansz_1641.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_jan_lievens_1627.jpg",
+      "asset": "rijksmuseum_jan_lievens_1627.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_jansz_1637.jpg",
+      "asset": "rijksmuseum_jansz_1637.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_mignons_1660.jpg",
+      "asset": "rijksmuseum_mignons_1660.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_avercamp_1620.jpg",
+      "asset": "rijksmuseum_avercamp_1620.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_avercamp_1608.jpg",
+      "asset": "rijksmuseum_avercamp_1608.jpg"
+    },
+    {
+      "group": "Rijksmuseum",
+      "file": "rijksmuseum_claesz_1628.jpg",
+      "asset": "rijksmuseum_claesz_1628.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_1.jpg",
+      "asset": "woodcuts_1.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_2.jpg",
+      "asset": "woodcuts_2.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_3.jpg",
+      "asset": "woodcuts_3.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_4.jpg",
+      "asset": "woodcuts_4.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_5.jpg",
+      "asset": "woodcuts_5.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_6.jpg",
+      "asset": "woodcuts_6.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_7.jpg",
+      "asset": "woodcuts_7.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_8.jpg",
+      "asset": "woodcuts_8.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_9.jpg",
+      "asset": "woodcuts_9.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_10.jpg",
+      "asset": "woodcuts_10.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_11.jpg",
+      "asset": "woodcuts_11.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_13.jpg",
+      "asset": "woodcuts_13.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_14.jpg",
+      "asset": "woodcuts_14.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_15.jpg",
+      "asset": "woodcuts_15.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_16.jpg",
+      "asset": "woodcuts_16.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_sekka_1.jpg",
+      "asset": "woodcuts_sekka_1.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_sekka_2.jpg",
+      "asset": "woodcuts_sekka_2.jpg"
+    },
+    {
+      "group": "The MET Museum – Japanese Prints",
+      "file": "woodcuts_sekka_3.jpg",
+      "asset": "woodcuts_sekka_3.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_vincent_van_gogh_ginoux.jpg",
+      "asset": "met_vincent_van_gogh_ginoux.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_winslow_homer_maine_coast.jpg",
+      "asset": "met_winslow_homer_maine_coast.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_frederic_edwin_church_1871.jpg",
+      "asset": "met_frederic_edwin_church_1871.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_joseph_hidley_1870.jpg",
+      "asset": "met_joseph_hidley_1870.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_jules_tavernier_1878.jpg",
+      "asset": "met_jules_tavernier_1878.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_henry_lerolle_1885.jpg",
+      "asset": "met_henry_lerolle_1885.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_georges_seurat_1884.jpg",
+      "asset": "met_georges_seurat_1884.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_john_singer_sargent_morocco.jpg",
+      "asset": "met_john_singer_sargent_morocco.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_paul_signac.jpg",
+      "asset": "met_paul_signac.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_vincent_van_gogh_oleanders.jpg",
+      "asset": "met_vincent_van_gogh_oleanders.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_emanuel_leutze.jpg",
+      "asset": "met_emanuel_leutze.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_fitz_henry_lane.jpg",
+      "asset": "met_fitz_henry_lane.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_vincent_van_gogh_cradle.jpg",
+      "asset": "met_vincent_van_gogh_cradle.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_camille_pissarro_1896.jpg",
+      "asset": "met_camille_pissarro_1896.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_gerome_1890.jpg",
+      "asset": "met_gerome_1890.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_arnold_bocklin_1880.jpg",
+      "asset": "met_arnold_bocklin_1880.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_henri_tl_1892.jpg",
+      "asset": "met_henri_tl_1892.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_horace_pippin.jpg",
+      "asset": "met_horace_pippin.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_jean_beraud.jpg",
+      "asset": "met_jean_beraud.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_cezanne_1890.jpg",
+      "asset": "met_cezanne_1890.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_edgar_degas_1874.jpg",
+      "asset": "met_edgar_degas_1874.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_henri_rousseau_1907.jpg",
+      "asset": "met_henri_rousseau_1907.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_vincent_van_gogh_irises.jpg",
+      "asset": "met_vincent_van_gogh_irises.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_terracotta_funerary_plaque.jpg",
+      "asset": "met_terracotta_funerary_plaque.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_william_turner_1835.jpg",
+      "asset": "met_william_turner_1835.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_the_unicorn_in_captivity.jpg",
+      "asset": "met_the_unicorn_in_captivity.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_goya_1789.jpg",
+      "asset": "met_goya_1789.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_bruegel_1565.jpg",
+      "asset": "met_bruegel_1565.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_canaletto_1720.jpg",
+      "asset": "met_canaletto_1720.jpg"
+    },
+    {
+      "group": "The MET Museum",
+      "file": "met_klimt_1912.jpg",
+      "asset": "met_klimt_1912.jpg"
+    }
+  ]
+}

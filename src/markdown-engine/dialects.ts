@@ -9,7 +9,7 @@ import sup from "markdown-it-sup";
 import abbr from "markdown-it-abbr";
 import { full as emoji } from "markdown-it-emoji";
 import { enabled, markdownFamily, commandEnabled, type SyntaxConfig } from "./config.js";
-import { editorSchema as schema } from "../editor-schema.js";
+import { editorSchema as schema } from "../document/editor-schema.js";
 import { readMmdMetadata } from "./mmd-metadata.js";
 
 const textAt = (s: StateBlock, n: number) =>

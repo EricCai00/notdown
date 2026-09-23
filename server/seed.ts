@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import type { createVault, Page, PageInput } from "./vault.js";
-import { parseEditorMarkdown } from "../src/editor-markdown.js";
-import { serializeNotionMarkdown } from "../src/notion-markdown.js";
+import { parseEditorMarkdown } from "../src/document/editor-markdown.js";
+import { serializeNotionMarkdown } from "../src/document/notion-markdown.js";
 
 export const sampleIds = {
   welcome: "8f305c10-6af1-4000-8000-000000000001",

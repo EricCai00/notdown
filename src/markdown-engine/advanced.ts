@@ -1,11 +1,11 @@
 import type MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import type { Node as PMNode } from "prosemirror-model";
-import { editorSchema as schema } from "../editor-schema";
-import { parseInline } from "../editor-markdown";
+import { editorSchema as schema } from "../document/editor-schema";
+import { parseInline } from "../document/editor-markdown";
 import { enabled, type SyntaxConfig } from "./config";
 import { readAttributes, slug } from "./attributes";
-import { openingTag } from "../notion-syntax";
+import { openingTag } from "../document/notion-syntax";
 
 const inline = (md: MarkdownIt, raw: string, env: any) => parseInline(md.parseInline(raw, env)[0]?.children || []);
 const source = (s: any, node: PMNode) => { const t = s.push("source_inline", "", 0); t.meta = { node }; };

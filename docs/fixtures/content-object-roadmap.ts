@@ -1,6 +1,6 @@
 /** Regenerate documentation from the product registry; never opens a vault. */
 import { writeFileSync } from "node:fs";
-import { contentObjects } from "../../src/content-objects";
+import { contentObjects } from "../../src/document/content-objects";
 
 const header = `# Notdown 对象统一与实现 Roadmap
 
@@ -19,7 +19,7 @@ const header = `# Notdown 对象统一与实现 Roadmap
 
 status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，不表示仍待实施。direct = 直接编辑，source = 源码编辑，reference = 引用载荷，text = 文本规则，preserved = 原文回退。实际可用性取决于方言与扩展开关，不能由可解析推断所有属性都有表单。
 
-没有第二份持久化 AST，Page / CAS / MyBase 契约不变。新增模型调用及本地 citeproc API，未新增远端同步。真实模型由用户配置，测试使用模拟端点。Raw TeX 不在浏览器执行，书签元信息手工填写，citeproc 需本机 Pandoc。详细格式及边界见 [本地对象与服务](LOCAL-OBJECTS.md)。
+没有第二份持久化 AST，Page / CAS / MyBase 契约不变。新增模型调用及本地 citeproc API，未新增远端同步。真实模型由用户配置，测试使用模拟端点。Raw TeX 不在浏览器执行，书签元信息手工填写，citeproc 需本机 Pandoc。详细格式及边界见 [本地对象与服务](../reference/LOCAL-OBJECTS.md)。
 
 ## 逐项清单
 
@@ -36,14 +36,14 @@ const table = (objects: typeof contentObjects) =>
     )
     .join("\n");
 writeFileSync(
-  new URL("../CONTENT-OBJECT-ROADMAP.md", import.meta.url),
+  new URL("../architecture/CONTENT-OBJECT-ROADMAP.md", import.meta.url),
   header +
     table(contentObjects) +
     `
 
 ## 验证与维护
 
-注册表来源：src/content-objects.ts。测试覆盖对象数量与分类、上下文识别、真实示例、Callout 原编码和撤销、TOC 层级与导出、扩展开关、CRLF、未知内容及代码围栏边界。浏览器验证全表与别名、折叠持久化、正文输入收取、目录实时更新、统一菜单及临时知识库保存。完整验收运行 npm test、npm run build、npm run test:e2e。
+注册表来源：src/document/content-objects.ts。测试覆盖对象数量与分类、上下文识别、真实示例、Callout 原编码和撤销、TOC 层级与导出、扩展开关、CRLF、未知内容及代码围栏边界。浏览器验证全表与别名、折叠持久化、正文输入收取、目录实时更新、统一菜单及临时知识库保存。完整验收运行 npm test、npm run build、npm run test:e2e。
 
 更新注册表后运行 node --import tsx docs/fixtures/content-object-roadmap.ts 重新生成本文件。旧 BLOCK-MODEL-REVIEW / CONTENT-CAPABILITIES 保留为历史讨论与方言快照；对象边界以本清单为准。
 `,
