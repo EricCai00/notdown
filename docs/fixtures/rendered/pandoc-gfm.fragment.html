@@ -1,0 +1,461 @@
+<h1 id="notdown--typora-语法对照测试">Notdown × Typora 语法对照测试</h1>
+<p>这是一份手工验收样本，不是已经通过的兼容性报告。样例来源：用户整理的 Markdown / CommonMark / GFM 清单及 18 项 Typora 扩展。每个编号后的内容都是实际测试输入；代码保护测试除外，不要将全文包在代码围栏里。</p>
+<h2 id="使用方法与记录">使用方法与记录</h2>
+<ol type="1">
+<li>保留本文件原件，分别使用副本测试。Typora 直接打开 <code>.md</code>；Notdown 在临时知识库中新建页面，将本文件全文粘贴到<strong>源码视图</strong>，选择 <strong>Typora / typora</strong> 方言，再切换到页面视图。不要在 Notion 默认方言或 Markdown Lab 的 Pandoc reader 中代测。</li>
+<li>文件最前面的 YAML 是测试正文的一部分。粘贴时也要包含它，不要把它合并到 Notdown 知识库文件外层的页面 YAML 中。</li>
+<li>记录两个应用的版本、Notdown 扩展开关、Typora Markdown 偏好设置、Strict Mode 状态和主题。先测默认设置，再对数学、上下标、高亮等选项做启用/停用对照；每轮都记录设置。</li>
+<li>比较语义、层级、链接目标、换行和源码保留；字体、颜色、公式字体不同单独记录，不直接算解析错误。未渲染、未启用、资源加载失败、原文丢失应分别记录。</li>
+<li>对 B01–B03 分别测试 Strict Mode 开/关。单个文件无法同时代表两种模式的结果。</li>
+<li>保存并重新打开；对 R01 做编辑往返测试。未闭合围栏放在文件最后，避免吞掉其余测试。</li>
+</ol>
+<p>测试日期：（待填写）；Typora 版本：（待填写）；Notdown commit：（待填写）。</p>
+<p>Typora 偏好设置 / Strict Mode：（待填写）；Notdown 方言 / 扩展覆盖值：（待填写）。</p>
+<table>
+<thead>
+<tr>
+<th>用例编号</th>
+<th>Typora 实测</th>
+<th>Notdown 实测</th>
+<th>保存后源码差异</th>
+<th>结论 / 截图编号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>示例：T08</td>
+<td>待测</td>
+<td>待测</td>
+<td>待测</td>
+<td>待测</td>
+</tr>
+</tbody>
+</table>
+<h2 id="c01--atx-标题与闭合标记">C01 — ATX 标题与闭合标记</h2>
+<p>观察六级标题及闭合 <code>#</code> 是否被当作标题标记。</p>
+<h1 id="header-1">header 1</h1>
+<h2 id="header-2">header 2</h2>
+<h3 id="header-3">header 3</h3>
+<h4 id="header-4">header 4</h4>
+<h5 id="header-5">header 5</h5>
+<h6 id="header-6">header 6</h6>
+<h3 id="header-3-with-closing-hashes">header 3 with closing hashes</h3>
+<h2 id="c02--setext-标题">C02 — Setext 标题</h2>
+<h1 id="setext-level-one">Setext level one</h1>
+<h2 id="setext-level-two">Setext level two</h2>
+<h2 id="c03--四种分隔线">C03 — 四种分隔线</h2>
+<p>下面依次为星号带空格、连续星号、连字符、下划线。</p>
+<hr />
+<hr />
+<hr />
+<hr />
+<h2 id="c04--段落空行软换行与硬换行">C04 — 段落、空行、软换行与硬换行</h2>
+<p>单换行在 CommonMark 默认合并为空格；Typora 编辑视图默认保留换行，且可通过偏好设置改变。Notdown Typora 预设对应 <code>hard_line_breaks</code>，关闭后才按合并空格的行为对照。连续空行不要求显示成多个空段落；应在源码中检查保留情况。</p>
+<p>软换行第一行 软换行第二行</p>
+<p>新段落，与前段之间有一个空行。</p>
+<p>此段之前有三个空行；观察保存后空行是否保留。</p>
+<p>两个尾随空格产生的硬换行第一行<br />
+硬换行第二行</p>
+<p>反斜杠硬换行第一行<br />
+硬换行第二行</p>
+<p>HTML 换行第一行<br>HTML 换行第二行</p>
+<h2 id="c05--三种代码块">C05 — 三种代码块</h2>
+<p>缩进代码，第一行有四个空格：</p>
+<pre><code>code line
+    code line
+code line</code></pre>
+<div class="sourceCode" id="cb2"><pre class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> literal <span class="op">=</span> <span class="st">&quot;**不是加粗** $不是公式$ [toc]&quot;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(literal)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 空行与缩进应保留</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>value <span class="op">=</span> <span class="st">&quot;==不是高亮==&quot;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 保留缩进；仅测试显示，不执行代码</span></span></code></pre></div>
+<h2 id="c06--引用惰性续行与嵌套">C06 — 引用、惰性续行与嵌套</h2>
+<blockquote>
+<p>blockquote</p>
+<h2 id="h2-in-a-blockquote">h2 in a blockquote</h2>
+<ol type="1">
+<li><p>list item</p>
+<pre><code> code block</code></pre></li>
+</ol>
+</blockquote>
+<p>引用惰性续行：</p>
+<blockquote>
+<p>blockquote blockquote lazy continuation</p>
+</blockquote>
+<p>嵌套引用：</p>
+<blockquote>
+<p>outer blockquote</p>
+<blockquote>
+<p>nested blockquote</p>
+</blockquote>
+</blockquote>
+<h2 id="c07--无序列表三种标记">C07 — 无序列表三种标记</h2>
+<ul>
+<li>star item one</li>
+<li>star item two</li>
+</ul>
+<p>分隔文字。</p>
+<ul>
+<li>plus item one</li>
+<li>plus item two</li>
+</ul>
+<p>分隔文字。</p>
+<ul>
+<li>minus item one</li>
+<li>minus item two</li>
+</ul>
+<h2 id="c08--有序列表编号与右括号">C08 — 有序列表编号与右括号</h2>
+<ol type="1">
+<li>item one</li>
+<li>item two</li>
+<li>item three</li>
+</ol>
+<p>以下源码编号都为 1，观察显示编号与保存源码。</p>
+<ol type="1">
+<li>repeated one</li>
+<li>repeated two</li>
+<li>repeated three</li>
+</ol>
+<p>以下源码编号为 3、1、8，观察起始值和连续编号。</p>
+<ol start="3" type="1">
+<li>starts at three</li>
+<li>source number one</li>
+<li>source number eight</li>
+</ol>
+<p>右括号标记（CommonMark/GFM 正向用例；按用户实测，Typora 为不应生成列表的反向用例）：</p>
+<ol type="1">
+<li>right parenthesis one</li>
+<li>right parenthesis two</li>
+<li>right parenthesis three</li>
+</ol>
+<h2 id="c09--列表嵌套续行与复合内容">C09 — 列表嵌套、续行与复合内容</h2>
+<p>续行仍属于同一个列表项；是否显示换行另受换行设置影响。不要把「同一项」与「同一视觉行」混为一谈。</p>
+<ul>
+<li>parent one
+<ol type="1">
+<li>child one</li>
+<li>child two</li>
+</ol></li>
+<li>parent two</li>
+</ul>
+<p>显式缩进续行：</p>
+<ul>
+<li>word word word</li>
+</ul>
+<p>惰性续行：</p>
+<ul>
+<li>word word word</li>
+</ul>
+<p>同项内多段落：</p>
+<ul>
+<li><p>item</p>
+<p>second paragraph in same item</p></li>
+</ul>
+<p>同项内引用和缩进代码：</p>
+<ul>
+<li><p>item</p>
+<blockquote>
+<p>block quote</p>
+</blockquote>
+<pre><code>code block</code></pre></li>
+</ul>
+<h2 id="c10--行内代码强调与组合">C10 — 行内代码、强调与组合</h2>
+<p>text <code>code</code> text；text <code>code with ` in it</code> text。</p>
+<p><em>emphasis</em>；<em>emphasis</em>；<strong>strong emphasis</strong>；<strong>strong emphasis</strong>。</p>
+<p><em><strong>strong and emphasis</strong></em>；<strong>bold with <em>italic</em> inside</strong>；foo_bar_baz。</p>
+<h2 id="c11--普通链接与引用链接">C11 — 普通链接与引用链接</h2>
+<p>检查链接外观、目标地址与打开行为。Notdown 编辑区使用 Ctrl/⌘ + 点击打开外部链接，普通点击用于定位和编辑文字。</p>
+<p><a href="https://example.com/">inline link</a>；<a href="https://example.com/" title="title">link with title</a>。</p>
+<p><a href="https://example.com/double" title="double title">double-quote title</a>；<a href="https://example.com/single" title="single title">single-quote title</a>；<a href="https://example.com/paren" title="parenthesis title">parenthesis title</a>；<a href="https://example.com/next" title="next line title">next-line title</a>。</p>
+<p><a href="https://example.com/named">named reference</a>；<a href="https://example.com/collapsed">collapsed</a>；<a href="https://example.com/shortcut" title="shortcut title">shortcut</a>。</p>
+<h2 id="c12--图片与引用式图片">C12 — 图片与引用式图片</h2>
+<p>两张图引用同一个随附本地 PNG。Typora 从当前目录解析；在 Notdown 中需将随附图片上传到临时知识库，并在测试副本中把两处路径改为上传返回的路径。仅粘贴 Markdown 不会自动导入图片。分别记录资源路径问题与 Markdown 解析问题。</p>
+<p><img src="typora-comparison-image.png" title="inline image title" alt="蓝底白字 ND 测试图片" /></p>
+<p><img src="typora-comparison-image.png" title="reference image title" alt="引用式 ND 测试图片" /></p>
+<h2 id="c13--自动链接">C13 — 自动链接</h2>
+<p><a href="https://example.com/">https://example.com/</a></p>
+<p><a href="mailto:address@example.com">address@example.com</a></p>
+<p><a href="http://www.commonmark.com">www.commonmark.com</a></p>
+<p><a href="http://example.com">http://example.com</a></p>
+<p><a href="mailto:address@example.com">address@example.com</a></p>
+<p>mailto:<a href="mailto:address@example.com">address@example.com</a></p>
+<p>边界：括号内 (<a href="https://example.com/path">https://example.com/path</a>)，句末 <a href="https://example.com/end">https://example.com/end</a>. 观察标点是否被包含进链接。</p>
+<h2 id="c14--html-块与行内-html">C14 — HTML 块与行内 HTML</h2>
+<p>paragraph before HTML</p>
+<table>
+    <tr>
+        <td>HTML cell one</td>
+        <td>HTML cell two</td>
+    </tr>
+</table>
+
+<p>paragraph after HTML</p>
+<p>text <del>deleted HTML text</del> text；<kbd>Ctrl</kbd>；H<sub>2</sub>O；X<sup>2</sup>。</p>
+<h2 id="c15--反斜杠转义实体与普通文本">C15 — 反斜杠转义、实体与普通文本</h2>
+<p>用户提供的 Typora 实测：第二行的双引号、百分号、&amp;、单引号、逗号、斜杠、冒号、分号、问号和 @ 前保留反斜杠；美元符号、尖括号、等号、上箭头、竖线、波浪线前去掉反斜杠。Notdown Typora 默认按此范围识别；显式开启 <code>all_symbols_escapable</code> 后采用所有 ASCII 标点可转义的行为。代码内容仍保持字面值。</p>
+<p>\ ` * _ { } [ ] ( ) # + - . !</p>
+<p>" $ % &amp; ' , / : ; &lt; &gt; = ? @ ^ | ~</p>
+<p>© &amp; &lt; &gt; A 中</p>
+<p>hello $.;'there；中文 English 123；普通文本应完整保留。</p>
+<h2 id="g01--gfm-管道表格">G01 — GFM 管道表格</h2>
+<table>
+<thead>
+<tr>
+<th>col one</th>
+<th>col two</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>foo</td>
+<td>bar</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">左对齐</th>
+<th style="text-align: center;">居中</th>
+<th style="text-align: right;">右对齐</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>bold</strong></td>
+<td style="text-align: center;"><code>code</code></td>
+<td style="text-align: right;">123</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://example.com/">link</a></td>
+<td style="text-align: center;">a|b</td>
+<td style="text-align: right;">456</td>
+</tr>
+<tr>
+<td style="text-align: left;">空单元格 →</td>
+<td style="text-align: center;"></td>
+<td style="text-align: right;">789</td>
+</tr>
+<tr>
+<td style="text-align: left;">第一行<br>第二行</td>
+<td style="text-align: center;"><code>x|y</code></td>
+<td style="text-align: right;"><del>deleted</del></td>
+</tr>
+</tbody>
+</table>
+<h2 id="g02--任务列表">G02 — 任务列表</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />unchecked</label></li>
+<li><label><input type="checkbox" checked="" />checked lowercase</label></li>
+<li><label><input type="checkbox" checked="" />checked uppercase</label></li>
+<li><label><input type="checkbox" />parent task</label>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />child task</label></li>
+<li><label><input type="checkbox" />another child</label></li>
+</ul></li>
+</ul>
+<p>以下是 GFM 有序任务列表扩展用例。用户提供的 Typora 实测为普通有序列表，保留 <code>[ ]</code> / <code>[x]</code> 文字，不生成复选框；Notdown Typora 方言应与此一致。cmark-gfm 生成复选框，Pandoc 3.11 的 gfm reader 保留文字。GitHub 官方 Markdown 速查表第 2 页 TASK LISTS 注明 “any unordered or ordered list supported”：<a href="https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf">https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf</a> 。规范依据为 GFM §5.2 的列表项定义及 §5.3 的任务列表项规则；§5.3 未单独展示有序任务示例。</p>
+<ol type="1">
+<li>[ ] ordered task</li>
+<li>[x] ordered completed task</li>
+</ol>
+<h2 id="g03--删除线及边界">G03 — 删除线及边界</h2>
+<p><del>strikethrough</del>；<del><strong>bold deleted</strong></del>；~single tilde probe~。</p>
+<p>最后一个是单波浪线边界，与 Typora 下标设置一起观察，不能混同双波浪线删除线。</p>
+<h2 id="g04--html-过滤差异探针">G04 — HTML 过滤差异探针</h2>
+<p>Notdown 当前策略：<code>script</code>、<code>style</code> 不生成预览内容，保持空白；<code>textarea</code> 显示只读文本框，内容通过“编辑 HTML”修改保存。单行 <code>xmp</code>、<code>noembed</code> 属于行内 HTML，只显示里面的文字，不显示标签原文，Typora 方言也一样。块级 HTML 可展开源码，行内 HTML 在源码视图编辑。这是 Notdown 的显示约定，不承诺复刻 Typora 的全部 HTML 行为。</p>
+<p>下面是实际 HTML 输入。仅记录各标签是否显示、被转义、被过滤，以及保存后是否保留；本文件不预设两个应用必须执行相同的 HTML 策略。iframe 在 T12 单独测试。以下 script 仅含非执行数据。</p>
+<title>PROBE title text</title>
+
+<textarea>PROBE textarea text</textarea>
+
+<style>/* PROBE style: no CSS rules */</style>
+
+<p><xmp>PROBE xmp text</xmp></p>
+<p><noembed>PROBE noembed text</noembed></p>
+<noframes>PROBE noframes text</noframes>
+
+<script type="application/json">{"probe":"inert-data"}</script>
+
+<p>G04 后置哨兵：此文字必须仍可恢复。</p>
+<h2 id="t01--块级数学公式">T01 — 块级数学公式</h2>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><msup><mi>x</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">
+y=x^2
+</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"><msup><mi>a</mi><mn>2</mn></msup><mo>+</mo><msup><mi>b</mi><mn>2</mn></msup></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mo>=</mo><msup><mi>c</mi><mn>2</mn></msup></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right; padding-right: 0"><msubsup><mo>∫</mo><mn>0</mn><mn>1</mn></msubsup><msup><mi>x</mi><mn>2</mn></msup><mspace width="0.167em"></mspace><mi>d</mi><mi>x</mi></mtd><mtd columnalign="left" style="text-align: left; padding-left: 0"><mo>=</mo><mfrac><mn>1</mn><mn>3</mn></mfrac></mtd></mtr></mtable><annotation encoding="application/x-tex">
+\begin{aligned}
+a^2+b^2 &amp;= c^2 \\
+\int_0^1 x^2\,dx &amp;= \frac{1}{3}
+\end{aligned}
+</annotation></semantics></math></p>
+<h2 id="t02--脚注">T02 — 脚注</h2>
+<p>text<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>；重复引用同一个脚注<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>；另一个多段脚注<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>。</p>
+<p>观察脚注引用、定义位置、编号、跳转及重复引用；这些行为分别记录。</p>
+<h2 id="t03--yaml-front-matter">T03 — YAML front matter</h2>
+<p>实际输入位于文件最开头，以 <code>layout: post</code>、<code>title</code>、列表和嵌套未知字段构成。观察是否显示为元数据、是否误认成分隔线，以及保存后 <code>custom_probe</code> 是否保留。</p>
+<h2 id="t04--目录">T04 — 目录</h2>
+<p>[toc]</p>
+<p>观察目录是否生成、各级标题是否出现、点击是否跳转；代码围栏里的假标题不得进入目录。新增标题后再观察目录更新。</p>
+<h2 id="t05--github-风格提示块">T05 — GitHub 风格提示块</h2>
+<div class="note">
+<div class="title">
+<p>Note</p>
+</div>
+<p>text，包含 <strong>bold</strong>。</p>
+</div>
+<div class="tip">
+<div class="title">
+<p>Tip</p>
+</div>
+<p>A helpful tip.</p>
+</div>
+<div class="important">
+<div class="title">
+<p>Important</p>
+</div>
+<p>Important information.</p>
+</div>
+<div class="warning">
+<div class="title">
+<p>Warning</p>
+</div>
+<p>Warning information.</p>
+</div>
+<div class="caution">
+<div class="title">
+<p>Caution</p>
+</div>
+<p>Caution information.</p>
+</div>
+<h2 id="t06--页内链接与标题-id">T06 — 页内链接与标题 ID</h2>
+<p><a href="#header-3">跳到 Header 3</a>；<a href="#中文锚点测试">跳到中文标题</a>；<a href="#missing-header-probe">跳到不存在的标题</a>。</p>
+<p>第一个链接指向 C01 的 <code>header 3</code>；中文和不存在的目标作为边界测试。</p>
+<h3 id="中文锚点测试">中文锚点测试</h3>
+<p>中文锚点目标。</p>
+<h2 id="t07--emoji">T07 — Emoji</h2>
+<p><span class="emoji" data-emoji="smile">😄</span> <span class="emoji" data-emoji="heart">❤️</span> <span class="emoji" data-emoji="+1">👍</span> :not_a_real_emoji_probe: 😄</p>
+<p>观察已知短码、未知短码和原生 Unicode Emoji；未知短码应可恢复。</p>
+<h2 id="t08--行内数学与美元符号边界">T08 — 行内数学与美元符号边界</h2>
+<p>行内公式 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><msup><mi>x</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">y=x^2</annotation></semantics></math>；含分式 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mfrac><mi>a</mi><mi>b</mi></mfrac><annotation encoding="application/x-tex">\frac{a}{b}</annotation></semantics></math>；中文前<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x+1</annotation></semantics></math>中文后。</p>
+<p>价格 $5 和 $10；转义美元 $20；未闭合 $x+1。</p>
+<p>边界探针 $ x + 1 $ 与代码 <code>$y=x^2$</code>；记录实际解释，不预设全部都是数学。</p>
+<h2 id="t09--下标">T09 — 下标</h2>
+<p>H~2~O；CO~2~；a~i~；转义 H~2~O；代码 <code>H~2~O</code>。</p>
+<h2 id="t10--上标">T10 — 上标</h2>
+<p>X^2^；x^n+1^；转义 X^2^；代码 <code>X^2^</code>。</p>
+<h2 id="t11--高亮">T11 — 高亮</h2>
+<p>==highlight==；==<strong>bold highlight</strong>==；中文==重点==中文；转义 ==literal==；代码 <code>==highlight==</code>。</p>
+<h2 id="t12--iframe-嵌入">T12 — iframe 嵌入</h2>
+<p>此项需要网络。远端拒绝嵌入或网络错误应记为资源问题；另记录解析器是否识别 iframe、是否保留属性和原文。使用原始 HTML URL，不能把 Markdown 链接语法塞进 src。</p>
+<iframe height="265" scrolling="no" title="Fancy Animated SVG Menu" src="https://codepen.io/jeangontijo/embed/OxVywj/?height=265&amp;theme-id=0&amp;default-tab=css,result&amp;embed-version=2" frameborder="no" allowtransparency="true" allowfullscreen="true" style="width: 100%;"></iframe>
+
+<h2 id="t13--sequence-图表">T13 — sequence 图表</h2>
+<pre class="sequence"><code>Alice-&gt;Bob: Hello Bob
+Bob--&gt;Alice: Hello Alice</code></pre>
+<p>空图表边界：</p>
+<pre class="sequence"><code></code></pre>
+<h2 id="t14--flow-图表">T14 — flow 图表</h2>
+<pre class="flow"><code>st=&gt;start: Start
+op=&gt;operation: Read markdown
+cond=&gt;condition: Valid?
+e=&gt;end: End
+st-&gt;op-&gt;cond
+cond(yes)-&gt;e
+cond(no)-&gt;op</code></pre>
+<p>空图表边界：</p>
+<pre class="flow"><code></code></pre>
+<h2 id="t15--mermaid">T15 — Mermaid</h2>
+<pre class="mermaid"><code>graph TD
+    A[Markdown] --&gt; B{Parse}
+    B --&gt; C[Preview]
+    B --&gt; D[Preserve source]</code></pre>
+<pre class="mermaid"><code>sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    A-&gt;&gt;B: Hello
+    B--&gt;&gt;A: Hi</code></pre>
+<p>空图表边界：</p>
+<pre class="mermaid"><code></code></pre>
+<h2 id="b01--t16--非严格标题">B01 / T16 — 非严格标题</h2>
+<p>下面第一行 <code>#</code> 后没有空格；第二行有空格。Notdown 对应 <code>space_in_atx_header</code> 开关，分别比较开关前后行为。</p>
+<p>###header</p>
+<h3 id="header-with-required-space">header with required space</h3>
+<h2 id="b02--t17--非严格列表续行">B02 / T17 — 非严格列表续行</h2>
+<p>下面第二行恰好有两个 ASCII 空格：</p>
+<ol type="1">
+<li>word word</li>
+</ol>
+<p>对照：第二行四个空格。</p>
+<ol type="1">
+<li>word word</li>
+</ol>
+<h2 id="b03--t18--非严格嵌套列表">B03 / T18 — 非严格嵌套列表</h2>
+<p>子列表前恰好两个 ASCII 空格：</p>
+<ol type="1">
+<li>item</li>
+<li>item</li>
+</ol>
+<p>对照：子列表前四个空格。</p>
+<ol type="1">
+<li>item
+<ol type="1">
+<li>item</li>
+</ol></li>
+</ol>
+<p>Notdown 的 B02/B03 对应 <code>typora_loose_lists</code>；记录是否嵌套、是否变成同级列表、保存后缩进是否改变。</p>
+<h2 id="b04--代码与转义保护">B04 — 代码与转义保护</h2>
+<p>以下围栏中的内容全部应作为代码文字保留，不得生成目录、图表、公式、脚注或提示块。</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> not metadata</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="fu"># FAKE HEADING INSIDE CODE</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">toc</span><span class="co">]</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="co">[</span><span class="ot">!NOTE</span><span class="co">]</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="va">[x]</span> not a task</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>y=x^2</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>text<span class="ot">[^fake]</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="ot">[^fake]: </span>not a footnote</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="sc">:smile:</span> H~2~O X^2^ <span class="al">==highlight==</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">iframe</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://example.com/&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">iframe</span><span class="dt">&gt;</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="in">```mermaid</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="in">graph TD</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="in">    X --&gt; Y</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+<p>*literal emphasis*；[toc]；$y=x^2$；~~literal strike~~。</p>
+<h2 id="b05--未知及未闭合行内语法">B05 — 未知及未闭合行内语法</h2>
+<p>[undefined reference][missing-ref-probe]</p>
+<p>text[^missing-footnote-probe]</p>
+<p>==unclosed highlight</p>
+<p>**unclosed strong</p>
+<p><unknown-probe data-keep="yes">未知标签内容 KEEP-UNKNOWN</unknown-probe></p>
+<p>B05 后置哨兵：未识别语法与相邻正文均不得丢失。</p>
+<h2 id="r01--编辑与源码往返检查">R01 — 编辑与源码往返检查</h2>
+<p>EDIT-ME：只将本段中的 apple 改为 orange。</p>
+<ol type="1">
+<li>先不编辑，只切换「源码 → 页面 → 源码」，比较整个正文是否变化。</li>
+<li>仅修改上面的 apple，再保存并重新打开。比较其他顶层块，重点检查 YAML 未知字段、引用定义、代码围栏、HTML 属性、图表源码和连续空行。</li>
+<li>在副本中切换任务复选框；修改表格单元格；修改公式；修改图表源码。每次单独保存，检查改动范围与重新解析结果。</li>
+<li>在 Typora 的独立副本上做相同操作，记录它的源码规范化行为；不要让两个应用并发改同一份文件。</li>
+<li>对未实现或未识别的内容，分别记录「原文可恢复」和「原文丢失」，不要只依据预览判定。</li>
+</ol>
+<h2 id="b06--plaintext-与文件末尾隔离测试">B06 — plaintext 与文件末尾隔离测试</h2>
+<p>HTML <code>plaintext</code> 可能让后续内容全部成为字面文本，因此只在此展示转义形式：<code>&lt;plaintext&gt;PROBE plaintext text</code>。要测实际标签，请在另一份空白测试页粘贴该代码内容；本项不计作已在全文中执行的用例。</p>
+<h2 id="b07--未闭合围栏必须保持在文件最后">B07 — 未闭合围栏（必须保持在文件最后）</h2>
+<p>从下一行开始直至 EOF 都属于未闭合围栏探针。观察是否保留为代码、是否报错，以及保存是否补齐围栏。其内假标题不得成为正常标题。</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># EOF FAKE HEADING</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">toc</span><span class="co">]</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>y=x^2</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>EOF-SENTINEL：此行及前面的所有原文必须可恢复。</span></code></pre></div>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>text in <em>footnote</em><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>text in <em>footnote</em><a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>第一段，包含 <strong>bold</strong> 和 <a href="https://example.com/">link</a>。</p>
+<p>第二段，观察是否仍属于脚注。<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>

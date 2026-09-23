@@ -12,41 +12,16 @@ import {
 import {
   blockAtPos,
   deleteEditorBlock,
+  deleteEditorBlocks,
   duplicateEditorBlock,
   indentEditorBlock,
   moveEditorBlock,
+  moveEditorBlocks,
   outdentEditorBlock,
 } from "../src/editor-blocks.js";
 
 // No DOM is needed to exercise exactly the nested schema used by the editor.
-const schema = new Schema({
-  nodes: {
-    doc: { content: "block+" },
-    paragraph: { content: "inline*", group: "block" },
-    heading: {
-      content: "inline*",
-      group: "block",
-      attrs: { level: { default: 2 } },
-    },
-    text: { group: "inline" },
-    bullet_list: { content: "list_item+", group: "block" },
-    ordered_list: {
-      content: "list_item+",
-      group: "block",
-      attrs: { order: { default: 1 } },
-    },
-    list_item: {
-      content: "paragraph block*",
-      attrs: { checked: { default: null } },
-    },
-    opaque_block: {
-      group: "block",
-      atom: true,
-      attrs: { source: { default: "" } },
-    },
-  },
-  marks: { strong: {} },
-});
+const schema = editorSchema;
 const p = (text = "", strong = false) =>
   schema.node(
     "paragraph",
@@ -59,12 +34,34 @@ const li = (
   text: string,
   children: PMNode[] = [],
   checked: boolean | null = null,
-) => schema.node("list_item", { checked }, [p(text), ...children]);
+) => schema.node(checked === null ? "bullet_list_item" : "task_list_item", { checked }, [p(text), ...children]);
 const ul = (...children: PMNode[]) =>
   schema.node("bullet_list", null, children);
 const ol = (order: number, ...children: PMNode[]) =>
-  schema.node("ordered_list", { order }, children);
+  schema.node("ordered_list", { order }, children.map(item => item.attrs.checked === null ? schema.nodes.numbered_list_item.create(item.attrs, item.content) : item));
 const doc = (...children: PMNode[]) => schema.node("doc", null, children);
+
+test("batch deletion removes overlapping rows once, keeps other branches and undoes together", () => {
+  const original = doc(p("Before"), ul(li("Parent", [ul(li("Child"))]), li("Sibling")), p("Keep"), p("After"));
+  const state = stateFor(original);
+  const tr = deleteEditorBlocks(state, ["Sibling", "Child", "Parent", "After", "Parent"].map(label => pos(original, label)));
+  assert.ok(tr);
+  const next = state.apply(tr);
+  next.doc.check();
+  assert.ok(next.doc.eq(doc(p("Before"), p("Keep"))));
+  assert.ok(run(undo, next).doc.eq(original));
+});
+
+test("deleting all selected blocks leaves an editable paragraph", () => {
+  const original = doc(p("One"), ul(li("Two")));
+  const state = stateFor(original);
+  const tr = deleteEditorBlocks(state, [pos(original, "One"), pos(original, "Two")]);
+  assert.ok(tr);
+  const next = state.apply(tr);
+  assert.ok(next.doc.eq(doc(p())));
+  assert.equal(next.selection.$from.parent.type, schema.nodes.paragraph);
+  assert.ok(run(undo, next).doc.eq(original));
+});
 
 function pos(document: PMNode, label: string) {
   let result = -1;
@@ -151,7 +148,7 @@ test("dragging a parent moves its complete nested subtree and checkbox state", (
 });
 
 test("a nested item moves alone between lists and removes its empty old list", () => {
-  const child = schema.node("list_item", { checked: true }, [
+  const child = schema.node("task_list_item", { checked: true }, [
     p("Child", true),
     schema.node("opaque_block", { source: ":::unknown\n[[literal]]\n:::" }),
   ]);
@@ -431,5 +428,64 @@ test("nested drag and Tab transactions roundtrip through real Markdown, while un
     assert.match(markdown, /\[\[target\|Page name\]\]/);
     assert.match(markdown, /```md\r\n\[\[literal\]\]\r\n```/);
     assert.equal(serializeEditorMarkdown(run(undo, result).doc), source);
+  }
+});
+
+test("multi-row movement retains order, descendants and one-step undo", () => {
+  const doc = schema.node("doc", null, [
+    ul(li("First", [ul(li("Child"))]), li("Second")),
+    p("Tail"),
+  ]);
+  let state = EditorState.create({ doc, plugins: [history()] });
+  const first = 1;
+  const second = first + doc.firstChild!.firstChild!.nodeSize;
+  const tail = doc.firstChild!.nodeSize;
+  const tr = moveEditorBlocks(state, [second, first, first + 8], tail, "after");
+  assert.ok(tr);
+  state = state.apply(tr);
+  assert.equal(state.doc.firstChild!.textContent, "Tail");
+  assert.equal(state.doc.textContent, "TailFirstChildSecond");
+  state.doc.check();
+  assert.ok(
+    undo(state, (tr) => {
+      state = state.apply(tr);
+    }),
+  );
+  assert.ok(state.doc.eq(doc));
+  assert.equal(
+    moveEditorBlocks(state, [first, second], first + 8, "inside"),
+    null,
+  );
+});
+
+test("multi-row placement preserves mixed blocks and opaque payloads", () => {
+  const doc = editorSchema.node("doc", null, [
+    editorSchema.node("paragraph", null, editorSchema.text("A")),
+    editorSchema.node("opaque_block", { raw: ":::unknown\nuntouched\n:::" }),
+    editorSchema.node("paragraph", null, editorSchema.text("B")),
+    editorSchema.node("paragraph", null, editorSchema.text("Target")),
+  ]);
+  const positions: number[] = [];
+  doc.forEach((_node, pos) => positions.push(pos));
+  for (const placement of ["before", "after", "inside"] as const) {
+    const state = EditorState.create({ doc });
+    const tr = moveEditorBlocks(
+      state,
+      [positions[2], positions[0], positions[1]],
+      positions[3],
+      placement,
+    );
+    if (placement === "before") {
+      assert.equal(tr, null);
+      continue;
+    }
+    assert.ok(tr);
+    tr.doc.check();
+    assert.equal(tr.doc.textContent, "TargetAB");
+    let raw = "";
+    tr.doc.descendants((node) => {
+      if (node.type.name === "opaque_block") raw = node.attrs.raw;
+    });
+    assert.equal(raw, ":::unknown\nuntouched\n:::");
   }
 });

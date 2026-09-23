@@ -1,3 +1,4 @@
+import { parseNative } from "../src/markdown-engine/codec";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState, TextSelection, type Command } from "prosemirror-state";
@@ -49,7 +50,7 @@ function run(state: EditorState, command: Command) {
 }
 function roundtrip(state: EditorState) {
   assert.equal(
-    editorFingerprint(parseEditorMarkdown(serializeEditorMarkdown(state.doc))),
+    editorFingerprint(parseNative(serializeEditorMarkdown(state.doc), { version: 1, variant: "notdown", extensions: {} })),
     editorFingerprint(state.doc),
   );
 }
@@ -197,7 +198,7 @@ test("empty nested list Enter lifts one level and retains the bullet", () => {
     exitEmptyList,
   );
   assert.equal(state.doc.firstChild?.childCount, 2);
-  assert.equal(state.doc.firstChild?.lastChild?.type.name, "list_item");
+  assert.equal(state.doc.firstChild?.lastChild?.type.name, "bullet_list_item");
   state = run(state, exitEmptyList);
   assert.equal(state.doc.lastChild?.type.name, "paragraph");
 });

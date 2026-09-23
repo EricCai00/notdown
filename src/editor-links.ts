@@ -14,6 +14,7 @@ import {
   House,
   Code,
   Link2,
+  ArrowUpRight,
   type IconNode,
 } from "lucide";
 import type { Mark, Node as ProseMirrorNode } from "prosemirror-model";
@@ -86,7 +87,7 @@ const pageIcons: Record<string, IconNode> = {
   "link-2": Link2,
 };
 
-function iconElement(icon?: string): Element {
+export function pageIconElement(icon?: string): Element {
   // Workspace icons are either plain emoji or Lucide names. Never interpret
   // icon/title strings as HTML, including metadata written by external tools.
   if (icon && /[^a-z-]/.test(icon)) {
@@ -128,7 +129,7 @@ class PageLinkView implements NodeView {
     // IDs remain the source of truth. Renaming a linked page updates the label
     // when its node view renders, even if the stored Markdown has an old alias.
     const label =
-      page?.title || String(this.node.attrs.label || target || "未命名页面");
+      page?.title || String(this.node.attrs.label || target || "Untitled page");
     this.dom.className =
       this.node.type.name === "child_page"
         ? "child-page-node child-page"
@@ -140,11 +141,32 @@ class PageLinkView implements NodeView {
     this.dom.setAttribute("data-page-target", target);
     this.dom.setAttribute("data-page-id", page?.id ?? target);
     this.dom.setAttribute("aria-label", label);
-    this.dom.title = page || !localPageTarget(target) ? label : `未找到页面：${label}`;
+    this.dom.title = page || !localPageTarget(target) ? label : `Page not found: ${label}`;
     const text = document.createElement("span");
     text.className = "page-link-label";
     text.textContent = label;
-    this.dom.replaceChildren(iconElement(page?.icon), text);
+    const icon = pageIconElement(page?.icon);
+    if (this.node.type.name === "child_page") {
+      const iconSlot = document.createElement("span");
+      iconSlot.className = "page-link-icon-slot";
+      iconSlot.setAttribute("aria-hidden", "true");
+      iconSlot.append(icon);
+      // Untyped legacy page blocks are references, just like Link to page.
+      // Only an explicit child role denotes the child-page presentation.
+      if (this.node.attrs.nfmAttrs?.role !== "child") {
+        iconSlot.append(createElement(ArrowUpRight, {
+          class: "page-link-reference-arrow",
+          width: 18,
+          height: 18,
+          "stroke-width": 1.8,
+          "aria-hidden": "true",
+          focusable: "false",
+        }));
+      }
+      this.dom.replaceChildren(iconSlot, text);
+    } else {
+      this.dom.replaceChildren(icon, text);
+    }
   }
 
   update(node: ProseMirrorNode): boolean {

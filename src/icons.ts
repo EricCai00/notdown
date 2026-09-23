@@ -1,5 +1,9 @@
 import {
   createIcons,
+  Heading4, Heading5, Heading6, Lightbulb, Sigma, Workflow, MessageSquare, ExternalLink, Superscript, Subscript, AlignLeft, Square, ListOrdered, Copy, User, Calendar, Type, Minus, PanelsTopLeft, Bookmark, PanelTop, Navigation, MousePointer2, Mic, Image, Bold, Italic, Underline, Strikethrough, Palette, PaintBucket, Highlighter, Smile,
+  Star,
+  Trash2,
+  Undo2,
   Ellipsis,
   NotebookPen,
   ChevronsUpDown,
@@ -34,6 +38,8 @@ import {
   Table2,
   Sprout,
   ArrowUp,
+  ArrowLeft,
+  ArrowRight,
   ArrowDown,
   GripVertical,
   X,
@@ -52,7 +58,19 @@ import {
   CircleCheck,
 } from "lucide";
 
-const icons = {
+// A reference number in brackets distinguishes footnotes from typographic superscript.
+const Footnote: typeof Superscript = [
+  ["path", { d: "M6 5H3v14h3M18 5h3v14h-3M10 9l2-2v10M10 17h4" }],
+];
+
+export const icons = {
+  Footnote,
+  Heading4, Heading5, Heading6, Lightbulb, Sigma, Workflow, MessageSquare, ExternalLink, Superscript, Subscript, AlignLeft, Square, ListOrdered, Copy, User, Calendar, Type, Minus, PanelsTopLeft, Bookmark, PanelTop, Navigation, MousePointer2, Mic, Image, Bold, Italic, Underline, Strikethrough, Palette, PaintBucket, Highlighter, Smile,
+  ArrowLeft,
+  ArrowRight,
+  Star,
+  Trash2,
+  Undo2,
   Heading1,
   Heading3,
   AtSign,

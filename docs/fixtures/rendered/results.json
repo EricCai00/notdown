@@ -1,0 +1,24 @@
+{
+  "source": "D:\\Workspace\\note-app\\notdown\\docs\\fixtures\\typora-comparison.md",
+  "source_sha256": "b45d1fa15c94c2b735480e2924684729af140dd6c27477453b699a7a0b00861a",
+  "cmarkgfm_python_package": "2025.10.22",
+  "cmark_call": "github_flavored_markdown_to_html(source, options=Options.CMARK_OPT_UNSAFE)",
+  "pandoc_version": "pandoc 3.11",
+  "pandoc_args": [
+    "-f",
+    "gfm",
+    "-t",
+    "html5",
+    "--wrap=none"
+  ],
+  "results": {
+    "cmark-gfm": {
+      "g02_checkbox_inputs": 8,
+      "ordered_list_html": "<ol>\n<li><input type=\"checkbox\" disabled=\"\" /> ordered task</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> ordered completed task</li>\n</ol>"
+    },
+    "pandoc-gfm": {
+      "g02_checkbox_inputs": 6,
+      "ordered_list_html": "<ol type=\"1\">\r\n<li>[ ] ordered task</li>\r\n<li>[x] ordered completed task</li>\r\n</ol>"
+    }
+  }
+}

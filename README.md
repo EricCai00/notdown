@@ -1,12 +1,114 @@
 # Notdown
 
+脚注区采用 `1. 正文`、`2. 正文` 的编号样式，保留当前主题颜色。多段落和代码按内容列对齐，正文仍使用上标引用。每条定义末尾提供 `↩` 返回按钮；重复引用时提供分别返回各处的按钮，支持键盘操作。显示编号和返回按钮不写入 Markdown。
+
+**当前阶段的格式边界**：Notdown 集合已有 Markdown 方言与 Notion。自定义正文语法仅用于补足官方 Enhanced Markdown 不支持的 Notion block、已有 block 的属性、inline 和 style，且只能在 `syntax.variant: notdown` 启用；`notion-markdown` 仅启用官方文档定义的语法，显式扩展开关也不能越过此边界。能用已有方言表达的内容复用该方言，不能另造重复协议。旧文件和未知字段必须可恢复保留，不批量迁移用户内容。 已移除 `local_figure` 开关及新建入口，图文题注使用 Pandoc `implicit_figures` / `link_attributes`；旧 nest/columns/page 指令仅保留源码，不再新生成；Lab 的 `notdown-bookmark` 围栏恢复普通代码。九组 Notion 补充编码及日期提醒、列宽、折叠持久状态、本地同步参数仅在 Notdown 启用。官方 variant 的日期用官方字段编辑、折叠只改变视图，不写补充属性。官方 Meeting notes 暂保留源码，其本地服务属性仅在 Notdown 解释。表格合并和题注使用 Pandoc grid table；不再新生成带这些结构的 NFM 表格。完整范围见 [语法边界与整改](docs/CUSTOM-SYNTAX-AUDIT-2026-09-23.md)。
+
+**People 本地通讯录**：侧栏 People 提供联系人的新增、搜索、查看、编辑、删除与恢复，可记录姓名、邮箱、电话、组织和备注。正文输入 `@` 可搜索联系人，方向键选择、Enter 插入、Esc 取消；日期建议继续可用，`/Mention person` 也接入联系人选择。点击提及打开详情；稳定 ID 支持同名联系人与改名，删除不清除已有提及。联系人保存为 `people/*.yaml`，页面仍保存 Markdown；改名只更新显示，不批量改写笔记中的后备名称。更新使用 `baseRevision`，冲突保留双方 YAML，并在表单中提供比较。**Person 只是本地联系人，不是登录用户、工作区成员或权限主体，不发送提及通知，也不提供协作或跨端同步。** `@` 补全用于 Page／Split 的富文本区；源码区保留原文编辑，可通过插入菜单添加。详见 [People 格式与边界](docs/PEOPLE.md)。
+
+2026-09-23 源码定位修复：`Ctrl+E` 使用与页面相同的脚注显示投影对应 Markdown 原文位置，修复页面包含脚注后因块数不一致而完全跳过定位的问题；正文与页尾脚注均可跳到对应源码行，当前行号高亮。长块内部仍按相对位置近似定位，尚未实现任意嵌套语法的逐字符映射。
+
+脚注统一显示在文末的一条分隔线下，按正文首次引用顺序编号、排序，重复引用沿用同一编号。定义可直接编辑，但不提供拖拽手柄、块菜单或块插入按钮；未引用定义保留在末尾。包括容器内定义在内，显示排序不改变 Markdown 定义的原始存储位置；保存、撤销与重开沿用同一文档和本地 CAS。
+
+插入菜单修正：Tabs 放入 **Notion advanced**，HTML document / Web embed 放入 **Notion embeds**；Footnote 放入 **Markdown inline**，使用 `[1]` 图标。脚注引用插入光标处，定义追加到文末，保留段落连续性；Inline note 使用独立名称和图标。脚注定义仍保存为可编辑正文，并非删除定义、仅保留引用。
+
+2026-09-22 内容合集：**Notdown** 现在组合现有 Notion 内容与 Markdown 扩展，默认提供脚注、定义列表、Mermaid、Markdown 容器、多种表格、上下标、高亮、引用文献等；H5/H6 保留，不再套用 Notion 的 H4 上限。`/` 菜单分为 Notion basic / advanced / media / embeds / inline / style 和 Markdown blocks / inline，全部条目注册图标，并补格式与行内公式入口。容器内混合内容支持编辑写回、原文保留和扩展关闭。**数据库、完整 Notion 云端自动化、协作与跨端同步仍未实现**；合集不等于所有互斥方言语法同时兼容。完整边界见 [Notdown 内容合集](docs/NOTDOWN-SUPERSET.md)。本条覆盖下文“Notdown 仅继承 Notion”“Notdown H5/H6 转为 H4”的历史说明。
+
+页面标题区域悬停时显示 **Add icon / Add cover**，移开收起且不改变标题位置；键盘聚焦操作入口和触摸设备仍可使用。图标可搜索、粘贴 emoji／符号、替换或移除，封面支持图片 URL／知识库 assets 路径和移除。页面 **Properties** 折叠区统一收纳页面 YAML 属性、正文 YAML / MultiMarkdown metadata 与 Pandoc title block；各格式采用与现有属性一致的图标行，显示前两个字段摘要及剩余数量。点击摘要直接打开 CodeMirror 代码编辑器，提供 YAML 专用高亮、Pandoc / MMD 标记高亮、行号、缩进、查找和局部撤销；**Save changes / Ctrl+Enter / Ctrl+S** 提交，Cancel / Escape 丢弃草稿。保存检查语法与单一元数据块边界，注释、未知字段和原存储位置保留，关闭 Metadata values 后仍可编辑源码。提交后支持正文撤销；打开详情时后台刷新不覆盖草稿，版本冲突继续保留双方内容。
+
+**Pandoc title block 的 title 与页面标题双向联动**：页面标题框、重命名菜单、元数据字段／代码编辑及完整源码中的标题变更一起保存；作者、日期和其他正文保留。首次打开已有不一致页面时，以有效且非空的 Pandoc title 为准更新页面标题，仍走本地 CAS；未识别或禁用的 Pandoc 语法不联动，YAML / MMD 的 title 保持独立。页面标题沿用 500 字符上限。尚未实现图标图片上传、封面上传／裁剪、评论或跨端同步。
+
+Block Explorer 已补入桌面工作簿 `markdown` / `extended` 的 154 条语法，以及 Pandoc 手册 89 个扩展名的说明。在对象、方言和扩展详情的 **Syntax guide** 查看原始示例、单元格位置、相关编码、官方来源及更正；可以按 `extended!A53:E53` 检索。12 个非 Markdown 格式选项明确标为无 Markdown 输入语法。语法关联、当前开关状态、原文保留和完整实现分开说明；已发现的数学/上下标/高亮能力映射缺漏、自定义 HTML 锚点与 GFM tagfilter 差异、Literate Haskell 不完整规则尚未在本次修复，详见[语法说明核对报告](docs/SYNTAX-CATALOG-AUDIT-2026-09-22.md)。没有实现 GitHub 短引用服务、R/knitr 执行器或 Notion 数据库；仍只有本地 CAS 与冲突分支，无跨端同步。
+
+HTML embed 与 Web embed 可从块插入菜单或 `/html`、`/web` 直接插入。在 Notdown 方言中默认可用；其他方言不启用这两个补充编码；已有 HTML iframe 继续按其上游语法处理。HTML 空块点击 **Create or upload HTML**，支持上传／拖放 `.html` 文件或直接输入 HTML 代码，无 AI 创建区；确认后显示独立预览，可重新编辑。Web 空块点击 **Embed anything…** 输入 HTTP(S) 链接，已有 Typora iframe 也使用同一链接面板。提交可撤销，保存和重载保留内容及未知属性；Escape／点击外部取消草稿，外部更新或切页关闭旧面板。HTML 内容随页面保存，预览禁用脚本，尚不导入相对路径依赖或打包网站资源；Web 是否可显示取决于站点嵌入策略，提供原网页链接，未提供 Web 文件上传或自动将普通分享地址转换为各平台专用嵌入地址。沿用本地 CAS 和冲突分支，无跨端同步。
+
+2026-09-22 误解析排查：Notion / Notdown 继续按官方规范将 H5/H6 解析为 H4，键入标题也统一转换；未编辑的原始井号数量保留。修正 Original / PHP Extra / MultiMarkdown / Legacy GitHub 默认误认 `1)` 列表、Strict 键入代码围栏、fancy lists 误认普通单词／畸形标记、图片简写引用绕过开关、Notion 行内标签中的子语法绕过开关，以及自闭合块标签吞掉行尾文字等问题。12 方言的默认解析、显式关闭、代码字面量和源码往返纳入回归；这仍不代表通过全部上游一致性测试。详见[误解析核对](docs/DIALECT-CONFORMANCE.md#误解析核对)。
+
+Link Preview 已接入 GitHub 和 OneDrive / SharePoint：粘贴受支持的 HTTPS 链接后选择 **Link / Mention / Preview**，分别保留普通链接、创建行内引用或预览块。GitHub 展示仓库、PR/Issue 标题与状态、作者、编号，以及代码文件／指定行；OneDrive 展示文件缩略图、名称、大小和修改时间，展开后可请求 Business / SharePoint 文档查看器。卡片支持刷新、展开、打开原文件和属性编辑。选择 Notdown 方言或开启 Link preview 扩展即可使用。
+
+外部数据在打开页面及页面可见时每分钟读取，服务端缓存一分钟；只更新视图，不写入正文、不创建撤销记录。URL 与用户填写的后备内容保存在 Markdown，未知属性保留，现有 `createVault` / `baseRevision` 保存路径不变。GitHub 公共内容无需凭据；私有 GitHub 内容与 OneDrive 通过 **Settings → Link previews** 配置 token，凭据仅存于 `.notdown/link-connections.json`，不会写入页面。**尚未实现 OAuth 登录、token 自动续期、多账号、GitHub Enterprise、同步数据库或跨端同步**；OneDrive 内嵌查看器仅适用于 Business / SharePoint，个人账户与不支持的文件可使用缩略图和原文件链接。详细限制和官方 API 来源见 [Link Preview](docs/LINK-PREVIEWS.md)。
+
+2026-09-22 方言边界修正：各上游方言默认值按其规范独立定义，仅 Pandoc 自身预设沿用 Pandoc 3.11 快照。新增 **Notdown** 方言：继承 Notion-flavored Markdown 的语法，默认开启十类 Notdown 块扩展（Tabs、Bookmark、Link preview、Breadcrumb、Button、Meeting notes、AI block、HTML document、Web embed、Image with caption）。在页面 Dialect 或 Markdown Lab 中选择 Notdown 即可使用；每个扩展仍可关闭，Reset dialect defaults 恢复该方言默认值。原 Notion 预设继续保持这些扩展默认关闭。
+
+扩展界面将这十类能力归为 **Notdown blocks**，直接显示块名称；`local_*` 仅保留为已有 YAML 配置的兼容键，不再作为界面命名前缀。分组用于区分项目块编码与上游 Markdown 语法；“local”不代表单独的知识库，也不决定是否同步。旧正文、未知属性、未知配置和显式关闭值均保留；选择新方言不迁移正文，也不批量转换已有页面。Notdown 表示当前已实现的本地块能力，不表示完整 Notion 云服务、数据库或跨端同步。详见[方言核对与插件说明](docs/DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
+
+## 对象统一与本地能力
+
+Button 对照 [Notion 官方功能说明](https://www.notion.com/help/buttons)及[官方界面示例](https://www.notion.com/help/guides/automatically-generate-blocks-pages-with-buttons)改为紧凑描边按钮，直接点击执行，悬停或键盘聚焦后通过齿轮打开内联配置。支持名称、emoji、默认／灰／蓝样式，以及动作增删、复制和排序：插入 Markdown 块（按钮上方／下方、页首／页尾，含预览）、确认弹窗、打开本地页面或 HTTP(S) 网址。新增按钮立即配置，Done 保存，Cancel／Escape 丢弃配置草稿；动作先校验，确认取消不产生部分正文修改，整组执行可一次撤销。旧 `action/target` 按钮及未知字段保留。需先开启 `local_button` 插件；尚未提供数据库增改、通知、邮件、Webhook、变量公式、Notion 云端联动或原生块模板编辑器，模板目前用 Markdown 编辑。仅本地 CAS 保存与冲突分支，无跨端同步。编码和限制见[本地对象与服务](docs/LOCAL-OBJECTS.md#button)。
+
+Breadcrumb 以页面图标、名称和斜杠构成紧凑行内导航，无卡片外框；正文块和顶部导航均从 vault 中的根页面显示到当前页面，每一级（包括当前页）都可点击跳转。路径随页面改名、移动和父级更新刷新，正文窄屏可换行。旧 `path` 属性及未知字段保留在 Markdown 中，但不再决定导航内容，也不提供手工路径编辑。
+
+图片、媒体、书签、Tabs、AI／Meeting notes、同步块等块属性，通过拖动手柄菜单的 **Properties…** 打开独立窗口；正文元数据字段从页面 **Properties → 元数据摘要 → Edit fields** 打开。保存统一提交并可一次撤销，取消／Escape 丢弃未保存的字段草稿；目标块被外部更新或删除后禁止提交旧草稿。
+
+Web bookmark 按 Notion 参考提供浅灰 **Add a web bookmark** 空态、链接输入弹层和带网站图标／标题／描述／网址的圆角卡片。通过 `/bookmark` 插入空块，或粘贴 HTTP(S) 网址后选 **Bookmark**；创建、修改链接及手动刷新时提取公开网页的 HTML 元信息，有封面时显示右侧缩略图。整张卡片可在新标签页打开，悬停可改链接、刷新或打开 Properties；Escape／点击外部取消输入，创建结果可撤销。元信息保存到 Markdown，重载不自动抓取；失败保留网址并允许重试，异步结果不会覆盖已修改或删除的块。抓取有超时、大小及重定向限制，不携带网站登录凭据，不访问私网地址；登录页、反爬网站、仅 JavaScript 渲染及仅 IPv6 的站点可能无法生成详情，可手工补充。这不是网页全文存档或跨端同步。
+
+Tabs 使用简洁标签栏、浅灰圆角选中态与行尾加号，正文不再嵌套卡片边框。整块及内部子块从正文移向左侧 +／六点手柄时，经过内边距和空隙仍保持当前块的操作目标。再次点击当前标签、右键任意标签或按 ↓ / Shift+F10 打开菜单，可重命名、更换图标、左右移动及删除（至少保留一个标签）；← / → / Home / End 切换标签。修改仍写回 Markdown，可撤销；图标使用现有 `tab` 属性保存并保留未知字段。只读预览可切换标签，不修改正文；暂未提供标签拖动排序和标签专属链接。
+
+方言名称不再附加 `(native)`、`(deprecated)` 或 `(core syntax)`；本地解析方式和旧版 GitHub 方言的弃用说明保留在说明区域。`gfm` 显示为 GitHub Flavored Markdown，`markdown_strict` 显示为 Original Markdown，内部标识保持不变；GFM 的 Spec／Docs 来源继续在扩展标签中区分。
+
+Extensions 与 Block Explorer 保留当前方言的可配置规范语法、内置语法与 Others 分组；来源仅分为 Pandoc extensions、Notdown Notion extensions、Notdown Markdown extensions，Others 内按此顺序分区排列。Notdown blocks 归入 Notdown Markdown 扩展，不再单独置顶，名称和扩展 ID 与其他条目一致显示；Outside Markdown scope 仍作为不可启用的参考项放最后。CommonMark／GFM／CommonMark X 的基础规则在第二组只读显示，不提供虚假开关；缺少 Pandoc flag 的其他条目不会自动算作内置。规范语法标注必需／可选、GFM Spec／Docs、Typora 设置可选项，并链接官方依据；Pandoc 3.11 默认状态单独展示，修改勾选不会改变分组。此调整仅涉及列表展示，不新增语法支持。详见[扩展依据说明](docs/EXTENSION-PROVENANCE.md)。
+
+已按最新对象清单注册 **81 个内容对象**，覆盖 block、metadata、inline、character。Block Explorer 默认展示产品对象、别名、编辑能力与后续阶段；Child structures 单列有归属的子结构并双向链接所属对象。MMD metadata 归入 YAML front matter 对象，但按独立的纯文本语法解析，不冒充完整 YAML。Database reference 对象及专用节点已移除，原标签保留为 Unsupported。Inline raw source 已纳入 Content objects；文件引入的块级与行内位置共用 File transclusion。Mention agent、Inline media 及 Existing content 板块已移除；本地音视频 Markdown 链接保持普通链接，媒体标签仍表示块级媒体。详见[元数据与表外格式说明](docs/METADATA-AND-COMPATIBILITY.md)。菜单和块标签使用统一名称，语义别名仍可搜索；删除误拼别名 date ot reminder。
+
+Block Explorer 的对象、方言和扩展两两双向链接，支持地址分享、刷新与前进／后退。按工作簿 `extensions` sheet 标注三类来源，展示全部 115 项：103 个 Markdown 扩展已接入本地执行路径，12 个 Outside Markdown scope 项始终排在最后且不可启用。`notdown_*` 配置键已改为 `notion_*`，旧键兼容读取；同名新旧键并存时新键优先，不批量迁移用户文件。工作簿原始状态与本地能力分别展示。详见 [目录分类与命名说明](docs/CATALOG-RELATIONS.md)。
+
+Callout / Alert 已合并；三种 TOC 编码共用目录节点；Bullet、Numbered、Task list item 使用三个底层节点，Heading 共享节点。管道、Notion、MultiMarkdown、网格、简单及多行表格统一为 table/row/cell/caption，可增删行列、合并／拆分单元格和编辑题注。新增 Tabs、手工书签、GitHub／OneDrive 链接预览、Breadcrumb、隔离 HTML embed、图片题注、Example list item、Native span、Small caps 及 Raw TeX 编辑路径。定义列表项可独立排序，元数据提供字段编辑，页面属性支持 cover。PDF 使用浏览器内嵌查看器及链接回退。逐项能力及源码编辑边界见 [对象 Roadmap](docs/CONTENT-OBJECT-ROADMAP.md)。
+
+Settings → **OpenAI-compatible services** 配置端点、文本模型、转录模型和密钥。AI block 的 Generate 使用 `/chat/completions`，Meeting notes 的 Transcribe 使用 `/audio/transcriptions`，只在点击时发送相应文字或音频；异步结果不覆盖请求期间的新编辑。密钥保存在当前知识库 `.notdown/services.json`，不写入页面，不通过读取设置 API 返回。Button 的多步骤本地动作见上文；日期提醒在应用打开时运行并在重新打开时补发；Synced block 支持本地来源刷新、暂停于本地编辑的可选自动刷新及 CAS 发布。这些不是后台操作系统调度或跨端同步。具体格式与服务边界见 [本地对象与服务](docs/LOCAL-OBJECTS.md)。
+
+界面统一使用英语，包括主应用、编辑器菜单、语法扩展设置、Markdown Lab、无障碍标签及应用错误提示；内置 Lab 示例也使用英语。现有知识库笔记、页面标题和自定义属性保留原文，不做自动翻译。当前未提供界面语言切换。
+
 一个以本地 Markdown 为正文真相的笔记应用原型。目标是把 Obsidian 的文件透明性与 Notion 的页面组织、阅读体验结合起来。
 
 比较了工作区中的 SiYuan、AFFiNE、AppFlowy、Anytype 和 AnyBlock。当前使用 **ProseMirror 连续编辑器 + Markdown 文件内核**：页面/存储参考思源，列表层级和块交互参考 AFFiNE、AppFlowy。早期 Vditor 实现已被替换，以支持独立列表项、连续选区、统一撤销和固定的页面链接节点。上游 clone 和 MyBase 项目保持独立；本项目不是完整上游 fork。理由与代码证据见 [选型记录](docs/FOUNDATION.md)。
 
-默认「页面」将阅读、编辑和块整理合并：直接点击正文编辑，拖动左侧六点手柄调整顺序，Markdown 随之保存；`Ctrl+E` 在页面与源码之间切换。仅在块左侧区域悬停显示六点手柄，不额外显示加号。已通过独立 Chrome 的输入、拖动、保存和链接交互测试；参考和实际边界见 [Notion 交互参考](docs/NOTION-REFERENCE.md)。
+默认「页面」将阅读、编辑和块整理合并：直接点击正文编辑，拖动左侧六点手柄调整顺序，Markdown 随之保存。正文工具栏提供 **源码 / 双栏 / 页面** 三种视图，双栏左侧为带高亮的 CodeMirror，右侧可直接编辑并同步滚动；`Ctrl+E` 在页面与源码之间切换。三个视图共用一份草稿和撤销历史。悬停块时在左侧显示 + 与六点手柄。交互参考见 [Notion 交互参考](docs/NOTION-REFERENCE.md)。
 
-`Enter` 创建新块，`Shift+Enter` 在当前段落/列表项内换行。列表项行首退格先去掉标记，退出列表后的空行退格直接回到上一项末尾。普通文本支持 `Tab` 建立父子关系及 `Shift+Tab` 提升。正文采用 [Notion Enhanced Markdown（FORMAT v0.3）](docs/FORMAT.md)：Tab 表示子块、`<br>` 表示块内换行、官方标签表示分栏和页面入口，不再生成私有指令。旧笔记按原格式读取，在编辑或打开源码时转换并通过版本检查保存。
+Split 同步滚动按视口顶部所在块的源码起止范围与实际页面高度双向对齐；源码换行、窗口缩放和内容高度变化后重新测量，页尾留白允许最后几个块滚到顶部。空白分隔行对应块间空隙；关闭同步可独立滚动，重新开启后跟随最后滚动的一侧。当前以顶层块为映射单位，列表、表格及嵌套容器内部按整体高度定位；折叠隐藏、移入属性区或重排的内容不能保证逐行对应。
+
+`Enter` 创建新块，`Shift+Enter` 在当前段落/列表项内换行。列表项行首退格先去掉标记，退出列表后的空行退格直接回到上一项末尾。启用普通块层级扩展后，文本支持 `Tab` 建立父子关系及 `Shift+Tab` 提升。新页面默认 [Notion-flavored Markdown](docs/FORMAT.md)；旧页面继续使用原语法，打开视图不会自动迁移正文。
+
+Notion 方言编辑时保留原有顶层块间空行，新增或重写块的边界默认留一个空行；列表项保持紧凑，代码块内部空行保留。排版空行不会生成额外空块。修改过的复合容器内部仍可能规范化间隔，详细规则见 [正文格式](docs/FORMAT.md)。
+
+## 原生 Markdown 编辑核心（第一阶段）
+
+数学块插入后立即打开贴在块下方的 TeX 编辑浮层：空块显示 “Add a TeX equation”，输入时上方实时显示 KaTeX 预览；Done／Enter 完成，Shift+Enter 换行，Escape 或点击外部收起并保留已输入内容。输入即时进入本窗口文档及现有 CAS 保存流程，切换源码不丢失；再次点击公式可继续编辑，窗口边缘自动调整浮层位置。预览仅支持 KaTeX 语法，不执行完整 LaTeX；行内公式仍使用原有编辑窗口。
+
+选中文字后显示浮动格式菜单：首个 A 按钮提供文字色／背景色及本次编辑最近使用的颜色，另有粗体、斜体、下划线、删除线、行内代码、清除格式、普通链接与行内公式转换。颜色／下划线／删除线／公式按当前扩展开关显示；颜色沿用有限名称的 span 编码，同一文字当前使用一种文字色或背景色。单块文字选区可转换为正文、H1–H4、列表、待办、引用及代码；跨块选区支持行内格式，表格内隐藏块转换，代码块内不弹出菜单。支持撤销、保存重开、Esc 关闭以及 Ctrl/⌘+Shift+M 聚焦菜单；尚未提供选区 AI 操作或协作评论。
+
+顶层块的 + 与六点手柄统一按块外边界对齐，手柄与块之间保留 12px；列表标记、复选框、引用内边距和折叠箭头不改变操作栏位置，嵌套列表的操作栏随真实层级缩进。六点菜单优先在手柄左侧展开并留 8px 间距；窄窗口优先移到块上／下方，按可用空间限制高度并滚动，超高块占满窗口时仍可能局部遮挡。Callout 的首段使用容器外侧的整体拖动手柄，后续子块可独立拖动。Notion `<callout>` 可点击图标搜索、选择或粘贴 emoji／符号，也可移除；修改支持撤销与保存重开。图标选择器目前不提供图片上传；原生 Alert 仍保留其提示类型与原编码。
+
+分栏支持拖动列间分隔线调整相邻列宽，包括多栏及嵌套分栏；支持撤销／重做、Esc 取消、双击等宽、方向键微调和保存重开。比例以 `<column width-ratio="…">` 本地属性保存到 Markdown，HTML 预览／导出同步显示，窄屏改为纵向排列并保留比例。Notion Block API 有 `width_ratio`，但官方 Notion-flavored Markdown 尚未定义列宽属性；不承诺该本地扩展能经 Notion Markdown API 保留，详见 [格式说明](docs/FORMAT.md#分栏页面和附件)。
+
+源码模式使用 CodeMirror 6；剪贴板粘贴和文本拖入按当前文档的 LF／CRLF 换行格式统一，避免混合换行留下孤立回车，造成空行高度和行号错位。
+
+普通段落和表格单元格中的 `<br>` 解析为可编辑换行，不再将整段文字包装成 HTML 预览；空单元格不显示块插入提示。
+
+普通表格单元格按富文本编辑：Enter/Shift+Enter 插入内部换行，禁用 Slash 块菜单及块转换，拖动以整张表格为单位。粘贴富文本的段落边界转为换行；插入多块 Markdown 时保留为单元格内的语法文字，不生成嵌套块。历史多段单元格仍可读取，内部 `paragraph+` 仅用于兼容，不表示支持任意子块。
+
+正文标题上方间距为 16px，前一块的段后间距不与其叠加；文首标题不额外增加上方间距。
+
+H1–H6 使用 30 / 26 / 23 / 20 / 18 / 16px 的平缓递减字号并保持加粗，H6 与正文同为 16px，通过字重区分；编辑器和 Markdown 预览使用一致的字号层级。开启 Settings → Color headings by level 后，六级标题依次使用棕、绿、蓝、紫、赭黄、玫红；关闭后仍通过字号区分层级。
+
+正文、Button、Breadcrumb 等紧凑块之间统一保留 4px 间距；代码、表格、Callout 等容器块前后保留 12px，标题前为 16px，相邻间距不叠加。Callout、Tabs、分栏等嵌套正文使用相同规则，容器首尾不额外增加外边距；列表项和表格单元格内部保持紧凑。此调整只影响排版，保留正文中的显式空块与 Markdown 原文。sequence、flow 与 Mermaid 图表在预览区域水平居中。
+
+页面内顶层脚注显示在正文末尾，定义仍可直接编辑并保留 Markdown 中的位置；嵌套容器中的定义仍留在容器内。提示块之间保留间距，图表按可用宽度显示。Typora 的未定义完整／折叠引用显示为链接文字并提示目标未定义，不虚构跳转地址；未定义脚注保留原文。脚注视觉顺序与源码顺序不同，键盘遍历仍遵循文档结构。
+
+Typora 宽松嵌套列表中的无序父任务与子任务使用一致的复选框解析，未修改时保留大小写任务标记的原文。按用户应用实测，Typora 方言中有序项的 `[ ]` / `[x]` 保留为文字；GFM 方言仍生成复选框。Typora 默认仅去掉其支持转义的标点前的反斜杠，可显式开启 `all_symbols_escapable` 扩大范围。HTML 过滤后无预览内容时保持空白，仍可展开编辑。`textarea` 显示只读文本框，支持 rows/cols，持久修改通过“编辑 HTML”；行内 HTML 不显示标签原文，Typora 方言也一样。粘贴 Markdown 不自动复制其相对路径附件，图片须上传到知识库；对照样本提供可上传的 PNG。
+
+Typora 对照修正：默认保留段落／列表项内单换行（可关闭 `hard_line_breaks`），顶层块之间 3 个空行映射为 1 个空段落、5 个映射为 2 个（每增加两个换行符新增一个空段落），首尾也支持空段落，可点击输入、删除和撤销；这是 Notdown 的编辑器约定，不是 CommonMark/GFM 标准语法。未修改时逐字保留原文，编辑空段落后按 Markdown 段落边界写回。嵌套列表／引用内部的连续空行尚未映射为空段落。Obsidian 预设也默认显示软换行，可关闭 `hard_line_breaks` 使用严格换行行为。有序列表仅接受点号标记，`1)` 保留为普通文字；CommonMark/GFM 继续接受右括号标记。普通、引用与自动链接显示下划线，编辑区 Ctrl/⌘ + 点击打开外部链接。尖括号自动链接不再误入未知 HTML 回退。测试样本见 [Typora 对照文档](docs/fixtures/typora-comparison.md)。目前未复刻 Typora 编辑、打印和导出各自独立的空白设置，也不代表所有版本的完整兼容。
+
+**已新增 Typora、Obsidian 独立方言，并逐项接入用户清单中的 62 条语法。** 包括图表、提示块、注释、高亮、属性、MMD 引文／BibTeX、CriticMarkup、文件嵌入、元数据变量和复杂表格。默认值、需要开启的扩展与每条实现边界见 [当前 62 条支持矩阵](docs/PRODUCT-SYNTAX.md)；这不表示完整复刻所有产品语法。
+
+- 已接入 **12 个原生预设、114 个内置扩展开关**：Typora、Obsidian、Notion-flavored Markdown、Notdown、CommonMark、GFM、Pandoc Markdown、CommonMark X、Original Markdown、PHP Markdown Extra、MultiMarkdown、旧 GitHub Markdown。上游预设按各自规则定义，Notdown 继承 Notion 语法并默认开启项目块；仅 Pandoc 预设使用 Pandoc 3.11 快照。具体差异与兼容范围见 [原生方言](docs/NATIVE-DIALECTS.md)。Slash、输入规则及块类型菜单依据配置提供可用操作。
+- 十个 Markdown 预设支持按开关解析 HTML、定义列表、脚注、逐行排版和 fenced Div；HTML 默认显示，源码可展开编辑。另接入标题／引用前空行、代码围栏种类、列表打断段落、转义、智能标点、上下标、缩写、Emoji，以及三种元数据块的识别与原文保留。Notion codec 保持独立规则，尚未适配这些新增开关。
+- 方言是默认规则集合，扩展是覆盖值。切换方言/扩展重新解释相同源码；停用的特有块保留为原文块。配置保存在页面 YAML 的 `syntax` 字段，和正文一起通过 `baseRevision` 保存；冲突分支保留各自配置。
+- **日常编辑不需要 Pandoc**。页面输入使用 ProseMirror 事务；源码输入立即更新草稿，70 ms 防抖后在浏览器原生解析。复用未改子树的指纹和原文，两个编辑视图按差异更新。
+- 原生 reader 实现本地支持矩阵中的核心语法，不代表完整复刻 Pandoc 的所有规则与扩展组合。`sourcepos` 提供块级行范围；相对路径重定位针对具备 sourcePath 的 Markdown 链接／图片；`markdown_in_html_blocks` 当前处理 Div 容器；Gutenberg 用于纯文本导出。精确 Pandoc AST 双向映射、第三方插件安装、后台 Worker 和整篇增量解析仍未实现。源码使用通用 Markdown 高亮，大文档解析仍可能阻塞主线程。
+
+架构背景见 [原生编辑核心设计](docs/MARKDOWN-ENGINE.md)，当前实现以 [对象 Roadmap](docs/CONTENT-OBJECT-ROADMAP.md) 为准。HTML 经过清理；脚注正文可编辑，缺失定义明确提示；Div 保留未知属性，只显示允许的属性。Pandoc 引文可用本地 bibliography／CSL 文件和已安装 Pandoc 提供 citeproc 预览；HTML 导出尚不等待该异步预览。Raw TeX 保留为目标格式源码，浏览器不执行 TeX；LaTeX 宏作用于后续 KaTeX 公式。正文元数据独立于页面 YAML，不自动覆盖页面属性。Markdown Lab 的 Pandoc 对照范围单独标注。
+
+复杂图表／表格、HTML 混合块、元数据和嵌入文件采用**预览＋块内源码编辑**，不宣称完整所见即所得编辑；嵌入文件只读，最多每 4 秒刷新。Mermaid 按需加载且本地渲染，iframe 单独隔离。
 
 ## 运行
 
@@ -39,16 +141,46 @@ npm run dev
 
 当前仅支持一个本地服务进程操作同一知识库。不要把开发服务直接暴露到公网；认证、远端同步与多进程锁尚未实现。
 
+## Markdown Lab：外部渲染器与实时双栏预览
+
+启动服务后打开 <http://127.0.0.1:4317/markdown-lab.html>，或点击侧栏底部的 **Markdown Lab**。生产构建入口为 <http://127.0.0.1:4318/markdown-lab.html>。
+
+- 左侧 CodeMirror 源码编辑器：行号、高亮、自动换行、查找和撤销；右侧可切换清理后的页面预览与外部程序返回的原始 HTML 文本，支持双向同步滚动与独立滚动。
+- 新增 **Pandoc CLI · direct HTML**、**libMultiMarkdown CLI · direct HTML**、**Markdown.pl · direct HTML** 三个真实外部程序入口。服务端把当前源码送入所选程序的标准输入，返回标准输出；不通过 Pandoc 的 MultiMarkdown reader 冒充 libMultiMarkdown。Pandoc CLI 使用固定 `--sandbox -f markdown -t html5` 参数；MultiMarkdown CLI 使用 snippet 模式并关闭文件包含。程序缺失时选择器标注不可用，源码仍保留。HTML 标签页显示原始输出文本；页面标签页清理 HTML 后再显示。
+- 原有方言预览继续覆盖本机 Pandoc 3.11 的八种 Markdown reader：`gfm`、`commonmark`、`commonmark_x`、`markdown`、`markdown_mmd`（Pandoc 的 MultiMarkdown reader）、`markdown_phpextra`、`markdown_strict`、`markdown_github`，另有自有 codec 的 `notion-markdown` 和 `notdown`。前八种使用 Pandoc AST 预览链路；Notion 与 Notdown 不需要 Pandoc。未安装的 reader 在界面中标注不可用。
+- 「扩展与插件」从本机 Pandoc 获取其各方言的扩展及默认值；切换方言、开关扩展只重新解释源码，不转换或重写正文。Lab 的 Notion 方言目前整体启用；Notdown 预设与页面编辑器共用默认值，并可逐项关闭语法和块扩展。
+- 直接渲染模式使用程序自己的语法规则，不接受 Lab 的 Pandoc 扩展开关或块插件；设置按钮会禁用。现阶段没有可安装的第三方块插件。
+- 支持打开 UTF-8 Markdown 文件、下载当前源码（`Ctrl+S`）、当前窗口会话草稿恢复。文件导入是副本，下载不写回原路径；当前方言/扩展配置保存在窗口草稿中，不嵌入下载的 Markdown。CodeMirror 使用 LF 换行，不承诺导入文件字节级往返。
+- 预览采用 180ms 输入防抖，取消旧请求并拒绝过期结果；错误保留源码并标明旧预览。公式使用本地 KaTeX，HTML 经过清理。
+
+Pandoc 模式需要本机安装 Pandoc，或在启动服务前设置 `PANDOC_PATH`。MultiMarkdown CLI 从 PATH 或 Windows `Program Files/libMultiMarkdown *` 安装目录查找，也可设置 `MULTIMARKDOWN_PATH`。Markdown.pl 需另行安装 Perl 与原版脚本，并在启动前设置 `MARKDOWN_PL_PATH` 为脚本绝对路径；Perl 不在 PATH 时设置 `PERL_PATH`。更改安装或环境变量后重启服务。当前验证版本为 Pandoc 3.11 与 libMultiMarkdown 6.7.0；本机尚未配置 Markdown.pl。
+
+**当前边界：** Lab 是独立的源码编辑与只读输出，不接入知识库自动保存、页面属性、块拖动或右侧编辑；普通笔记的保存流程保持现有规则。GFM / CommonMark / CommonMark X 按 Pandoc 原生行号同步，Notion 按 codec 行号同步；其他 Pandoc reader 使用块位置估算，直接渲染模式只能按文档进度同步。复杂表格/脚注及重排内容不能保证精确对应。源码高亮使用通用 Markdown 规则，实际语义以所选程序为准。最多接受 128,000 个 UTF-16 码元，第三方插件安装、任意 Lua Filter 执行和多格式导出尚未提供。
+
+融合方式及具体困难见 [Markdown Lab 架构与兼容边界](docs/MARKDOWN-LAB.md)。正文仍是 Markdown 真相；Pandoc AST 仅在预览请求内存中产生，不作为持久化块数据库。
+
+扩展清单见 [Pandoc 扩展与 Markdown 方言完整对照](docs/PANDOC-EXTENSIONS.md)：按本机 Pandoc 3.11 核对手册的 89 个扩展名，逐项列出八种方言的支持、默认值与差异原因，并区分非 Markdown 扩展、Filter 和当前 Lab 显示边界。
+
 ## 已实现
 
 | 能力 | 当前行为 |
 | --- | --- |
 | Markdown 文件 | `vault/pages/<id>.md`，UTF-8 正文 + YAML 元信息；元信息修改保留未知 YAML 字段和正文 |
 | 页面层级 | 稳定 ID、唯一父页面、子页面；移动不依赖文件夹；拒绝父子循环 |
+| 前进／后退 | 页面与 Vault 各视图使用浏览器历史记录；顶部箭头、浏览器后退／前进共用同一路径。重复打开当前页不增加记录，刷新后保留可用的站内前进／后退。跳转前收取并保存输入；保存失败、冲突或目标页面已删除时留在原页并恢复网址；快速跳转只显示最后选定的目标。导航历史与正文撤销分开，顶部箭头只在本次站内历史范围内启用 |
+| 侧栏布局 | 桌面端拖动侧栏右边缘调宽（200–480px，并为正文保留空间），双击恢复 240px；分隔线支持方向键、Home／End。顶部按钮可收起／展开侧栏，宽度与桌面收起状态保存在当前浏览器。页面行尾的加号在按钮内水平、垂直居中，与菜单按钮对齐。窄屏沿用固定宽度抽屉，不提供调宽；布局调整不重建编辑器、不修改知识库内容 |
+| 页面块样式 | Child page 与 Link to page 使用 600 字重的下划线标题、16px 页面图标，图标槽与标题间隔 10px；沿用目标页面的 emoji／Lucide 图标。Link to page 的小箭头移至图标右下外侧，透明背景避免遮住图标，显式 `role=child` 的子页面不显示箭头。旧版未标类型的页面块仍视为引用；样式不改变父子关系 |
+| 侧栏拖拽 | 直接拖动页面标题；行上／下边缘调整同级顺序，中部改为子页面，Private pages 落点移回根层级，拖到 Trash 移入应用回收站。携带整个子树，禁止自身／后代循环；顺序写 YAML `sidebarOrder`，只改被移动页面，核对来源及目标页面版本。侧栏使用单指光标，正文手柄使用 SVG 矢量白手套（不支持时回退系统光标）。支持鼠标拖动、边缘滚动和 Escape 取消；触屏拖动及独立收藏排序尚未实现 |
+| 页面菜单 | 侧栏右键、行尾省略号或 Shift+F10，以及右上角页面菜单，共用收藏／取消收藏、复制可定位页面的链接、单页副本、重命名、移动和移到回收站；支持方向键与 Escape。所有修改走版本校验，收藏及回收站标记写入 YAML；旧版后端会明确提示重启，不再误报成功 |
+| 回收站 | 侧栏 Trash 可恢复页面；父页面进入回收站时隐藏其子树，恢复父页面后重新显示。Trash 的 Delete 将页面及子页面的 Markdown 文件移到 Windows 系统回收站，保留历史快照；逐个文件处理，失败时剩余页面仍可恢复。系统还原后页面重新出现在应用 Trash，可再点 Restore；共享附件保留，不清空系统回收站。副本仅复制当前页面，不递归复制子页面，已有页面引用保持原目标。未实现 wiki、离线缓存和 Open in 系列菜单 |
 | 页面与源码 | 阅读、编辑、块整理共用「页面」；点击正文原位编辑，自动保存；`Ctrl+E` 切换源码前收取输入 |
 | 插入 | 正文输入 `/`、`、` 弹出光标附近的菜单，查询继续在正文输入；方向键选择、Enter 执行、Escape 取消；含标题、列表、待办、引用、代码、行内代码、页面链接、子页、两栏和附件 |
-| 块操作 | 每个 bullet/todo 独立成块；Tab/Shift+Tab 调整列表嵌套；父块拖动携带整棵子树，子项也可独立拖动；六点菜单转换、复制、删除；文字与结构共用撤销 |
+| 块操作 | 每个 bullet/todo 独立成块；Tab/Shift+Tab 调整列表嵌套；父块拖动携带整棵子树，子项也可独立拖动；整块悬浮显示左侧 + 与六点按钮，+ 在当前块后新增并打开可直接输入筛选的块菜单（不写入 /）；页尾空白点击进入空段落并提示输入；左右空白拖出选框选择多块，拖动任一已选块六点按钮整组移动，保留顺序与子树并一次撤销；点击六点按钮打开菜单时选中对应块；单块／多块选中后 Delete 或 Backspace 删除整块（含子树），一次撤销恢复，Esc 取消选中；六点菜单顶部显示当前块类型，支持转换、复制、删除；文字与结构共用撤销 |
+| 块选区 | 左右空白框选按实际块边界命中；页面链接、Callout、Toggle、Tabs、分栏、表格、代码、公式、媒体及扩展块共用蓝色覆盖层，不受各块背景或视图刷新影响。列表选区含项目符号／复选框，选中父项覆盖其子树，嵌套子项仍可独立选中；选区随容器尺寸、窗口和滚动更新，不改写正文。隐藏内容跟随容器，不作为独立可见选区；框选边缘自动滚屏尚未实现 |
+| 类型浏览 | 侧栏 Block Explorer 打开独立浏览页，搜索块、具体变体、内部节点与行内格式；查看真实解析示例与源码，浏览全部原生方言和扩展默认状态、尚未实现扩展；预览不写入知识库，媒体示例需替换附件地址 |
+| 验收样本边界 | Unsupported 示例使用不会开启 Pandoc Div 的未知语法，用例间保留空行；整页验证各用例标题独立显示，避免只检查源码往返而漏掉后续内容被吞入原文块。未知源码仍保留，不自动修复用户输入中的未闭合容器 |
 | Notion 正文格式 | `<mention-page>` 页面提及、`<page>` 页面入口、`<columns>/<column>` 分栏、Tab 子块、`<br>` 换行、`<empty-block/>` 空块；旧私有语法兼容读取，`[[...]]` 可作为输入快捷方式 |
+| 日期与提醒 | `/date` 插入 `@Mention a date…` 空态及 Today／Remind me 快捷菜单；正文支持 `@today`、`@明天`、`@remind tomorrow 9am`、ISO 日期及英文星期。点击日期打开日历，支持翻月、日期范围、时间、提前提醒、日期／12–24 小时格式、本地时区或固定 UTC 偏移。键盘选择、Escape 关闭、撤销、源码切换和刷新保留；沿用 `<mention-date>`，未知属性与已有标签文本保留。提醒仅在应用打开时触发，重开补发；没有邮件、关闭应用后的系统调度、重复提醒或 IANA 地区时区选择 |
 | 扩展块 | 提示块、可折叠内容、简单表格与单元格 Tab 导航、块/行内颜色、下划线、KaTeX 公式、目录；数据库/成员/日期引用及未知块保留 |
 | 知识库视图 | 画廊、属性列表、父子页面树、页面引用关系图；搜索支持中文、引号短语、标题优先和最近访问，方向键选择结果、Enter 打开 |
 | 笔记视图 | 页面、大纲、思维导图、源码；通过右上角页面菜单选择，大纲与脑图仍由同一 Markdown 派生 |
@@ -62,9 +194,9 @@ npm run dev
 
 正文现在是一个 ProseMirror 文档，具有连续选区、跨块删除和统一撤销。Markdown codec 为未修改的顶层内容保留原文；修改过的结构可能规范化列表缩进、分隔和标记形式。引用定义、CRLF、代码围栏及未知扩展有独立回归测试，仍不承诺任意输入都字节级往返。
 
-当前边界：未知扩展使用源码保留。表格支持基础单元格编辑，尚未包含完整的选区、合并单元格和行列管理界面。数据库块为入口引用；同步块保存内容快照，尚未连接数据库执行器、Notion 服务或跨页同步。成员/日期提及保留结构，自定义 emoji 资源目录与会议转录尚未接入。Tab 支持列表项、普通文本及文本父块；系统级中文 IME、触控、多块框选、跨页面拖动和大文档性能仍需进一步验收。
+当前边界：未知扩展使用源码保留。表格支持基础单元格编辑，尚未包含完整的选区、合并单元格和行列管理界面。数据库对象未实现，已有数据库标签只保留原文；同步块保存内容快照，尚未连接 Notion 服务或跨页同步。成员提及保留结构，日期交互见上表；自定义 emoji 资源目录与会议转录尚未接入。Tab 支持列表项、普通文本及文本父块；系统级中文 IME、触控、框选边缘自动滚屏、跨页面拖动和大文档性能仍需进一步验收。
 
-`Ctrl+P` 搜索；正文编辑器外也可用 `Ctrl+K` 搜索，正文内保留该组合键给编辑器。`Ctrl+E` 切换页面/源码，`Ctrl+S` 立即保存。浏览器草稿按窗口隔离，刷新同一窗口可以恢复；窗口关闭后尚未写入磁盘的草稿不是完整的恢复机制。页面标题和父页面不随正文重复存储，均在 YAML 中。
+`Ctrl+P` 搜索；正文编辑器外也可用 `Ctrl+K` 搜索，正文内保留该组合键给编辑器。`Ctrl+E` 切换页面/源码：进入源码时定位到可见光标所在内容块；光标不在视野内或仅滚动阅读时，定位到当前可见内容。长代码块、列表等按块内相对位置定位，尚非逐字符映射；返回页面保留此前阅读位置。切换前收取待处理输入，不改写正文。`Ctrl+S` 立即保存。浏览器草稿按窗口隔离，刷新同一窗口可以恢复；窗口关闭后尚未写入磁盘的草稿不是完整的恢复机制。页面标题和父页面不随正文重复存储，均在 YAML 中。
 
 ## 文件结构
 
@@ -82,7 +214,7 @@ Notdown/
     .history/conflicts/resolved/*
 ```
 
-页面文件必须有合法的 `id`、`title` 元信息。遇到损坏的 YAML 或重复 ID 会拒绝写入，保留原文件。任意已有 Markdown 目录的批量导入、删除/回收站和历史回滚界面还未实现。
+页面文件必须有合法的 `id`、`title` 元信息。遇到损坏的 YAML 或重复 ID 会拒绝写入，保留原文件。任意已有 Markdown 目录的批量导入、永久删除和历史回滚界面还未实现。
 
 ## MyBase 和 MCP
 
@@ -111,6 +243,8 @@ MyBase 位于 `D:\Workspace\mybase`，其权威源码是 `.mybase`；RDF 是查�
 
 ## 验证
 
+另提供可放入 Tests 子页面的手工验收材料：12 个方言默认页、14 个扩展页、本地对象／服务页，以及最后的 Outside Markdown scope 参考页。每项包含真实语法、预期和记录栏，配套本地附件。生成及显式 API 安装方式见 [测试页面说明](docs/MANUAL-ACCEPTANCE-PAGES.md)；自动化验证使用独立临时知识库，不改写用户页面。
+
 ```powershell
 npm run typecheck
 npm test
@@ -122,14 +256,18 @@ npm run test:e2e
 
 浏览器测试启动独立临时知识库，使用本机 Chrome 的独立无界面实例，不连接用户浏览器。覆盖斜杠补全、Markdown 输入、列表 Tab、父子项拖动、链接显示、菜单操作、源码保存与刷新。截图和 trace 输出到 `test-results/`；详细结果和历史验收分开记录在 [验证记录](docs/VERIFICATION.md)。
 
+同一工作区并行测试时，可通过 `NOTDOWN_E2E_PORT` 指定独立端口（默认 4329），通过 `NOTDOWN_E2E_FRONTEND_DIR` 指定独立构建目录（默认 `dist`）。先用 `npm run build -- --outDir .run/e2e-dist` 构建，再设置这两个变量并用 `npx playwright test --output test-results/e2e-isolated --reporter=list` 运行；避免并行进程清理对方的构建产物或追踪文件。
+
 ## 后续顺序
 
 1. 扩展交互验收：系统中文 IME、键盘搜索、窄屏、触控、屏幕阅读器与大文档。
-2. 编辑器扩展：表格行列管理、任意块嵌套、多块框选和跨页拖动；扩充官方 Enhanced Markdown 往返语料库。
+2. 编辑器扩展：表格行列管理、任意块嵌套、框选边缘自动滚屏和跨页拖动；扩充官方 Enhanced Markdown 往返语料库。
 3. 同步内核：内容寻址快照 + 父版本 + 设备 ID；三方合并无冲突修改，冲突生成分支。补齐离线队列、附件哈希、删除墓碑、重命名、认证和跨设备故障恢复。当前 CAS 仅为此基础，**不是已经完成云同步**。
 4. MyBase 只读集成：共用已存在的属性和 Query 语义，接入 table/poster/map/tree/graph，解析 `mybase:Q…` 引用；再定义双向修改的权威来源及 revision 协议。
-5. 桌面封装和移动端：目录选择、应用生命周期保存、回收站与恢复、离线移动端、无障碍键盘与触控验收。
+5. 桌面封装和移动端：目录选择、应用生命周期保存、回收站批量管理、离线移动端、无障碍键盘与触控验收。
 
 ## 第三方来源
 
-实际依赖为 ProseMirror 各模块、markdown-it、Lucide 等，保留上游许可。AFFiNE、AppFlowy、Anytype 源码用于理解层级、页面提及、菜单、焦点和筛选；没有引入其文档存储或完整应用。Vditor/Lute 已从运行依赖中移除；旧生成目录可能仍存在，但不被编辑器引用。参考路径列在 [交互参考](docs/NOTION-REFERENCE.md)。
+Block Explorer 的扩展来源已复核：Meeting notes、Link preview 等九个功能适配使用 `notion_*` ID，旧 `local_*` 配置和链接继续可读；带题注图片是通用能力，`local_figure` 保留 Markdown 分类。颜色 `notion_colors` 与下划线 `notion_underline` 已独立启停，原 `notion_colors` 现在只控制颜色。当前 127 项：Pandoc 89、Notion 22、其他 Markdown 16。分类不代表已实现 Notion API 互通，详见[分类审计](docs/EXTENSION-CLASSIFICATION-AUDIT-2026-09-22.md)。
+
+实际依赖为 ProseMirror 各模块、CodeMirror、markdown-it、Lucide 等，保留上游许可。Markdown Lab 调用用户本机安装的 Pandoc；项目没有打包 Pandoc 可执行文件。AFFiNE、AppFlowy、Anytype 源码用于理解层级、页面提及、菜单、焦点和筛选；没有引入其文档存储或完整应用。Vditor/Lute 已从运行依赖中移除；旧生成目录可能仍存在，但不被编辑器引用。参考路径列在 [交互参考](docs/NOTION-REFERENCE.md)。

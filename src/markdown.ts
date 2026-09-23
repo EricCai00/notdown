@@ -288,44 +288,8 @@ function markdown(pages: PageReference[] = []): MarkdownIt {
         token.meta = { ...token.meta, sourceLine: token.map[0] + offset + 1 };
       if (token.type === "heading_open")
         token.attrSet("id", `heading-${token.map![0] + offset + 1}`);
-      if (
-        token.type !== "inline" ||
-        !token.children ||
-        token.children.length !== 3
-      )
-        continue;
-      const [open, label, close] = token.children;
-      const href = open.attrGet("href") ?? "";
-      if (
-        open.type !== "link_open" ||
-        close.type !== "link_close" ||
-        label.type !== "text"
-      )
-        continue;
-      if (
-        !href ||
-        /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href) ||
-        !md.validateLink(href)
-      )
-        continue;
-      const extension = /\.(mp3|m4a|ogg|wav|mp4|webm|mov)(?:[?#].*)?$/i
-        .exec(href)?.[1]
-        .toLowerCase();
-      if (!extension) continue;
-      const media = new state.Token("local_media", "", 0);
-      media.content = label.content;
-      media.meta = {
-        href,
-        type: ["mp4", "webm", "mov"].includes(extension) ? "video" : "audio",
-      };
-      token.children = [media];
     }
   });
-  md.renderer.rules.local_media = (tokens, index) => {
-    const token = tokens[index];
-    const { href, type } = token.meta;
-    return `<${type} controls preload="metadata" src="${escape(href)}" aria-label="${escape(token.content)}"></${type}><a class="media-download" href="${escape(href)}">${escape(token.content)}</a>`;
-  };
   md.core.ruler.after("document_metadata", "task_lists", (state) => {
     for (let index = 0; index < state.tokens.length; index++) {
       const item = state.tokens[index];
@@ -356,7 +320,7 @@ function markdown(pages: PageReference[] = []): MarkdownIt {
   });
   md.renderer.rules.task_checkbox = (tokens, index) => {
     const checked = tokens[index].meta.checked;
-    return `<input class="task-checkbox" type="checkbox" disabled${checked ? " checked" : ""} aria-label="${checked ? "已完成" : "未完成"}"> `;
+    return `<input class="task-checkbox" type="checkbox" disabled${checked ? " checked" : ""} aria-label="${checked ? "Completed" : "Incomplete"}"> `;
   };
   return md;
 }
@@ -542,5 +506,5 @@ export function htmlDocument(
   pages: PageReference[] = [],
 ): string {
   const escape = MarkdownIt().utils.escapeHtml;
-  return `<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><style>.pm-nested-block>:not(:first-child){margin-left:26px}body{max-width:880px;margin:64px auto;padding:0 24px;color:#2d3432;font:17px/1.8 system-ui,sans-serif}h1,h2,h3{line-height:1.35}h1{font-size:2.2rem}h2{margin-top:2rem;color:#346258}h3{color:#56736a}a{color:#347b68}img,video{max-width:100%;border-radius:10px}audio{max-width:100%}pre{padding:20px;overflow:auto;background:#f3f5f3;border-radius:10px}code{font-family:monospace}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px 14px}blockquote{border-left:3px solid #7c9f8e;margin-left:0;padding-left:18px;color:#63746b}.task-list-item{list-style:none}.task-checkbox{margin-right:.4em;accent-color:#347b68}.note-columns{display:grid;grid-template-columns:1fr 1fr;gap:28px}.note-columns section{min-width:0}.child-page{display:block;padding:14px;border:1px solid #ddd;border-radius:8px;text-decoration:none}.media-download{display:block;font-size:.85em}@media(max-width:620px){.note-columns{grid-template-columns:1fr}body{margin:24px auto}}@media print{body{max-width:none;margin:0}}</style></head><body><article>${renderMarkdown(body, pages)}</article></body></html>`;
+  return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><style>.pm-nested-block>:not(:first-child){margin-left:26px}body{max-width:880px;margin:64px auto;padding:0 24px;color:#2d3432;font:17px/1.8 system-ui,sans-serif}h1,h2,h3{line-height:1.35}h1{font-size:2.2rem}h2{margin-top:2rem;color:#346258}h3{color:#56736a}a{color:#347b68}img,video{max-width:100%;border-radius:10px}audio{max-width:100%}pre{padding:20px;overflow:auto;background:#f3f5f3;border-radius:10px}code{font-family:monospace}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px 14px}blockquote{border-left:3px solid #7c9f8e;margin-left:0;padding-left:18px;color:#63746b}.task-list-item{list-style:none}.task-checkbox{margin-right:.4em;accent-color:#347b68}.note-columns{display:grid;grid-template-columns:1fr 1fr;gap:28px}.note-columns section{min-width:0}.child-page{display:block;padding:14px;border:1px solid #ddd;border-radius:8px;text-decoration:none}.media-download{display:block;font-size:.85em}@media(max-width:620px){.note-columns{grid-template-columns:1fr}body{margin:24px auto}}@media print{body{max-width:none;margin:0}}</style></head><body><article>${renderMarkdown(body, pages)}</article></body></html>`;
 }

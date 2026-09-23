@@ -1,3 +1,4 @@
+import { isListItem } from "./list-items";
 import { Fragment, type Node as PMNode } from "prosemirror-model";
 import {
   Selection,
@@ -6,7 +7,6 @@ import {
   type EditorState,
   type Transaction,
 } from "prosemirror-state";
-import { liftListItem, sinkListItem } from "prosemirror-schema-list";
 import { convertListItem } from "./editor-convert";
 
 export interface EditorBlock {
@@ -25,9 +25,12 @@ export type BlockPlacement = "before" | "after" | "inside";
 
 const isList = (node: PMNode) =>
   node.type.name === "bullet_list" || node.type.name === "ordered_list";
-const isItem = (node: PMNode) => node.type.name === "list_item";
+const isItem = (node: PMNode) => isListItem(node);
 const isGroup = (node: PMNode) => node.type.name === "nested_block";
-const hasBlockHead = (node: PMNode) => ["toggle_block", "callout", "synced_block", "blockquote"].includes(node.type.name);
+const hasBlockHead = (node: PMNode) =>
+  ["toggle_block", "callout", "synced_block", "blockquote"].includes(
+    node.type.name,
+  );
 
 function atPath(doc: PMNode, path: readonly number[]) {
   let node = doc;
@@ -48,6 +51,8 @@ function describe(doc: PMNode, path: number[]): EditorBlock | null {
   if (!path.length) return null;
   const { node, pos, parent, parentPos } = atPath(doc, path);
   if (!node.isBlock) return null;
+  for (let i = 1; i <= path.length; i++)
+    if (["footnote", "footnote_section", "footnote_anchor"].includes(atPath(doc, path.slice(0, i)).node.type.name)) return null;
   return {
     node,
     pos,
@@ -67,6 +72,16 @@ export function blockAtPos(doc: PMNode, position: number): EditorBlock | null {
   const path = Array.from({ length: $pos.depth + 1 }, (_, d) => $pos.index(d));
   const exact = $pos.nodeAfter;
 
+  // Definitions belong to the document's notes area, never to block drag/menu controls.
+  const note = (node: PMNode | null) => node && ["footnote", "footnote_section", "footnote_anchor"].includes(node.type.name);
+  if (note(exact)) return null;
+  for (let depth = $pos.depth; depth > 0; depth--) if (note($pos.node(depth))) return null;
+
+  // Table cells are editing positions, not independently movable page blocks.
+  for (let depth = $pos.depth; depth > 0; depth--)
+    if ($pos.node(depth).type.name === "table")
+      return describe(doc, path.slice(0, depth));
+
   if (exact && isList(exact)) {
     if (exact.firstChild) return describe(doc, [...path, 0]);
     return null;
@@ -76,7 +91,16 @@ export function blockAtPos(doc: PMNode, position: number): EditorBlock | null {
   // An item's first paragraph is its own editable row. Nested list items have
   // their own nearer list_item ancestor and therefore their own drag handle.
   for (let depth = $pos.depth; depth > 0; depth--) {
-    if ((isGroup($pos.node(depth)) || hasBlockHead($pos.node(depth))) && $pos.index(depth) === 0)
+    if (
+      ["definition_list", "line_block", "fenced_div"].includes(
+        $pos.node(depth).type.name,
+      )
+    )
+      return describe(doc, path.slice(0, depth));
+    if (
+      (isGroup($pos.node(depth)) || hasBlockHead($pos.node(depth))) &&
+      $pos.index(depth) === 0
+    )
       return describe(doc, path.slice(0, depth));
     if (!isItem($pos.node(depth))) continue;
     if ($pos.index(depth) === 0) return describe(doc, path.slice(0, depth));
@@ -245,17 +269,57 @@ export function moveEditorBlock(
   toPos: number,
   placement: BlockPlacement,
 ): Transaction | null {
-  const from = blockAtPos(state.doc, fromPos);
+  return moveEditorBlocks(state, [fromPos], toPos, placement);
+}
+
+/** Move selected rows atomically in document order, retaining descendants. */
+export function moveEditorBlocks(
+  state: EditorState,
+  positions: readonly number[],
+  toPos: number,
+  placement: BlockPlacement,
+): Transaction | null {
+  const rows = [...new Set(positions)]
+    .sort((a, b) => a - b)
+    .map((pos) => blockAtPos(state.doc, pos))
+    .filter((row): row is EditorBlock => !!row);
+  const selected = rows.filter(
+    (row) =>
+      !rows.some(
+        (other) => other.pos !== row.pos && isPrefix(other.path, row.path),
+      ),
+  );
   const to = blockAtPos(state.doc, toPos);
-  if (!from || !to || isPrefix(from.path, to.path)) return null;
+  if (
+    !selected.length ||
+    !to ||
+    selected.some((row) => isPrefix(row.path, to.path))
+  )
+    return null;
   const tree = branch(state.doc);
-  const moving = getBranch(tree, from.path);
+  const moving = selected.map((row) => getBranch(tree, row.path));
   const target = getBranch(tree, to.path);
+  const ordered = placement !== "after" ? moving : [...moving].reverse();
+  for (const item of ordered)
+    if (!moveBranch(state, item, target, placement)) return null;
+  return transactionFor(state, tree, moving[0]);
+}
+
+function moveBranch(
+  state: EditorState,
+  moving: Branch,
+  target: Branch,
+  placement: BlockPlacement,
+): Branch | null {
   const sourceList =
     moving.parent && isList(moving.parent.node) ? moving.parent.node : null;
 
   if (placement === "inside") {
-    if (!isItem(target.node) && !isGroup(target.node) && !hasBlockHead(target.node)) {
+    if (
+      !isItem(target.node) &&
+      !isGroup(target.node) &&
+      !hasBlockHead(target.node)
+    ) {
       if (!state.schema.nodes.nested_block) return null;
       if (
         !["paragraph", "heading"].includes(target.node.type.name) ||
@@ -280,7 +344,7 @@ export function moveEditorBlock(
     } else {
       attach(target, target.children.length, moving);
     }
-    return transactionFor(state, tree, moving);
+    return moving;
   }
 
   detach(moving);
@@ -290,7 +354,7 @@ export function moveEditorBlock(
     parent.children.indexOf(target) + (placement === "after" ? 1 : 0);
 
   if (isList(parent.node)) {
-    if (isItem(moving.node)) {
+    if (isItem(moving.node) && parent.node.type.validContent(Fragment.from(materialize(moving)))) {
       attach(parent, index, moving);
     } else {
       // Keep a paragraph/heading's type when it is dropped between list rows:
@@ -314,7 +378,7 @@ export function moveEditorBlock(
         });
         container.children.splice(insertion++, 0, preceding);
       }
-      attach(container, insertion++, moving);
+      attach(container, insertion++, isItem(moving.node) && sourceList ? listAround(moving, sourceList) : moving);
       if (after.length) {
         let node = parent.node;
         if (node.type.name === "ordered_list") {
@@ -336,15 +400,30 @@ export function moveEditorBlock(
   } else {
     attach(parent, index, moving);
   }
-  return transactionFor(state, tree, moving);
+  return moving;
 }
 
 export function deleteEditorBlock(state: EditorState, position: number) {
-  const block = blockAtPos(state.doc, position);
-  if (!block) return null;
+  return deleteEditorBlocks(state, [position]);
+}
+
+/** Delete whole rows (including descendants) in one undoable transaction. */
+export function deleteEditorBlocks(state: EditorState, positions: readonly number[]) {
+  const rows = [...new Set(positions)]
+    .sort((a, b) => a - b)
+    .map((pos) => blockAtPos(state.doc, pos))
+    .filter((row): row is EditorBlock => !!row);
+  const selected = rows.filter((row, index) =>
+    !rows.some((other, otherIndex) =>
+      (other.pos !== row.pos || otherIndex < index) && isPrefix(other.path, row.path),
+    ),
+  );
+  if (!selected.length) return null;
   const tree = branch(state.doc);
-  detach(getBranch(tree, block.path));
-  return transactionFor(state, tree, undefined, block.pos);
+  // Resolve every branch before detaching, since sibling indices then change.
+  const removing = selected.map((row) => getBranch(tree, row.path));
+  removing.forEach(detach);
+  return transactionFor(state, tree, undefined, selected[0].pos);
 }
 
 export function duplicateEditorBlock(state: EditorState, position: number) {
@@ -361,14 +440,12 @@ export function duplicateEditorBlock(state: EditorState, position: number) {
 
 export const indentEditorBlock: Command = (state, dispatch, view) => {
   if (state.selection.$from.parent.type.spec.code) return false;
-  const item = state.schema.nodes.list_item;
   const block = blockAtPos(state.doc, state.selection.from);
   if (!block) return false;
-  if (isItem(block.node))
-    return !!item && sinkListItem(item)(state, dispatch, view);
   const parent = atPath(state.doc, block.path.slice(0, -1)).node;
   const index = block.path.at(-1)!;
-  if (index === 0 || ((isGroup(parent) || hasBlockHead(parent)) && index === 1)) return false;
+  if (index === 0 || ((isGroup(parent) || hasBlockHead(parent)) && index === 1))
+    return false;
   let previousPath = [...block.path.slice(0, -1), index - 1];
   let previous = atPath(state.doc, previousPath).node;
   if (isList(previous)) previousPath.push(previous.childCount - 1);
@@ -386,23 +463,49 @@ export const indentEditorBlock: Command = (state, dispatch, view) => {
 
 export const outdentEditorBlock: Command = (state, dispatch, view) => {
   if (state.selection.$from.parent.type.spec.code) return false;
-  const item = state.schema.nodes.list_item;
   const block = blockAtPos(state.doc, state.selection.from);
   if (!block) return false;
   if (isItem(block.node)) {
     const container = atPath(state.doc, block.path.slice(0, -2));
-    if (isGroup(container.node)) {
+    if (isItem(container.node)) {
+      const tree = branch(state.doc);
+      const moving = getBranch(tree, block.path);
+      const sourceList = moving.parent!;
+      const after = sourceList.children.slice(sourceList.children.indexOf(moving) + 1);
+      if (after.length) {
+        const last = moving.children.at(-1);
+        const tail: Branch = last?.node.type === sourceList.node.type ? last : { node: sourceList.node, children: [], parent: null };
+        for (const child of after) { detach(child); attach(tail, tail.children.length, child); }
+        if (tail !== last) attach(moving, moving.children.length, tail);
+      }
+      const target = getBranch(tree, block.path.slice(0, -2));
+      if (!moveBranch(state, moving, target, "after")) return false;
+      const tr = transactionFor(state, tree, moving);
+      if (!tr) return false;
+      preserveRowCaret(state, tr);
+      dispatch?.(tr);
+      return true;
+    }
+    if (isGroup(container.node) || isItem(container.node) || hasBlockHead(container.node)) {
       const tr = moveEditorBlock(state, block.pos, container.pos, "after");
       if (!tr) return false;
       preserveRowCaret(state, tr);
       dispatch?.(tr);
       return true;
     }
-    return !!item && liftListItem(item)(state, dispatch, view);
+    const tr = convertListItem(state, "text");
+    if (!tr) return false;
+    dispatch?.(tr);
+    return true;
   }
   const parentPath = block.path.slice(0, -1);
   const parent = atPath(state.doc, parentPath);
-  if (!isGroup(parent.node) && !isItem(parent.node) && !hasBlockHead(parent.node)) return false;
+  if (
+    !isGroup(parent.node) &&
+    !isItem(parent.node) &&
+    !hasBlockHead(parent.node)
+  )
+    return false;
   if (block.path.at(-1) === 0) return false;
   if (isGroup(parent.node) || hasBlockHead(parent.node)) {
     const tree = branch(state.doc);

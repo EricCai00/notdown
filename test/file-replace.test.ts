@@ -46,7 +46,7 @@ test("an external edit during contention is never overwritten by a retry", () =>
         await fs.writeFile(destination, "external change");
         throw Object.assign(new Error("busy"), { code: "EBUSY" });
       }),
-      /原文件已更改/,
+      /original file changed/,
     );
     assert.equal(attempts, 1);
     assert.equal(await fs.readFile(destination, "utf8"), "external change");

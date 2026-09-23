@@ -1,3 +1,4 @@
+import { isListItem } from "./list-items";
 import { Fragment } from "prosemirror-model";
 import { EditorState, type Transaction } from "prosemirror-state";
 import {
@@ -11,7 +12,8 @@ import { convertListItem } from "./editor-convert.js";
 
 export function itemAtSelection(state: EditorState) {
   for (let depth = state.selection.$from.depth; depth > 0; depth--) {
-    if (state.selection.$from.node(depth).type === schema.nodes.list_item) {
+    if (state.selection.$from.node(depth).type.name === "table_cell") return null;
+    if (isListItem(state.selection.$from.node(depth))) {
       return {
         node: state.selection.$from.node(depth),
         pos: state.selection.$from.before(depth),
@@ -37,11 +39,16 @@ function materializeMatch(
   return state.tr.insertText(match[0].slice(existing.length), from, end);
 }
 
-function markInputRule(expression: RegExp, name: string): InputRule {
+function markInputRule(
+  expression: RegExp,
+  name: string,
+  allow: () => boolean = () => true,
+): InputRule {
   return new InputRule(
     expression,
     (state, match, start, end) => {
       const content = match[1];
+      if (!allow()) return null;
       if (!content) return null;
       const tr = materializeMatch(state, match, start, end);
       if (!tr) return null;
@@ -72,10 +79,12 @@ function appendTransaction(target: Transaction, change: Transaction): void {
 function blockTypeRule(
   expression: RegExp,
   type: "heading" | "code_block",
+  allow: (command: string) => boolean,
 ): InputRule {
   return new InputRule(
     expression,
     (state, match, start, end) => {
+      if (type === "code_block" && !allow("backtick_code")) return null;
       const tr = state.tr.delete(start, end);
       // Use the same item conversion as the menu. A nested item becomes a
       // sibling block inside its existing parent instead of moving to the root.
@@ -102,14 +111,18 @@ function blockTypeRule(
         position,
         position,
         target,
-        type === "heading" ? { level: match[1].length } : { params: match[1] },
+        type === "heading"
+          ? { level: allow(`heading${match[1].length}`) ? match[1].length : 4 }
+          : { params: match[1] },
       );
     },
     { inCodeMark: false },
   );
 }
 
-export function markdownRules() {
+export function markdownRules(
+  allow: (command: string) => boolean = () => true,
+) {
   const { paragraph, blockquote, bullet_list, ordered_list, page_link } =
     schema.nodes;
   return inputRules({
@@ -117,7 +130,7 @@ export function markdownRules() {
       new InputRule(
         /(?<!\\)\[\[([^\[\]\n]+)\]\]$/,
         (state, match, start, end) => {
-          if (/\ufffc/.test(match[1])) return null;
+          if (!allow("link") || /\ufffc/.test(match[1])) return null;
           const separator = match[1].indexOf("|");
           const target = (
             separator < 0 ? match[1] : match[1].slice(0, separator)
@@ -173,15 +186,19 @@ export function markdownRules() {
       markInputRule(/(?<!\\)__([^_]+)__$/, "strong"),
       markInputRule(/(?<![\\*])\*([^*]+)\*$/, "em"),
       markInputRule(/(?<!\\)`([^`]+)`$/, "code"),
-      markInputRule(/(?<!\\)~~([^~]+)~~$/, "strike"),
+      markInputRule(/(?<!\\)~~([^~]+)~~$/, "strike", () => allow("strike")),
       new InputRule(
         /^(?:[-+*] )?\[([ xX]?)\] $/,
         (state, match, start, end) => {
           const tr = state.tr.delete(start, end);
+          if (!allow("task")) return null;
           const checked = match[1].toLowerCase() === "x";
           const item = itemAtSelection(state);
+          if (item &&
+              state.selection.$from.node(item.depth - 1).type === ordered_list &&
+              !allow("ordered_task")) return null;
           if (item)
-            return tr.setNodeMarkup(item.pos, undefined, {
+            return tr.setNodeMarkup(item.pos, schema.nodes.task_list_item, {
               ...item.node.attrs,
               checked,
             });
@@ -196,7 +213,7 @@ export function markdownRules() {
           appendTransaction(tr, wrapped);
           const result = itemAtSelection(state.apply(tr));
           if (!result) return null;
-          return tr.setNodeMarkup(result.pos, undefined, {
+          return tr.setNodeMarkup(result.pos, schema.nodes.task_list_item, {
             ...result.node.attrs,
             checked,
           });
@@ -204,16 +221,22 @@ export function markdownRules() {
         { inCodeMark: false },
       ),
       wrappingInputRule(/^\s*([-+*]) $/, bullet_list),
-      wrappingInputRule(
+      new InputRule(
         /^(\d+)[.)] $/,
-        ordered_list,
-        (match) => ({ order: Number(match[1]) }),
-        (match, node) =>
-          node.childCount + node.attrs.order === Number(match[1]),
+        (state, match, start, end) => {
+          if (match[0].includes(")") && !allow("ordered_parenthesis")) return null;
+          const tr = state.tr.delete(start, end);
+          let wrapped: Transaction | null = null;
+          if (!wrapInList(ordered_list, { order: Number(match[1]) })(
+            state.apply(tr), (change) => { wrapped = change; },
+          ) || !wrapped) return null;
+          appendTransaction(tr, wrapped);
+          return tr;
+        },
       ),
       wrappingInputRule(/^> $/, blockquote),
-      blockTypeRule(/^(#{1,6}) $/, "heading"),
-      blockTypeRule(/^```([a-zA-Z0-9_-]*) $/, "code_block"),
+      blockTypeRule(/^(#{1,6}) $/, "heading", allow),
+      blockTypeRule(/^```([a-zA-Z0-9_-]*) $/, "code_block", allow),
       new InputRule(/^---$/, (state, _match, start, end) => {
         const $from = state.doc.resolve(start);
         if (

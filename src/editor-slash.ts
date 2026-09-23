@@ -7,6 +7,7 @@ import {
 } from "prosemirror-state";
 import type { Node as ProseMirrorNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
+import { inTableCell } from "./editor-table.js";
 
 export interface SlashState {
   /** Document position immediately before the trigger, including nested blocks. */
@@ -24,13 +25,17 @@ interface SlashPluginState {
   active: SlashState | null;
   suppressed: TriggerAnchor | null;
   composing: boolean;
+  virtual: number | null;
 }
 type SlashMeta =
-  { type: "cancel" | "consume" } | { type: "composition"; active: boolean };
+  | { type: "cancel" | "consume" }
+  | { type: "composition"; active: boolean }
+  | { type: "open"; from: number };
 
 export const slashPluginKey = new PluginKey<SlashPluginState>("notdown-slash");
 
 function candidate(state: EditorState): SlashState | null {
+  if (inTableCell(state)) return null;
   const selection = state.selection;
   if (!(selection instanceof TextSelection) || !selection.empty) return null;
   const { $from } = selection;
@@ -99,11 +104,48 @@ export function createSlashPlugin(
   return new Plugin<SlashPluginState>({
     key: slashPluginKey,
     state: {
-      init: () => ({ active: null, suppressed: null, composing: false }),
+      init: () => ({
+        active: null,
+        suppressed: null,
+        composing: false,
+        virtual: null,
+      }),
       apply(tr, value, oldState, nextState) {
         const meta = tr.getMeta(slashPluginKey) as SlashMeta | undefined;
         const composing =
           meta?.type === "composition" ? meta.active : value.composing;
+        let virtual = meta?.type === "open" ? meta.from : value.virtual;
+        if (virtual !== null && meta?.type !== "open") {
+          const mapped = tr.mapping.mapResult(virtual, -1);
+          virtual = mapped.deleted ? null : mapped.pos;
+        }
+        if (meta?.type === "cancel" || meta?.type === "consume") virtual = null;
+        if (virtual !== null) {
+          const { selection } = nextState;
+          const { $from } = selection;
+          if (
+            selection instanceof TextSelection &&
+            selection.empty &&
+            $from.start() === virtual &&
+            !$from.parent.type.spec.code &&
+            !inTableCell(nextState)
+          ) {
+            const query = nextState.doc.textBetween(
+              virtual,
+              selection.from,
+              "\n",
+              "\ufffc",
+            );
+            if (!/[\s\ufffc]/u.test(query))
+              return {
+                active: { from: virtual, to: selection.from, query },
+                suppressed: null,
+                composing,
+                virtual,
+              };
+          }
+          virtual = null;
+        }
         const previous = mapAnchor(anchor(value.active, oldState.doc), tr);
         let suppressed = mapAnchor(value.suppressed, tr);
         const next = candidate(nextState);
@@ -113,6 +155,7 @@ export function createSlashPlugin(
             active: null,
             suppressed: anchor(next, nextState.doc) ?? previous ?? suppressed,
             composing,
+            virtual,
           };
         }
         // Leaving an active query closes it. Remember its trigger so restoring
@@ -120,7 +163,7 @@ export function createSlashPlugin(
         // IME can temporarily remove/reinsert its text, so it does not cancel.
         if (!next && previous && !composing) suppressed = previous;
         const active = next && next.from !== suppressed?.from ? next : null;
-        return { active, suppressed, composing };
+        return { active, suppressed, composing, virtual };
       },
     },
     props: {

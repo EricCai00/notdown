@@ -1,0 +1,1090 @@
+[
+  {
+    "id": 1,
+    "origin": "Typora",
+    "category": "block",
+    "name": "math block",
+    "source": "$$\ny=x^2\n$$",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(equation(\"y=x^2\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(equation(\"y=x^2\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(equation(\"y=x^2\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "origin": "Typora",
+    "category": "block",
+    "name": "footnote",
+    "source": "text[^fn1]\n\n[^fn1]: text in *footnote*",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"text\", footnote_reference), footnote(paragraph(\"text in \", em(\"footnote\"))))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"text\", footnote_reference), footnote(paragraph(\"text in \", em(\"footnote\"))))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"text\", citation), paragraph(citation, \": text in \", em(\"footnote\")))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "origin": "Typora",
+    "category": "block",
+    "name": "YAML front matter",
+    "source": "---\nlayout: post\ntitle: Blogging Like a Hacker\n---",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(opaque_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(opaque_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(horizontal_rule, paragraph(\"layout: post\"), paragraph(\"title: Blogging Like a Hacker\"), horizontal_rule)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "origin": "Typora",
+    "category": "block",
+    "name": "table of contents",
+    "source": "[toc]",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"[toc]\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"[toc]\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"[toc]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "origin": "Typora",
+    "category": "block",
+    "name": "callout / GitHub style alert ",
+    "source": "> [!NOTE]\n> text",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(blockquote(paragraph(\"[!NOTE] text\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(blockquote(paragraph(\"[!NOTE] text\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(blockquote(paragraph(\"[!NOTE]\")), blockquote(paragraph(\"text\")))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "origin": "Typora",
+    "category": "span",
+    "name": "internal link",
+    "source": "### Header 3\n\n[link](#header-3)",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(heading(\"Header 3\"), paragraph(link(\"link\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(heading(\"Header 3\"), paragraph(link(\"link\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(heading(\"Header 3\"), paragraph(link(\"link\")))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "origin": "Typora",
+    "category": "span",
+    "name": "emoji",
+    "source": ":smile:",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"😄\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\":smile:\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\":smile:\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "origin": "Typora",
+    "category": "span",
+    "name": "inline math",
+    "source": "$y=x^2$",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(inline_math))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(inline_math))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(inline_math))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "origin": "Typora",
+    "category": "span",
+    "name": "subscript",
+    "source": "H~2~O",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"H~2~O\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"H\", subscript(\"2\"), \"O\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"H~2~O\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "origin": "Typora",
+    "category": "span",
+    "name": "superscript",
+    "source": "X^2^",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"X^2^\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"X\", superscript(\"2\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"X^2^\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "origin": "Typora",
+    "category": "span",
+    "name": "highlight",
+    "source": "==highlight==",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"==highlight==\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"==highlight==\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"==highlight==\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "origin": "Typora",
+    "category": "HTML",
+    "name": "embed content",
+    "source": "<iframe height='265' scrolling='no' title='Fancy Animated SVG Menu' src='http://codepen.io/jeangontijo/embed/OxVywj/?height=265&theme-id=0&default-tab=css,result&embed-version=2' frameborder='no' allowtransparency='true' allowfullscreen='true' style='width: 100%;'></iframe>",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(html_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(html_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(opaque_block)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "origin": "Typora",
+    "category": "block",
+    "name": "sequence diagram",
+    "source": "```sequence\n```",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "origin": "Typora",
+    "category": "block",
+    "name": "flowchart",
+    "source": "```flow\n```",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "origin": "Typora",
+    "category": "block",
+    "name": "mermaid",
+    "source": "```mermaid\n```",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(code_block)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "origin": "Typora",
+    "category": "",
+    "name": "without Strict Mode",
+    "source": "###header",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"###header\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"###header\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"###header\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "origin": "Typora",
+    "category": "",
+    "name": "without Strict Mode",
+    "source": "1. word\n  word",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(ordered_list(list_item(paragraph(\"word word\"))))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(ordered_list(list_item(paragraph(\"word word\"))))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(ordered_list(list_item(paragraph(\"word\"))), paragraph(\"  word\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "origin": "Typora",
+    "category": "",
+    "name": "without Strict Mode",
+    "source": "1. item\n  1. item",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(ordered_list(list_item(paragraph(\"item\")), list_item(paragraph(\"item\"))))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(ordered_list(list_item(paragraph(\"item\")), list_item(paragraph(\"item\"))))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(ordered_list(list_item(paragraph(\"item\"))), ordered_list(list_item(paragraph(\"item\"))))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "origin": "Obsidian",
+    "category": "block",
+    "name": "block comment",
+    "source": "%%\ncomment\n%%",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"%% comment %%\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"%% comment %%\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"%%\"), paragraph(\"comment\"), paragraph(\"%%\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "origin": "Obsidian",
+    "category": "span",
+    "name": "inline comment",
+    "source": "%%comment%%",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"%%comment%%\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"%%comment%%\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(\"%%comment%%\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "origin": "Obsidian",
+    "category": "inline",
+    "name": "internal link (Wikilink)",
+    "source": "[[note title]]",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(\"[[note title]]\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(\"[[note title]]\"))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(page_link))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "origin": "Obsidian",
+    "category": "inline",
+    "name": "internal link (Markdown)",
+    "source": "[note title](note%20title.md)",
+    "samples": [
+      {
+        "variant": "gfm",
+        "tree": "doc(paragraph(link(\"note title\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "markdown",
+        "tree": "doc(paragraph(link(\"note title\")))",
+        "sameSource": true
+      },
+      {
+        "variant": "notion-markdown",
+        "tree": "doc(paragraph(link(\"note title\")))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "inline HTML",
+    "source": "paragraph\n<div>\ntext\n</div>",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(paragraph(\"paragraph\"), html_block)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "markdown Inside HTML Blocks",
+    "source": "<div markdown=\"1\">\nThis is *true* markdown text.\n</div>",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(html_block)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "special attributes",
+    "source": "### Heading 3 {#heading-id}\n\n[link](#heading-id)",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(heading(\"Heading 3 {#heading-id}\"), paragraph(link(\"link\")))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "special attributes",
+    "source": "## heading ##  {.main}",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(heading(\"heading ##  {.main}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "special attributes",
+    "source": "## heading ##  {lang=fr}",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(heading(\"heading ##  {lang=fr}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "special attributes",
+    "source": "[link](url){#id .class}\n![img](url){#id .class}",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(paragraph(link(\"link\"), \"{#id .class} \", image, \"{#id .class}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "special attributes",
+    "source": "[ref]: url \"title\" {#id .class}",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(paragraph(\"[ref]: url \\\"title\\\" {#id .class}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "fenced code block",
+    "source": "~~~ .html\nhtml code\n~~~",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(code_block(\"html code\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "fenced code block",
+    "source": "~~~ {.html #example-1}\nhtml code\n~~~",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(code_block(\"html code\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "definition list",
+    "source": "first term\n: definition\n\nsecond tern\n: definition 1\n: definition 2",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(definition_list(definition_term(\"first term\"), definition_description(paragraph(\"definition\")), definition_term(\"second tern\"), definition_description(paragraph(\"definition 1\")), definition_description(paragraph(\"definition 2\"))))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "abbreviation",
+    "source": "*[HTML]: Hyper Text Markup Language",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(paragraph)",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "origin": "PHP Markdown Extra",
+    "category": "",
+    "name": "ordered list",
+    "source": "3. item\n4. item\n5. item",
+    "samples": [
+      {
+        "variant": "markdown_phpextra",
+        "tree": "doc(ordered_list(list_item(paragraph(\"item\")), list_item(paragraph(\"item\")), list_item(paragraph(\"item\"))))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "abbreviation",
+    "source": "[>MMD] text [>(MD) Markdown]\n\n[>MMD]: MultiMarkdown",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(link(\">MMD\"), \" text [>(MD) Markdown]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "origin": "MultiMarkdown",
+    "category": "citation",
+    "name": "citation",
+    "source": "[locator][#Doe:2006]\n\n[#Doe2006]: John Doe. Title. Press, 2006",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"[locator][#Doe:2006]\"), paragraph(\"[#Doe2006]: John Doe. Title. Press, 2006\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "origin": "MultiMarkdown",
+    "category": "citation",
+    "name": "citation",
+    "source": "[][#Doe:2006]\n\n[#Doe2006]: John Doe. Title. Press, 2006",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"[][#Doe:2006]\"), paragraph(\"[#Doe2006]: John Doe. Title. Press, 2006\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "origin": "MultiMarkdown",
+    "category": "citation",
+    "name": "citation",
+    "source": "[Not cited][#citekey]",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"[Not cited][#citekey]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "origin": "MultiMarkdown",
+    "category": "citation",
+    "name": "inline citation",
+    "source": "text[#John Doe. Title. Press, 2006.]",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"text[#John Doe. Title. Press, 2006.]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "origin": "MultiMarkdown",
+    "category": "citation",
+    "name": "BibTeX citation",
+    "source": "[#citekey]\n[#citekey][]\n[#citekey;]",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"[#citekey] [#citekey][] [#citekey;]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "origin": "MultiMarkdown",
+    "category": "CriticMarkup ",
+    "name": "deletion",
+    "source": "{--text--}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{--text--}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "origin": "MultiMarkdown",
+    "category": "CriticMarkup ",
+    "name": "addition",
+    "source": "{++text++}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{++text++}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "origin": "MultiMarkdown",
+    "category": "CriticMarkup ",
+    "name": "substitution",
+    "source": "{~~text~>text~~}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{~\", subscript(\"text\"), \">text~~}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "origin": "MultiMarkdown",
+    "category": "CriticMarkup ",
+    "name": "highlighting",
+    "source": "{==text==}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{==text==}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 45,
+    "origin": "MultiMarkdown",
+    "category": "CriticMarkup ",
+    "name": "comment",
+    "source": "{>>text<<}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{>>text<<}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "cross-reference",
+    "source": "### header [header-id] ##\n\n[header-id][]",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(heading(\"header [header-id]\"), paragraph(\"[header-id][]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "escaped newline",
+    "source": "line\\\nline",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"line\\\\ line\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 48,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "file transluction",
+    "source": "{{file.txt}}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{{file.txt}}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 49,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "wildcard extention",
+    "source": "{{file.*}}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{{file.*}}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 50,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "glossary",
+    "source": "[?(term) explanation] is a glossary term.\n[?term] is also a glossary term\n\n[?term]: explanation",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"[?(term) explanation] is a glossary term. \", link(\"?term\"), \" is also a glossary term\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 51,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "image block",
+    "source": "![Alt text](/path/to/img.jpg)",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(image))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 52,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "link and image attribute",
+    "source": "text ![image][] text [link][]\n\n[image]: url \"title\" width=40px height=400px\n[link]: url \"title\" class=external",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"text ![image][] text [link][]\"), paragraph(\"[image]: url \\\"title\\\" width=40px height=400px [link]: url \\\"title\\\" class=external\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 53,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "link and image attribute",
+    "source": "text [link](url \"title\" class=external)",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"text [link](url \\\"title\\\" class=external)\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 54,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "math",
+    "source": "text \\\\(equation\\\\) text\n\n\\\\[equation\\\\]",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"text \\\\(equation\\\\) text\"), paragraph(\"\\\\[equation\\\\]\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 55,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "superscript",
+    "source": "This apartment has an area of 100m^2",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"This apartment has an area of 100m^2\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 56,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "subscript",
+    "source": "One must consider the value of x~z",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"One must consider the value of x~z\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 57,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "metadata \"variable\"",
+    "source": "foo: foo-test\n\ntext [%foo] text",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(opaque_block, paragraph(\"text [%foo] text\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 58,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "raw source",
+    "source": "text `code`{=html}\n\n```{=latex}\ncode\n```",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"text \", code(\"code\"), \"{=html}\"), code_block(\"code\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 59,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "smart typography",
+    "source": "--- -- ... ' ' \" \"",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"--- -- ... ' ' \\\" \\\"\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 60,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "table of contents",
+    "source": "{{TOC}}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{{TOC}}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 61,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "table of contents",
+    "source": "{{TOC:2}}\n{{TOC:2-3}}",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"{{TOC:2}} {{TOC:2-3}}\"))",
+        "sameSource": true
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "origin": "MultiMarkdown",
+    "category": "",
+    "name": "table",
+    "source": "|             |          Grouping           ||\nFirst Header  | Second Header | Third Header |\n ------------ | :-----------: | -----------: |\nContent       |          *Long Cell*        ||\nContent       |   **Cell**    |         Cell |\n\nNew section   |     More      |         Data |\nAnd more      | With an escaped '\\|'         ||  \n[Prototype table]",
+    "samples": [
+      {
+        "variant": "markdown_mmd",
+        "tree": "doc(paragraph(\"|             |          Grouping           ||\"), table(table_row(table_cell(paragraph(\"First Header\")), table_cell(paragraph(\"Second Header\")), table_cell(paragraph(\"Third Header\"))), table_row(table_cell(paragraph(\"Content\")), table_cell(paragraph(em(\"Long Cell\"))), table_cell(paragraph)), table_row(table_cell(paragraph(\"Content\")), table_cell(paragraph(strong(\"Cell\"))), table_cell(paragraph(\"Cell\")))), paragraph(\"New section   |     More      |         Data | And more      | With an escaped '|'         ||\", hard_break, \"[Prototype table]\"))",
+        "sameSource": true
+      }
+    ]
+  }
+]

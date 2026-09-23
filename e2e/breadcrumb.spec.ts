@@ -1,0 +1,90 @@
+import { test, expect } from "@playwright/test";
+
+test("breadcrumb follows page hierarchy with icons, plain inline styling and working links", async ({ page, request }) => {
+  const create = async (title: string, icon: string, parent: string | null, body: string) => {
+    const response = await request.post("/api/pages", { data: { title, icon, parent, body, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: { notion_tabs: true, notion_bookmark: true, notion_link_preview: true, notion_breadcrumb: true, notion_button: true, notion_meeting_notes: true, notion_ai_block: true, notion_html_document: true, local_figure: true } } } });
+    expect(response.status()).toBe(201); return response.json();
+  };
+  const root = await create("Systematic", "👤", null, "Root content");
+  const parent = await create("On note apps", "📒", root.id, "Parent content");
+  const body = '<breadcrumb path=""/>\n\nPage content';
+  const child = await create("Playground", "🛝", parent.id, body);
+  await page.addInitScript(id => localStorage.setItem("notdown-page", id), child.id);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/");
+  const block = page.locator(".pm-object-breadcrumb"), nav = block.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(nav.locator("a")).toHaveText(["👤Systematic", "📒On note apps", "🛝Playground"]);
+  await expect(page.locator("#breadcrumb a")).toHaveText(["👤Systematic", "📒On note apps", "🛝Playground"]);
+  await expect(nav.locator('[aria-current="page"]')).toHaveAttribute("href", `#page/${child.id}`);
+  await expect(nav.locator(".pm-breadcrumb-separator")).toHaveCount(2);
+  expect(await block.evaluate(el => getComputedStyle(el).borderTopWidth)).toBe("0px");
+  expect(await block.evaluate(el => getComputedStyle(el).paddingLeft)).toBe("0px");
+  await nav.getByRole("link", { name: "Systematic" }).hover();
+  await expect(nav.getByRole("link", { name: "Systematic" })).toHaveCSS("text-decoration-line", "none");
+  await page.screenshot({ path: "test-results/breadcrumb-desktop.png" });
+  const bounds = (await nav.boundingBox())!;
+  await page.screenshot({ path: "test-results/breadcrumb-row.png", clip: { x: Math.max(0, bounds.x - 80), y: bounds.y - 20, width: Math.min(1080, 1600 - bounds.x + 80), height: 83 } });
+  await nav.getByRole("link", { name: "On note apps" }).click();
+  await expect(page.locator("#page-title")).toHaveText("On note apps");
+  expect((await (await request.get(`/api/pages/${child.id}`)).json()).body).toBe(body);
+  await page.goto(`/#page/${child.id}`);
+  await expect(nav).toContainText("Playground");
+  await nav.getByRole("link", { name: "Playground" }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Playground");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(nav.locator("a")).toHaveCount(3);
+  const sizes = await nav.evaluate(el => ({ client: el.clientWidth, scroll: el.scrollWidth }));
+  expect(sizes.scroll).toBeLessThanOrEqual(sizes.client + 1);
+  await page.screenshot({ path: "test-results/breadcrumb-mobile.png" });
+  await nav.getByRole("link", { name: "Systematic" }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Systematic");
+  await expect(page.locator("#breadcrumb a")).toHaveText(["👤Systematic"]);
+});
+
+test("legacy paths cannot override the current hierarchy and their source is preserved", async ({ page, request }) => {
+  const root = await (await request.post("/api/pages", { data: { title: "Saved root", icon: "book-open", body: "Root" } })).json();
+  const source = `<breadcrumb path="missing&#10;${root.id}" custom="keep"/>`;
+  const note = await (await request.post("/api/pages", { data: { title: "Saved path", icon: "file-text", parent: root.id, body: source, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: { notion_tabs: true, notion_bookmark: true, notion_link_preview: true, notion_breadcrumb: true, notion_button: true, notion_meeting_notes: true, notion_ai_block: true, notion_html_document: true, local_figure: true } } } })).json();
+  await page.addInitScript(id => localStorage.setItem("notdown-page", id), note.id);
+  await page.goto("/");
+  const nav = page.locator(".pm-object-breadcrumb nav");
+  await expect(nav.locator(".pm-breadcrumb-title")).toHaveText(["Saved root", "Saved path"]);
+  await expect(nav.locator("a")).toHaveCount(2);
+  await expect(nav.locator("svg")).toHaveCount(2);
+  await page.locator('[data-mode="source"]').click();
+  await page.locator('[data-mode="document"]').click();
+  await expect(nav).toContainText("Saved root");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(source);
+});
+
+test("breadcrumb refreshes on rename, reparent and external ancestor changes without losing pending input", async ({ page, request }) => {
+  const create = async (title: string, parent: string | null = null, body = "") =>
+    (await (await request.post("/api/pages", { data: { title, parent, body, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: { notion_tabs: true, notion_bookmark: true, notion_link_preview: true, notion_breadcrumb: true, notion_button: true, notion_meeting_notes: true, notion_ai_block: true, notion_html_document: true, local_figure: true } } } })).json());
+  const root = await create("Original root");
+  const other = await create("New root");
+  const note = await create("Original title", root.id, '<breadcrumb path="unrelated"/>\n\nOriginal content');
+  await page.goto(`/#page/${note.id}`);
+  const titles = page.locator(".pm-object-breadcrumb .pm-breadcrumb-title");
+  await expect(titles).toHaveText(["Original root", "Original title"]);
+  await page.getByRole("textbox", { name: "Page title", exact: true }).fill("Renamed title");
+  await expect(titles).toHaveText(["Original root", "Renamed title"]);
+  await page.locator(".page-properties > summary").click();
+  await page.getByLabel("Parent page", { exact: true }).selectOption(other.id);
+  await expect(titles).toHaveText(["New root", "Renamed title"]);
+  await expect(page.locator("#save-status")).toContainText("Saved locally");
+  const changed = await request.put(`/api/pages/${other.id}`, { data: { title: "Updated root", baseRevision: other.revision } });
+  expect(changed.ok()).toBeTruthy();
+  await expect(titles).toHaveText(["Updated root", "Renamed title"], { timeout: 12000 });
+  await expect(page.locator("#breadcrumb .pm-breadcrumb-title")).toHaveText(["Updated root", "Renamed title"]);
+  const paragraph = page.locator(".pm-document > p").filter({ hasText: "Original content" });
+  await paragraph.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" pending edit");
+  await page.locator(".pm-object-breadcrumb").getByRole("link", { name: "Updated root" }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Updated root");
+  const saved = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(saved.body).toContain("Original content pending edit");
+  expect(saved.body).toContain('<breadcrumb path="unrelated"/>');
+  expect(saved.title).toBe("Renamed title");
+  expect(saved.parent).toBe(other.id);
+});

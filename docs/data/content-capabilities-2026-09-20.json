@@ -1,0 +1,6779 @@
+{
+  "capturedAt": "2026-09-20",
+  "scope": "87 user inventory items; 11 dialects; native switches are empty-override presets, not user configuration",
+  "originalColumns": [
+    "category",
+    "name",
+    "alias",
+    "markdown variant",
+    "Notion UI category",
+    "Enhanced markdown",
+    "Notion API"
+  ],
+  "originalRows": [
+    [
+      "leaf block",
+      "divider",
+      "thematic break",
+      "original",
+      "basic",
+      "block",
+      "divider"
+    ],
+    [
+      "leaf block",
+      "heading",
+      "header",
+      "original",
+      "basic",
+      "block",
+      "heading_1; heading_2; heading_3; heading_4"
+    ],
+    [
+      "leaf block",
+      "code block",
+      "verbatim block",
+      "original",
+      "media",
+      "block",
+      "code"
+    ],
+    [
+      "leaf block",
+      "HTML block",
+      "",
+      "original",
+      "embed",
+      "",
+      "embed"
+    ],
+    [
+      "leaf block (container block?)",
+      "paragraph",
+      "text",
+      "original",
+      "basic",
+      "block",
+      "paragraph"
+    ],
+    [
+      "leaf block",
+      "table",
+      "",
+      "GFM",
+      "basic",
+      "block",
+      "table; table_row"
+    ],
+    [
+      "container block",
+      "quote",
+      "block quote",
+      "original",
+      "basic",
+      "block",
+      "quote"
+    ],
+    [
+      "container block",
+      "bullet list item",
+      "unordered list item",
+      "original",
+      "basic",
+      "block",
+      "bulleted_list_item"
+    ],
+    [
+      "container block",
+      "numbered list item",
+      "ordered list item",
+      "original",
+      "basic",
+      "block",
+      "numbered_list_item"
+    ],
+    [
+      "container block",
+      "task list item",
+      "to-do list item",
+      "GFM",
+      "basic",
+      "block",
+      "to_do"
+    ],
+    [
+      "leaf block",
+      "empty block",
+      "empty line",
+      "Typora",
+      "others",
+      "block",
+      ""
+    ],
+    [
+      "leaf block",
+      "math block",
+      "block equation",
+      "Obsidian; Pandoc's Markdown; MultiMarkdown",
+      "advanced",
+      "block",
+      "equation"
+    ],
+    [
+      "leaf block",
+      "image block",
+      "image",
+      "MultiMarkdown",
+      "media",
+      "block",
+      "image"
+    ],
+    [
+      "leaf block",
+      "diagram",
+      "",
+      "Typora; Obsidian",
+      "advanced",
+      "block",
+      "code"
+    ],
+    [
+      "leaf block",
+      "callout",
+      "GitHub style alert",
+      "Typora",
+      "basic",
+      "block",
+      "callout"
+    ],
+    [
+      "leaf block",
+      "table of contents",
+      "",
+      "Typora; MultiMarkdown",
+      "advanced",
+      "block",
+      "table_of_contents"
+    ],
+    [
+      "leaf block",
+      "link to page",
+      "",
+      "Obsidian",
+      "basic",
+      "block",
+      ""
+    ],
+    [
+      "leaf block",
+      "embed",
+      "embed content; file transclusion",
+      "Typora; MultiMarkdown",
+      "embed",
+      "not supported",
+      "embed"
+    ],
+    [
+      "leaf block",
+      "page",
+      "child page",
+      "",
+      "basic",
+      "?",
+      "child_page"
+    ],
+    [
+      "leaf block",
+      "database - inline",
+      "",
+      "",
+      "database",
+      "?",
+      "?"
+    ],
+    [
+      "leaf block",
+      "database - full page",
+      "child database",
+      "",
+      "database",
+      "?",
+      "child_database"
+    ],
+    [
+      "leaf block",
+      "linked view of data source",
+      " ",
+      "",
+      "database",
+      "block",
+      ""
+    ],
+    [
+      "leaf block",
+      "button",
+      "",
+      "",
+      "advanced",
+      "",
+      "unsupported"
+    ],
+    [
+      "leaf block",
+      "breadcrumb",
+      "",
+      "",
+      "advanced",
+      "not supported",
+      "breadcrumb"
+    ],
+    [
+      "leaf block",
+      "video",
+      "",
+      "",
+      "media",
+      "block",
+      "video"
+    ],
+    [
+      "leaf block",
+      "audio",
+      "",
+      "",
+      "media",
+      "block",
+      "audio"
+    ],
+    [
+      "leaf block",
+      "file",
+      "",
+      "",
+      "media",
+      "block",
+      "file"
+    ],
+    [
+      "leaf block",
+      "web bookmark",
+      "",
+      "",
+      "media",
+      "not supported",
+      "bookmark"
+    ],
+    [
+      "leaf block",
+      "PDF",
+      "",
+      "",
+      "embed",
+      "block",
+      "pdf"
+    ],
+    [
+      "leaf block",
+      "link preview",
+      "",
+      "",
+      "embed",
+      "not supported",
+      "link_preview"
+    ],
+    [
+      "leaf block",
+      "meeting notes",
+      "transcription",
+      "",
+      "advanced",
+      "",
+      "meeting_notes"
+    ],
+    [
+      "leaf block",
+      "unsupported",
+      "",
+      "",
+      "",
+      "",
+      "unsupported"
+    ],
+    [
+      "container block",
+      "toggle",
+      "collapsed section; toggle list item",
+      " ",
+      "basic",
+      "block",
+      "toggle"
+    ],
+    [
+      "container block",
+      "toggle heading",
+      "",
+      "",
+      "advanced",
+      "block",
+      "?"
+    ],
+    [
+      "container block",
+      "tabs",
+      "",
+      "",
+      "advanced",
+      "",
+      "tab"
+    ],
+    [
+      "container block",
+      "synced block",
+      "",
+      "",
+      "advanced",
+      "block",
+      "synced_block"
+    ],
+    [
+      "container block",
+      "columns",
+      "column list",
+      "",
+      "advanced",
+      "block",
+      "column_list; column"
+    ],
+    [
+      "metadata block",
+      "YAML front matter",
+      "",
+      "MultiMarkdown; Pandoc's Markdown",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "metadata block",
+      "Pandoc title block",
+      "",
+      "Pandoc extension",
+      "",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "block comment",
+      "",
+      "Obsidian",
+      "",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "definition list",
+      "",
+      "PHP Markdown Extra; MultiMarkdown",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "raw source",
+      "",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "footnote",
+      "",
+      "PHP Markdown Extra",
+      "",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "line block",
+      "",
+      "Pandoc extension",
+      "",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "native div",
+      "",
+      "Pandoc extension",
+      "",
+      "",
+      ""
+    ],
+    [
+      "leaf block",
+      "raw TeX",
+      "",
+      "Pandoc extension",
+      "",
+      "",
+      ""
+    ],
+    [
+      "container block",
+      "example list",
+      "",
+      "Pandoc extension",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "code span",
+      "verbatim",
+      "original",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "inline",
+      "emphasis",
+      "italic",
+      "original",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "inline",
+      "strong emphasis",
+      "bold",
+      "original",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "inline",
+      "strikethrough",
+      "strikeout",
+      "GFM",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "inline",
+      "link",
+      "",
+      "original",
+      "style",
+      "rich text formatting",
+      "link"
+    ],
+    [
+      "inline",
+      "image",
+      "",
+      "original",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "autolink",
+      "",
+      "original",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "inline HTML",
+      "",
+      "original",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "internal link",
+      "cross-reference",
+      "Typora; MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "emoji",
+      "",
+      "Typora; Pandoc extension",
+      "inline",
+      "rich text formatting",
+      " "
+    ],
+    [
+      "inline",
+      "inline math",
+      "inline equation",
+      "Typora; Obsidian; Pandoc's Markdown; MultiMarkdown",
+      "inline",
+      "rich text formatting",
+      "equation"
+    ],
+    [
+      "inline",
+      "subscript",
+      "",
+      "Typora; MultiMarkdown; Pandoc's Markdown",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "superscript",
+      "",
+      "Typora; MultiMarkdown; Pandoc's Markdown",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "highlight",
+      "",
+      "Obsidian; Pandoc's Markdown; MultiMarkdown",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "inline comment",
+      "",
+      "Obsidian; MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "footnote",
+      "",
+      "MultiMarkdown; PHP Markdown Extra; Obsidian",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "abbreviation",
+      "acronym",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "citation",
+      "",
+      "MultiMarkdown",
+      "",
+      "rich text formatting",
+      " "
+    ],
+    [
+      "inline",
+      "deletion",
+      "",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "addition",
+      "",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "substitution",
+      "",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "glossary",
+      "",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "metadata variable",
+      "",
+      "MultiMarkdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "underline",
+      "",
+      "Pandoc's Markdown",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "inline",
+      "small caps",
+      "",
+      "Pandoc's Markdown",
+      "",
+      "",
+      ""
+    ],
+    [
+      "inline",
+      "mention person",
+      "",
+      "",
+      "inline",
+      "rich text formatting",
+      "mention"
+    ],
+    [
+      "inline",
+      "mention page or data source",
+      " ",
+      "",
+      "inline",
+      "rich text formatting",
+      "mention"
+    ],
+    [
+      "inline",
+      "date ot reminder",
+      "",
+      "",
+      "inline",
+      "rich text formatting",
+      "mention"
+    ],
+    [
+      "inline",
+      "text color",
+      "",
+      "",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "inline",
+      "background color",
+      "",
+      "",
+      "style",
+      "rich text formatting",
+      "annotation"
+    ],
+    [
+      "character",
+      "line break",
+      "",
+      "original",
+      "",
+      "rich text formatting",
+      ""
+    ],
+    [
+      "character",
+      "character reference",
+      "",
+      "original",
+      "",
+      "",
+      ""
+    ],
+    [
+      "character",
+      "backslash escape",
+      "",
+      "original",
+      "",
+      "",
+      ""
+    ],
+    [
+      "character",
+      "smart typography",
+      "",
+      "Typora; MultiMarkdown; Pandoc extension",
+      " ",
+      "",
+      ""
+    ],
+    [
+      "others",
+      "comment",
+      "",
+      "",
+      "discussion",
+      "",
+      ""
+    ],
+    [
+      "others",
+      "reaction",
+      "",
+      "",
+      "discussion",
+      "",
+      ""
+    ],
+    [
+      "others",
+      "suggest edits",
+      "",
+      "",
+      "discussion",
+      "",
+      ""
+    ],
+    [
+      "others",
+      "icon",
+      "",
+      "",
+      "metadata",
+      "",
+      ""
+    ],
+    [
+      "others",
+      "cover",
+      "",
+      "",
+      "metadata",
+      "",
+      ""
+    ],
+    [
+      "others",
+      "page property (database)",
+      " ",
+      "",
+      "metadata",
+      "",
+      ""
+    ]
+  ],
+  "rows": [
+    {
+      "id": 1,
+      "name": "分隔线 divider",
+      "category": "叶块",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "divider",
+      "note": "thematic break 是正文分隔，不是页面或数据库边界。",
+      "original": [
+        "leaf block",
+        "divider",
+        "thematic break",
+        "original",
+        "basic",
+        "block",
+        "divider"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "标题 heading",
+      "category": "叶块；Notion 可切换容器",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "heading_1…heading_4",
+      "note": "Markdown 通常 1–6 级；当前 Notion 为 1–4，Notdown Notion 将 5/6 收到 4。折叠标题另见 34。",
+      "original": [
+        "leaf block",
+        "heading",
+        "header",
+        "original",
+        "basic",
+        "block",
+        "heading_1; heading_2; heading_3; heading_4"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内*"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "代码块 code block",
+      "category": "叶块",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "code",
+      "note": "缩进代码与围栏分开看：CommonMark 围栏内置；markdown 系列围栏受 backtick_code_blocks/fenced_code_blocks 控制。无围栏时仍可用缩进代码；Notion 用围栏。",
+      "original": [
+        "leaf block",
+        "code block",
+        "verbatim block",
+        "original",
+        "media",
+        "block",
+        "code"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "HTML 源码块",
+      "category": "叶块/原始内容",
+      "pandoc": "raw_html",
+      "native": "raw_html",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "占",
+      "api": "embed 的 HTML 文件形态",
+      "note": "Markdown 中的 raw HTML 不等于 Notion embed：Notion HTML block 是上传 HTML 文件后在隔离 iframe 中显示。原生十种 Markdown 预设提供清理后的源码预览，不执行任意脚本。",
+      "original": [
+        "leaf block",
+        "HTML block",
+        "",
+        "original",
+        "embed",
+        "",
+        "embed"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开*"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "段落 paragraph",
+      "category": "Markdown 叶块；Notion 可含子块",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "paragraph",
+      "note": "CommonMark 的叶块允许行内内容但不允许子块；Notion 可附子块。Notdown 任意文本块层级由 notdown_nesting 管理。",
+      "original": [
+        "leaf block (container block?)",
+        "paragraph",
+        "text",
+        "original",
+        "basic",
+        "block",
+        "paragraph"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "表格 table",
+      "category": "复合结构",
+      "pandoc": "pipe_tables",
+      "native": "pipe_tables/mmd_tables",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "table + table_row",
+      "note": "这里只判断管道表格或 Notion table。简单/多行/网格表格不是同一语法；原生未完整实现。MMD 增强表格为预览与源码编辑。",
+      "original": [
+        "leaf block",
+        "table",
+        "",
+        "GFM",
+        "basic",
+        "block",
+        "table; table_row"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开*"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "name": "引用 block quote",
+      "category": "容器块",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "quote",
+      "note": "Notion 多行 > 可成为多个块，块内换行用 br；不能直接套用 CommonMark 引用合并规则。",
+      "original": [
+        "container block",
+        "quote",
+        "block quote",
+        "original",
+        "basic",
+        "block",
+        "quote"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "name": "无序列表项",
+      "category": "容器块",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "bulleted_list_item",
+      "note": "列表 list 与列表项 list item 是不同节点；原表列的是 item，建议另加 list 层级。",
+      "original": [
+        "container block",
+        "bullet list item",
+        "unordered list item",
+        "original",
+        "basic",
+        "block",
+        "bulleted_list_item"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "有序列表项",
+      "category": "容器块",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "numbered_list_item",
+      "note": "编号起点与列表中断规则受方言影响；不等于 fancy/example lists。",
+      "original": [
+        "container block",
+        "numbered list item",
+        "ordered list item",
+        "original",
+        "basic",
+        "block",
+        "numbered_list_item"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "name": "任务列表项",
+      "category": "容器块",
+      "pandoc": "task_lists",
+      "native": "task_lists",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "to_do",
+      "note": "原生保留 checked 并可编辑。Typora 预设只把无序列表中的任务标记变成复选框。",
+      "original": [
+        "container block",
+        "task list item",
+        "to-do list item",
+        "GFM",
+        "basic",
+        "block",
+        "to_do"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开*"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "name": "显式空块",
+      "category": "编辑结构",
+      "pandoc": "none",
+      "native": "empty",
+      "typora": "有",
+      "obsidian": "待",
+      "notion": "有",
+      "api": "空 paragraph",
+      "note": "empty line 不应当作 empty block 的同义词。普通 Markdown 空行通常是分隔；Notion 用 empty-block 标签；原生 Typora 将特定顶层空白映射成可编辑空段落。",
+      "original": [
+        "leaf block",
+        "empty block",
+        "empty line",
+        "Typora",
+        "others",
+        "block",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "待",
+          "native": "保"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "保"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "保"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "保"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "name": "块公式",
+      "category": "叶块",
+      "pandoc": "tex_math_dollars/tex_math_single_backslash/tex_math_double_backslash",
+      "native": "tex_math_dollars/tex_math_double_backslash",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "equation",
+      "note": "各路线定界符不同。原生支持美元和已接入的双反斜杠形式，用 KaTeX 显示；不是完整 TeX 引擎。",
+      "original": [
+        "leaf block",
+        "math block",
+        "block equation",
+        "Obsidian; Pandoc's Markdown; MultiMarkdown",
+        "advanced",
+        "block",
+        "equation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "name": "独立图片/figure",
+      "category": "图片段落；可提升为 Figure",
+      "pandoc": "figure",
+      "native": "figure",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "image",
+      "note": "图片语法本来属于 Markdown 行内。独占一行可显示为图片段落；Pandoc implicit_figures/MMD 才涉及题注图语义，不能把 image 与 Figure 完全等同。",
+      "original": [
+        "leaf block",
+        "image block",
+        "image",
+        "MultiMarkdown",
+        "media",
+        "block",
+        "image"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内+可*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内+可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基+可",
+          "native": "内+可*"
+        },
+        "gfm": {
+          "reference": "基+可",
+          "native": "内+可*"
+        },
+        "markdown": {
+          "reference": "基+开",
+          "native": "内+开*"
+        },
+        "commonmark_x": {
+          "reference": "基+可",
+          "native": "内+可*"
+        },
+        "markdown_strict": {
+          "reference": "基+可",
+          "native": "内+可*"
+        },
+        "markdown_phpextra": {
+          "reference": "基+可",
+          "native": "内+可*"
+        },
+        "markdown_mmd": {
+          "reference": "基+开",
+          "native": "内+开*"
+        },
+        "markdown_github": {
+          "reference": "基+可",
+          "native": "内+可*"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "name": "图表 diagram",
+      "category": "围栏内容的渲染能力",
+      "pandoc": "none",
+      "native": "diagrams",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "code（如 mermaid）",
+      "note": "原生十种 Markdown 可选 diagrams，Typora/Obsidian 默认开；Notion 原生目前只保留代码，不产生图表预览。非任意图表语言。",
+      "original": [
+        "leaf block",
+        "diagram",
+        "",
+        "Typora; Obsidian",
+        "advanced",
+        "block",
+        "code"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "name": "提示容器 callout/alert",
+      "category": "容器块",
+      "pandoc": "alerts",
+      "native": "alerts/notdown_callouts",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "callout",
+      "note": "GitHub/Obsidian 的 > [!TYPE] 与 Notion callout 标签不是同一种写法。表中表示相应用途的路线；原生十种预设可另外启用 Notion 标签容器。",
+      "original": [
+        "leaf block",
+        "callout",
+        "GitHub style alert",
+        "Typora",
+        "basic",
+        "block",
+        "callout"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开*"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "name": "目录 table of contents",
+      "category": "生成块/渲染功能",
+      "pandoc": "toc",
+      "native": "toc_directives/notdown_toc",
+      "typora": "有",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "table_of_contents",
+      "note": "Pandoc 通过输出选项 --toc，不是 Markdown parser 语法；Obsidian Outline 是界面能力，不能当作内嵌 TOC 语法。Notdown 可生成目录。",
+      "original": [
+        "leaf block",
+        "table of contents",
+        "",
+        "Typora; MultiMarkdown",
+        "advanced",
+        "block",
+        "table_of_contents"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "输出",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "输出",
+          "native": "可"
+        },
+        "markdown": {
+          "reference": "输出",
+          "native": "可"
+        },
+        "commonmark_x": {
+          "reference": "输出",
+          "native": "可"
+        },
+        "markdown_strict": {
+          "reference": "输出",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "输出",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "输出",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "输出",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "name": "链接到页面",
+      "category": "链接/引用入口",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "page mention；独立 link-to-page 块不强行映射",
+      "note": "普通 Markdown 文件链接各方言都可表达；不因此拥有 Notion 子页面对象。独立入口、行内提及、wiki 链接应分别建模。",
+      "original": [
+        "leaf block",
+        "link to page",
+        "",
+        "Obsidian",
+        "basic",
+        "block",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "name": "嵌入网页/文件转引",
+      "category": "外部内容/容器",
+      "pandoc": "html",
+      "native": "html_embed/transclusion",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "占",
+      "api": "embed",
+      "note": "iframe 网页、Obsidian ![[文件]]、MMD {{文件}} 是三条路线。Pandoc HTML 透传不负责文件转引；Notdown 转引服务仅接受 md/markdown/txt/html/tex/bib，不能由此推导支持 Obsidian 图片、音视频、PDF 转引。",
+      "original": [
+        "leaf block",
+        "embed",
+        "embed content; file transclusion",
+        "Typora; MultiMarkdown",
+        "embed",
+        "not supported",
+        "embed"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "name": "子页面 child page",
+      "category": "资源引用/页面关系",
+      "pandoc": "none",
+      "native": "notdown_pages",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "有",
+      "api": "child_page；页面内容另用 Page API",
+      "note": "原生 page 标签提供入口和本地导航，不把 Markdown 解析成真实云端页面创建；应用自身有本地页面树。",
+      "original": [
+        "leaf block",
+        "page",
+        "child page",
+        "",
+        "basic",
+        "?",
+        "child_page"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "name": "内联数据库",
+      "category": "数据库资源/视图入口",
+      "pandoc": "none",
+      "native": "notdown_databases",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "child_database + database.is_inline",
+      "note": "Notdown 只保留 database 标签及 inline 标记；没有数据库引擎。Obsidian Bases 是另一种产品能力，不宣称与 Notion 数据库等价。",
+      "original": [
+        "leaf block",
+        "database - inline",
+        "",
+        "",
+        "database",
+        "?",
+        "?"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "name": "整页数据库",
+      "category": "数据库资源",
+      "pandoc": "none",
+      "native": "notdown_databases",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "Database 对象；child_database 是父页中的入口",
+      "note": "full-page 是资源展示形态，不是单独 Markdown 叶块。Notdown 保留引用，不实现表数据、查询、关系或视图。",
+      "original": [
+        "leaf block",
+        "database - full page",
+        "child database",
+        "",
+        "database",
+        "?",
+        "child_database"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "name": "关联数据源视图",
+      "category": "视图/引用",
+      "pandoc": "none",
+      "native": "dbview",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "参",
+      "api": "View/Data source API，非通用 rich text",
+      "note": "Notion database 标签只能表明引用，不能完整描述 view 的过滤排序。原生只可保留数据库引用；不能计为已实现关联视图。",
+      "original": [
+        "leaf block",
+        "linked view of data source",
+        " ",
+        "",
+        "database",
+        "block",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "参",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "name": "按钮 button",
+      "category": "交互/自动化",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "占",
+      "api": "unsupported（可含 block_type=button）",
+      "note": "Notdown 未实现按钮动作。插件或 HTML 能做按钮，不代表该方言原生拥有可执行按钮语义。",
+      "original": [
+        "leaf block",
+        "button",
+        "",
+        "",
+        "advanced",
+        "",
+        "unsupported"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "name": "面包屑 breadcrumb",
+      "category": "导航/生成块",
+      "pandoc": "none",
+      "native": "breadcrumb",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "占",
+      "api": "breadcrumb",
+      "note": "Notdown 顶栏有本地面包屑，但没有正文 breadcrumb 块；API 能读块与 Markdown API 能导出是两回事。",
+      "original": [
+        "leaf block",
+        "breadcrumb",
+        "",
+        "",
+        "advanced",
+        "not supported",
+        "breadcrumb"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "应用*"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "应用*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "应用*"
+        }
+      }
+    },
+    {
+      "id": 25,
+      "name": "视频 video",
+      "category": "媒体块",
+      "pandoc": "html",
+      "native": "notdown_media",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "video",
+      "note": "原生需 notdown_media 标签路线；Obsidian ![[video]] 媒体嵌入没有完整接入，不能因 transclusion 默认开就算视频默认可用。",
+      "original": [
+        "leaf block",
+        "video",
+        "",
+        "",
+        "media",
+        "block",
+        "video"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 26,
+      "name": "音频 audio",
+      "category": "媒体块",
+      "pandoc": "html",
+      "native": "notdown_media",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "audio",
+      "note": "原生提供标签媒体预览；![[audio]] 不在当前文本转引文件白名单内。不是转录服务，也不保证 URL 有效。",
+      "original": [
+        "leaf block",
+        "audio",
+        "",
+        "",
+        "media",
+        "block",
+        "audio"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 27,
+      "name": "附件 file",
+      "category": "资源链接/媒体块",
+      "pandoc": "base",
+      "native": "file",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "file",
+      "note": "普通 Markdown 链接可指向文件，但不产生 Notion file 对象。Notdown 标签可保留附件 URL 与说明。",
+      "original": [
+        "leaf block",
+        "file",
+        "",
+        "",
+        "media",
+        "block",
+        "file"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内+可*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内+可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内+可*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内+可*"
+        }
+      }
+    },
+    {
+      "id": 28,
+      "name": "网页书签卡片",
+      "category": "资源预览",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "占",
+      "api": "bookmark",
+      "note": "普通链接不是抓取标题/描述/封面的书签卡片；原生尚无该服务，Notion unknown 仅保留引用。",
+      "original": [
+        "leaf block",
+        "web bookmark",
+        "",
+        "",
+        "media",
+        "not supported",
+        "bookmark"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 29,
+      "name": "PDF 嵌入",
+      "category": "媒体块",
+      "pandoc": "html",
+      "native": "notdown_media",
+      "typora": "待",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "pdf",
+      "note": "Pandoc 只能借原始 HTML 输出表达嵌入；原生有 pdf 标签；![[file.pdf]] 不在当前文本转引白名单内，未完整实现 Obsidian PDF 嵌入，更不是 PDF 内容编辑器。",
+      "original": [
+        "leaf block",
+        "PDF",
+        "",
+        "",
+        "embed",
+        "block",
+        "pdf"
+      ],
+      "support": {
+        "typora": {
+          "reference": "待",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "name": "链接预览 link preview",
+      "category": "站点服务/预览对象",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "占",
+      "api": "link_preview",
+      "note": "不要与普通链接、网页书签或鼠标悬停预览混为同一语义；原生没有 Notion unfurl 集成。",
+      "original": [
+        "leaf block",
+        "link preview",
+        "",
+        "",
+        "embed",
+        "not supported",
+        "link_preview"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "name": "会议纪要 meeting notes",
+      "category": "服务生成的复合块",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "meeting_notes（旧版 transcription）",
+      "note": "当前 API 2026-03-11 起改名；Markdown API 有 meeting-notes 输出并可选择转录。Notdown 仅保留未知源码，没有转录或专用视图。",
+      "original": [
+        "leaf block",
+        "meeting notes",
+        "transcription",
+        "",
+        "advanced",
+        "",
+        "meeting_notes"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 32,
+      "name": "未知/不支持内容",
+      "category": "兼容回退",
+      "pandoc": "none",
+      "native": "preserve",
+      "typora": "待",
+      "obsidian": "待",
+      "notion": "占",
+      "api": "unsupported",
+      "note": "unknown/unsupported 不是可创作的普通语义块。原生回退保留源码或引用；不能据此算实现了未知功能。",
+      "original": [
+        "leaf block",
+        "unsupported",
+        "",
+        "",
+        "",
+        "",
+        "unsupported"
+      ],
+      "support": {
+        "typora": {
+          "reference": "待",
+          "native": "保"
+        },
+        "obsidian": {
+          "reference": "待",
+          "native": "保"
+        },
+        "notion-markdown": {
+          "reference": "占",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "保"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "保"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "保"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "保"
+        }
+      }
+    },
+    {
+      "id": 33,
+      "name": "折叠区 toggle",
+      "category": "容器块",
+      "pandoc": "html",
+      "native": "notdown_toggles",
+      "typora": "有",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "toggle",
+      "note": "HTML details 可借 raw_html 显示；原生结构化折叠使用 notdown_toggles。Obsidian 折叠标题/列表或可折叠 callout 是相关但不同能力。",
+      "original": [
+        "container block",
+        "toggle",
+        "collapsed section; toggle list item",
+        " ",
+        "basic",
+        "block",
+        "toggle"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 34,
+      "name": "折叠标题",
+      "category": "标题 + 子块/交互",
+      "pandoc": "none",
+      "native": "toggleheading",
+      "typora": "待",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "heading_1…4 + is_toggleable",
+      "note": "Notdown Notion 用 heading.toggle 与 nested_block，实现折叠；受 notdown_nesting 管理。普通 Markdown 的标题折叠是编辑 UI，不是同一序列化结构。",
+      "original": [
+        "container block",
+        "toggle heading",
+        "",
+        "",
+        "advanced",
+        "block",
+        "?"
+      ],
+      "support": {
+        "typora": {
+          "reference": "待",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 35,
+      "name": "标签页容器 tabs",
+      "category": "容器块",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "待",
+      "api": "tab（paragraph 子块表示每一页签）",
+      "note": "当前 Block API 已有 tab；公开 Enhanced Markdown 指南未列专门格式，不臆造标签。Notdown 尚无 tabs 节点与视图。",
+      "original": [
+        "container block",
+        "tabs",
+        "",
+        "",
+        "advanced",
+        "",
+        "tab"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "待",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 36,
+      "name": "同步块 synced block",
+      "category": "引用/容器 + 同步服务",
+      "pandoc": "none",
+      "native": "notdown_synced",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "synced_block",
+      "note": "原生保留内容快照、来源与引用；没有跨页自动同步，更没有跨端/Notion 云同步。",
+      "original": [
+        "container block",
+        "synced block",
+        "",
+        "",
+        "advanced",
+        "block",
+        "synced_block"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 37,
+      "name": "分栏 columns",
+      "category": "容器块",
+      "pandoc": "none",
+      "native": "notdown_columns",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "column_list + column",
+      "note": "原生提供列容器与显示；用标签保留。CSS 分栏或 Pandoc Div 排版不等于 Notion 分栏结构。",
+      "original": [
+        "container block",
+        "columns",
+        "column list",
+        "",
+        "advanced",
+        "block",
+        "column_list; column"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 38,
+      "name": "YAML front matter",
+      "category": "文档元数据",
+      "pandoc": "yaml_metadata_block",
+      "native": "yaml_metadata_block",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "—",
+      "api": "不属于正文 Block API",
+      "note": "MMD 原生 Title: 元信息不等于 YAML；Notdown markdown_mmd 可选 YAML 是 Pandoc/本地扩展。页面属性 YAML 与正文元数据需分开。",
+      "original": [
+        "metadata block",
+        "YAML front matter",
+        "",
+        "MultiMarkdown; Pandoc's Markdown",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 39,
+      "name": "Pandoc 标题块",
+      "category": "文档元数据",
+      "pandoc": "pandoc_title_block",
+      "native": "pandoc_title_block",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "以 % 开头；原生只识别常见开头子集，保留源码；metadata_values 决定是否显示元数据预览。",
+      "original": [
+        "metadata block",
+        "Pandoc title block",
+        "",
+        "Pandoc extension",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 40,
+      "name": "块内隐藏注释",
+      "category": "源码注释",
+      "pandoc": "html",
+      "native": "comments/raw_html",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "—",
+      "api": "非 discussion comment",
+      "note": "HTML 注释与 Obsidian %% 多行注释不同。原生支持相应开关；不是多人批注系统。",
+      "original": [
+        "leaf block",
+        "block comment",
+        "",
+        "Obsidian",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 41,
+      "name": "定义列表",
+      "category": "复合块",
+      "pandoc": "definition_lists",
+      "native": "definition_lists",
+      "typora": "待",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无原生定义列表类型",
+      "note": "应包含 term 与 definition，definition 可含多个块，不宜统称单个叶块。",
+      "original": [
+        "leaf block",
+        "definition list",
+        "",
+        "PHP Markdown Extra; MultiMarkdown",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "待",
+          "native": "可"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 42,
+      "name": "指定格式原始源码",
+      "category": "原始内容块/行内",
+      "pandoc": "raw_attribute",
+      "native": "raw_attribute",
+      "typora": "待",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无通用对应",
+      "note": "例如带 {=html} 的代码；不同于一般 HTML 块或任意文件转引。原生支持指定输出格式的预览/源码保留子集。",
+      "original": [
+        "leaf block",
+        "raw source",
+        "",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "待",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 43,
+      "name": "脚注定义",
+      "category": "定义/复合块",
+      "pandoc": "footnotes",
+      "native": "footnotes",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "—",
+      "api": "无标准脚注定义对象",
+      "note": "[^id]: 定义可含多个段落；与 63 的行内引用是一套语法的两端。Notion [^URL] 是引文，不是这个定义。",
+      "original": [
+        "leaf block",
+        "footnote",
+        "",
+        "PHP Markdown Extra",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 44,
+      "name": "行块 line block",
+      "category": "叶块（含多条行内序列）",
+      "pandoc": "line_blocks",
+      "native": "line_blocks",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "用于诗歌等保留行序列。Notdown 本地 CommonMark 系列也可选，Pandoc 同名 reader 不接受该开关。",
+      "original": [
+        "leaf block",
+        "line block",
+        "",
+        "Pandoc extension",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 45,
+      "name": "HTML 原生 Div 语义",
+      "category": "容器块",
+      "pandoc": "native_divs",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "Pandoc 将 HTML div 变成 AST Div；Notdown 可预览 raw HTML，但未注册 native_divs，不算结构化 Div。fenced_divs 是另一写法，另见补充表。",
+      "original": [
+        "leaf block",
+        "native div",
+        "",
+        "Pandoc extension",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 46,
+      "name": "原始 TeX",
+      "category": "原始块或行内内容",
+      "pandoc": "raw_tex",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "与公式不同；Notdown 无 raw_tex 专用语义。原文或普通文字保留不等于执行 TeX 或目标格式透传。",
+      "original": [
+        "leaf block",
+        "raw TeX",
+        "",
+        "Pandoc extension",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 47,
+      "name": "示例编号列表",
+      "category": "容器块 + 编号语义",
+      "pandoc": "example_lists",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "Pandoc (@) 编号与引用机制；原生尚未实现，不能用普通 ordered_list 代替完整功能。",
+      "original": [
+        "container block",
+        "example list",
+        "",
+        "Pandoc extension",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 48,
+      "name": "行内代码 code span",
+      "category": "行内标记",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.annotations.code",
+      "note": "API 字段叫 annotations（复数），不是独立 block 或独立 annotation 对象类型。",
+      "original": [
+        "inline",
+        "code span",
+        "verbatim",
+        "original",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 49,
+      "name": "强调 emphasis",
+      "category": "行内标记",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.annotations.italic",
+      "note": "字体效果对应样式；各方言的分隔符与嵌套边界仍可能不同。",
+      "original": [
+        "inline",
+        "emphasis",
+        "italic",
+        "original",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 50,
+      "name": "加粗 strong emphasis",
+      "category": "行内标记",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.annotations.bold",
+      "note": "属于行内样式，不是新的块类型。",
+      "original": [
+        "inline",
+        "strong emphasis",
+        "bold",
+        "original",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 51,
+      "name": "删除线 strikethrough",
+      "category": "行内标记",
+      "pandoc": "strikeout",
+      "native": "strikeout",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.annotations.strikethrough",
+      "note": "与 CriticMarkup 删除修订分开；删除线不包含接受/拒绝修订语义。",
+      "original": [
+        "inline",
+        "strikethrough",
+        "strikeout",
+        "GFM",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 52,
+      "name": "链接 link",
+      "category": "行内节点/标记",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.text.link",
+      "note": "普通链接不需要扩展开关；实际跳转需安全 URL 和可访问目标。",
+      "original": [
+        "inline",
+        "link",
+        "",
+        "original",
+        "style",
+        "rich text formatting",
+        "link"
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 53,
+      "name": "行内图片",
+      "category": "行内节点",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "—",
+      "api": "image 是块；rich_text 没有普通 image 类型",
+      "note": "Notdown PM schema 的 image 是 inline；Notion codec 也能保留图片节点，但不保证任意行内图片布局可映射到 Notion API。",
+      "original": [
+        "inline",
+        "image",
+        "",
+        "original",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内*"
+        }
+      }
+    },
+    {
+      "id": 54,
+      "name": "自动链接 autolink",
+      "category": "行内规则",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "待",
+      "api": "普通 rich_text 链接",
+      "note": "尖括号 URL/邮箱是基础语法；裸 URL 是另一扩展 autolink_bare_uris，不能合并计数。原生 Notion 实测尖括号 URL 会生成 link 标记；这不推导为支持裸 URL。",
+      "original": [
+        "inline",
+        "autolink",
+        "",
+        "original",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内"
+        },
+        "notion-markdown": {
+          "reference": "待",
+          "native": "内"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内"
+        }
+      }
+    },
+    {
+      "id": 55,
+      "name": "行内 HTML",
+      "category": "原始行内内容",
+      "pandoc": "raw_html",
+      "native": "raw_html",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "—",
+      "api": "没有通用 HTML rich_text 类型",
+      "note": "Notion 的 span/mention 标签是约定语法，不代表任意 HTML。Notdown 普通 Markdown 路线提供清理后的预览。",
+      "original": [
+        "inline",
+        "inline HTML",
+        "",
+        "original",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "开",
+          "native": "开"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 56,
+      "name": "文内/跨文档引用",
+      "category": "链接 + 标识符规则",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "普通 link 或 page mention",
+      "note": "[标题](#id) 基础链接与自动生成标题 ID、[标题] 隐式引用、[[双链]] 应分别统计；本行只保证链接表示，生成目标锚点另受扩展控制。",
+      "original": [
+        "inline",
+        "internal link",
+        "cross-reference",
+        "Typora; MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内*"
+        }
+      }
+    },
+    {
+      "id": 57,
+      "name": "Emoji 名称",
+      "category": "行内替换/资源解析",
+      "pandoc": "emoji",
+      "native": "emoji",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "Unicode 文本；自定义 Emoji 需资源",
+      "note": "Unicode Emoji 本身无需扩展。Notion 自定义 :name: 依赖资源目录；原生 Notion 目前保留源码，不提供同名 emoji 开关。",
+      "original": [
+        "inline",
+        "emoji",
+        "",
+        "Typora; Pandoc extension",
+        "inline",
+        "rich text formatting",
+        " "
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "保"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "可",
+          "native": "可"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 58,
+      "name": "行内公式",
+      "category": "行内原子节点",
+      "pandoc": "tex_math_dollars/tex_math_single_backslash/tex_math_double_backslash",
+      "native": "tex_math_dollars/tex_math_double_backslash",
+      "typora": "设",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.type=equation",
+      "note": "Pandoc 各定界符分别开关；Notdown 美元/双反斜杠是已实现子集。",
+      "original": [
+        "inline",
+        "inline math",
+        "inline equation",
+        "Typora; Obsidian; Pandoc's Markdown; MultiMarkdown",
+        "inline",
+        "rich text formatting",
+        "equation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "设",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 59,
+      "name": "下标 subscript",
+      "category": "行内标记",
+      "pandoc": "subscript",
+      "native": "subscript/short_subsuperscripts",
+      "typora": "设",
+      "obsidian": "HTML",
+      "notion": "—",
+      "api": "无独立下标 annotation",
+      "note": "H~2~O、简写下标与 HTML sub 不应视为同一扩展开关。Notdown Obsidian 可选本地语法超出其官方基础语法。",
+      "original": [
+        "inline",
+        "subscript",
+        "",
+        "Typora; MultiMarkdown; Pandoc's Markdown",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "设",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 60,
+      "name": "上标 superscript",
+      "category": "行内标记",
+      "pandoc": "superscript",
+      "native": "superscript/short_subsuperscripts",
+      "typora": "设",
+      "obsidian": "HTML",
+      "notion": "—",
+      "api": "无独立上标 annotation",
+      "note": "x^2^、MMD 简写上标与 HTML sup 分别处理；原生各自依赖对应扩展。",
+      "original": [
+        "inline",
+        "superscript",
+        "",
+        "Typora; MultiMarkdown; Pandoc's Markdown",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "设",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "HTML",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 61,
+      "name": "高亮 highlight",
+      "category": "行内标记",
+      "pandoc": "mark",
+      "native": "highlight/critic_markup",
+      "typora": "设",
+      "obsidian": "有",
+      "notion": "参",
+      "api": "背景色 annotation 是相关表达",
+      "note": "==text==、{==text==}、背景色不是同一写法。Pandoc 用 mark；原生未注册 mark，但另有 highlight/CriticMarkup，不能认作完整同名实现。",
+      "original": [
+        "inline",
+        "highlight",
+        "",
+        "Obsidian; Pandoc's Markdown; MultiMarkdown",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "设",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "参",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 62,
+      "name": "行内源码注释",
+      "category": "行内保留/修订注释",
+      "pandoc": "html",
+      "native": "comments/critic_markup/raw_html",
+      "typora": "HTML",
+      "obsidian": "有",
+      "notion": "—",
+      "api": "非 Comment API",
+      "note": "%%...%%、HTML 注释、{>>...<<} 应拆成不同语法；本行汇总路线，非全部方言接受全部定界符。",
+      "original": [
+        "inline",
+        "inline comment",
+        "",
+        "Obsidian; MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 63,
+      "name": "脚注引用",
+      "category": "行内引用节点",
+      "pandoc": "footnotes",
+      "native": "footnotes",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "参",
+      "api": "Notion [^URL] 是 citation，非普通脚注",
+      "note": "不能因为 Notion 显示一个上标引用就标成完整 footnotes；原生 N 的普通脚注未适配。",
+      "original": [
+        "inline",
+        "footnote",
+        "",
+        "MultiMarkdown; PHP Markdown Extra; Obsidian",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "开"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "开"
+        },
+        "notion-markdown": {
+          "reference": "参",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_mmd": {
+          "reference": "开",
+          "native": "开"
+        },
+        "markdown_github": {
+          "reference": "开",
+          "native": "开"
+        }
+      }
+    },
+    {
+      "id": 64,
+      "name": "缩写 abbreviation",
+      "category": "定义 + 行内标记",
+      "pandoc": "abbreviations",
+      "native": "abbreviations/mmd_abbreviations",
+      "typora": "待",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "PHP *[HTML]: 与 MMD [>HTML] 不同。Pandoc abbreviations 只略过定义，没有完整缩写节点；Notdown 可显示其支持的缩写释义。",
+      "original": [
+        "inline",
+        "abbreviation",
+        "acronym",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "待",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 65,
+      "name": "引文 citation",
+      "category": "行内引用 + 书目处理",
+      "pandoc": "citations",
+      "native": "mmd_citations",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "Notion 引文序列化不等于 CSL 引文对象",
+      "note": "Pandoc [@key]、MMD [#key]、Notion [^URL] 不同；原生只接 MMD 子集及 Notion URL 引文，没有完整 Pandoc citations/citeproc。",
+      "original": [
+        "inline",
+        "citation",
+        "",
+        "MultiMarkdown",
+        "",
+        "rich text formatting",
+        " "
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 66,
+      "name": "删除修订 deletion",
+      "category": "CriticMarkup 行内修订",
+      "pandoc": "none",
+      "native": "critic_markup",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "不是 strikethrough annotation 的完整等价物",
+      "note": "{--text--}；原生有标记与显示，没有多人审阅或完整接受/拒绝工作流。",
+      "original": [
+        "inline",
+        "deletion",
+        "",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 67,
+      "name": "新增修订 addition",
+      "category": "CriticMarkup 行内修订",
+      "pandoc": "none",
+      "native": "critic_markup",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无独立修订类型",
+      "note": "{++text++}；不能混同普通插入文字操作。",
+      "original": [
+        "inline",
+        "addition",
+        "",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 68,
+      "name": "替换修订 substitution",
+      "category": "CriticMarkup 行内修订",
+      "pandoc": "none",
+      "native": "critic_markup",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无独立修订类型",
+      "note": "{~~old~>new~~}；原生支持当前行内解析子集。",
+      "original": [
+        "inline",
+        "substitution",
+        "",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 69,
+      "name": "术语表 glossary",
+      "category": "定义 + 行内引用 + 输出",
+      "pandoc": "none",
+      "native": "glossary",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "MMD 术语引用是其扩展体系的一部分；原生实现术语定义/提示子集，不宣称完整排序和出版输出。",
+      "original": [
+        "inline",
+        "glossary",
+        "",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 70,
+      "name": "元数据变量",
+      "category": "行内替换/模板",
+      "pandoc": "none",
+      "native": "metadata_variables&metadata_values&mmd_title_block/metadata_variables&metadata_values&yaml_metadata_block/metadata_variables&metadata_values&pandoc_title_block",
+      "typora": "—",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "无直接对应",
+      "note": "[%name] 需要元数据来源；原生依赖 metadata_variables、metadata_values 及相应标题块。表中按 MMD/YAML/Pandoc 标题块任一完整路线计算，不能只打开变量替换却没有元数据来源。",
+      "original": [
+        "inline",
+        "metadata variable",
+        "",
+        "MultiMarkdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 71,
+      "name": "下划线 underline",
+      "category": "行内样式/HTML 语义",
+      "pandoc": "html",
+      "native": "notdown_colors/raw_html",
+      "typora": "HTML",
+      "obsidian": "HTML",
+      "notion": "有",
+      "api": "rich_text.annotations.underline",
+      "note": "Pandoc 没有 underline 同名扩展开关。原生结构化下划线用 Notion span + notdown_colors；HTML u/ins 属于 raw_html 预览路线。",
+      "original": [
+        "inline",
+        "underline",
+        "",
+        "Pandoc's Markdown",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "obsidian": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "开*"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "开*"
+        }
+      }
+    },
+    {
+      "id": 72,
+      "name": "小型大写 small caps",
+      "category": "行内样式/语义",
+      "pandoc": "smallcaps",
+      "native": "none",
+      "typora": "HTML",
+      "obsidian": "HTML",
+      "notion": "—",
+      "api": "无 small_caps annotation",
+      "note": "Pandoc 可由带 smallcaps 类的 span 表达，依赖相应属性/原生 span 处理；原生无专用 small_caps mark，CSS 外观不算完整语义。",
+      "original": [
+        "inline",
+        "small caps",
+        "",
+        "Pandoc's Markdown",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "HTML",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "HTML",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "属性",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "属性",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 73,
+      "name": "提及用户",
+      "category": "行内引用 + 用户服务",
+      "pandoc": "none",
+      "native": "notdown_mentions",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "rich_text.mention.user",
+      "note": "原生保留用户 URL 和标签；不连接成员目录、不发送通知。",
+      "original": [
+        "inline",
+        "mention person",
+        "",
+        "",
+        "inline",
+        "rich text formatting",
+        "mention"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 74,
+      "name": "提及页面/数据源",
+      "category": "行内引用",
+      "pandoc": "none",
+      "native": "notdown_mentions/notdown_pages",
+      "typora": "—",
+      "obsidian": "参",
+      "notion": "有",
+      "api": "mention.page/database；data_source 需按 API 版本核对",
+      "note": "Notion Markdown 数据源标签与 REST rich_text 枚举不能凭名字推断一一对应。原生保留不同 mention kind，仅本地页面目标有导航。",
+      "original": [
+        "inline",
+        "mention page or data source",
+        " ",
+        "",
+        "inline",
+        "rich text formatting",
+        "mention"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "参",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 75,
+      "name": "日期/提醒",
+      "category": "行内日期引用 + 服务",
+      "pandoc": "none",
+      "native": "notdown_mentions",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "有",
+      "api": "rich_text.mention.date；提醒非简单同义项",
+      "note": "修正 date ot reminder 为 date or reminder。原生保留日期属性，没有提醒调度或通知。",
+      "original": [
+        "inline",
+        "date ot reminder",
+        "",
+        "",
+        "inline",
+        "rich text formatting",
+        "mention"
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 76,
+      "name": "文字颜色",
+      "category": "行内/块属性",
+      "pandoc": "html",
+      "native": "notdown_colors",
+      "typora": "HTML",
+      "obsidian": "HTML",
+      "notion": "有",
+      "api": "annotations.color / block.color",
+      "note": "原生有约定色名；Pandoc HTML/CSS 依赖输出格式，不能视为统一的 text_color 扩展开关。",
+      "original": [
+        "inline",
+        "text color",
+        "",
+        "",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "obsidian": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 77,
+      "name": "背景颜色",
+      "category": "行内/块属性",
+      "pandoc": "html",
+      "native": "notdown_colors",
+      "typora": "HTML",
+      "obsidian": "HTML",
+      "notion": "有",
+      "api": "annotations.color 的 *_background",
+      "note": "Enhanced Markdown 用 *_bg，REST API 用 *_background；Notdown 保存自己的约定标签，不代表完成 API 值转换。",
+      "original": [
+        "inline",
+        "background color",
+        "",
+        "",
+        "style",
+        "rich text formatting",
+        "annotation"
+      ],
+      "support": {
+        "typora": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "obsidian": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "开"
+        },
+        "commonmark": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "gfm": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "commonmark_x": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_strict": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_phpextra": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_mmd": {
+          "reference": "HTML",
+          "native": "可"
+        },
+        "markdown_github": {
+          "reference": "HTML",
+          "native": "可"
+        }
+      }
+    },
+    {
+      "id": 78,
+      "name": "换行 line break",
+      "category": "行内规则/块边界",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "rich_text.text.content 内的换行",
+      "note": "应拆 hard break、soft break、块边界；Notion 文本单换行可分块，br 才是块内换行。hard_line_breaks/ignore_line_breaks 决定部分 Markdown 行为。",
+      "original": [
+        "character",
+        "line break",
+        "",
+        "original",
+        "",
+        "rich text formatting",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内*"
+        }
+      }
+    },
+    {
+      "id": 79,
+      "name": "字符引用 character reference",
+      "category": "词法/行内解码",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "待",
+      "api": "文本编码，不是独立 Block",
+      "note": "如 &amp;、&#65;；不是链接引用或脚注引用。Notion 官方只明确部分标签转义，原生解码能力不等于官方格式承诺。",
+      "original": [
+        "character",
+        "character reference",
+        "",
+        "original",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "notion-markdown": {
+          "reference": "待",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内*"
+        }
+      }
+    },
+    {
+      "id": 80,
+      "name": "反斜杠转义",
+      "category": "词法规则",
+      "pandoc": "base",
+      "native": "base",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "有",
+      "api": "序列化规则，非对象类型",
+      "note": "各方言的可转义字符集合不同；代码内不按普通正文转义。all_symbols_escapable 等扩展调整边界。",
+      "original": [
+        "character",
+        "backslash escape",
+        "",
+        "original",
+        "",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "notion-markdown": {
+          "reference": "有",
+          "native": "内*"
+        },
+        "commonmark": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "gfm": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "commonmark_x": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_strict": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_phpextra": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_mmd": {
+          "reference": "基",
+          "native": "内*"
+        },
+        "markdown_github": {
+          "reference": "基",
+          "native": "内*"
+        }
+      }
+    },
+    {
+      "id": 81,
+      "name": "智能标点",
+      "category": "文本转换",
+      "pandoc": "smart",
+      "native": "smart",
+      "typora": "设",
+      "obsidian": "—",
+      "notion": "—",
+      "api": "没有独立 annotation",
+      "note": "Typora 受偏好设置影响；原生 Typora 默认关闭 smart，Pandoc 预设按快照。不能用字体样式代替实际字符转换。",
+      "original": [
+        "character",
+        "smart typography",
+        "",
+        "Typora; MultiMarkdown; Pandoc extension",
+        " ",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "设",
+          "native": "可*"
+        },
+        "obsidian": {
+          "reference": "—",
+          "native": "可*"
+        },
+        "notion-markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "gfm": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "commonmark_x": {
+          "reference": "开",
+          "native": "开*"
+        },
+        "markdown_strict": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_phpextra": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_mmd": {
+          "reference": "可",
+          "native": "可*"
+        },
+        "markdown_github": {
+          "reference": "可",
+          "native": "可*"
+        }
+      }
+    },
+    {
+      "id": 82,
+      "name": "协作评论 comment",
+      "category": "应用/讨论对象",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "外",
+      "api": "Comment API，非正文 Block",
+      "note": "与 40/62 源码注释完全不同；Notdown 未实现协作评论线程。",
+      "original": [
+        "others",
+        "comment",
+        "",
+        "",
+        "discussion",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "外",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 83,
+      "name": "表情回应 reaction",
+      "category": "应用/讨论对象",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "外",
+      "api": "未确认公开统一 Reaction 写入 API",
+      "note": "不要由 UI 有 reaction 推断 REST API 必有对应可写对象；Notdown 未实现。",
+      "original": [
+        "others",
+        "reaction",
+        "",
+        "",
+        "discussion",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "外",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 84,
+      "name": "建议编辑 suggest edits",
+      "category": "协作审阅流程",
+      "pandoc": "none",
+      "native": "none",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "外",
+      "api": "未确认通用审阅对象映射",
+      "note": "CriticMarkup 只能表达修改标记，不能自动获得权限、审阅和接受/拒绝流程；Notdown 未实现协作建议。",
+      "original": [
+        "others",
+        "suggest edits",
+        "",
+        "",
+        "discussion",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "外",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 85,
+      "name": "页面图标 icon",
+      "category": "页面元数据",
+      "pandoc": "none",
+      "native": "icon",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "外",
+      "api": "Page.icon",
+      "note": "Notdown 应用层已支持本地页图标，与正文方言无关；不把源码中 Emoji 算成页图标。",
+      "original": [
+        "others",
+        "icon",
+        "",
+        "",
+        "metadata",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "应用"
+        },
+        "notion-markdown": {
+          "reference": "外",
+          "native": "应用"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "应用"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "应用"
+        }
+      }
+    },
+    {
+      "id": 86,
+      "name": "页面封面 cover",
+      "category": "页面元数据",
+      "pandoc": "none",
+      "native": "cover",
+      "typora": "—",
+      "obsidian": "外",
+      "notion": "外",
+      "api": "Page.cover",
+      "note": "Notdown 未见专用封面字段或显示 UI；可保留未知 YAML 数据不等于实现封面。",
+      "original": [
+        "others",
+        "cover",
+        "",
+        "",
+        "metadata",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "—",
+          "native": "未"
+        },
+        "obsidian": {
+          "reference": "外",
+          "native": "未"
+        },
+        "notion-markdown": {
+          "reference": "外",
+          "native": "未"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "未"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "未"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "未"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "未"
+        }
+      }
+    },
+    {
+      "id": 87,
+      "name": "页面属性/数据库属性值",
+      "category": "页面元数据/数据模型",
+      "pandoc": "none",
+      "native": "properties",
+      "typora": "有",
+      "obsidian": "有",
+      "notion": "外",
+      "api": "Page.properties；schema 属 Data source",
+      "note": "Notdown 页面 YAML properties 可保留和编辑，但无完整 Notion 类型系统、公式、关系和数据库视图。与正文元数据块分开。",
+      "original": [
+        "others",
+        "page property (database)",
+        " ",
+        "",
+        "metadata",
+        "",
+        ""
+      ],
+      "support": {
+        "typora": {
+          "reference": "有",
+          "native": "应用*"
+        },
+        "obsidian": {
+          "reference": "有",
+          "native": "应用*"
+        },
+        "notion-markdown": {
+          "reference": "外",
+          "native": "应用*"
+        },
+        "commonmark": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "gfm": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "commonmark_x": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_strict": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_phpextra": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_mmd": {
+          "reference": "—",
+          "native": "应用*"
+        },
+        "markdown_github": {
+          "reference": "—",
+          "native": "应用*"
+        }
+      }
+    }
+  ],
+  "probes": [
+    {
+      "variant": "notion-markdown",
+      "name": "toggle_heading",
+      "source": "# Heading {toggle=\"true\"}\n\tBody",
+      "types": [
+        "nested_block",
+        "heading",
+        "text",
+        "paragraph",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "tabs_preserved",
+      "source": "<tab>\n\tTab one\n</tab>",
+      "types": [
+        "opaque_block"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "url_citation",
+      "source": "See [^https://example.com].",
+      "types": [
+        "paragraph",
+        "text",
+        "citation",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "not_ordinary_footnotes",
+      "source": "A[^a]\n\n[^a]: Note",
+      "types": [
+        "paragraph",
+        "text",
+        "citation",
+        "paragraph",
+        "citation",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "angle_autolink",
+      "source": "<https://example.com>",
+      "types": [
+        "paragraph",
+        "text"
+      ],
+      "marks": [
+        "link"
+      ],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "inline_image",
+      "source": "Text ![alt](https://example.com/a.png) tail",
+      "types": [
+        "paragraph",
+        "text",
+        "image",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "diagram_is_code",
+      "source": "```mermaid\ngraph TD\nA-->B\n```",
+      "types": [
+        "code_block",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "explicit_empty",
+      "source": "<empty-block/>",
+      "types": [
+        "paragraph"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "notion-markdown",
+      "name": "heading_4",
+      "source": "#### Four",
+      "types": [
+        "heading",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "markdown",
+      "name": "html_not_native_div",
+      "source": "<div class=\"note\">\n\nText\n\n</div>",
+      "types": [
+        "html_block",
+        "paragraph",
+        "text",
+        "html_block"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "markdown",
+      "name": "raw_tex_is_text",
+      "source": "\\begin{center}\ntext\n\\end{center}",
+      "types": [
+        "paragraph",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    },
+    {
+      "variant": "typora",
+      "name": "editable_blank",
+      "source": "Before\n\n\n\nAfter",
+      "types": [
+        "paragraph",
+        "text",
+        "paragraph",
+        "paragraph",
+        "text"
+      ],
+      "marks": [],
+      "roundtrip": true
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {promises as fs} from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import {createVault} from '../server/vault.js';
+import {syntaxFiles} from '../server/syntax-files.js';
+const config={version:1 as const,variant:'markdown_mmd' as const,extensions:{}};
+test('transclusions resolve names and wildcard formats, update dependencies, reject cycles and escapes without writing notes',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'notdown-inclusion-'));assert.equal(path.dirname(root),path.resolve(os.tmpdir()));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));const vault=createVault(path.join(root,'vault'));await vault.init();const files=syntaxFiles(vault);
+  const page=await vault.create({title:'Target',body:'## Target\n\nOriginal'});
+  await fs.writeFile(path.join(vault.vaultPath,'a.txt'),'# A\n\n{{b.txt}}');await fs.writeFile(path.join(vault.vaultPath,'b.txt'),'First');
+  const first=await files.transclusion('a.*',config);assert.match(first.html,/First/);assert.deepEqual(first.dependencies,['a.txt','b.txt']);
+  await fs.writeFile(path.join(vault.vaultPath,'b.txt'),'Second');const second=await files.transclusion('a.*',config);assert.match(second.html,/Second/);assert.notEqual(second.revision,first.revision);
+  assert.match((await files.transclusion('Target',config)).html,/Original/);
+  await fs.writeFile(path.join(vault.vaultPath,'b.txt'),'{{a.txt}}');await assert.rejects(files.transclusion('a.txt',config),/Circular/);
+  await fs.writeFile(path.join(root,'outside.txt'),'outside');await assert.rejects(files.read('../outside.txt'),/outside the vault/);await assert.rejects(files.read('%2e%2e/outside.txt'),/outside the vault/);
+  await fs.mkdir(path.join(root,'external'));await fs.writeFile(path.join(root,'external','secret.txt'),'secret');await fs.symlink(path.join(root,'external'),path.join(vault.vaultPath,'junction'),'junction');await assert.rejects(files.read('junction/secret.txt'),/outside the vault/);
+  assert.deepEqual(await vault.get(page.id),page);
+});

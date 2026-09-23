@@ -1,0 +1,126 @@
+.pm-selection-menu {
+  position: fixed;
+  z-index: 110;
+  width: 248px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #d4d3d0;
+  border-radius: 12px;
+  background: #fff;
+  color: #37352f;
+  box-shadow:
+    0 8px 28px #25231e26,
+    0 2px 6px #25231e0d;
+  font:
+    14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+.pm-selection-menu[hidden] {
+  display: none;
+}
+.pm-selection-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.pm-selection-menu button:hover,
+.pm-selection-menu button[aria-pressed="true"],
+.pm-selection-menu button[aria-expanded="true"] {
+  background: #eeedeb;
+}
+.pm-selection-menu button:focus-visible {
+  outline: 2px solid #337ea9;
+  outline-offset: -2px;
+}
+.pm-selection-menu .pm-selection-block {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 6px 10px;
+  margin-bottom: 5px;
+}
+.pm-selection-block > span:first-child {
+  width: 20px;
+  font-family: Georgia, serif;
+  font-size: 19px;
+}
+.pm-selection-block svg {
+  margin-left: auto;
+}
+.pm-selection-actions {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  border-top: 1px solid #e8e7e5;
+  padding-top: 5px;
+}
+.pm-selection-actions:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.pm-selection-actions .pm-selection-color {
+  font-size: 19px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.pm-selection-panel {
+  margin-top: 6px;
+  padding: 8px;
+  border-top: 1px solid #e8e7e5;
+}
+.pm-selection-panel > button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.pm-selection-panel > button > span:first-child {
+  width: 24px;
+  text-align: center;
+  font-size: 18px;
+}
+.pm-selection-panel > button svg {
+  margin-left: auto;
+  width: 15px;
+}
+.pm-selection-label {
+  color: #787774;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 5px 0 9px;
+}
+.pm-selection-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 9px;
+  margin-bottom: 14px;
+}
+.pm-selection-swatches:last-child {
+  margin-bottom: 3px;
+}
+.pm-selection-swatches button {
+  width: 31px;
+  height: 31px;
+  min-height: 31px;
+  padding: 0;
+  justify-self: center;
+  border: 1px solid #b6b3ad;
+  border-radius: 6px;
+  font-size: 19px;
+  font-weight: 600;
+}
+.pm-selection-swatches button[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}

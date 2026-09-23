@@ -1,0 +1,393 @@
+.document-wrap:has(.markdown-workspace[data-mode="split"]),
+.document-wrap:has(.markdown-workspace[data-mode="source"]) {
+  max-width: 1500px;
+  width: 100%;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+.document:has(.markdown-workspace[data-mode="split"]),
+.document:has(.markdown-workspace[data-mode="source"]) {
+  max-width: none;
+}
+.editing-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid #e8e7e4;
+  margin-bottom: 12px;
+  font-size: 12px;
+  position: relative;
+  z-index: 5;
+}
+.editing-modes {
+  display: flex;
+  gap: 2px;
+  background: #f1f1ef;
+  padding: 3px;
+  border-radius: 7px;
+}
+.editing-modes button {
+  border: 0;
+  background: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  color: #787774;
+  cursor: pointer;
+}
+.editing-modes button[aria-pressed="true"] {
+  background: white;
+  color: #37352f;
+  box-shadow: 0 1px 3px #0001;
+}
+.dialect-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #787774;
+}
+.dialect-label select {
+  background: white;
+  border: 1px solid #e4e3df;
+  border-radius: 5px;
+  padding: 5px;
+  max-width: 240px;
+  color: #37352f;
+}
+.syntax-options summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 10px;
+  border: 1px solid #e4e3df;
+  border-radius: 5px;
+}
+.syntax-options-panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: min(400px, 90vw);
+  max-height: 65vh;
+  overflow: auto;
+  background: white;
+  border: 1px solid #e4e3df;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px #0002;
+  padding: 16px;
+  z-index: 20;
+}
+.syntax-options-panel p {
+  font-size: 12px;
+  color: #787774;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+.syntax-options-panel h3 {
+  font-size: 12px;
+  margin: 18px 0 10px;
+  color: #787774;
+}
+.extension-choice {
+  display: flex;
+  gap: 9px;
+  padding: 8px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #f4f3f0;
+}
+.extension-choice input {
+  align-self: start;
+  margin-top: 3px;
+  accent-color: #3b7767;
+}
+.extension-choice span {
+  display: grid;
+  gap: 3px;
+}
+.extension-choice strong {
+  font-weight: 500;
+}
+.extension-choice code {
+  font-size: 10px;
+  color: #999;
+}
+.extension-choice small {
+  font-size: 11px;
+  color: #787774;
+  line-height: 1.5;
+}
+.syntax-options-panel button {
+  margin: 12px 0 4px;
+}
+.editing-state {
+  margin-left: auto;
+  color: #999;
+  font-size: 11px;
+}
+.scroll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #787774;
+}
+.markdown-workspace:not([data-mode="split"]) .scroll-toggle {
+  display: none;
+}
+.editing-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  min-width: 0;
+}
+.source-pane,
+.page-pane {
+  min-width: 0;
+}
+.pane-title {
+  font-size: 11px;
+  color: #a09e99;
+  padding: 4px 0 12px;
+  user-select: none;
+}
+.source-pane {
+  border-right: 1px solid #e8e7e4;
+  padding-right: 18px;
+}
+.markdown-workspace[data-mode="split"] .page-pane {
+  height: var(--editing-height, calc(100vh - 290px));
+  min-height: 300px;
+  overflow: auto;
+  padding: 0 30px 0 32px;
+  scrollbar-gutter: stable;
+}
+.markdown-workspace[data-mode="split"] .page-pane .pm-document {
+  /* Let the last block reach the viewport top, regardless of source height. */
+  padding-bottom: var(--page-scroll-padding, calc(var(--editing-height, 710px) - 30px));
+}
+.markdown-workspace[data-mode="split"] :is(.page-pane, .cm-scroller) {
+  overflow-anchor: none;
+}
+.source-mount .cm-editor {
+  height: calc(var(--editing-height, 710px) - 30px);
+  min-height: 300px;
+  font-size: 14px;
+  background: #fcfcfa;
+  border: 1px solid #eeede9;
+  border-radius: 6px;
+}
+.source-mount .cm-scroller {
+  font-family: Consolas, "Cascadia Code", monospace;
+  line-height: 1.8;
+  overflow: auto;
+}
+.source-mount .cm-content {
+  padding: 12px 0;
+}
+.source-mount .cm-gutters {
+  background: transparent;
+  border: 0;
+  color: #b5b3ad;
+}
+.source-mount .cm-activeLine,
+.source-mount .cm-activeLineGutter {
+  background: #e9eeeb55;
+}
+.source-mount .cm-focused {
+  outline: 1px solid #b9ccc3;
+}
+.markdown-workspace[data-mode="document"] .source-pane,
+.markdown-workspace[data-mode="source"] .page-pane {
+  display: none;
+}
+.markdown-workspace:not([data-mode="split"]) .editing-panes {
+  display: block;
+}
+.markdown-workspace[data-mode="source"] .source-pane {
+  padding: 0;
+  border: 0;
+}
+.markdown-workspace[data-mode="document"] .pane-title {
+  display: none;
+}
+.markdown-workspace .pm-preserved-block pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  color: #787774;
+  background: #f6f5f2;
+  padding: 12px;
+  border-radius: 5px;
+}
+.markdown-workspace .page-pane[aria-busy="true"] {
+  opacity: 0.7;
+}
+.pm-html-block {
+  position: relative;
+  min-height: 48px;
+  padding: 12px 0;
+  margin: 12px 0;
+}
+.pm-html-edit {
+  font-size: 11px;
+  color: #787774;
+  border: 1px solid #e6e5e2;
+  background: #fff;
+  border-radius: 4px;
+  padding: 3px 7px;
+  float: right;
+  opacity: 0.45;
+  cursor: pointer;
+}
+.pm-html-block:hover .pm-html-edit,
+.pm-html-block:focus-within .pm-html-edit {
+  opacity: 1;
+}
+.pm-html-preview {
+  overflow: auto;
+  clear: both;
+  white-space: normal;
+}
+.pm-html-preview h1,
+.pm-html-preview h2,
+.pm-html-preview h3 {
+  margin: 10px 0;
+}
+.pm-html-preview p {
+  margin: 6px 0;
+}
+.pm-html-preview table {
+  border-collapse: collapse;
+}
+.pm-html-preview th,
+.pm-html-preview td {
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+}
+.pm-html-source {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  font:
+    13px/1.7 Consolas,
+    monospace;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  background: #fafaf8;
+  margin-top: 10px;
+}
+.pm-definition-list {
+  margin: 16px 0;
+}
+.pm-definition-list dt {
+  font-weight: 650;
+  margin: 10px 0 4px;
+}
+.pm-definition-list dd {
+  margin-left: 24px;
+  border-left: 2px solid #e9e8e4;
+  padding-left: 14px;
+}
+.pm-line-block {
+  white-space: pre-wrap;
+  margin: 16px 0;
+  border-left: 2px solid #e9e8e4;
+  padding-left: 18px;
+}
+.pm-verse-line {
+  min-height: 1.5em;
+}
+.pm-footnote-anchor { display: none !important; }
+.pm-footnotes {
+  margin-top: 24px;
+  border-top: 1px solid #e9e8e4;
+  padding-top: 12px;
+}
+.pm-document .pm-unresolved-reference {
+  color: #1769aa;
+  text-decoration: underline;
+  cursor: help;
+}
+.pm-footnote {
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(18px, max-content) minmax(0, 1fr);
+  column-gap: 6px;
+  position: relative;
+  font-size: 14px;
+}
+.pm-footnote:before {
+  content: "[" attr(data-footnote-label) "]";
+  grid-column: 1;
+  grid-row: 1;
+  padding-top: 0;
+  color: #999;
+  font-size: inherit;
+  margin: 0;
+}
+.pm-footnote > * { grid-column: 2; }
+.pm-footnote > :first-child { margin-top: 0; }
+.pm-footnote-ref a {
+  color: #53776a;
+  text-decoration: none;
+}
+.pm-footnote[data-footnote-number]:before {
+  content: attr(data-footnote-number) ".";
+}
+.pm-footnote-backref {
+  display: inline;
+  margin-left: 5px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  opacity: .65;
+}
+.pm-footnote-backref:hover { opacity: 1; text-decoration: underline; }
+.pm-footnote-backref:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+.pm-footnote-ref[data-footnote-number] a { font-size: 0; }
+.pm-footnote-ref[data-footnote-number] a::after {
+  content: "[" var(--footnote-number) "]";
+  font-size: 11px;
+  color: #53776a;
+}
+.pm-fenced-div {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px dashed #dfddd7;
+  border-radius: 5px;
+}
+.pm-fenced-div:before {
+  content: attr(data-div-attributes);
+  display: block;
+  font:
+    11px Consolas,
+    monospace;
+  color: #999;
+  margin-bottom: 8px;
+}
+@media (max-width: 800px) {
+  .editing-toolbar {
+    gap: 8px;
+  }
+  .editing-panes {
+    gap: 8px;
+  }
+  .markdown-workspace[data-mode="split"] .page-pane {
+    padding-left: 14px;
+    padding-right: 8px;
+  }
+  .document-wrap:has(.markdown-workspace[data-mode="split"]) {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .dialect-label select {
+    max-width: 155px;
+  }
+  .editing-state {
+    display: none;
+  }
+}

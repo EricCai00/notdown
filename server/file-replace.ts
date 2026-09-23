@@ -24,7 +24,7 @@ export async function replaceFile(
           : expected === null || !current.equals(expected)
       )
         throw new Error(
-          "等待文件释放期间原文件已更改；草稿已保留，请重新读取后合并。",
+          "The original file changed while waiting for it to be released. Your draft is preserved; reload and merge.",
         );
     }
     try {

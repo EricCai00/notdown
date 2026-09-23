@@ -1,0 +1,1145 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-15T05:49:44.431Z",
+  "pandocVersion": "pandoc 3.11",
+  "manual": {
+    "url": "https://pandoc.org/MANUAL.html",
+    "sha256": "bf13562547c04c86cf675e0ffc11e216792f9367514df0d1dc89b8368115ccfe",
+    "extensionHeadingCount": 91,
+    "namedExtensionCount": 89
+  },
+  "interpretation": {
+    "true": "Accepted; enabled by default",
+    "false": "Accepted; disabled by default",
+    "missing": "Extension flag not registered; this does not imply base syntax is absent"
+  },
+  "variants": {
+    "markdown": {
+      "abbreviations": false,
+      "alerts": false,
+      "all_symbols_escapable": true,
+      "angle_brackets_escapable": false,
+      "ascii_identifiers": false,
+      "auto_identifiers": true,
+      "autolink_bare_uris": false,
+      "backtick_code_blocks": true,
+      "blank_before_blockquote": true,
+      "blank_before_header": true,
+      "bracketed_spans": true,
+      "citations": true,
+      "definition_lists": true,
+      "east_asian_line_breaks": false,
+      "emoji": false,
+      "escaped_line_breaks": true,
+      "example_lists": true,
+      "fancy_lists": true,
+      "fenced_code_attributes": true,
+      "fenced_code_blocks": true,
+      "fenced_divs": true,
+      "footnotes": true,
+      "four_space_rule": false,
+      "gfm_auto_identifiers": false,
+      "grid_tables": true,
+      "gutenberg": false,
+      "hard_line_breaks": false,
+      "header_attributes": true,
+      "table_attributes": true,
+      "ignore_line_breaks": false,
+      "implicit_figures": true,
+      "implicit_header_references": true,
+      "inline_code_attributes": true,
+      "inline_notes": true,
+      "intraword_underscores": true,
+      "latex_macros": true,
+      "line_blocks": true,
+      "link_attributes": true,
+      "lists_without_preceding_blankline": false,
+      "literate_haskell": false,
+      "mark": false,
+      "markdown_attribute": false,
+      "markdown_in_html_blocks": true,
+      "mmd_header_identifiers": false,
+      "mmd_link_attributes": false,
+      "mmd_title_block": false,
+      "multiline_tables": true,
+      "native_divs": true,
+      "native_spans": true,
+      "old_dashes": false,
+      "pandoc_title_block": true,
+      "pipe_tables": true,
+      "raw_attribute": true,
+      "raw_html": true,
+      "raw_tex": true,
+      "rebase_relative_paths": false,
+      "short_subsuperscripts": false,
+      "shortcut_reference_links": true,
+      "simple_tables": true,
+      "smart": true,
+      "space_in_atx_header": true,
+      "spaced_reference_links": false,
+      "startnum": true,
+      "strikeout": true,
+      "subscript": true,
+      "superscript": true,
+      "task_lists": true,
+      "table_captions": true,
+      "tex_math_dollars": true,
+      "tex_math_double_backslash": false,
+      "tex_math_single_backslash": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": true
+    },
+    "markdown_strict": {
+      "abbreviations": false,
+      "alerts": false,
+      "all_symbols_escapable": false,
+      "angle_brackets_escapable": false,
+      "ascii_identifiers": false,
+      "auto_identifiers": false,
+      "autolink_bare_uris": false,
+      "backtick_code_blocks": false,
+      "blank_before_blockquote": false,
+      "blank_before_header": false,
+      "bracketed_spans": false,
+      "citations": false,
+      "definition_lists": false,
+      "east_asian_line_breaks": false,
+      "emoji": false,
+      "escaped_line_breaks": false,
+      "example_lists": false,
+      "fancy_lists": false,
+      "fenced_code_attributes": false,
+      "fenced_code_blocks": false,
+      "fenced_divs": false,
+      "footnotes": false,
+      "four_space_rule": false,
+      "gfm_auto_identifiers": false,
+      "grid_tables": false,
+      "gutenberg": false,
+      "hard_line_breaks": false,
+      "header_attributes": false,
+      "table_attributes": false,
+      "ignore_line_breaks": false,
+      "implicit_figures": false,
+      "implicit_header_references": false,
+      "inline_code_attributes": false,
+      "inline_notes": false,
+      "intraword_underscores": false,
+      "latex_macros": false,
+      "line_blocks": false,
+      "link_attributes": false,
+      "lists_without_preceding_blankline": false,
+      "literate_haskell": false,
+      "mark": false,
+      "markdown_attribute": false,
+      "markdown_in_html_blocks": false,
+      "mmd_header_identifiers": false,
+      "mmd_link_attributes": false,
+      "mmd_title_block": false,
+      "multiline_tables": false,
+      "native_divs": false,
+      "native_spans": false,
+      "old_dashes": false,
+      "pandoc_title_block": false,
+      "pipe_tables": false,
+      "raw_attribute": false,
+      "raw_html": true,
+      "raw_tex": false,
+      "rebase_relative_paths": false,
+      "short_subsuperscripts": false,
+      "shortcut_reference_links": true,
+      "simple_tables": false,
+      "smart": false,
+      "space_in_atx_header": false,
+      "spaced_reference_links": true,
+      "startnum": false,
+      "strikeout": false,
+      "subscript": false,
+      "superscript": false,
+      "task_lists": false,
+      "table_captions": false,
+      "tex_math_dollars": false,
+      "tex_math_double_backslash": false,
+      "tex_math_single_backslash": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": false
+    },
+    "markdown_phpextra": {
+      "abbreviations": true,
+      "alerts": false,
+      "all_symbols_escapable": false,
+      "angle_brackets_escapable": false,
+      "ascii_identifiers": false,
+      "auto_identifiers": false,
+      "autolink_bare_uris": false,
+      "backtick_code_blocks": false,
+      "blank_before_blockquote": false,
+      "blank_before_header": false,
+      "bracketed_spans": false,
+      "citations": false,
+      "definition_lists": true,
+      "east_asian_line_breaks": false,
+      "emoji": false,
+      "escaped_line_breaks": false,
+      "example_lists": false,
+      "fancy_lists": false,
+      "fenced_code_attributes": false,
+      "fenced_code_blocks": true,
+      "fenced_divs": false,
+      "footnotes": true,
+      "four_space_rule": false,
+      "gfm_auto_identifiers": false,
+      "grid_tables": false,
+      "gutenberg": false,
+      "hard_line_breaks": false,
+      "header_attributes": true,
+      "table_attributes": false,
+      "ignore_line_breaks": false,
+      "implicit_figures": false,
+      "implicit_header_references": false,
+      "inline_code_attributes": false,
+      "inline_notes": false,
+      "intraword_underscores": true,
+      "latex_macros": false,
+      "line_blocks": false,
+      "link_attributes": true,
+      "lists_without_preceding_blankline": false,
+      "literate_haskell": false,
+      "mark": false,
+      "markdown_attribute": true,
+      "markdown_in_html_blocks": false,
+      "mmd_header_identifiers": false,
+      "mmd_link_attributes": false,
+      "mmd_title_block": false,
+      "multiline_tables": false,
+      "native_divs": false,
+      "native_spans": false,
+      "old_dashes": false,
+      "pandoc_title_block": false,
+      "pipe_tables": true,
+      "raw_attribute": false,
+      "raw_html": true,
+      "raw_tex": false,
+      "rebase_relative_paths": false,
+      "short_subsuperscripts": false,
+      "shortcut_reference_links": true,
+      "simple_tables": false,
+      "smart": false,
+      "space_in_atx_header": false,
+      "spaced_reference_links": true,
+      "startnum": false,
+      "strikeout": false,
+      "subscript": false,
+      "superscript": false,
+      "task_lists": false,
+      "table_captions": false,
+      "tex_math_dollars": false,
+      "tex_math_double_backslash": false,
+      "tex_math_single_backslash": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": false
+    },
+    "markdown_mmd": {
+      "abbreviations": false,
+      "alerts": false,
+      "all_symbols_escapable": true,
+      "angle_brackets_escapable": false,
+      "ascii_identifiers": false,
+      "auto_identifiers": true,
+      "autolink_bare_uris": false,
+      "backtick_code_blocks": true,
+      "blank_before_blockquote": false,
+      "blank_before_header": false,
+      "bracketed_spans": false,
+      "citations": false,
+      "definition_lists": true,
+      "east_asian_line_breaks": false,
+      "emoji": false,
+      "escaped_line_breaks": false,
+      "example_lists": false,
+      "fancy_lists": false,
+      "fenced_code_attributes": false,
+      "fenced_code_blocks": false,
+      "fenced_divs": false,
+      "footnotes": true,
+      "four_space_rule": false,
+      "gfm_auto_identifiers": false,
+      "grid_tables": false,
+      "gutenberg": false,
+      "hard_line_breaks": false,
+      "header_attributes": false,
+      "table_attributes": false,
+      "ignore_line_breaks": false,
+      "implicit_figures": true,
+      "implicit_header_references": true,
+      "inline_code_attributes": false,
+      "inline_notes": false,
+      "intraword_underscores": true,
+      "latex_macros": false,
+      "line_blocks": false,
+      "link_attributes": false,
+      "lists_without_preceding_blankline": false,
+      "literate_haskell": false,
+      "mark": false,
+      "markdown_attribute": true,
+      "markdown_in_html_blocks": false,
+      "mmd_header_identifiers": true,
+      "mmd_link_attributes": true,
+      "mmd_title_block": true,
+      "multiline_tables": false,
+      "native_divs": false,
+      "native_spans": false,
+      "old_dashes": false,
+      "pandoc_title_block": false,
+      "pipe_tables": true,
+      "raw_attribute": true,
+      "raw_html": true,
+      "raw_tex": false,
+      "rebase_relative_paths": false,
+      "short_subsuperscripts": true,
+      "shortcut_reference_links": true,
+      "simple_tables": false,
+      "smart": false,
+      "space_in_atx_header": false,
+      "spaced_reference_links": true,
+      "startnum": false,
+      "strikeout": false,
+      "subscript": true,
+      "superscript": true,
+      "task_lists": false,
+      "table_captions": false,
+      "tex_math_dollars": true,
+      "tex_math_double_backslash": true,
+      "tex_math_single_backslash": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": false
+    },
+    "markdown_github": {
+      "abbreviations": false,
+      "alerts": true,
+      "all_symbols_escapable": true,
+      "angle_brackets_escapable": false,
+      "ascii_identifiers": false,
+      "auto_identifiers": true,
+      "autolink_bare_uris": true,
+      "backtick_code_blocks": true,
+      "blank_before_blockquote": false,
+      "blank_before_header": false,
+      "bracketed_spans": false,
+      "citations": false,
+      "definition_lists": false,
+      "east_asian_line_breaks": false,
+      "emoji": true,
+      "escaped_line_breaks": false,
+      "example_lists": false,
+      "fancy_lists": false,
+      "fenced_code_attributes": false,
+      "fenced_code_blocks": true,
+      "fenced_divs": false,
+      "footnotes": true,
+      "four_space_rule": false,
+      "gfm_auto_identifiers": true,
+      "grid_tables": false,
+      "gutenberg": false,
+      "hard_line_breaks": false,
+      "header_attributes": false,
+      "table_attributes": false,
+      "ignore_line_breaks": false,
+      "implicit_figures": false,
+      "implicit_header_references": false,
+      "inline_code_attributes": false,
+      "inline_notes": false,
+      "intraword_underscores": true,
+      "latex_macros": false,
+      "line_blocks": false,
+      "link_attributes": false,
+      "lists_without_preceding_blankline": true,
+      "literate_haskell": false,
+      "mark": false,
+      "markdown_attribute": false,
+      "markdown_in_html_blocks": false,
+      "mmd_header_identifiers": false,
+      "mmd_link_attributes": false,
+      "mmd_title_block": false,
+      "multiline_tables": false,
+      "native_divs": false,
+      "native_spans": false,
+      "old_dashes": false,
+      "pandoc_title_block": false,
+      "pipe_tables": true,
+      "raw_attribute": false,
+      "raw_html": true,
+      "raw_tex": false,
+      "rebase_relative_paths": false,
+      "short_subsuperscripts": false,
+      "shortcut_reference_links": true,
+      "simple_tables": false,
+      "smart": false,
+      "space_in_atx_header": true,
+      "spaced_reference_links": false,
+      "startnum": false,
+      "strikeout": true,
+      "subscript": false,
+      "superscript": false,
+      "task_lists": true,
+      "table_captions": false,
+      "tex_math_dollars": false,
+      "tex_math_double_backslash": false,
+      "tex_math_single_backslash": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": false
+    },
+    "commonmark": {
+      "alerts": false,
+      "ascii_identifiers": false,
+      "attributes": false,
+      "autolink_bare_uris": false,
+      "bracketed_spans": false,
+      "definition_lists": false,
+      "east_asian_line_breaks": false,
+      "emoji": false,
+      "fancy_lists": false,
+      "fenced_divs": false,
+      "footnotes": false,
+      "gfm_auto_identifiers": false,
+      "hard_line_breaks": false,
+      "implicit_figures": false,
+      "implicit_header_references": false,
+      "pipe_tables": false,
+      "raw_attribute": false,
+      "raw_html": true,
+      "rebase_relative_paths": false,
+      "smart": false,
+      "sourcepos": false,
+      "strikeout": false,
+      "subscript": false,
+      "superscript": false,
+      "task_lists": false,
+      "tex_math_dollars": false,
+      "tex_math_gfm": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": false
+    },
+    "gfm": {
+      "alerts": true,
+      "ascii_identifiers": false,
+      "attributes": false,
+      "autolink_bare_uris": true,
+      "bracketed_spans": false,
+      "definition_lists": false,
+      "east_asian_line_breaks": false,
+      "emoji": true,
+      "fancy_lists": false,
+      "fenced_divs": false,
+      "footnotes": true,
+      "gfm_auto_identifiers": true,
+      "hard_line_breaks": false,
+      "implicit_figures": false,
+      "implicit_header_references": false,
+      "pipe_tables": true,
+      "raw_attribute": false,
+      "raw_html": true,
+      "rebase_relative_paths": false,
+      "smart": false,
+      "sourcepos": false,
+      "strikeout": true,
+      "subscript": false,
+      "superscript": false,
+      "task_lists": true,
+      "tex_math_dollars": true,
+      "tex_math_gfm": true,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": true
+    },
+    "commonmark_x": {
+      "alerts": true,
+      "ascii_identifiers": false,
+      "attributes": true,
+      "autolink_bare_uris": false,
+      "bracketed_spans": true,
+      "definition_lists": true,
+      "east_asian_line_breaks": false,
+      "emoji": true,
+      "fancy_lists": true,
+      "fenced_divs": true,
+      "footnotes": true,
+      "gfm_auto_identifiers": true,
+      "hard_line_breaks": false,
+      "implicit_figures": false,
+      "implicit_header_references": true,
+      "pipe_tables": true,
+      "raw_attribute": true,
+      "raw_html": true,
+      "rebase_relative_paths": false,
+      "smart": true,
+      "sourcepos": false,
+      "strikeout": true,
+      "subscript": true,
+      "superscript": true,
+      "task_lists": true,
+      "tex_math_dollars": true,
+      "tex_math_gfm": false,
+      "wikilinks_title_after_pipe": false,
+      "wikilinks_title_before_pipe": false,
+      "yaml_metadata_block": true
+    }
+  },
+  "manualExtensions": [
+    {
+      "name": "abbreviations",
+      "anchors": [
+        "extension-abbreviations"
+      ]
+    },
+    {
+      "name": "alerts",
+      "anchors": [
+        "extension-alerts"
+      ]
+    },
+    {
+      "name": "all_symbols_escapable",
+      "anchors": [
+        "extension-all_symbols_escapable"
+      ]
+    },
+    {
+      "name": "amuse",
+      "anchors": [
+        "extension-amuse"
+      ]
+    },
+    {
+      "name": "angle_brackets_escapable",
+      "anchors": [
+        "extension-angle_brackets_escapable"
+      ]
+    },
+    {
+      "name": "ascii_identifiers",
+      "anchors": [
+        "extension-ascii_identifiers"
+      ]
+    },
+    {
+      "name": "attributes",
+      "anchors": [
+        "extension-attributes"
+      ]
+    },
+    {
+      "name": "auto_identifiers",
+      "anchors": [
+        "extension-auto_identifiers"
+      ]
+    },
+    {
+      "name": "autolink_bare_uris",
+      "anchors": [
+        "extension-autolink_bare_uris"
+      ]
+    },
+    {
+      "name": "backtick_code_blocks",
+      "anchors": [
+        "extension-backtick_code_blocks"
+      ]
+    },
+    {
+      "name": "blank_before_blockquote",
+      "anchors": [
+        "extension-blank_before_blockquote"
+      ]
+    },
+    {
+      "name": "blank_before_header",
+      "anchors": [
+        "extension-blank_before_header"
+      ]
+    },
+    {
+      "name": "bracketed_spans",
+      "anchors": [
+        "extension-bracketed_spans"
+      ]
+    },
+    {
+      "name": "citations",
+      "anchors": [
+        "typst-citations",
+        "org-citations",
+        "docx-citations",
+        "extension-citations"
+      ]
+    },
+    {
+      "name": "definition_lists",
+      "anchors": [
+        "extension-definition_lists"
+      ]
+    },
+    {
+      "name": "east_asian_line_breaks",
+      "anchors": [
+        "extension-east_asian_line_breaks"
+      ]
+    },
+    {
+      "name": "element_citations",
+      "anchors": [
+        "extension-element_citations"
+      ]
+    },
+    {
+      "name": "emoji",
+      "anchors": [
+        "extension-emoji"
+      ]
+    },
+    {
+      "name": "empty_paragraphs",
+      "anchors": [
+        "extension-empty_paragraphs"
+      ]
+    },
+    {
+      "name": "escaped_line_breaks",
+      "anchors": [
+        "extension-escaped_line_breaks"
+      ]
+    },
+    {
+      "name": "example_lists",
+      "anchors": [
+        "extension-example_lists"
+      ]
+    },
+    {
+      "name": "fancy_lists",
+      "anchors": [
+        "org-fancy-lists",
+        "extension-fancy_lists"
+      ]
+    },
+    {
+      "name": "fenced_code_attributes",
+      "anchors": [
+        "extension-fenced_code_attributes"
+      ]
+    },
+    {
+      "name": "fenced_code_blocks",
+      "anchors": [
+        "extension-fenced_code_blocks"
+      ]
+    },
+    {
+      "name": "fenced_divs",
+      "anchors": [
+        "extension-fenced_divs"
+      ]
+    },
+    {
+      "name": "footnotes",
+      "anchors": [
+        "extension-footnotes"
+      ]
+    },
+    {
+      "name": "four_space_rule",
+      "anchors": [
+        "extension-four_space_rule"
+      ]
+    },
+    {
+      "name": "gfm_auto_identifiers",
+      "anchors": [
+        "extension-gfm_auto_identifiers"
+      ]
+    },
+    {
+      "name": "grid_tables",
+      "anchors": [
+        "extension-grid_tables"
+      ]
+    },
+    {
+      "name": "gutenberg",
+      "anchors": [
+        "extension-gutenberg"
+      ]
+    },
+    {
+      "name": "hard_line_breaks",
+      "anchors": [
+        "extension-hard_line_breaks"
+      ]
+    },
+    {
+      "name": "header_attributes",
+      "anchors": [
+        "extension-header_attributes"
+      ]
+    },
+    {
+      "name": "ignore_line_breaks",
+      "anchors": [
+        "extension-ignore_line_breaks"
+      ]
+    },
+    {
+      "name": "implicit_figures",
+      "anchors": [
+        "extension-implicit_figures"
+      ]
+    },
+    {
+      "name": "implicit_header_references",
+      "anchors": [
+        "extension-implicit_header_references"
+      ]
+    },
+    {
+      "name": "inline_code_attributes",
+      "anchors": [
+        "extension-inline_code_attributes"
+      ]
+    },
+    {
+      "name": "inline_notes",
+      "anchors": [
+        "extension-inline_notes"
+      ]
+    },
+    {
+      "name": "intraword_underscores",
+      "anchors": [
+        "extension-intraword_underscores"
+      ]
+    },
+    {
+      "name": "latex_macros",
+      "anchors": [
+        "extension-latex_macros"
+      ]
+    },
+    {
+      "name": "line_blocks",
+      "anchors": [
+        "extension-line_blocks"
+      ]
+    },
+    {
+      "name": "link_attributes",
+      "anchors": [
+        "extension-link_attributes"
+      ]
+    },
+    {
+      "name": "lists_without_preceding_blankline",
+      "anchors": [
+        "extension-lists_without_preceding_blankline"
+      ]
+    },
+    {
+      "name": "literate_haskell",
+      "anchors": [
+        "extension-literate_haskell"
+      ]
+    },
+    {
+      "name": "mark",
+      "anchors": [
+        "extension-mark"
+      ]
+    },
+    {
+      "name": "markdown_attribute",
+      "anchors": [
+        "extension-markdown_attribute"
+      ]
+    },
+    {
+      "name": "markdown_in_html_blocks",
+      "anchors": [
+        "extension-markdown_in_html_blocks"
+      ]
+    },
+    {
+      "name": "mmd_header_identifiers",
+      "anchors": [
+        "extension-mmd_header_identifiers"
+      ]
+    },
+    {
+      "name": "mmd_link_attributes",
+      "anchors": [
+        "extension-mmd_link_attributes"
+      ]
+    },
+    {
+      "name": "mmd_title_block",
+      "anchors": [
+        "extension-mmd_title_block"
+      ]
+    },
+    {
+      "name": "multiline_tables",
+      "anchors": [
+        "extension-multiline_tables"
+      ]
+    },
+    {
+      "name": "native_divs",
+      "anchors": [
+        "extension-native_divs"
+      ]
+    },
+    {
+      "name": "native_numbering",
+      "anchors": [
+        "extension-native_numbering"
+      ]
+    },
+    {
+      "name": "native_spans",
+      "anchors": [
+        "extension-native_spans"
+      ]
+    },
+    {
+      "name": "ntb",
+      "anchors": [
+        "extension-ntb"
+      ]
+    },
+    {
+      "name": "old_dashes",
+      "anchors": [
+        "extension-old_dashes"
+      ]
+    },
+    {
+      "name": "pandoc_title_block",
+      "anchors": [
+        "extension-pandoc_title_block"
+      ]
+    },
+    {
+      "name": "pipe_tables",
+      "anchors": [
+        "extension-pipe_tables"
+      ]
+    },
+    {
+      "name": "raw_attribute",
+      "anchors": [
+        "extension-raw_attribute"
+      ]
+    },
+    {
+      "name": "raw_html",
+      "anchors": [
+        "extension-raw_html"
+      ]
+    },
+    {
+      "name": "raw_markdown",
+      "anchors": [
+        "extension-raw_markdown"
+      ]
+    },
+    {
+      "name": "raw_tex",
+      "anchors": [
+        "extension-raw_tex"
+      ]
+    },
+    {
+      "name": "rebase_relative_paths",
+      "anchors": [
+        "extension-rebase_relative_paths"
+      ]
+    },
+    {
+      "name": "short_subsuperscripts",
+      "anchors": [
+        "extension-short_subsuperscripts"
+      ]
+    },
+    {
+      "name": "shortcut_reference_links",
+      "anchors": [
+        "extension-shortcut_reference_links"
+      ]
+    },
+    {
+      "name": "simple_tables",
+      "anchors": [
+        "extension-simple_tables"
+      ]
+    },
+    {
+      "name": "smart",
+      "anchors": [
+        "extension-smart"
+      ]
+    },
+    {
+      "name": "smart_quotes",
+      "anchors": [
+        "extension-smart_quotes-org"
+      ]
+    },
+    {
+      "name": "sourcepos",
+      "anchors": [
+        "extension-sourcepos"
+      ]
+    },
+    {
+      "name": "space_in_atx_header",
+      "anchors": [
+        "extension-space_in_atx_header"
+      ]
+    },
+    {
+      "name": "spaced_reference_links",
+      "anchors": [
+        "extension-spaced_reference_links"
+      ]
+    },
+    {
+      "name": "special_strings",
+      "anchors": [
+        "extension-special_strings-org"
+      ]
+    },
+    {
+      "name": "startnum",
+      "anchors": [
+        "extension-startnum"
+      ]
+    },
+    {
+      "name": "strikeout",
+      "anchors": [
+        "extension-strikeout"
+      ]
+    },
+    {
+      "name": "styles",
+      "anchors": [
+        "ext-styles"
+      ]
+    },
+    {
+      "name": "subscript",
+      "anchors": [
+        "extension-superscript-subscript"
+      ]
+    },
+    {
+      "name": "superscript",
+      "anchors": [
+        "extension-superscript-subscript"
+      ]
+    },
+    {
+      "name": "table_attributes",
+      "anchors": [
+        "extension-table_attributes"
+      ]
+    },
+    {
+      "name": "table_captions",
+      "anchors": [
+        "extension-table_captions"
+      ]
+    },
+    {
+      "name": "tagging",
+      "anchors": [
+        "extension--tagging"
+      ]
+    },
+    {
+      "name": "task_lists",
+      "anchors": [
+        "extension-task_lists"
+      ]
+    },
+    {
+      "name": "tex_math_dollars",
+      "anchors": [
+        "extension-tex_math_dollars"
+      ]
+    },
+    {
+      "name": "tex_math_double_backslash",
+      "anchors": [
+        "extension-tex_math_double_backslash"
+      ]
+    },
+    {
+      "name": "tex_math_gfm",
+      "anchors": [
+        "extension-tex_math_gfm"
+      ]
+    },
+    {
+      "name": "tex_math_single_backslash",
+      "anchors": [
+        "extension-tex_math_single_backslash"
+      ]
+    },
+    {
+      "name": "wikilinks_title_after_pipe",
+      "anchors": [
+        "extension-wikilinks_title_after_pipe"
+      ]
+    },
+    {
+      "name": "wikilinks_title_before_pipe",
+      "anchors": [
+        "extension-wikilinks_title_after_pipe"
+      ]
+    },
+    {
+      "name": "xrefs_name",
+      "anchors": [
+        "extension-xrefs_name"
+      ]
+    },
+    {
+      "name": "xrefs_number",
+      "anchors": [
+        "extension-xrefs_number"
+      ]
+    },
+    {
+      "name": "yaml_metadata_block",
+      "anchors": [
+        "extension-yaml_metadata_block"
+      ]
+    }
+  ],
+  "unavailableInMarkdown": [
+    {
+      "name": "amuse",
+      "otherFormats": {
+        "muse": true
+      }
+    },
+    {
+      "name": "element_citations",
+      "otherFormats": {
+        "jats": false,
+        "jats_archiving": false,
+        "jats_publishing": false,
+        "jats_articleauthoring": false
+      }
+    },
+    {
+      "name": "empty_paragraphs",
+      "otherFormats": {
+        "docx": false,
+        "epub": false,
+        "html": false,
+        "latex": false,
+        "odt": false,
+        "beamer": false,
+        "epub2": false,
+        "epub3": false,
+        "html5": false,
+        "html4": false,
+        "opendocument": false
+      }
+    },
+    {
+      "name": "native_numbering",
+      "otherFormats": {
+        "docx": false,
+        "odt": false,
+        "opendocument": false
+      }
+    },
+    {
+      "name": "ntb",
+      "otherFormats": {
+        "context": false
+      }
+    },
+    {
+      "name": "raw_markdown",
+      "otherFormats": {
+        "ipynb": false
+      }
+    },
+    {
+      "name": "smart_quotes",
+      "otherFormats": {
+        "org": false
+      }
+    },
+    {
+      "name": "special_strings",
+      "otherFormats": {
+        "org": true
+      }
+    },
+    {
+      "name": "styles",
+      "otherFormats": {
+        "docx": false
+      }
+    },
+    {
+      "name": "tagging",
+      "otherFormats": {
+        "context": false
+      }
+    },
+    {
+      "name": "xrefs_name",
+      "otherFormats": {
+        "odt": false,
+        "opendocument": false
+      }
+    },
+    {
+      "name": "xrefs_number",
+      "otherFormats": {
+        "odt": false,
+        "opendocument": false
+      }
+    }
+  ],
+  "disabledByDefaultInAllMarkdown": [
+    "angle_brackets_escapable",
+    "ascii_identifiers",
+    "east_asian_line_breaks",
+    "four_space_rule",
+    "gutenberg",
+    "hard_line_breaks",
+    "ignore_line_breaks",
+    "literate_haskell",
+    "mark",
+    "old_dashes",
+    "rebase_relative_paths",
+    "sourcepos",
+    "tex_math_single_backslash",
+    "wikilinks_title_after_pipe",
+    "wikilinks_title_before_pipe"
+  ],
+  "enumOnlyNotMentionedInManual": [
+    "epub_html_exts"
+  ]
+}

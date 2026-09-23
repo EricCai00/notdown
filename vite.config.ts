@@ -12,6 +12,9 @@ export default defineConfig({
   },
   build: {
     assetsDir: "static",
-    rollupOptions: { output: { manualChunks: { editor: ["prosemirror-view", "prosemirror-state", "prosemirror-model", "prosemirror-commands", "prosemirror-history", "prosemirror-schema-list"] } } },
+    rollupOptions: {
+      input: { main: "index.html", lab: "markdown-lab.html", catalog: "block-catalog.html" },
+      output: { manualChunks: { editor: ["prosemirror-view", "prosemirror-state", "prosemirror-model", "prosemirror-commands", "prosemirror-history", "prosemirror-schema-list"] } },
+    },
   },
 });

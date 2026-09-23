@@ -6,8 +6,12 @@ export interface Page {
   properties: Record<string, unknown>;
   body: string;
   bodyFormat?: import("./notion-syntax").BodyFormat;
+  syntax?: import("./markdown-engine/config").SyntaxConfig;
   revision: string;
   updated: string;
+  favorite?: boolean;
+  trashed?: boolean;
+  sidebarOrder?: string;
 }
 
 export class ApiError extends Error {
@@ -15,7 +19,7 @@ export class ApiError extends Error {
     public status: number,
     public data: any,
   ) {
-    super(data.error || data.message || `请求失败 (${status})`);
+    super(data.error || data.message || `Request failed (${status})`);
   }
 }
 

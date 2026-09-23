@@ -6,7 +6,7 @@ import { seedNewDefaultVault } from "./seed.js";
 const vaultPath = path.resolve(process.env.VAULT_PATH ?? "./vault");
 const port = Number(process.env.PORT ?? 4318);
 if (!Number.isInteger(port) || port < 1 || port > 65535)
-  throw new Error("PORT 必须是合法端口");
+  throw new Error("PORT must be a valid port number");
 const frontendDir = path.resolve("./dist");
 const app = createApp({
   vaultPath,

@@ -1,3 +1,4 @@
+import { parseNative } from "../src/markdown-engine/codec";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Fragment, type Node as EditorNode } from "prosemirror-model";
@@ -162,7 +163,13 @@ test("two columns preserve page atoms, nested lists, and code after editing", ()
   );
   assert.equal(doc.child(0).type.name, "columns");
   assert.equal(doc.child(0).childCount, 2);
-  assertSemanticRoundtrip(replaceText(doc, "Child", "Nested child"));
+  const changed = replaceText(doc, "Child", "Nested child");
+  const output = serializeEditorMarkdown(changed);
+  assert.doesNotMatch(output, /^:::columns/m);
+  const reopened = parseNative(output, { version: 1, variant: "notdown", extensions: {} });
+  assert.equal(reopened.firstChild?.type.name, "columns");
+  assert.equal(reopened.textContent, changed.textContent);
+  assert.equal(reopened.firstChild?.child(1).lastChild?.type.name, "code_block");
 });
 
 test("new paragraphs escape Markdown syntax while raw HTML stays inert", () => {
@@ -241,49 +248,19 @@ test("image alt labels and hard breaks survive an adjacent text edit", () => {
   assertSemanticRoundtrip(replaceText(doc, "Before", "Updated"));
 });
 
-test("local audio and video remain player atoms with standard Markdown roundtrips", () => {
-  const source =
-    "[录音](assets/voice.mp3)\r\n\r\n[演示](./assets/demo.webm#t=3)\r\n\r\nTail\r\n";
+test("local audio and video stay ordinary links through edits and CRLF roundtrips", () => {
+  const source = "[录音](assets/voice.mp3)\r\n\r\n[演示](./assets/demo.webm#t=3)\r\n\r\nTail\r\n";
   const doc = parseEditorMarkdown(source);
-  const audio = doc.child(0).child(0);
-  const video = doc.child(1).child(0);
-  assert.equal(audio.type.name, "media");
-  assert.equal(audio.isAtom, true);
-  assert.deepEqual(
-    { ...audio.attrs },
-    { type: "audio", src: "assets/voice.mp3", label: "录音" },
-  );
-  assert.deepEqual(
-    { ...video.attrs },
-    { type: "video", src: "./assets/demo.webm#t=3", label: "演示" },
-  );
+  for (const [index, href] of [[0, "assets/voice.mp3"], [1, "./assets/demo.webm#t=3"]] as const) {
+    const node = doc.child(index).firstChild!;
+    assert.equal(node.type.name, "text");
+    assert.equal(node.marks[0].type.name, "link");
+    assert.equal(node.marks[0].attrs.href, href);
+  }
+  assert.equal(schema.nodes.media, undefined);
   assert.equal(serializeEditorMarkdown(doc), source);
-  assert.equal(
-    serializeEditorMarkdown(replaceText(doc, "Tail", "Changed")),
-    source.replace("Tail", "Changed"),
-  );
-  const renamed = audio.type.create({ ...audio.attrs, label: "新录音" });
-  const changed = doc.copy(
-    Fragment.from([
-      doc.child(0).copy(Fragment.from(renamed)),
-      doc.child(1),
-      doc.child(2),
-    ]),
-  );
-  assert.match(
-    assertSemanticRoundtrip(changed),
-    /^\[新录音\]\(assets\/voice.mp3\)/,
-  );
-  const audioDOM = schema.nodes.media.spec.toDOM!(audio) as readonly unknown[];
-  const videoDOM = schema.nodes.media.spec.toDOM!(video) as readonly unknown[];
-  assert.equal((audioDOM[1] as Record<string, string>).class, "pm-media");
-  assert.equal((audioDOM[2] as unknown[])[0], "audio");
-  assert.equal((videoDOM[2] as unknown[])[0], "video");
-  assert.equal(
-    ((audioDOM[2] as unknown[])[1] as Record<string, string>).controls,
-    "",
-  );
-  assert.equal((audioDOM[3] as unknown[])[0], "a");
+  assert.equal(serializeEditorMarkdown(replaceText(doc, "Tail", "Changed")), source.replace("Tail", "Changed"));
+  assert.match(assertSemanticRoundtrip(replaceText(doc, "录音", "新录音")), /^\[新录音\]\(assets\/voice.mp3\)/);
 });
 
 test("remote and absolute media URLs remain links and code stays literal", () => {
@@ -302,7 +279,7 @@ test("remote and absolute media URLs remain links and code stays literal", () =>
   assert.equal(serializeEditorMarkdown(doc), source);
 });
 
-test("media DOM never requests scheme, authority, absolute, or backslash URLs", () => {
+test("local media source validation rejects scheme, authority, absolute, or backslash URLs", () => {
   for (const src of [
     "https://host/audio.mp3",
     "//host/audio.mp3",
@@ -314,14 +291,6 @@ test("media DOM never requests scheme, authority, absolute, or backslash URLs", 
     "\naudio.mp3",
   ]) {
     assert.equal(localMediaSource(src), "");
-    const node = schema.nodes.media.create({
-      type: "video",
-      src,
-      label: "Unsafe",
-    });
-    const dom = schema.nodes.media.spec.toDOM!(node) as readonly unknown[];
-    assert.equal(dom.length, 3);
-    assert.equal(dom[2], "Unsafe");
   }
   assert.equal(localMediaSource("../assets/a%20b.ogg"), "../assets/a%20b.ogg");
 });

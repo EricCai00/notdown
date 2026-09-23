@@ -1,3 +1,4 @@
+import { expectSource } from "./source-helper.js";
 import {
   expect,
   test,
@@ -24,6 +25,48 @@ async function open(
   await expect(page.locator(".pm-document")).toBeVisible();
   return note;
 }
+test("Notion editing preserves source blank lines and separates new blocks across save and reload", async ({
+  page,
+  request,
+}) => {
+  const body = "# Spacing\n\n\nFirst\n\n```text\ninside\n\ncode\n```\n\nTail\n";
+  const note = await open(page, request, body);
+  await page.locator('.editing-modes [data-mode="split"]').click();
+  await page.locator(".pm-document h1").click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" edited");
+  await expectSource(page, body.replace("# Spacing", "# Spacing edited"));
+  await page
+    .locator(".pm-document > p")
+    .filter({ hasText: /^Tail$/ })
+    .click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("New block");
+  const expected = body
+    .replace("# Spacing", "# Spacing edited")
+    .replace("Tail\n", "Tail\n\nNew block\n");
+  await expectSource(page, expected);
+  await page.keyboard.press("Control+s");
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`/api/pages/${note.id}`)).json()).body,
+    )
+    .toBe(expected);
+  await page.reload();
+  await page.locator('.editing-modes [data-mode="split"]').click();
+  await expectSource(page, expected);
+  await expect(page.locator(".pm-document > p")).toHaveText([
+    "First",
+    "Tail",
+    "New block",
+  ]);
+  await expect(page.locator(".pm-document pre code")).toHaveText(
+    "inside\n\ncode",
+  );
+});
+
 test("official tags render editable columns, callouts, toggles, tables, colors, mentions and math", async ({
   page,
   request,
@@ -64,11 +107,15 @@ test("official tags render editable columns, callouts, toggles, tables, colors, 
   await expect(editor.locator("u")).toHaveText("Underlined");
   await expect(editor.locator(".pm-inline-math .katex")).toHaveCount(1);
   await expect(editor.locator(".pm-toc button")).toHaveText("Page heading");
-  await editor.getByRole("button", { name: "折叠内容", exact: true }).click();
+  await editor.getByRole("button", { name: "Collapse content", exact: true }).click();
   await expect(editor.getByText("Hidden child", { exact: true })).toBeHidden();
-  await editor.getByRole("button", { name: "展开内容", exact: true }).click();
+  await editor.getByRole("button", { name: "Expand content", exact: true }).click();
   await expect(editor.getByText("Hidden child", { exact: true })).toBeVisible();
-  await editor.locator(".note-column p").first().click();
+  // Click the text itself, avoiding the wide empty column hit area in Chrome.
+  await editor
+    .locator(".note-column p")
+    .first()
+    .click({ position: { x: 24, y: 10 } });
   await page.keyboard.press("End");
   await page.keyboard.press("Shift+Enter");
   await page.keyboard.type("second line");
@@ -87,12 +134,8 @@ test("official tags render editable columns, callouts, toggles, tables, colors, 
     )
     .toContain("Left column<br>second line");
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue(
-    /<columns>[\s\S]*<td>New row<\/td>/,
-  );
-  await expect(page.locator("#source-editor")).not.toHaveValue(
-    /:::nest|:::columns|::page/,
-  );
+  await expectSource(page, /<columns>[\s\S]*<td>New row<\/td>/);
+  await expectSource(page, /:::nest|:::columns|::page/, true);
   await page.keyboard.press("Control+e");
   await expect(
     editor.locator(".note-column p").first().locator("br"),
@@ -115,7 +158,7 @@ test("official tags render editable columns, callouts, toggles, tables, colors, 
   expect(errors).toEqual([]);
 });
 
-test("legacy paragraphs migrate once and keep their internal lines across source and reload", async ({
+test("legacy paragraphs keep source and enable nesting explicitly across reload", async ({
   page,
   request,
 }) => {
@@ -126,8 +169,9 @@ test("legacy paragraphs migrate once and keep their internal lines across source
     "markdown",
   );
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue(
-    "one<br>continued\nParent\n\tChild\nTail",
+  await expectSource(
+    page,
+    "one\ncontinued\n\n:::nest\nParent\n:::children\nChild\n:::endnest\n\nTail",
   );
   await page.keyboard.press("Control+s");
   await expect
@@ -135,11 +179,18 @@ test("legacy paragraphs migrate once and keep their internal lines across source
       async () =>
         (await (await request.get(`/api/pages/${note.id}`)).json()).bodyFormat,
     )
-    .toBe("notion-markdown");
+    .toBe("markdown");
   await page.keyboard.press("Control+e");
-  await expect(
-    page.locator(".pm-document > p").first().locator("br"),
-  ).toHaveCount(1);
+  await expect(page.locator(".pm-document > p").first()).toHaveText(
+    "one continued",
+  );
+  await expect(page.locator(".pm-nested-block")).toHaveCount(0);
+  await page.locator(".syntax-options summary").click();
+  await page.locator('[data-extension="notion_nesting"]').check();
+  await page.locator(".syntax-options summary").click();
+  await page.keyboard.press("Control+s");
+  // The first read may precede the asynchronous save and still have no syntax override.
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).syntax?.extensions?.notion_nesting).toBe(true);
   await expect(page.locator(".pm-nested-block > p")).toHaveText([
     "Parent",
     "Child",
@@ -159,7 +210,8 @@ test("slash inserts an official callout block without exposing tag source", asyn
   const editor = page.locator(".pm-document");
   await editor.click();
   await page.keyboard.type("/callout");
-  await expect(page.getByRole("option", { name: /提示块/ })).toBeVisible();
+  // Page-parent options can also contain “Callout”; target the slash command.
+  await expect(page.getByRole("listbox", { name: "Block types" }).getByRole("option", { name: /Callout/ })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(editor.locator(".pm-callout")).toHaveCount(1);
   await expect(editor).not.toContainText("<callout");

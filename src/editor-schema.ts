@@ -1,5 +1,8 @@
 import { Schema, type DOMOutputSpec, type NodeSpec } from "prosemirror-model";
+import { objectNodeSpecs, objectMarkSpecs } from "./object-model";
 import { colorStyle, pageUrl, safeReference } from "./notion-syntax.js";
+import { domAttributes } from "./markdown-engine/attributes.js";
+import { columnTracks, columnWidths } from "./column-widths.js";
 
 /** Source bookkeeping is carried by document transactions, never rendered. */
 const sourceAttrs = {
@@ -17,12 +20,18 @@ function block(spec: NodeSpec): NodeSpec {
       ...sourceAttrs,
       color: { default: "" },
       nfmAttrs: { default: {} },
+      markdownAttrs: { default: {} },
       ...spec.attrs,
     },
     toDOM: spec.toDOM
       ? (node) => {
           const dom = spec.toDOM!(node);
-          if (!Array.isArray(dom) || !node.attrs.color) return dom;
+          if (
+            !Array.isArray(dom) ||
+            (!node.attrs.color &&
+              !Object.keys(node.attrs.markdownAttrs || {}).length)
+          )
+            return dom;
           const [tag, first, ...rest] = dom;
           const attrs =
             typeof first === "object" && first !== null && !Array.isArray(first)
@@ -32,8 +41,17 @@ function block(spec: NodeSpec): NodeSpec {
             tag,
             {
               ...attrs,
+              ...domAttributes(node.attrs.markdownAttrs),
+              class:
+                [attrs.class, domAttributes(node.attrs.markdownAttrs).class]
+                  .filter(Boolean)
+                  .join(" ") || undefined,
               "data-block-color": node.attrs.color,
-              style: [attrs.style, colorStyle(node.attrs.color)]
+              style: [
+                attrs.style,
+                domAttributes(node.attrs.markdownAttrs).style,
+                colorStyle(node.attrs.color),
+              ]
                 .filter(Boolean)
                 .join(";"),
             },
@@ -65,6 +83,19 @@ const pageIcon: DOMOutputSpec = [
   "▤",
 ];
 
+function listItemSpec(kind: "bullet" | "numbered" | "task"): NodeSpec {
+  return block({
+    content: "paragraph block*", defining: true,
+    attrs: { checked: { default: kind === "task" ? false : null } },
+    parseDOM: [{ tag: "li", getAttrs: (dom) => {
+      const task = dom.hasAttribute("data-checked");
+      const actual = task ? "task" : dom.parentElement?.tagName === "OL" ? "numbered" : "bullet";
+      return actual === kind ? { checked: task ? dom.getAttribute("data-checked") === "true" : null } : false;
+    } }],
+    toDOM: (node) => ["li", { "data-list-item": kind, ...(kind === "task" ? { "data-checked": String(node.attrs.checked), class: "task-list-item" } : {}) }, 0],
+  });
+}
+
 export const editorSchema = new Schema({
   nodes: {
     doc: {
@@ -73,6 +104,7 @@ export const editorSchema = new Schema({
         source: { default: null },
         sourceFingerprint: { default: null },
         sourceGaps: { default: [] },
+        sourceEditableBlanks: { default: false },
         sourceHidden: { default: [] },
         sourceSuffix: { default: "" },
         sourceNewline: { default: "\n" },
@@ -85,6 +117,57 @@ export const editorSchema = new Schema({
       parseDOM: [{ tag: "p" }],
       toDOM: () => ["p", 0],
     }),
+    syntax_block: block({
+      atom: true,
+      group: "block",
+      attrs: {
+        metadataForm: { default: "" },
+        kind: { default: "" },
+        raw: { default: "" },
+        html: { default: "" },
+        data: { default: {} },
+        config: { default: null },
+      },
+      toDOM: (node) => [
+        "div",
+        { class: "pm-syntax-block", "data-syntax-kind": node.attrs.kind },
+        ["pre", node.attrs.raw],
+      ],
+    }),
+    syntax_inline: {
+      inline: true,
+      group: "inline",
+      atom: true,
+      attrs: {
+        kind: { default: "" },
+        raw: { default: "" },
+        label: { default: "" },
+        title: { default: "" },
+        target: { default: "" },
+        html: { default: "" },
+        config: { default: null },
+      },
+      toDOM: (node) =>
+        node.attrs.kind === "unresolved_reference"
+          ? ["a", { class: "pm-unresolved-reference", role: "link", "aria-disabled": "true", title: node.attrs.title }, node.attrs.label]
+          : node.attrs.kind === "comment"
+          ? ["span", { class: "pm-comment", title: node.attrs.title }, "✎"]
+          : node.attrs.target
+            ? [
+                "a",
+                {
+                  class: "pm-syntax-inline",
+                  href: "#" + node.attrs.target,
+                  title: node.attrs.title,
+                },
+                node.attrs.label,
+              ]
+            : [
+                "span",
+                { class: "pm-syntax-inline", title: node.attrs.title },
+                node.attrs.label,
+              ],
+    },
     nested_block: block({
       content: "(paragraph | heading) block*",
       group: "block",
@@ -130,15 +213,15 @@ export const editorSchema = new Schema({
       ],
     }),
     bullet_list: block({
-      content: "list_item+",
+      content: "(bullet_list_item | task_list_item)+",
       group: "block",
       parseDOM: [{ tag: "ul" }],
       toDOM: () => ["ul", 0],
     }),
     ordered_list: block({
-      content: "list_item+",
+      content: "(numbered_list_item | task_list_item)+",
       group: "block",
-      attrs: { order: { default: 1 } },
+      attrs: { order: { default: 1 }, markerStyle: { default: "decimal" }, markerDelimiter: { default: "." } },
       parseDOM: [
         {
           tag: "ol",
@@ -147,33 +230,11 @@ export const editorSchema = new Schema({
           }),
         },
       ],
-      toDOM: (node) => ["ol", { start: node.attrs.order }, 0],
+      toDOM: (node) => ["ol", { start: node.attrs.order, type: ({ alpha: "a", Alpha: "A", roman: "i", Roman: "I" } as Record<string,string>)[node.attrs.markerStyle] }, 0],
     }),
-    list_item: block({
-      content: "paragraph block*",
-      defining: true,
-      attrs: { checked: { default: null } },
-      parseDOM: [
-        {
-          tag: "li",
-          getAttrs: (dom) => ({
-            checked: dom.hasAttribute("data-checked")
-              ? dom.getAttribute("data-checked") === "true"
-              : null,
-          }),
-        },
-      ],
-      toDOM: (node) => [
-        "li",
-        node.attrs.checked === null
-          ? {}
-          : {
-              "data-checked": String(node.attrs.checked),
-              class: "task-list-item",
-            },
-        0,
-      ],
-    }),
+    bullet_list_item: listItemSpec("bullet"),
+    numbered_list_item: listItemSpec("numbered"),
+    task_list_item: listItemSpec("task"),
     columns: block({
       content: "column{2,}",
       group: "block",
@@ -182,7 +243,7 @@ export const editorSchema = new Schema({
       parseDOM: [{ tag: "div.note-columns" }],
       toDOM: (node) => [
         "div",
-        { class: "note-columns", style: `--column-count:${node.childCount}` },
+        { class: "note-columns", style: `--column-count:${node.childCount};--column-widths:${columnTracks(columnWidths(node))}` },
         0,
       ],
     }),
@@ -190,8 +251,8 @@ export const editorSchema = new Schema({
       content: "block+",
       defining: true,
       isolating: true,
-      parseDOM: [{ tag: "section.note-column" }],
-      toDOM: () => ["section", { class: "note-column" }, 0],
+      parseDOM: [{ tag: "section.note-column", getAttrs: dom => ({ nfmAttrs: dom.hasAttribute("data-width-ratio") ? { "width-ratio": dom.getAttribute("data-width-ratio") } : {} }) }],
+      toDOM: node => ["section", { class: "note-column", "data-width-ratio": node.attrs.nfmAttrs["width-ratio"] ?? null }, 0],
     }),
     child_page: block({
       group: "block",
@@ -227,7 +288,7 @@ export const editorSchema = new Schema({
       atom: true,
       isolating: true,
       draggable: true,
-      attrs: { raw: { default: "" } },
+      attrs: { raw: { default: "" }, metadataForm: { default: "" } },
       parseDOM: [
         {
           tag: "pre.opaque-block",
@@ -240,13 +301,143 @@ export const editorSchema = new Schema({
         ["code", node.attrs.raw],
       ],
     }),
+    html_block: block({
+      group: "block",
+      atom: true,
+      isolating: true,
+      draggable: true,
+      attrs: { raw: { default: "" } },
+      toDOM: (node) => [
+        "div",
+        { class: "pm-html-block", contenteditable: "false" },
+        node.attrs.raw,
+      ],
+    }),
+    html_inline: {
+      group: "inline",
+      inline: true,
+      atom: true,
+      attrs: { raw: { default: "" }, html: { default: "" } },
+      toDOM: (node) => [
+        "span",
+        { class: "pm-html-inline", contenteditable: "false" },
+        node.attrs.raw,
+      ],
+    },
+    definition_list: block({
+      group: "block",
+      content: "(definition_term definition_description+)+",
+      defining: true,
+      isolating: true,
+      toDOM: () => ["dl", { class: "pm-definition-list" }, 0],
+    }),
+    definition_term: block({
+      content: "inline*",
+      defining: true,
+      toDOM: () => ["dt", 0],
+    }),
+    definition_description: block({
+      content: "block+",
+      defining: true,
+      toDOM: () => ["dd", 0],
+    }),
+    footnote_anchor: {
+      group: "block", atom: true, selectable: false,
+      attrs: { key: { default: "" } },
+      toDOM: () => ["span", { hidden: "", class: "pm-footnote-anchor", contenteditable: "false" }],
+    },
+    footnote_section: {
+      group: "block", content: "footnote+", isolating: true, selectable: false,
+      toDOM: () => ["section", { class: "pm-footnotes", "aria-label": "Footnotes" }, 0],
+    },
+    footnote: block({
+      group: "block",
+      content: "block+",
+      selectable: false,
+      draggable: false,
+      defining: true,
+      isolating: true,
+      attrs: { label: { default: "note" }, footnoteKey: { default: null } },
+      toDOM: (node) => [
+        "aside",
+        {
+          class: "pm-footnote",
+          id: "md-note-" + encodeURIComponent(node.attrs.label),
+          "data-footnote-label": node.attrs.label,
+        },
+        0,
+      ],
+    }),
+    footnote_reference: {
+      group: "inline",
+      inline: true,
+      atom: true,
+      attrs: { label: { default: "note" } },
+      toDOM: (node) => [
+        "sup",
+        { class: "pm-footnote-ref" },
+        [
+          "a",
+          { href: "#md-note-" + encodeURIComponent(node.attrs.label) },
+          "[" + node.attrs.label + "]",
+        ],
+      ],
+    },
+    line_block: block({
+      group: "block",
+      content: "line+",
+      defining: true,
+      isolating: true,
+      toDOM: () => ["div", { class: "pm-line-block" }, 0],
+    }),
+    line: block({
+      content: "inline*",
+      toDOM: () => ["div", { class: "pm-verse-line" }, 0],
+    }),
+    fenced_div: block({
+      group: "block",
+      content: "block+",
+      defining: true,
+      isolating: true,
+      attrs: { attributes: { default: "{.container}" }, syntaxForm: { default: "fenced" } },
+      toDOM: (node) => [
+        "section",
+        {
+          class: "pm-fenced-div",
+          "data-div-attributes": node.attrs.attributes,
+        },
+        0,
+      ],
+    }),
     callout: block({
       content: "block+",
       group: "block",
       defining: true,
-      attrs: { icon: { default: "💡" } },
-      parseDOM: [{ tag: "aside.pm-callout" }],
-      toDOM: (node) => [
+      attrs: {
+        icon: { default: "💡" },
+        kind: { default: "" },
+        title: { default: "" },
+        fold: { default: "" },
+        syntaxForm: { default: "notion" },
+      },
+      parseDOM: [
+        ...["aside.pm-alert", "details.pm-alert"].map(tag => ({ tag, contentElement: "div",
+          getAttrs: (dom: HTMLElement) => ({
+            syntaxForm: "alert", icon: dom.dataset.icon || "", kind: dom.dataset.calloutKind || "NOTE",
+            title: dom.dataset.calloutTitle || "", fold: dom.dataset.calloutFold || "", color: dom.dataset.blockColor || "",
+          }),
+        })),
+        { tag: "aside.pm-callout", contentElement: (dom) => dom.querySelector(".pm-callout-content") || dom,
+          getAttrs: (dom) => ({ icon: dom.dataset.icon ?? "💡", color: dom.dataset.blockColor || "" }) },
+      ],
+      toDOM: (node) => node.attrs.syntaxForm === "alert" ? [
+        node.attrs.fold ? "details" : "aside",
+        { class: "pm-callout pm-alert", "data-icon": node.attrs.icon,
+          "data-callout-kind": node.attrs.kind, "data-callout-title": node.attrs.title, "data-callout-fold": node.attrs.fold,
+          open: node.attrs.fold === "+" ? "" : null },
+        [node.attrs.fold ? "summary" : "strong", { contenteditable: "false" }, node.attrs.title || node.attrs.kind],
+        ["div", 0],
+      ] : [
         "aside",
         { class: "pm-callout", "data-icon": node.attrs.icon },
         0,
@@ -267,37 +458,29 @@ export const editorSchema = new Schema({
       parseDOM: [{ tag: "div.pm-synced" }],
       toDOM: () => [
         "div",
-        { class: "pm-synced", title: "同步块的本地内容快照" },
+        { class: "pm-synced", title: "Local snapshot of synced block content" },
         0,
-      ],
-    }),
-    database: block({
-      group: "block",
-      atom: true,
-      draggable: true,
-      attrs: {
-        url: { default: "" },
-        label: { default: "" },
-        inline: { default: false },
-        icon: { default: "▦" },
-      },
-      toDOM: (node) => [
-        "a",
-        {
-          class: "pm-database",
-          href: safeReference(node.attrs.url),
-          contenteditable: "false",
-        },
-        `${node.attrs.icon || "▦"} ${node.attrs.label || "数据库"}`,
       ],
     }),
     table_of_contents: block({
       group: "block",
       atom: true,
-      toDOM: () => [
+      attrs: {
+        minLevel: { default: 1 },
+        maxLevel: { default: 6 },
+        syntaxForm: { default: "notion" },
+      },
+      parseDOM: [{ tag: "nav.pm-toc", getAttrs: (dom) => ({
+        minLevel: Number(dom.dataset.minLevel) || 1, maxLevel: Number(dom.dataset.maxLevel) || 6,
+        syntaxForm: dom.dataset.tocForm || "notion",
+      }) }],
+      toDOM: (node) => [
         "nav",
-        { class: "pm-toc", "aria-label": "目录", contenteditable: "false" },
-        "目录",
+        { class: "pm-toc", "data-min-level": node.attrs.minLevel,
+          "data-max-level": node.attrs.maxLevel,
+          "data-toc-form": node.attrs.syntaxForm,
+          "aria-label": "Table of contents", contenteditable: "false" },
+        "Table of contents",
       ],
     }),
     unknown_block: block({
@@ -312,7 +495,7 @@ export const editorSchema = new Schema({
           href: safeReference(node.attrs.url),
           contenteditable: "false",
         },
-        node.attrs.alt || "未支持的块",
+        node.attrs.alt || "Unsupported block",
       ],
     }),
     media_block: block({
@@ -326,7 +509,7 @@ export const editorSchema = new Schema({
       },
       toDOM: (node) => {
         const src = safeReference(node.attrs.src);
-        const label = node.attrs.caption || node.attrs.src || "附件";
+        const label = node.attrs.caption || node.attrs.src || "Attachment";
         const link: DOMOutputSpec = [
           "a",
           { href: src, class: "media-download" },
@@ -343,11 +526,13 @@ export const editorSchema = new Schema({
                 ] as DOMOutputSpec,
               ]
             : []),
+          ...(node.attrs.type === "pdf" && localMediaSource(src) ? [["object", { data: src, type: "application/pdf", width: "100%", height: "480", "aria-label": label }, ["a", { href: src }, "Open PDF"]] as DOMOutputSpec] : []),
           link,
         ];
       },
     }),
     equation: block({
+      attrs: { latexPrefix: { default: "" } },
       content: "text*",
       marks: "",
       group: "block",
@@ -355,20 +540,22 @@ export const editorSchema = new Schema({
       defining: true,
       toDOM: () => [
         "div",
-        { class: "pm-equation", "aria-label": "LaTeX 公式" },
+        { class: "pm-equation", "aria-label": "LaTeX equation" },
         0,
       ],
     }),
     table: block({
-      content: "table_row+",
+      content: "table_caption? table_row+",
       group: "block",
       isolating: true,
-      attrs: { widths: { default: [] }, columnAttrs: { default: [] } },
+      attrs: { widths: { default: [] }, columnAttrs: { default: [] }, syntaxForm: { default: "notion" }, captionId: { default: "" }, captionSide: { default: "top" } },
       parseDOM: [{ tag: "table" }],
       toDOM: (node) => [
         "table",
         {
           class: "pm-table",
+          "data-table-encoding": node.attrs.syntaxForm,
+          style: node.attrs.captionSide === "bottom" ? "caption-side:bottom" : "",
           "data-header-row": String(
             node.attrs.nfmAttrs["header-row"] === "true",
           ),
@@ -376,38 +563,29 @@ export const editorSchema = new Schema({
             node.attrs.nfmAttrs["header-column"] === "true",
           ),
         },
-        ...(node.attrs.widths?.length
-          ? [
-              [
-                "colgroup",
-                ...node.attrs.widths.map((width: string) => [
-                  "col",
-                  {
-                    style: /^\d+(?:\.\d+)?(?:px|%)?$/.test(width)
-                      ? `width:${/^\d+$/.test(width) ? width + "px" : width}`
-                      : "",
-                  },
-                ]),
-              ] as DOMOutputSpec,
-            ]
-          : []),
-        ["tbody", 0],
+        0,
       ],
     }),
+    table_caption: {
+      content: "inline*", isolating: true,
+      parseDOM: [{ tag: "caption" }], toDOM: () => ["caption", 0],
+    },
     table_row: {
-      content: "table_cell+",
-      attrs: { nfmAttrs: { default: {} } },
+      content: "table_cell*",
+      attrs: { nfmAttrs: { default: {} }, header: { default: false }, section: { default: 0 } },
       parseDOM: [{ tag: "tr" }],
       toDOM: () => ["tr", 0],
     },
     table_cell: {
-      content: "paragraph+",
+      // Preserve existing multiline MMD cell blocks; new Enter/paste editing
+      // uses inline content and hard breaks rather than page block insertion.
+      content: "block+",
       isolating: true,
-      attrs: { nfmAttrs: { default: {} } },
-      parseDOM: [{ tag: "td" }, { tag: "th" }],
+      attrs: { nfmAttrs: { default: {} }, colspan: { default: 1 }, rowspan: { default: 1 }, header: { default: false } },
+      parseDOM: ["td", "th"].map(tag => ({ tag, getAttrs: (dom: HTMLElement) => ({ colspan: Math.max(1, Number(dom.getAttribute("colspan")) || 1), rowspan: Math.max(1, Number(dom.getAttribute("rowspan")) || 1), header: tag === "th" }) })),
       toDOM: (node) => [
-        "td",
-        { style: colorStyle(node.attrs.nfmAttrs.color || "") },
+        node.attrs.header ? "th" : "td",
+        { colspan: node.attrs.colspan, rowspan: node.attrs.rowspan, style: colorStyle(node.attrs.nfmAttrs.color || "") },
         0,
       ],
     },
@@ -416,7 +594,12 @@ export const editorSchema = new Schema({
       inline: true,
       group: "inline",
       draggable: true,
-      attrs: { src: {}, alt: { default: "" }, title: { default: null } },
+      attrs: {
+        src: {},
+        alt: { default: "" },
+        title: { default: null },
+        markdownAttrs: { default: {} },
+      },
       parseDOM: [
         {
           tag: "img[src]",
@@ -427,62 +610,15 @@ export const editorSchema = new Schema({
           }),
         },
       ],
-      toDOM: (node) => ["img", { ...node.attrs, src: safeUrl(node.attrs.src) }],
-    },
-    media: {
-      inline: true,
-      group: "inline",
-      atom: true,
-      selectable: true,
-      draggable: true,
-      attrs: {
-        type: { default: "audio" },
-        src: { default: "" },
-        label: { default: "" },
-      },
-      parseDOM: [
+      toDOM: (node) => [
+        "img",
         {
-          tag: "span.pm-media[data-media-src]",
-          getAttrs: (dom) => {
-            const src = localMediaSource(
-              dom.getAttribute("data-media-src") ?? "",
-            );
-            const type = dom.getAttribute("data-media-type");
-            if (!src || (type !== "audio" && type !== "video")) return false;
-            return {
-              type,
-              src,
-              label: dom.getAttribute("data-media-label") ?? "",
-            };
-          },
+          src: safeUrl(node.attrs.src),
+          alt: node.attrs.alt,
+          title: node.attrs.title,
+          ...domAttributes(node.attrs.markdownAttrs),
         },
       ],
-      toDOM: (node) => {
-        const src = localMediaSource(node.attrs.src);
-        const type = node.attrs.type === "video" ? "video" : "audio";
-        const label = node.attrs.label || node.attrs.src;
-        if (!src)
-          return [
-            "span",
-            { class: "pm-media pm-media-invalid", contenteditable: "false" },
-            label,
-          ];
-        return [
-          "span",
-          {
-            class: "pm-media",
-            contenteditable: "false",
-            "data-media-type": type,
-            "data-media-src": src,
-            "data-media-label": node.attrs.label,
-          },
-          [
-            type,
-            { src, controls: "", preload: "metadata", "aria-label": label },
-          ],
-          ["a", { href: src, download: "", class: "media-download" }, label],
-        ];
-      },
     },
     hard_break: {
       inline: true,
@@ -508,16 +644,16 @@ export const editorSchema = new Schema({
           "data-mention-kind": node.attrs.kind,
         },
         node.attrs.label ||
-          node.attrs.nfmAttrs.start ||
+          (node.attrs.nfmAttrs.start ? [node.attrs.nfmAttrs.start, node.attrs.nfmAttrs.startTime, node.attrs.nfmAttrs.timeZone, node.attrs.nfmAttrs.end && "→ " + node.attrs.nfmAttrs.end].filter(Boolean).join(" ") : "") ||
           node.attrs.nfmAttrs.url ||
-          "提及",
+          "Mention",
       ],
     },
     inline_math: {
       inline: true,
       group: "inline",
       atom: true,
-      attrs: { value: { default: "" } },
+      attrs: { value: { default: "" }, delimiter: { default: "dollars" }, latexPrefix: { default: "" } },
       toDOM: (node) => [
         "span",
         { class: "pm-inline-math", contenteditable: "false" },
@@ -578,8 +714,44 @@ export const editorSchema = new Schema({
         ],
       ],
     },
+    ...objectNodeSpecs(block),
   },
   marks: {
+    ...objectMarkSpecs,
+    highlight: { toDOM: () => ["mark", 0], parseDOM: [{ tag: "mark" }] },
+    critic: {
+      attrs: { kind: { default: "addition" }, old: { default: "" } },
+      toDOM: (mark) => [
+        mark.attrs.kind === "deletion"
+          ? "del"
+          : mark.attrs.kind === "addition"
+            ? "ins"
+            : "mark",
+        {
+          class: "pm-critic",
+          title:
+            mark.attrs.kind === "substitution"
+              ? "Original: " + mark.attrs.old
+              : mark.attrs.kind,
+        },
+        0,
+      ],
+    },
+    subscript: { parseDOM: [{ tag: "sub" }], toDOM: () => ["sub", 0] },
+    superscript: {
+      parseDOM: [{ tag: "sup:not(.pm-footnote-ref)" }],
+      toDOM: () => ["sup", 0],
+    },
+    abbreviation: {
+      attrs: { title: { default: "" } },
+      parseDOM: [
+        {
+          tag: "abbr",
+          getAttrs: (dom) => ({ title: dom.getAttribute("title") || "" }),
+        },
+      ],
+      toDOM: (mark) => ["abbr", { title: mark.attrs.title }, 0],
+    },
     underline: {
       parseDOM: [{ tag: "u" }, { style: "text-decoration=underline" }],
       toDOM: () => ["u", 0],
@@ -602,7 +774,11 @@ export const editorSchema = new Schema({
       ],
     },
     link: {
-      attrs: { href: {}, title: { default: null } },
+      attrs: {
+        href: {},
+        title: { default: null },
+        markdownAttrs: { default: {} },
+      },
       inclusive: false,
       parseDOM: [
         {
@@ -617,8 +793,9 @@ export const editorSchema = new Schema({
         "a",
         {
           href: safeUrl(mark.attrs.href),
-          title: mark.attrs.title,
+          title: mark.attrs.title || `${mark.attrs.href} · Ctrl/⌘ + click to open link`,
           rel: "noopener noreferrer",
+          ...domAttributes(mark.attrs.markdownAttrs),
         },
         0,
       ],
@@ -645,8 +822,9 @@ export const editorSchema = new Schema({
     },
     code: {
       code: true,
+      attrs: { markdownAttrs: { default: {} } },
       parseDOM: [{ tag: "code" }],
-      toDOM: () => ["code", 0],
+      toDOM: mark => ["code", domAttributes(mark.attrs.markdownAttrs), 0],
     },
   },
 });

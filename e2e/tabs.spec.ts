@@ -1,0 +1,135 @@
+import { test, expect } from "@playwright/test";
+
+const source = '<tabs active="1" custom="keep-group">\n<tab title="Tab 1" custom="keep-one">\nFirst tab content\n</tab>\n<tab title="Tab 2" custom="keep-two">\ndsfsdf\n\nsad;fj;l\n\nsdfsdf\n</tab>\n<tab title="Tab 3">\nThird tab content\n</tab>\n</tabs>';
+
+test("tabs and child handles stay on their block while crossing padding and the gutter", async ({ page, request }) => {
+  const note = await (await request.post("/api/pages", { data: { title: "Tabs handle travel", body: `${source}\n\nTail`, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: { notion_tabs: true } } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const group = page.locator(".pm-object-tabs");
+  const child = group.locator(".pm-object-tab:visible p").nth(1);
+  const handle = page.locator(".pm-block-handle");
+  const plus = page.getByRole("button", { name: "Add block below" });
+  for (const target of [group.locator(".pm-tabs-strip"), child]) {
+    const bounds = (await target.boundingBox())!;
+    const start = { x: bounds.x + 80, y: bounds.y + 12 };
+    await page.mouse.move(start.x, start.y);
+    await expect(handle).toHaveClass(/visible/);
+    const position = await handle.getAttribute("data-block-pos");
+    const grip = (await handle.boundingBox())!;
+    const end = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
+    for (let step = 1; step <= 24; step++) {
+      await page.mouse.move(start.x + (end.x - start.x) * step / 24, start.y + (end.y - start.y) * step / 24);
+      await expect(handle).toHaveClass(/visible/);
+      await expect(handle).toHaveAttribute("data-block-pos", position!);
+    }
+    await page.mouse.click(end.x, end.y);
+    await expect(target === child ? child : group).toHaveClass(/pm-block-selected/);
+    await expect(page.locator(".pm-block-menu")).toBeVisible();
+    const menuBounds = (await page.locator(".pm-block-menu").boundingBox())!;
+    expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(grip.x - 8);
+    await page.keyboard.press("Escape");
+    // The plus has the same route through the padding, and a gap after the grip.
+    await page.mouse.move(start.x, start.y);
+    const add = (await plus.boundingBox())!;
+    await page.mouse.move(add.x + add.width / 2, add.y + add.height / 2, { steps: 24 });
+    await expect(plus).toHaveClass(/visible/);
+    await expect(handle).toHaveAttribute("data-block-pos", position!);
+  }
+  await page.mouse.move(300, 100);
+  await expect(handle).not.toHaveClass(/visible/);
+  await expect(plus).not.toHaveClass(/visible/);
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(note.body);
+});
+
+test("tabs use compact menus, preserve edits and attributes, and undo structure changes", async ({ page, request }) => {
+  const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+  const note = await (await request.post("/api/pages", { data: { title: "Tabs design", body: source, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: { notion_tabs: true } } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const group = page.locator(".pm-object-tabs"), tabs = group.getByRole("tab");
+  const active = group.locator(".pm-object-tab:visible");
+  await expect(tabs).toHaveCount(3);
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(active).toHaveCSS("border-top-width", "0px");
+  await tabs.nth(1).click();
+  await expect(page.getByRole("menu", { name: "Tab actions" })).toBeVisible();
+  await page.screenshot({ path: "test-results/tabs-desktop.png" });
+  const rect = (await group.boundingBox())!;
+  await page.screenshot({ path: "test-results/tabs-detail.png", clip: { x: rect.x - 8, y: rect.y - 8, width: rect.width + 16, height: Math.max(rect.height + 16, 320) } });
+  await page.keyboard.press("Escape");
+  await expect(tabs.nth(1)).toBeFocused();
+  await active.locator("p").first().click(); await page.keyboard.press("End"); await page.keyboard.type(" pending");
+  await tabs.first().click();
+  await expect(active).toContainText("First tab content");
+  await tabs.nth(1).click();
+  await expect(active).toContainText("dsfsdf pending");
+  await tabs.nth(1).click();
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+  await page.getByLabel("Tab title", { exact: true }).fill("Discarded");
+  await page.keyboard.press("Escape");
+  await expect(tabs.nth(1)).toHaveText("Tab 2");
+  await tabs.nth(1).press("ArrowDown");
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+  await page.getByLabel("Tab title", { exact: true }).fill("Research");
+  await page.getByLabel("Tab title", { exact: true }).press("Enter");
+  await expect(tabs.nth(1)).toHaveText("Research");
+  await tabs.nth(1).click();
+  await page.getByRole("menuitem", { name: "Edit icon", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Choose tab icon" });
+  await picker.getByLabel("Custom icon").fill("📚");
+  await picker.getByRole("button", { name: "Use icon" }).click();
+  await expect(tabs.nth(1)).toHaveText("📚Research");
+  await tabs.nth(1).click();
+  await page.getByRole("menuitem", { name: "Move tab left" }).click();
+  await expect(tabs.first()).toHaveText("📚Research");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await group.getByRole("button", { name: "Add tab" }).click();
+  await expect(tabs).toHaveCount(4);
+  await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Control+z");
+  await expect(tabs).toHaveCount(3);
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Control+Shift+z");
+  await expect(tabs).toHaveCount(4);
+  await tabs.last().click(); await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await expect(tabs).toHaveCount(3);
+  await active.locator("p").first().click(); await page.keyboard.press("Control+z");
+  await expect(tabs).toHaveCount(4);
+  await tabs.first().click();
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('icon="📚"');
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  for (const value of ['custom="keep-group"', 'custom="keep-one"', 'custom="keep-two"', "dsfsdf pending", 'title="Research"']) expect(saved).toContain(value);
+  await page.reload();
+  await expect(tabs.first()).toHaveText("📚Research");
+  await expect(active).toContainText("dsfsdf pending");
+  await tabs.first().focus(); await page.keyboard.press("End");
+  await expect(tabs.last()).toBeFocused();
+  await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Home"); await expect(tabs.first()).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await tabs.first().click();
+  await expect(page.getByRole("menu", { name: "Tab actions" })).toBeVisible();
+  const menuBounds = (await page.getByRole("menu", { name: "Tab actions" }).boundingBox())!;
+  expect(menuBounds.x).toBeGreaterThanOrEqual(0); expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(390);
+  expect(await group.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
+  await page.screenshot({ path: "test-results/tabs-mobile.png" });
+  expect(errors).toEqual([]);
+});
+
+test("inactive tab actions retain the visible panel and the final tab cannot be deleted", async ({ page, request }) => {
+  const note = await (await request.post("/api/pages", { data: { title: "Tab boundaries", body: source, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: { notion_tabs: true } } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const tabs = page.locator(".pm-object-tabs").getByRole("tab");
+  await tabs.first().click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Move tab left" })).toBeDisabled();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await expect(tabs.first()).toHaveText("Tab 2");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await tabs.last().click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Move tab right" })).toBeDisabled();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await tabs.first().click();
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(tabs).toHaveCount(1);
+});

@@ -1,3 +1,4 @@
+import { isListItem } from "./list-items";
 import {
   Fragment,
   type Node as PMNode,
@@ -16,6 +17,9 @@ export type ListItemConversion =
   | "heading1"
   | "heading2"
   | "heading3"
+  | "heading4"
+  | "heading5"
+  | "heading6"
   | "list"
   | "number"
   | "task"
@@ -24,7 +28,7 @@ export type ListItemConversion =
 
 function itemDepth($pos: ResolvedPos): number {
   for (let depth = $pos.depth; depth > 0; depth--) {
-    if ($pos.node(depth).type.name === "list_item") return depth;
+    if (isListItem($pos.node(depth))) return depth;
   }
   return -1;
 }
@@ -35,14 +39,12 @@ function leafText(node: PMNode): string {
     const { target, label } = node.attrs;
     return `[[${target}${label && label !== target ? `|${label}` : ""}]]`;
   }
-  if (node.type.name === "image" || node.type.name === "media") {
+  if (node.type.name === "image") {
     const label = String(
-      node.type.name === "image"
-        ? node.attrs.alt || ""
-        : node.attrs.label || "",
+      node.attrs.alt || "",
     ).replace(/([\\\[\]])/g, "\\$1");
     const src = String(node.attrs.src || "").replace(/([\\()])/g, "\\$1");
-    return `${node.type.name === "image" ? "!" : ""}[${label}](${src})`;
+    return `![${label}](${src})`;
   }
   return node.textContent;
 }
@@ -96,7 +98,7 @@ export function convertListItem(
   const { selection, schema } = state;
   const selectedItem =
     selection instanceof NodeSelection &&
-    selection.node.type.name === "list_item";
+    isListItem(selection.node);
   const $from = selectedItem
     ? state.doc.resolve(selection.from + 1)
     : selection.$from;
@@ -130,8 +132,9 @@ export function convertListItem(
   const isListConversion =
     type === "list" || type === "number" || type === "task";
   const checked = type === "task" ? (item.attrs.checked ?? false) : null;
+  const itemType = schema.nodes[type === "task" ? "task_list_item" : type === "number" ? "numbered_list_item" : "bullet_list_item"];
   if (isListConversion && list.type === listType) {
-    return state.tr.setNodeMarkup(itemPos, undefined, {
+    return state.tr.setNodeMarkup(itemPos, itemType, {
       ...item.attrs,
       checked,
     });
@@ -148,7 +151,7 @@ export function convertListItem(
   let mapItemOffset: (offset: number) => number;
 
   if (isListConversion) {
-    const converted = item.type.create(
+    const converted = itemType.create(
       { ...item.attrs, checked },
       item.content,
       item.marks,

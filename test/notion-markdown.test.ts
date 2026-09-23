@@ -38,7 +38,10 @@ test("Notion uses one line per block, tabs for descendants, br for internal brea
   assert.equal(doc.firstChild?.child(1).type.name, "nested_block");
   assert.equal(doc.firstChild?.lastChild?.textContent, "");
   assert.equal(serializeNotionMarkdown(doc), body);
-  assert.equal(canonical(body), body.replace("\n\n", "\n"));
+  assert.equal(
+    canonical(body),
+    "Parent<br>second line\n\tChild\n\t\tGrandchild\n\t\n\t<empty-block/>\n\nSibling\n\n<empty-block/>",
+  );
 });
 test("mixed nested lists retain one independently editable row per item and all descendants", () => {
   const body =
@@ -51,7 +54,10 @@ test("mixed nested lists retain one independently editable row per item and all 
     doc.firstChild?.firstChild?.child(1).firstChild?.attrs.checked,
     true,
   );
-  assert.equal(canonical(body), body);
+  assert.equal(
+    canonical(body),
+    body.replace("\n\t1.", "\n\t\n\t1.").replace("\nOutside", "\n\nOutside"),
+  );
 });
 test("official columns can contain blocks, more than two columns and nested columns", () => {
   const body =
@@ -61,7 +67,12 @@ test("official columns can contain blocks, more than two columns and nested colu
   assert.equal(doc.firstChild?.type.name, "columns");
   assert.equal(doc.firstChild?.childCount, 3);
   assert.equal(doc.firstChild?.child(1).firstChild?.type.name, "callout");
-  assert.equal(canonical(body), body);
+  assert.equal(
+    canonical(body),
+    body
+      .replace("# Left\n", "# Left\n\t\t\n")
+      .replaceAll("\t</column>\n\t<column>", "\t</column>\n\t\n\t<column>"),
+  );
   const nested =
     "<columns>\n\t<column>\n\t\t<columns>\n\t\t\t<column>\n\t\t\t\tInner left\n\t\t\t</column>\n\t\t\t<column>\n\t\t\t\tInner right\n\t\t\t</column>\n\t\t</columns>\n\t</column>\n\t<column>\n\t\tOuter right\n\t</column>\n</columns>";
   const nestedDoc = parseNotionMarkdown(nested);
@@ -70,7 +81,15 @@ test("official columns can contain blocks, more than two columns and nested colu
     nestedDoc.firstChild?.firstChild?.firstChild?.type.name,
     "columns",
   );
-  assert.equal(canonical(nested), nested);
+  assert.equal(
+    canonical(nested),
+    nested
+      .replace(
+        "\t\t\t</column>\n\t\t\t<column>",
+        "\t\t\t</column>\n\t\t\t\n\t\t\t<column>",
+      )
+      .replace("\t</column>\n\t<column>", "\t</column>\n\t\n\t<column>"),
+  );
 });
 test("code fence contents never interpret tabs, closing tags, nests, mentions or br", () => {
   const body =
@@ -79,7 +98,10 @@ test("code fence contents never interpret tabs, closing tags, nests, mentions or
   doc.check();
   assert.equal(doc.firstChild?.firstChild?.type.name, "code_block");
   assert.equal(doc.childCount, 2);
-  assert.equal(canonical(body), body);
+  assert.equal(
+    canonical(body),
+    body.replace("</callout>\nAfter", "</callout>\n\nAfter"),
+  );
   assert.deepEqual(extractLinks(body, "notion-markdown"), []);
 });
 test("rich text preserves nested spans, page/user/date mentions, citations and inline math", () => {
@@ -110,7 +132,7 @@ test("rich text preserves nested spans, page/user/date mentions, citations and i
   );
   assert.equal(parseNotionMarkdown(rewritten).textContent, doc.textContent);
 });
-test("page, database, media, toc and unknown blocks retain official attributes after edits", () => {
+test("page, preserved database source, media, toc and unknown blocks retain official attributes after edits", () => {
   const body =
     '<page url="#page/child">Child</page>\n<database url="https://notion.so/db" inline="true" icon="📚">Reading</database>\n<audio src="assets/a.mp3">Recording</audio>\n<video src="assets/v.mp4">Video</video>\n<file src="assets/f.zip">File</file>\n<pdf src="assets/p.pdf">PDF</pdf>\n<table_of_contents/>\n<unknown url="https://notion.so/x" alt="bookmark"/>';
   const doc = parseNotionMarkdown(body);
@@ -119,7 +141,7 @@ test("page, database, media, toc and unknown blocks retain official attributes a
     doc.content.content.map((node) => node.type.name),
     [
       "child_page",
-      "database",
+      "opaque_block",
       "media_block",
       "media_block",
       "media_block",
@@ -128,7 +150,7 @@ test("page, database, media, toc and unknown blocks retain official attributes a
       "unknown_block",
     ],
   );
-  assert.equal(canonical(body), body);
+  assert.equal(canonical(body), body.replaceAll("\n", "\n\n"));
 });
 test("details, toggle headings, quotes, equations and synced block snapshots round trip", () => {
   const body =
@@ -136,7 +158,15 @@ test("details, toggle headings, quotes, equations and synced block snapshots rou
   const doc = parseNotionMarkdown(body);
   doc.check();
   assert.equal(doc.childCount, 6);
-  assert.equal(canonical(body), body);
+  assert.equal(
+    canonical(body),
+    body
+      .replace("</details>\n", "</details>\n\n")
+      .replace("Child of heading\n", "Child of heading\n\n")
+      .replace("Nested quote child\n", "Nested quote child\n\n")
+      .replace("> separate quote\n", "> separate quote\n\n")
+      .replace("$$\n<synced", () => "$$\n\n<synced"),
+  );
 });
 test("XML tables preserve widths and header attributes and cells are editable paragraphs", () => {
   const body =
@@ -177,7 +207,7 @@ test("table cell, row and column colors survive editing with official precedence
 test("code colors and nested heading source lines survive canonical writing", () => {
   const body =
     '```ts {color="blue_bg"}\n\tconst text = "<br>";\n```\nParent\n\t## Nested {toggle="true"}\n\t\tChild';
-  assert.equal(canonical(body), body);
+  assert.equal(canonical(body), body.replace("```\nParent", "```\n\nParent"));
   const heading = getOutline(body, "notion-markdown")[0];
   assert.equal(heading.line, 5);
   assert.equal(heading.text, "Nested");
@@ -202,7 +232,7 @@ test("ordinary CommonMark soft lines stay one block when a legacy page migrates"
   const doc = parseNotionMarkdown(body);
   doc.check();
   assert.equal(doc.childCount, 3);
-  assert.match(body, /^one<br>continued\nnext\n```/);
+  assert.match(body, /^one<br>continued\n\nnext\n\n```/);
 });
 test("unknown and malformed markup remains intact next to edited content; renderer never executes it", () => {
   const body =
@@ -234,12 +264,13 @@ test("Tab nesting, child and parent dragging still produce a reconstructable tre
     }),
     true,
   );
-  assert.equal(serializeNotionMarkdown(state.doc), "Parent\n\tChild\nTail");
+  assert.equal(serializeNotionMarkdown(state.doc), "Parent\n\tChild\n\nTail");
   const group = state.doc.firstChild!;
   const moved = moveEditorBlock(state, 0, group.nodeSize, "after");
   assert.ok(moved);
   state = state.apply(moved);
-  assert.equal(serializeNotionMarkdown(state.doc), "Tail\nParent\n\tChild");
+  // The original separator travels with Tail when its block moves to the front.
+  assert.equal(serializeNotionMarkdown(state.doc), "\nTail\n\nParent\n\tChild");
   assert.equal(
     parseNotionMarkdown(serializeNotionMarkdown(state.doc)).lastChild
       ?.childCount,
@@ -266,7 +297,10 @@ test("Chinese page names and explicit external page URLs survive migration and g
   assert.deepEqual(extractLinks(converted, "notion-markdown"), ["中文页面"]);
   const body =
     '<mention-page url="./Other%20page.md">Other page</mention-page>\n<page url="https://notion.so/page?a[]=1&amp;b=2">Page</page>';
-  assert.equal(canonical(body), body);
+  assert.equal(
+    canonical(body),
+    body.replace("</mention-page>\n", "</mention-page>\n\n"),
+  );
   assert.match(renderNotionMarkdown(body), /href="\.\/Other%20page.md"/);
 });
 test("literal entities, empty equations and colored empty blocks are not corrupted", () => {

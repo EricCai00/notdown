@@ -161,7 +161,7 @@ test("task checkboxes render only at real list-item starts, never prose or code"
   const html = renderMarkdown(source);
   assert.equal((html.match(/class="task-checkbox"/g) ?? []).length, 3);
   assert.equal((html.match(/disabled checked/g) ?? []).length, 2);
-  assert.match(html, /disabled aria-label="未完成"> Pending/);
+  assert.match(html, /disabled aria-label="Incomplete"> Pending/);
   assert.match(html, /<strong>Done<\/strong>/);
   assert.match(html, /\[x\] Escaped/);
   assert.match(html, /<code>\[x\]<\/code> Code item/);
@@ -186,12 +186,12 @@ test("task checkboxes render only at real list-item starts, never prose or code"
   );
 });
 
-test("local ordinary media links render media; remote/file links remain links", () => {
+test("ordinary local and remote media links remain links", () => {
   assert.match(
     renderMarkdown("[Recording](assets/voice.mp3)"),
-    /<audio controls/,
+    /<a href="assets\/voice.mp3">Recording<\/a>/,
   );
-  assert.match(renderMarkdown("[Video](assets/demo.mp4)"), /<video controls/);
+  assert.match(renderMarkdown("[Video](assets/demo.mp4)"), /<a href="assets\/demo.mp4">Video<\/a>/);
   assert.doesNotMatch(
     renderMarkdown("[Remote](https://example.com/demo.mp4)"),
     /<video/,

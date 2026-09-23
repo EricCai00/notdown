@@ -10,10 +10,14 @@ const project = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-await fs.access(path.join(project, "dist", "index.html"));
+const frontendDir = path.resolve(project, process.env.NOTDOWN_E2E_FRONTEND_DIR || "dist");
+await fs.access(path.join(frontendDir, "index.html"));
 const temporaryRoot = path.resolve(os.tmpdir());
 const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-e2e-"));
-const app = createApp({ vaultPath, frontendDir: path.join(project, "dist") });
+// Browser tests use a private stand-in; native Windows recycling is tested separately.
+const recyclePath = path.join(vaultPath, "test-system-recycle-bin");
+await fs.mkdir(recyclePath);
+const app = createApp({ vaultPath, frontendDir, recycleFile: (file) => fs.rename(file, path.join(recyclePath, path.basename(file))) });
 const vault = app.locals.vault;
 await vault.init();
 const target = await vault.create({
@@ -30,9 +34,10 @@ await vault.create({
   body: `Before [[${target.id}|链接目标]] after.\n\n::page{id="${target.id}"}\n`,
 });
 
-const server = app.listen(4329, "127.0.0.1", () => {
+const port = Number(process.env.NOTDOWN_E2E_PORT || 4329);
+const server = app.listen(port, "127.0.0.1", () => {
   console.log(
-    `Isolated editor test server: http://127.0.0.1:4329 (${vaultPath})`,
+    `Isolated editor test server: http://127.0.0.1:${port} (${vaultPath})`,
   );
 });
 let shuttingDown = false;

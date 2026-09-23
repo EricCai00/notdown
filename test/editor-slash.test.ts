@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { editorSchema } from "../src/editor-schema";
 import test from "node:test";
 import { Schema, type Node as ProseMirrorNode } from "prosemirror-model";
 import { schema as basic } from "prosemirror-schema-basic";
@@ -18,10 +19,7 @@ import {
   slashPluginKey,
 } from "../src/editor-slash.js";
 
-const schema = new Schema({
-  nodes: addListNodes(basic.spec.nodes, "paragraph block*", "block"),
-  marks: basic.spec.marks,
-});
+const schema = editorSchema;
 const paragraph = (value = "") =>
   schema.nodes.paragraph.create(null, value ? schema.text(value) : undefined);
 function harness(doc = schema.nodes.doc.create(null, paragraph()), at = 1) {
@@ -196,11 +194,11 @@ test("nested list queries use their own textblock and absolute document position
     paragraph("/previous"),
     schema.nodes.bullet_list.create(
       null,
-      schema.nodes.list_item.create(null, [
+      schema.nodes.bullet_list_item.create(null, [
         paragraph("parent"),
         schema.nodes.bullet_list.create(
           null,
-          schema.nodes.list_item.create(null, paragraph()),
+          schema.nodes.bullet_list_item.create(null, paragraph()),
         ),
       ]),
     ),
@@ -241,5 +239,33 @@ test("a previous hard-break line cannot leak its slash into the current query", 
   );
   const editor = harness(doc, doc.content.size - 1);
   editor.type("text");
+  assert.equal(editor.match(), null);
+});
+
+test("plus-triggered menu filters without a literal slash and consumes only its query", () => {
+  const editor = harness();
+  editor.view.dispatch(
+    editor.state.tr.setMeta(slashPluginKey, { type: "open", from: 1 }),
+  );
+  assert.deepEqual(editor.match(), { from: 1, to: 1, query: "" });
+  editor.type("heading");
+  assert.equal(editor.state.doc.textContent, "heading");
+  assert.equal(editor.match()?.query, "heading");
+  assert.ok(consumeSlash(editor.view));
+  assert.equal(editor.state.doc.textContent, "");
+  assert.equal(editor.match(), null);
+  editor.type("Ordinary text");
+  assert.equal(editor.match(), null);
+});
+
+test("dismissing a plus-triggered menu keeps input and does not reopen", () => {
+  const editor = harness();
+  editor.view.dispatch(
+    editor.state.tr.setMeta(slashPluginKey, { type: "open", from: 1 }),
+  );
+  editor.type("draft");
+  cancelSlash(editor.view);
+  editor.type(" continues");
+  assert.equal(editor.state.doc.textContent, "draft continues");
   assert.equal(editor.match(), null);
 });

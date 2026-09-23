@@ -6,6 +6,8 @@ import { type EditorView } from "prosemirror-view";
 import { undoInputRule } from "prosemirror-inputrules";
 import { editorSchema as schema } from "../src/editor-schema.js";
 import { markdownRules } from "../src/editor-input-rules.js";
+import { commandEnabled, dialects } from "../src/markdown-engine/config";
+import { parseNative } from "../src/markdown-engine/codec";
 import {
   parseEditorMarkdown,
   serializeEditorMarkdown,
@@ -14,8 +16,9 @@ import {
 function harness(
   doc = schema.nodes.doc.create(null, schema.nodes.paragraph.create()),
   position?: number,
+  allow?: (command: string) => boolean,
 ) {
-  const plugin = markdownRules();
+  const plugin = markdownRules(allow);
   let state = EditorState.create({ schema, doc, plugins: [plugin] });
   state = state.apply(
     state.tr.setSelection(
@@ -69,6 +72,22 @@ function harness(
     input,
   };
 }
+
+test("typed headings, parenthesized lists and backtick fences follow each active dialect", () => {
+  for (const { id: variant } of dialects) {
+    const config = { version: 1 as const, variant, extensions: {} };
+    for (const [typed, source] of [
+      ["##### ", "##### Heading"], ["###### ", "###### Heading"],
+      ["1) ", "1) Item"], ["``` ", "```\ncode\n```"],
+    ]) {
+      const editor = harness(undefined, undefined, command => commandEnabled(config, command));
+      editor.type(typed);
+      const expected = parseNative(source, config).firstChild!;
+      assert.equal(editor.state.doc.firstChild!.type.name, expected.type.name, `${variant}: ${typed}`);
+      if (expected.type.name === "heading") assert.equal(editor.state.doc.firstChild!.attrs.level, expected.attrs.level, variant);
+    }
+  }
+});
 
 function paragraph(...nodes: PMNode[]) {
   return schema.nodes.doc.create(

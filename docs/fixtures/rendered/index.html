@@ -1,0 +1,58 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; frame-src 'none'; base-uri 'none'; form-action 'none'"><title>GFM 实际渲染对照</title><style>
+body{font:16px/1.65 system-ui,'Microsoft YaHei',sans-serif;color:#24292f;background:white;margin:0;padding:28px 36px;overflow-wrap:anywhere}
+main{max-width:980px;margin:auto}h1,h2,h3{line-height:1.3}h2{margin-top:1.8em;border-bottom:1px solid #ddd;padding-bottom:8px}
+a{color:#0969da}pre{background:#f6f8fa;padding:16px;overflow:auto;white-space:pre-wrap}code{background:#f6f8fa;font-size:.9em}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid #d0d7de;padding:8px;text-align:left}img{max-width:100%}
+blockquote{border-left:4px solid #ddd;margin-left:0;padding-left:18px;color:#57606a}li{margin:5px 0}input[type=checkbox]{margin-right:6px}
+.notice{background:#eef5ff;padding:16px;border-radius:8px;margin-bottom:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.panel{border:1px solid #d0d7de;border-radius:10px;padding:20px;min-width:0}.panel h2{margin-top:0}
+@media(max-width:850px){.grid{grid-template-columns:1fr}body{padding:20px}}
+</style></head><body><main style="max-width:1440px"><h1>GFM 实际渲染对照</h1>
+<p>cmark-gfm（Python 绑定 2025.10.22）与 pandoc 3.11 / gfm。</p>
+<p><strong>实测：cmark-gfm 将有序任务渲染成复选框；Pandoc 3.11 / gfm 将其中的 [ ]、[x] 保留为文字。</strong>两者的无序任务均渲染为复选框。</p>
+<p>官方直接说明：<a href="https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf#page=2">GitHub Markdown 速查表，第 2 页 TASK LISTS</a>：“any unordered or ordered list supported”。<a href="https://github.github.io/gfm/#task-list-items-extension-">GFM §5.3</a> 对列表项统一定义任务标记，示例未单独展示有序任务。用户当前 Typora 截图中，有序任务保留文字，与这里的 Pandoc 结果一致。</p>
+<div class="notice">以下截取自两款渲染器的<strong>全文 HTML 输出</strong>中的 G02，不是人工制作的复选框。完整原文件均已渲染，可从各栏打开。列表编号使用浏览器默认显示；这里没有套用 GitHub 网站隐藏列表标记的 CSS。</div>
+<pre>1. [ ] ordered task
+2. [x] ordered completed task</pre>
+<div class="grid"><section class="panel"><h2>cmark-gfm</h2><p><a href="cmark-gfm.html">打开全文</a> · <a href="cmark-gfm.fragment.html">原始 HTML 文件</a></p>
+<ul>
+<li><input type="checkbox" disabled="" /> unchecked</li>
+<li><input type="checkbox" checked="" disabled="" /> checked lowercase</li>
+<li><input type="checkbox" checked="" disabled="" /> checked uppercase</li>
+<li><input type="checkbox" disabled="" /> parent task
+<ul>
+<li><input type="checkbox" checked="" disabled="" /> child task</li>
+<li><input type="checkbox" disabled="" /> another child</li>
+</ul>
+</li>
+</ul>
+<p>以下是 GFM 有序任务列表扩展用例。用户提供的 Typora 实测为普通有序列表，保留 <code>[ ]</code> / <code>[x]</code> 文字，不生成复选框；Notdown Typora 方言应与此一致。cmark-gfm 生成复选框，Pandoc 3.11 的 gfm reader 保留文字。GitHub 官方 Markdown 速查表第 2 页 TASK LISTS 注明 “any unordered or ordered list supported”：<a href="https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf">https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf</a> 。规范依据为 GFM §5.2 的列表项定义及 §5.3 的任务列表项规则；§5.3 未单独展示有序任务示例。</p>
+<ol>
+<li><input type="checkbox" disabled="" /> ordered task</li>
+<li><input type="checkbox" checked="" disabled="" /> ordered completed task</li>
+</ol>
+<details><summary>查看有序任务列表的实际 HTML</summary><pre>&lt;ol&gt;
+&lt;li&gt;&lt;input type=&quot;checkbox&quot; disabled=&quot;&quot; /&gt; ordered task&lt;/li&gt;
+&lt;li&gt;&lt;input type=&quot;checkbox&quot; checked=&quot;&quot; disabled=&quot;&quot; /&gt; ordered completed task&lt;/li&gt;
+&lt;/ol&gt;</pre></details></section><section class="panel"><h2>pandoc-gfm</h2><p><a href="pandoc-gfm.html">打开全文</a> · <a href="pandoc-gfm.fragment.html">原始 HTML 文件</a></p>
+<ul class="task-list">
+<li><label><input type="checkbox" />unchecked</label></li>
+<li><label><input type="checkbox" checked="" />checked lowercase</label></li>
+<li><label><input type="checkbox" checked="" />checked uppercase</label></li>
+<li><label><input type="checkbox" />parent task</label>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />child task</label></li>
+<li><label><input type="checkbox" />another child</label></li>
+</ul></li>
+</ul>
+<p>以下是 GFM 有序任务列表扩展用例。用户提供的 Typora 实测为普通有序列表，保留 <code>[ ]</code> / <code>[x]</code> 文字，不生成复选框；Notdown Typora 方言应与此一致。cmark-gfm 生成复选框，Pandoc 3.11 的 gfm reader 保留文字。GitHub 官方 Markdown 速查表第 2 页 TASK LISTS 注明 “any unordered or ordered list supported”：<a href="https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf">https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf</a> 。规范依据为 GFM §5.2 的列表项定义及 §5.3 的任务列表项规则；§5.3 未单独展示有序任务示例。</p>
+<ol type="1">
+<li>[ ] ordered task</li>
+<li>[x] ordered completed task</li>
+</ol>
+<details><summary>查看有序任务列表的实际 HTML</summary><pre>&lt;ol type=&quot;1&quot;&gt;
+&lt;li&gt;[ ] ordered task&lt;/li&gt;
+&lt;li&gt;[x] ordered completed task&lt;/li&gt;
+&lt;/ol&gt;</pre></details></section></div>
+<h2>渲染条件</h2><p>两者均读取同一份 UTF-8 Markdown，未去掉 YAML，未调用 Notdown codec。cmark-gfm 开启原始 HTML 输出并使用自带 GFM 扩展；Pandoc 使用 gfm 输入格式。包装页限制活动内容，但保留各渲染器的 HTML 输出。数学、高亮、目录和图表等 Typora 扩展不在这里额外补齐。</p>
+<p>源码 SHA-256：<code>b45d1fa15c94c2b735480e2924684729af140dd6c27477453b699a7a0b00861a</code></p><p><a href="results.json">版本、命令与结果记录</a> · <a href="https://github.com/theacodes/cmarkgfm">cmark-gfm Python 绑定</a></p></main></body></html>

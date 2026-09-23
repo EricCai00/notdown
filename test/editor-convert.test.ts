@@ -1,3 +1,4 @@
+import { parseNative } from "../src/markdown-engine/codec";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorState, NodeSelection, TextSelection } from "prosemirror-state";
@@ -19,10 +20,10 @@ const li = (
   text: string,
   children: PMNode[] = [],
   checked: boolean | null = null,
-) => s.nodes.list_item.create({ checked }, [p(text), ...children]);
+) => s.nodes[checked === null ? "bullet_list_item" : "task_list_item"].create({ checked }, [p(text), ...children]);
 const ul = (...items: PMNode[]) => s.nodes.bullet_list.create(null, items);
 const ol = (order: number, ...items: PMNode[]) =>
-  s.nodes.ordered_list.create({ order }, items);
+  s.nodes.ordered_list.create({ order }, items.map(item => item.attrs.checked === null ? s.nodes.numbered_list_item.create(item.attrs, item.content) : item));
 
 function textPosition(doc: PMNode, text: string, offset = 0): number {
   let result = -1;
@@ -181,7 +182,7 @@ test("code conversion renders atom Markdown while retaining nested children", ()
     s.nodes.page_link.create({ target: "page-id", label: "Project" }),
     s.text(" now"),
   ]);
-  const item = s.nodes.list_item.create(null, [first, ul(li("child"))]);
+  const item = s.nodes.bullet_list_item.create(null, [first, ul(li("child"))]);
   const doc = s.nodes.doc.create(null, ul(item, li("last")));
   const atomEnd = 3 + 5 + 1;
   const state = EditorState.create({
@@ -211,21 +212,17 @@ test("caret in a later child block follows that block through conversion", () =>
   assert.equal(result.selection.$from.parentOffset, 3);
 });
 
-test("code conversion retains media labels and URLs as Markdown", () => {
+test("code conversion keeps link text and image targets", () => {
   const first = s.nodes.paragraph.create(null, [
-    s.nodes.media.create({
-      type: "audio",
-      src: "recording.mp3",
-      label: "Recording",
-    }),
+    s.text("Recording", [s.marks.link.create({ href: "recording.mp3" })]),
     s.text(" "),
-    s.nodes.media.create({ type: "video", src: "clip.mp4", label: "" }),
+    s.text("Clip", [s.marks.link.create({ href: "clip.mp4" })]),
     s.text(" "),
     s.nodes.image.create({ src: "photo.png", alt: "" }),
   ]);
   const doc = s.nodes.doc.create(
     null,
-    ul(s.nodes.list_item.create(null, first)),
+    ul(s.nodes.bullet_list_item.create(null, first)),
   );
   const state = EditorState.create({
     doc,
@@ -236,22 +233,18 @@ test("code conversion retains media labels and URLs as Markdown", () => {
   tr.doc.check();
   assert.equal(
     tr.doc.firstChild!.textContent,
-    "[Recording](recording.mp3) [](clip.mp4) ![](photo.png)",
+    "Recording Clip ![](photo.png)",
   );
 });
 
-test("ordinary paragraph to code keeps page, image and media targets", () => {
+test("ordinary paragraph to code keeps page and image targets and link text", () => {
   const paragraph = s.nodes.paragraph.create(null, [
     s.text("before ", [s.marks.strong.create()]),
     s.nodes.page_link.create({ target: "page-id", label: "Project" }),
     s.text(" "),
     s.nodes.image.create({ src: "photo.png", alt: "Photo" }),
     s.text(" "),
-    s.nodes.media.create({
-      type: "audio",
-      src: "recording.mp3",
-      label: "Recording",
-    }),
+    s.text("Recording", [s.marks.link.create({ href: "recording.mp3" })]),
     s.text(" after"),
   ]);
   const doc = s.nodes.doc.create(null, [p("above"), paragraph, p("below")]);
@@ -268,7 +261,7 @@ test("ordinary paragraph to code keeps page, image and media targets", () => {
   assert.equal(tr.doc.child(1).type.name, "code_block");
   assert.equal(
     tr.doc.child(1).textContent,
-    "before [[page-id|Project]] ![Photo](photo.png) [Recording](recording.mp3) after",
+    "before [[page-id|Project]] ![Photo](photo.png) Recording after",
   );
   assert.equal(tr.doc.child(1).firstChild!.marks.length, 0);
   assert.ok(tr.doc.firstChild!.eq(doc.firstChild!));
@@ -318,7 +311,7 @@ test("selection direction and marks survive conversion", () => {
   );
   const doc = s.nodes.doc.create(
     null,
-    ul(s.nodes.list_item.create(null, first)),
+    ul(s.nodes.bullet_list_item.create(null, first)),
   );
   const from = textPosition(doc, "formatted");
   const state = EditorState.create({
@@ -372,7 +365,7 @@ test("Markdown source for unaffected content survives item conversion", () => {
   assert.ok(markdown.endsWith("After _exact_.\n"));
   assert.match(markdown, /## middle/);
   assert.equal(
-    parseEditorMarkdown(markdown).textContent,
+    parseNative(markdown, { version: 1, variant: "notdown", extensions: {} }).textContent,
     result.doc.textContent,
   );
 });

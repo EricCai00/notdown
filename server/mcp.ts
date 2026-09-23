@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { dialects } from "../src/markdown-engine/config.js";
 
 function localApiOrigin(raw: string): string {
   const url = new URL(raw);
@@ -46,6 +47,21 @@ export function createNoteMcpServer(
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/)
     .describe("The immutable page id returned by list_pages or create_page");
   const fields = {
+    syntax: z
+      .object({
+        version: z.literal(1),
+        variant: z.enum(dialects.map((v) => v.id)),
+        extensions: z.record(
+          z.string().regex(/^[a-z][a-z_0-9]{0,100}$/),
+          z.boolean(),
+        ),
+      })
+      .passthrough()
+      .nullable()
+      .optional()
+      .describe(
+        "Versioned native Markdown variant and extension overrides. Preserve unknown fields. When changing syntax, submit the complete body and matching bodyFormat in the same CAS update. Null restores the bodyFormat default.",
+      ),
     title: z.string().min(1).max(500).optional(),
     parent: pageId
       .nullable()
@@ -62,7 +78,12 @@ export function createNoteMcpServer(
       .describe(
         "Complete body without YAML. New pages use Notion Enhanced Markdown: one newline per block, tabs for children, <br> inside a block, <columns>/<column>, <page>, <mention-page>, media tags. Preserve <unknown> and unknown markup. Read bodyFormat before editing legacy pages; omitted fields stay unchanged.",
       ),
-    bodyFormat: z.enum(["markdown", "notion-markdown"]).optional().describe("New pages default to notion-markdown. On update preserve the read format, or convert the complete body before changing it. Do not mix CommonMark and Notion newline semantics."),
+    bodyFormat: z
+      .enum(["markdown", "notion-markdown"])
+      .optional()
+      .describe(
+        "New pages default to notion-markdown. On update preserve the read format, or convert the complete body before changing it. Do not mix CommonMark and Notion newline semantics.",
+      ),
   };
 
   async function request(

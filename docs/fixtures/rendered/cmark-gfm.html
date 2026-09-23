@@ -1,0 +1,487 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; frame-src 'none'; base-uri 'none'; form-action 'none'"><title>cmark-gfm</title><style>
+body{font:16px/1.65 system-ui,'Microsoft YaHei',sans-serif;color:#24292f;background:white;margin:0;padding:28px 36px;overflow-wrap:anywhere}
+main{max-width:980px;margin:auto}h1,h2,h3{line-height:1.3}h2{margin-top:1.8em;border-bottom:1px solid #ddd;padding-bottom:8px}
+a{color:#0969da}pre{background:#f6f8fa;padding:16px;overflow:auto;white-space:pre-wrap}code{background:#f6f8fa;font-size:.9em}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid #d0d7de;padding:8px;text-align:left}img{max-width:100%}
+blockquote{border-left:4px solid #ddd;margin-left:0;padding-left:18px;color:#57606a}li{margin:5px 0}input[type=checkbox]{margin-right:6px}
+.notice{background:#eef5ff;padding:16px;border-radius:8px;margin-bottom:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.panel{border:1px solid #d0d7de;border-radius:10px;padding:20px;min-width:0}.panel h2{margin-top:0}
+@media(max-width:850px){.grid{grid-template-columns:1fr}body{padding:20px}}
+</style></head><body><main style="max-width:980px"><div class="notice"><strong>cmark-gfm</strong> · <a href="index.html">返回并排对照</a><br>原文件全文；仅添加统一排版。无 Notdown 解析或任务列表补丁。脚本与外部 iframe 不运行；图表围栏不额外转换成图。</div><hr />
+<p>layout: post
+title: &quot;Notdown × Typora 语法对照测试&quot;
+tags:</p>
+<ul>
+<li>markdown</li>
+<li>compatibility
+custom_probe:
+preserve_unknown: true
+text: &quot;未知 YAML 字段应保留&quot;</li>
+</ul>
+<hr />
+<h1>Notdown × Typora 语法对照测试</h1>
+<p>这是一份手工验收样本，不是已经通过的兼容性报告。样例来源：用户整理的 Markdown / CommonMark / GFM 清单及 18 项 Typora 扩展。每个编号后的内容都是实际测试输入；代码保护测试除外，不要将全文包在代码围栏里。</p>
+<h2>使用方法与记录</h2>
+<ol>
+<li>保留本文件原件，分别使用副本测试。Typora 直接打开 <code>.md</code>；Notdown 在临时知识库中新建页面，将本文件全文粘贴到<strong>源码视图</strong>，选择 <strong>Typora / typora</strong> 方言，再切换到页面视图。不要在 Notion 默认方言或 Markdown Lab 的 Pandoc reader 中代测。</li>
+<li>文件最前面的 YAML 是测试正文的一部分。粘贴时也要包含它，不要把它合并到 Notdown 知识库文件外层的页面 YAML 中。</li>
+<li>记录两个应用的版本、Notdown 扩展开关、Typora Markdown 偏好设置、Strict Mode 状态和主题。先测默认设置，再对数学、上下标、高亮等选项做启用/停用对照；每轮都记录设置。</li>
+<li>比较语义、层级、链接目标、换行和源码保留；字体、颜色、公式字体不同单独记录，不直接算解析错误。未渲染、未启用、资源加载失败、原文丢失应分别记录。</li>
+<li>对 B01–B03 分别测试 Strict Mode 开/关。单个文件无法同时代表两种模式的结果。</li>
+<li>保存并重新打开；对 R01 做编辑往返测试。未闭合围栏放在文件最后，避免吞掉其余测试。</li>
+</ol>
+<p>测试日期：（待填写）；Typora 版本：（待填写）；Notdown commit：（待填写）。</p>
+<p>Typora 偏好设置 / Strict Mode：（待填写）；Notdown 方言 / 扩展覆盖值：（待填写）。</p>
+<table>
+<thead>
+<tr>
+<th>用例编号</th>
+<th>Typora 实测</th>
+<th>Notdown 实测</th>
+<th>保存后源码差异</th>
+<th>结论 / 截图编号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>示例：T08</td>
+<td>待测</td>
+<td>待测</td>
+<td>待测</td>
+<td>待测</td>
+</tr>
+</tbody>
+</table>
+<h2>C01 — ATX 标题与闭合标记</h2>
+<p>观察六级标题及闭合 <code>#</code> 是否被当作标题标记。</p>
+<h1>header 1</h1>
+<h2>header 2</h2>
+<h3>header 3</h3>
+<h4>header 4</h4>
+<h5>header 5</h5>
+<h6>header 6</h6>
+<h3>header 3 with closing hashes</h3>
+<h2>C02 — Setext 标题</h2>
+<h1>Setext level one</h1>
+<h2>Setext level two</h2>
+<h2>C03 — 四种分隔线</h2>
+<p>下面依次为星号带空格、连续星号、连字符、下划线。</p>
+<hr />
+<hr />
+<hr />
+<hr />
+<h2>C04 — 段落、空行、软换行与硬换行</h2>
+<p>单换行在 CommonMark 默认合并为空格；Typora 编辑视图默认保留换行，且可通过偏好设置改变。Notdown Typora 预设对应 <code>hard_line_breaks</code>，关闭后才按合并空格的行为对照。连续空行不要求显示成多个空段落；应在源码中检查保留情况。</p>
+<p>软换行第一行
+软换行第二行</p>
+<p>新段落，与前段之间有一个空行。</p>
+<p>此段之前有三个空行；观察保存后空行是否保留。</p>
+<p>两个尾随空格产生的硬换行第一行<br />
+硬换行第二行</p>
+<p>反斜杠硬换行第一行<br />
+硬换行第二行</p>
+<p>HTML 换行第一行<br>HTML 换行第二行</p>
+<h2>C05 — 三种代码块</h2>
+<p>缩进代码，第一行有四个空格：</p>
+<pre><code>code line
+    code line
+code line
+</code></pre>
+<pre lang="javascript"><code>const literal = &quot;**不是加粗** $不是公式$ [toc]&quot;;
+    console.log(literal);
+
+// 空行与缩进应保留
+</code></pre>
+<pre lang="python"><code>value = &quot;==不是高亮==&quot;
+    # 保留缩进；仅测试显示，不执行代码
+</code></pre>
+<h2>C06 — 引用、惰性续行与嵌套</h2>
+<blockquote>
+<p>blockquote</p>
+<h2>h2 in a blockquote</h2>
+<ol>
+<li>
+<p>list item</p>
+<pre><code> code block
+</code></pre>
+</li>
+</ol>
+</blockquote>
+<p>引用惰性续行：</p>
+<blockquote>
+<p>blockquote
+blockquote lazy continuation</p>
+</blockquote>
+<p>嵌套引用：</p>
+<blockquote>
+<p>outer blockquote</p>
+<blockquote>
+<p>nested blockquote</p>
+</blockquote>
+</blockquote>
+<h2>C07 — 无序列表三种标记</h2>
+<ul>
+<li>star item one</li>
+<li>star item two</li>
+</ul>
+<p>分隔文字。</p>
+<ul>
+<li>plus item one</li>
+<li>plus item two</li>
+</ul>
+<p>分隔文字。</p>
+<ul>
+<li>minus item one</li>
+<li>minus item two</li>
+</ul>
+<h2>C08 — 有序列表编号与右括号</h2>
+<ol>
+<li>item one</li>
+<li>item two</li>
+<li>item three</li>
+</ol>
+<p>以下源码编号都为 1，观察显示编号与保存源码。</p>
+<ol>
+<li>repeated one</li>
+<li>repeated two</li>
+<li>repeated three</li>
+</ol>
+<p>以下源码编号为 3、1、8，观察起始值和连续编号。</p>
+<ol start="3">
+<li>starts at three</li>
+<li>source number one</li>
+<li>source number eight</li>
+</ol>
+<p>右括号标记（CommonMark/GFM 正向用例；按用户实测，Typora 为不应生成列表的反向用例）：</p>
+<ol>
+<li>right parenthesis one</li>
+<li>right parenthesis two</li>
+<li>right parenthesis three</li>
+</ol>
+<h2>C09 — 列表嵌套、续行与复合内容</h2>
+<p>续行仍属于同一个列表项；是否显示换行另受换行设置影响。不要把「同一项」与「同一视觉行」混为一谈。</p>
+<ul>
+<li>parent one
+<ol>
+<li>child one</li>
+<li>child two</li>
+</ol>
+</li>
+<li>parent two</li>
+</ul>
+<p>显式缩进续行：</p>
+<ul>
+<li>word word
+word</li>
+</ul>
+<p>惰性续行：</p>
+<ul>
+<li>word word
+word</li>
+</ul>
+<p>同项内多段落：</p>
+<ul>
+<li>
+<p>item</p>
+<p>second paragraph in same item</p>
+</li>
+</ul>
+<p>同项内引用和缩进代码：</p>
+<ul>
+<li>
+<p>item</p>
+<blockquote>
+<p>block quote</p>
+</blockquote>
+<pre><code>code block
+</code></pre>
+</li>
+</ul>
+<h2>C10 — 行内代码、强调与组合</h2>
+<p>text <code>code</code> text；text <code>code with ` in it</code> text。</p>
+<p><em>emphasis</em>；<em>emphasis</em>；<strong>strong emphasis</strong>；<strong>strong emphasis</strong>。</p>
+<p><em><strong>strong and emphasis</strong></em>；<strong>bold with <em>italic</em> inside</strong>；foo_bar_baz。</p>
+<h2>C11 — 普通链接与引用链接</h2>
+<p>检查链接外观、目标地址与打开行为。Notdown 编辑区使用 Ctrl/⌘ + 点击打开外部链接，普通点击用于定位和编辑文字。</p>
+<p><a href="https://example.com/">inline link</a>；<a href="https://example.com/" title="title">link with title</a>。</p>
+<p><a href="https://example.com/double" title="double title">double-quote title</a>；<a href="https://example.com/single" title="single title">single-quote title</a>；<a href="https://example.com/paren" title="parenthesis title">parenthesis title</a>；<a href="https://example.com/next" title="next line title">next-line title</a>。</p>
+<p><a href="https://example.com/named">named reference</a>；<a href="https://example.com/collapsed">collapsed</a>；<a href="https://example.com/shortcut" title="shortcut title">shortcut</a>。</p>
+<h2>C12 — 图片与引用式图片</h2>
+<p>两张图引用同一个随附本地 PNG。Typora 从当前目录解析；在 Notdown 中需将随附图片上传到临时知识库，并在测试副本中把两处路径改为上传返回的路径。仅粘贴 Markdown 不会自动导入图片。分别记录资源路径问题与 Markdown 解析问题。</p>
+<p><img src="typora-comparison-image.png" alt="蓝底白字 ND 测试图片" title="inline image title" /></p>
+<p><img src="typora-comparison-image.png" alt="引用式 ND 测试图片" title="reference image title" /></p>
+<h2>C13 — 自动链接</h2>
+<p><a href="https://example.com/">https://example.com/</a></p>
+<p><a href="mailto:address@example.com">address@example.com</a></p>
+<p><a href="http://www.commonmark.com">www.commonmark.com</a></p>
+<p><a href="http://example.com">http://example.com</a></p>
+<p><a href="mailto:address@example.com">address@example.com</a></p>
+<p><a href="mailto:address@example.com">mailto:address@example.com</a></p>
+<p>边界：括号内 (<a href="https://example.com/path)%EF%BC%8C%E5%8F%A5%E6%9C%AB">https://example.com/path)，句末</a> <a href="https://example.com/end">https://example.com/end</a>. 观察标点是否被包含进链接。</p>
+<h2>C14 — HTML 块与行内 HTML</h2>
+<p>paragraph before HTML</p>
+<table>
+    <tr>
+        <td>HTML cell one</td>
+        <td>HTML cell two</td>
+    </tr>
+</table>
+<p>paragraph after HTML</p>
+<p>text <del>deleted HTML text</del> text；<kbd>Ctrl</kbd>；H<sub>2</sub>O；X<sup>2</sup>。</p>
+<h2>C15 — 反斜杠转义、实体与普通文本</h2>
+<p>用户提供的 Typora 实测：第二行的双引号、百分号、&amp;、单引号、逗号、斜杠、冒号、分号、问号和 @ 前保留反斜杠；美元符号、尖括号、等号、上箭头、竖线、波浪线前去掉反斜杠。Notdown Typora 默认按此范围识别；显式开启 <code>all_symbols_escapable</code> 后采用所有 ASCII 标点可转义的行为。代码内容仍保持字面值。</p>
+<p>\ ` * _ { } [ ] ( ) # + - . !</p>
+<p>&quot; $ % &amp; ' , / : ; &lt; &gt; = ? @ ^ | ~</p>
+<p>© &amp; &lt; &gt; A 中</p>
+<p>hello $.;'there；中文 English 123；普通文本应完整保留。</p>
+<h2>G01 — GFM 管道表格</h2>
+<table>
+<thead>
+<tr>
+<th>col one</th>
+<th>col two</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>foo</td>
+<td>bar</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th align="left">左对齐</th>
+<th align="center">居中</th>
+<th align="right">右对齐</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><strong>bold</strong></td>
+<td align="center"><code>code</code></td>
+<td align="right">123</td>
+</tr>
+<tr>
+<td align="left"><a href="https://example.com/">link</a></td>
+<td align="center">a|b</td>
+<td align="right">456</td>
+</tr>
+<tr>
+<td align="left">空单元格 →</td>
+<td align="center"></td>
+<td align="right">789</td>
+</tr>
+<tr>
+<td align="left">第一行<br>第二行</td>
+<td align="center"><code>x|y</code></td>
+<td align="right"><del>deleted</del></td>
+</tr>
+</tbody>
+</table>
+<h2>G02 — 任务列表</h2>
+<ul>
+<li><input type="checkbox" disabled="" /> unchecked</li>
+<li><input type="checkbox" checked="" disabled="" /> checked lowercase</li>
+<li><input type="checkbox" checked="" disabled="" /> checked uppercase</li>
+<li><input type="checkbox" disabled="" /> parent task
+<ul>
+<li><input type="checkbox" checked="" disabled="" /> child task</li>
+<li><input type="checkbox" disabled="" /> another child</li>
+</ul>
+</li>
+</ul>
+<p>以下是 GFM 有序任务列表扩展用例。用户提供的 Typora 实测为普通有序列表，保留 <code>[ ]</code> / <code>[x]</code> 文字，不生成复选框；Notdown Typora 方言应与此一致。cmark-gfm 生成复选框，Pandoc 3.11 的 gfm reader 保留文字。GitHub 官方 Markdown 速查表第 2 页 TASK LISTS 注明 “any unordered or ordered list supported”：<a href="https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf">https://enterprise.github.com/downloads/en/markdown-cheatsheet.pdf</a> 。规范依据为 GFM §5.2 的列表项定义及 §5.3 的任务列表项规则；§5.3 未单独展示有序任务示例。</p>
+<ol>
+<li><input type="checkbox" disabled="" /> ordered task</li>
+<li><input type="checkbox" checked="" disabled="" /> ordered completed task</li>
+</ol>
+<h2>G03 — 删除线及边界</h2>
+<p><del>strikethrough</del>；<del><strong>bold deleted</strong></del>；<del>single tilde probe</del>。</p>
+<p>最后一个是单波浪线边界，与 Typora 下标设置一起观察，不能混同双波浪线删除线。</p>
+<h2>G04 — HTML 过滤差异探针</h2>
+<p>Notdown 当前策略：<code>script</code>、<code>style</code> 不生成预览内容，保持空白；<code>textarea</code> 显示只读文本框，内容通过“编辑 HTML”修改保存。单行 <code>xmp</code>、<code>noembed</code> 属于行内 HTML，只显示里面的文字，不显示标签原文，Typora 方言也一样。块级 HTML 可展开源码，行内 HTML 在源码视图编辑。这是 Notdown 的显示约定，不承诺复刻 Typora 的全部 HTML 行为。</p>
+<p>下面是实际 HTML 输入。仅记录各标签是否显示、被转义、被过滤，以及保存后是否保留；本文件不预设两个应用必须执行相同的 HTML 策略。iframe 在 T12 单独测试。以下 script 仅含非执行数据。</p>
+&lt;title>PROBE title text&lt;/title>
+&lt;textarea>PROBE textarea text&lt;/textarea>
+&lt;style>/* PROBE style: no CSS rules */&lt;/style>
+<p>&lt;xmp>PROBE xmp text&lt;/xmp></p>
+<p>&lt;noembed>PROBE noembed text&lt;/noembed></p>
+&lt;noframes>PROBE noframes text&lt;/noframes>
+&lt;script type="application/json">{"probe":"inert-data"}&lt;/script>
+<p>G04 后置哨兵：此文字必须仍可恢复。</p>
+<h2>T01 — 块级数学公式</h2>
+<p>$$
+y=x^2
+$$</p>
+<p>$$
+\begin{aligned}
+a^2+b^2 &amp;= c^2 \
+\int_0^1 x^2,dx &amp;= \frac{1}{3}
+\end{aligned}
+$$</p>
+<h2>T02 — 脚注</h2>
+<p>text[^fn1]；重复引用同一个脚注[^fn1]；另一个多段脚注[^long-note]。</p>
+<p>[^fn1]: text in <em>footnote</em></p>
+<p>[^long-note]: 第一段，包含 <strong>bold</strong> 和 <a href="https://example.com/">link</a>。</p>
+<pre><code>第二段，观察是否仍属于脚注。
+</code></pre>
+<p>观察脚注引用、定义位置、编号、跳转及重复引用；这些行为分别记录。</p>
+<h2>T03 — YAML front matter</h2>
+<p>实际输入位于文件最开头，以 <code>layout: post</code>、<code>title</code>、列表和嵌套未知字段构成。观察是否显示为元数据、是否误认成分隔线，以及保存后 <code>custom_probe</code> 是否保留。</p>
+<h2>T04 — 目录</h2>
+<p>[toc]</p>
+<p>观察目录是否生成、各级标题是否出现、点击是否跳转；代码围栏里的假标题不得进入目录。新增标题后再观察目录更新。</p>
+<h2>T05 — GitHub 风格提示块</h2>
+<blockquote>
+<p>[!NOTE]
+text，包含 <strong>bold</strong>。</p>
+</blockquote>
+<blockquote>
+<p>[!TIP]
+A helpful tip.</p>
+</blockquote>
+<blockquote>
+<p>[!IMPORTANT]
+Important information.</p>
+</blockquote>
+<blockquote>
+<p>[!WARNING]
+Warning information.</p>
+</blockquote>
+<blockquote>
+<p>[!CAUTION]
+Caution information.</p>
+</blockquote>
+<h2>T06 — 页内链接与标题 ID</h2>
+<p><a href="#header-3">跳到 Header 3</a>；<a href="#%E4%B8%AD%E6%96%87%E9%94%9A%E7%82%B9%E6%B5%8B%E8%AF%95">跳到中文标题</a>；<a href="#missing-header-probe">跳到不存在的标题</a>。</p>
+<p>第一个链接指向 C01 的 <code>header 3</code>；中文和不存在的目标作为边界测试。</p>
+<h3>中文锚点测试</h3>
+<p>中文锚点目标。</p>
+<h2>T07 — Emoji</h2>
+<p>:smile: :heart: :+1: :not_a_real_emoji_probe: 😄</p>
+<p>观察已知短码、未知短码和原生 Unicode Emoji；未知短码应可恢复。</p>
+<h2>T08 — 行内数学与美元符号边界</h2>
+<p>行内公式 $y=x^2$；含分式 $\frac{a}{b}$；中文前$x+1$中文后。</p>
+<p>价格 $5 和 $10；转义美元 $20；未闭合 $x+1。</p>
+<p>边界探针 $ x + 1 $ 与代码 <code>$y=x^2$</code>；记录实际解释，不预设全部都是数学。</p>
+<h2>T09 — 下标</h2>
+<p>H<del>2</del>O；CO<del>2</del>；a<del>i</del>；转义 H~2~O；代码 <code>H~2~O</code>。</p>
+<h2>T10 — 上标</h2>
+<p>X^2^；x^n+1^；转义 X^2^；代码 <code>X^2^</code>。</p>
+<h2>T11 — 高亮</h2>
+<p>==highlight==；==<strong>bold highlight</strong>==；中文==重点==中文；转义 ==literal==；代码 <code>==highlight==</code>。</p>
+<h2>T12 — iframe 嵌入</h2>
+<p>此项需要网络。远端拒绝嵌入或网络错误应记为资源问题；另记录解析器是否识别 iframe、是否保留属性和原文。使用原始 HTML URL，不能把 Markdown 链接语法塞进 src。</p>
+&lt;iframe height="265" scrolling="no" title="Fancy Animated SVG Menu" src="https://codepen.io/jeangontijo/embed/OxVywj/?height=265&amp;theme-id=0&amp;default-tab=css,result&amp;embed-version=2" frameborder="no" allowtransparency="true" allowfullscreen="true" style="width: 100%;">&lt;/iframe>
+<h2>T13 — sequence 图表</h2>
+<pre lang="sequence"><code>Alice-&gt;Bob: Hello Bob
+Bob--&gt;Alice: Hello Alice
+</code></pre>
+<p>空图表边界：</p>
+<pre lang="sequence"><code></code></pre>
+<h2>T14 — flow 图表</h2>
+<pre lang="flow"><code>st=&gt;start: Start
+op=&gt;operation: Read markdown
+cond=&gt;condition: Valid?
+e=&gt;end: End
+st-&gt;op-&gt;cond
+cond(yes)-&gt;e
+cond(no)-&gt;op
+</code></pre>
+<p>空图表边界：</p>
+<pre lang="flow"><code></code></pre>
+<h2>T15 — Mermaid</h2>
+<pre lang="mermaid"><code>graph TD
+    A[Markdown] --&gt; B{Parse}
+    B --&gt; C[Preview]
+    B --&gt; D[Preserve source]
+</code></pre>
+<pre lang="mermaid"><code>sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    A-&gt;&gt;B: Hello
+    B--&gt;&gt;A: Hi
+</code></pre>
+<p>空图表边界：</p>
+<pre lang="mermaid"><code></code></pre>
+<h2>B01 / T16 — 非严格标题</h2>
+<p>下面第一行 <code>#</code> 后没有空格；第二行有空格。Notdown 对应 <code>space_in_atx_header</code> 开关，分别比较开关前后行为。</p>
+<p>###header</p>
+<h3>header with required space</h3>
+<h2>B02 / T17 — 非严格列表续行</h2>
+<p>下面第二行恰好有两个 ASCII 空格：</p>
+<ol>
+<li>word
+word</li>
+</ol>
+<p>对照：第二行四个空格。</p>
+<ol>
+<li>word
+word</li>
+</ol>
+<h2>B03 / T18 — 非严格嵌套列表</h2>
+<p>子列表前恰好两个 ASCII 空格：</p>
+<ol>
+<li>item</li>
+<li>item</li>
+</ol>
+<p>对照：子列表前四个空格。</p>
+<ol>
+<li>item
+<ol>
+<li>item</li>
+</ol>
+</li>
+</ol>
+<p>Notdown 的 B02/B03 对应 <code>typora_loose_lists</code>；记录是否嵌套、是否变成同级列表、保存后缩进是否改变。</p>
+<h2>B04 — 代码与转义保护</h2>
+<p>以下围栏中的内容全部应作为代码文字保留，不得生成目录、图表、公式、脚注或提示块。</p>
+<pre lang="markdown"><code>---
+title: not metadata
+---
+# FAKE HEADING INSIDE CODE
+[toc]
+&gt; [!NOTE]
+- [x] not a task
+$$
+y=x^2
+$$
+text[^fake]
+[^fake]: not a footnote
+:smile: H~2~O X^2^ ==highlight==
+&lt;iframe src=&quot;https://example.com/&quot;&gt;&lt;/iframe&gt;
+```mermaid
+graph TD
+    X --&gt; Y
+```
+</code></pre>
+<p>*literal emphasis*；[toc]；$y=x^2$；~~literal strike~~。</p>
+<h2>B05 — 未知及未闭合行内语法</h2>
+<p>[undefined reference][missing-ref-probe]</p>
+<p>text[^missing-footnote-probe]</p>
+<p>==unclosed highlight</p>
+<p>**unclosed strong</p>
+<p><unknown-probe data-keep="yes">未知标签内容 KEEP-UNKNOWN</unknown-probe></p>
+<p>B05 后置哨兵：未识别语法与相邻正文均不得丢失。</p>
+<h2>R01 — 编辑与源码往返检查</h2>
+<p>EDIT-ME：只将本段中的 apple 改为 orange。</p>
+<ol>
+<li>先不编辑，只切换「源码 → 页面 → 源码」，比较整个正文是否变化。</li>
+<li>仅修改上面的 apple，再保存并重新打开。比较其他顶层块，重点检查 YAML 未知字段、引用定义、代码围栏、HTML 属性、图表源码和连续空行。</li>
+<li>在副本中切换任务复选框；修改表格单元格；修改公式；修改图表源码。每次单独保存，检查改动范围与重新解析结果。</li>
+<li>在 Typora 的独立副本上做相同操作，记录它的源码规范化行为；不要让两个应用并发改同一份文件。</li>
+<li>对未实现或未识别的内容，分别记录「原文可恢复」和「原文丢失」，不要只依据预览判定。</li>
+</ol>
+<h2>B06 — plaintext 与文件末尾隔离测试</h2>
+<p>HTML <code>plaintext</code> 可能让后续内容全部成为字面文本，因此只在此展示转义形式：<code>&lt;plaintext&gt;PROBE plaintext text</code>。要测实际标签，请在另一份空白测试页粘贴该代码内容；本项不计作已在全文中执行的用例。</p>
+<h2>B07 — 未闭合围栏（必须保持在文件最后）</h2>
+<p>从下一行开始直至 EOF 都属于未闭合围栏探针。观察是否保留为代码、是否报错，以及保存是否补齐围栏。其内假标题不得成为正常标题。</p>
+<pre lang="markdown"><code># EOF FAKE HEADING
+[toc]
+$$
+y=x^2
+EOF-SENTINEL：此行及前面的所有原文必须可恢复。
+</code></pre>
+</main></body></html>

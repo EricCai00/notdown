@@ -1,0 +1,123 @@
+import { test, expect } from "@playwright/test";
+
+test("Notion source filter includes local feature counterparts with honest encoding evidence", async ({ page }) => {
+  await page.goto("/block-catalog.html#tab=extensions&id=notion_meeting_notes&variant=typora&source=notion");
+  const detail = page.locator(".catalog-detail");
+  await expect(detail.locator(":scope > h2")).toHaveText("Meeting notes");
+  await expect(detail).toContainText("Notion feature counterpart · Notdown local encoding");
+  const results = page.locator(".catalog-results");
+  await expect(results.locator("article")).toHaveCount(22);
+  for (const id of ["notion_meeting_notes", "notion_link_preview", "notion_tabs", "notion_html_document"]) {
+    const card = results.locator(`[data-extension-id="${id}"]`);
+    await expect(card.locator('[data-extension-category="notion"]')).toHaveText("Notdown Notion extensions");
+    await expect(card).toContainText("local encoding");
+    await card.locator(`a[data-extension="${id}"]`).click();
+    await expect(detail).toContainText("not verified official Notion enhanced Markdown syntax");
+    await expect(detail.locator(':scope > .catalog-links > li > a[href^="https://developers.notion.com/reference/block#"]')).toHaveCount(1);
+  }
+  await page.getByRole("combobox", { name: "Extension source" }).selectOption("product");
+  await expect(results.locator("article")).toHaveCount(16);
+  await expect(results.locator('[data-extension-id="local_figure"]')).toHaveCount(1);
+});
+
+test("CommonMark exposes built-in syntax as the second read-only group in both surfaces", async ({ page, request }) => {
+  const response = await request.post("/api/pages", { data: { title: "CommonMark built-in evidence", body: "first\\\nsecond\n\n```\ncode\n```", bodyFormat: "markdown", syntax: { version: 1, variant: "commonmark", extensions: {} } } });
+  expect(response.status()).toBe(201);
+  const note = await response.json();
+  await page.addInitScript(id => localStorage.setItem("notdown-page", id), note.id);
+  await page.goto("/");
+  await expect(page.locator(".pm-document")).toBeVisible();
+  await page.locator(".syntax-options summary").click();
+  const panel = page.locator(".syntax-options-panel");
+  await expect(panel.locator('[data-extension-category-heading]')).toHaveText(["Pandoc extensions", "Notdown Notion extensions", "Notdown Markdown extensions"]);
+  const tabs = panel.locator('.extension-choice').filter({ has: page.locator('input[data-extension="notion_tabs"]') });
+  await expect(tabs.locator('strong')).toHaveText("Tabs");
+  await expect(tabs.locator('code')).toHaveText("notion_tabs");
+  await expect(tabs.locator('[data-extension-category="notion"]')).toHaveText("Notdown Notion extensions");
+  expect(await panel.locator("[data-extension-group]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension-group")))).toEqual(["specified", "builtin", "other"]);
+  await expect(panel.locator('[data-extension-group="specified"] input')).toHaveCount(1);
+  await expect(panel.locator('input[data-extension="raw_html"]')).toBeChecked();
+  const builtin = panel.locator('[data-extension-group="builtin"]');
+  await expect(builtin.locator("[data-builtin-extension]")).toHaveCount(9);
+  await expect(builtin.locator("input, button")).toHaveCount(0);
+  const lineBreak = builtin.locator('[data-builtin-extension="escaped_line_breaks"]');
+  await expect(lineBreak).toContainText("Pandoc: built in · no switch");
+  await expect(lineBreak.locator("a")).toHaveAttribute("href", "https://spec.commonmark.org/0.31.2/#hard-line-breaks");
+  const before = await (await request.get(`/api/pages/${note.id}`)).json();
+  await lineBreak.locator("strong").click();
+  const after = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(after.revision).toBe(before.revision);
+  expect(after.syntax).toEqual(before.syntax);
+  await lineBreak.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/commonmark-builtin-settings.png" });
+  await page.getByRole("combobox", { name: "Markdown dialect" }).selectOption("typora");
+  await expect(panel.locator('[data-extension-group="builtin"]')).toHaveCount(0);
+  await expect(panel.locator('input[data-extension="backtick_code_blocks"]')).toBeVisible();
+
+  await page.goto("/block-catalog.html#tab=extensions&id=escaped_line_breaks&variant=commonmark");
+  const results = page.locator(".catalog-results");
+  expect(await results.locator("[data-extension-group]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension-group")))).toEqual(["specified", "builtin", "other", "outside"]);
+  await expect(results.locator('[data-extension-group="builtin"] article')).toHaveCount(9);
+  await expect(results.locator('[data-extension-id="escaped_line_breaks"]')).toContainText("Notdown: Built-in syntax · no switch");
+  await results.locator('[data-extension-group="builtin"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/commonmark-builtin-catalog.png" });
+  await page.locator('.catalog-detail a[data-variant="commonmark"]').click();
+  await expect(page.locator('.catalog-detail [data-extension-group="builtin"] a[data-extension="escaped_line_breaks"]')).toHaveText("Backslash line breaks");
+});
+
+test("page extension settings group syntax evidence separately from Pandoc defaults and user overrides", async ({ page, request }) => {
+  const response = await request.post("/api/pages", { data: { title: "Extension evidence", body: "Text", bodyFormat: "markdown", syntax: { version: 1, variant: "gfm", extensions: {} } } });
+  expect(response.status()).toBe(201);
+  const note = await response.json();
+  await page.addInitScript(id => localStorage.setItem("notdown-page", id), note.id);
+  await page.goto("/");
+  await page.locator(".syntax-options summary").click();
+  const panel = page.locator(".syntax-options-panel");
+  await expect(panel.locator("[data-extension-group]")).toHaveCount(3);
+  expect(await panel.locator("[data-extension-group]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension-group")))).toEqual(["specified", "builtin", "other"]);
+  const row = (id: string) => panel.locator(".extension-choice").filter({ has: page.locator(`input[data-extension="${id}"]`) });
+  await expect(row("pipe_tables")).toContainText("GFM Spec · Required");
+  await expect(row("alerts")).toContainText("GFM Docs · Optional");
+  await expect(row("footnotes")).toContainText("Pandoc default: on");
+  await expect(panel.locator('[data-extension-group="other"] input[data-extension="yaml_metadata_block"]')).not.toBeChecked();
+  const before = await panel.locator("input[data-extension]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension")));
+  await row("footnotes").locator("input").uncheck();
+  await expect(row("footnotes").locator("input")).not.toBeChecked();
+  await expect(row("footnotes")).toContainText("Pandoc default: on");
+  expect(await panel.locator("input[data-extension]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension")))).toEqual(before);
+  await page.getByRole("combobox", { name: "Markdown dialect" }).selectOption("typora");
+  await expect(row("highlight")).toContainText("Typora Docs · Optional setting");
+  await expect(row("highlight")).toContainText("Pandoc: no preset");
+  await expect(row("highlight").locator("a")).toHaveAttribute("href", /support.typora.io\/Markdown-Reference\/#highlight/);
+  await row("highlight").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/extension-evidence-settings.png" });
+});
+
+test("Block Explorer groups extension lists and variant relations, preserving filters and navigation", async ({ page }) => {
+  await page.goto("/block-catalog.html#tab=extensions&id=pipe_tables&variant=gfm");
+  const results = page.locator(".catalog-results");
+  const card = (id: string) => results.locator(`[data-extension-id="${id}"]`);
+  await expect(page.getByRole("combobox", { name: "Extension source" }).locator('option')).toHaveText(["All sources", "Pandoc extensions", "Notdown Notion extensions", "Notdown Markdown extensions"]);
+  await expect(results.locator('[data-extension-group="other"] [data-extension-category-heading]')).toHaveText(["Pandoc extensions", "Notdown Notion extensions", "Notdown Markdown extensions"]);
+  await expect(card("notion_tabs").locator('code')).toHaveText("notion_tabs");
+  expect(await results.locator("[data-extension-group]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension-group")))).toEqual(["specified", "builtin", "other", "outside"]);
+  await expect(card("pipe_tables")).toContainText("GFM Spec · Required");
+  await expect(card("footnotes")).toContainText("GFM Docs · Optional");
+  await expect(results.locator('[data-extension-group="other"]')).toContainText("yaml_metadata_block");
+  await expect(results.locator('[data-extension-group="outside"]')).toContainText("amuse");
+  await page.getByRole("combobox", { name: "Catalog dialect" }).selectOption("typora");
+  await expect(card("diagrams")).toContainText("Optional setting");
+  await expect(card("diagrams")).toContainText("Pandoc: no preset");
+  await page.getByRole("combobox", { name: "Extension source" }).selectOption("product");
+  await page.getByRole("searchbox").fill("highlight");
+  await expect(results.locator("article")).toHaveCount(2);
+  expect(await results.locator("article").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension-id")))).toEqual(["highlight", "critic_markup"]);
+  await expect(card("highlight")).toContainText("Optional setting");
+  await card("highlight").locator('a[data-extension="highlight"]').click();
+  await page.locator('.catalog-detail a[data-variant="gfm"]').click();
+  await expect(page.locator('.catalog-detail [data-extension-group="specified"]')).toContainText("GFM Docs");
+  await page.goBack();
+  await expect(page.getByRole("searchbox")).toHaveValue("highlight");
+  await page.goto("/block-catalog.html#tab=extensions&id=alerts&variant=gfm");
+  await page.screenshot({ path: "test-results/extension-evidence-catalog.png" });
+});

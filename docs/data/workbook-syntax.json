@@ -1,0 +1,1103 @@
+{
+  "source": "markdown & notion.xlsx", 
+  "sheets": {
+    "markdown": [
+      {
+        "F1": "CommonMark", 
+        "G1": "GitHub Flavored Markdown", 
+        "A1": "original type", 
+        "B1": "original name", 
+        "C1": "Markdown (John Gruber)", 
+        "E1": "CommonMark name", 
+        "D1": "CommonMark type"
+      }, 
+      {
+        "F2": "SUPPORTED", 
+        "G2": "SUPPORTED", 
+        "A2": "block", 
+        "B2": "horizontal rule", 
+        "C2": "* * *", 
+        "D2": "leaf block", 
+        "E2": "thematic break"
+      }, 
+      {
+        "F3": "SUPPORTED", 
+        "G3": "SUPPORTED", 
+        "A3": "block", 
+        "B3": "horizontal rule", 
+        "C3": "***", 
+        "D3": "leaf block", 
+        "E3": "thematic break"
+      }, 
+      {
+        "G4": "SUPPORTED", 
+        "F4": "SUPPORTED", 
+        "B4": "horizontal rule", 
+        "A4": "block", 
+        "E4": "thematic break", 
+        "D4": "leaf block", 
+        "C4": "---"
+      }, 
+      {
+        "G5": "SUPPORTED", 
+        "F5": "SUPPORTED", 
+        "B5": "horizontal rule", 
+        "A5": "block", 
+        "E5": "thematic break", 
+        "D5": "leaf block", 
+        "C5": "______"
+      }, 
+      {
+        "G6": "SUPPORTED", 
+        "F6": "SUPPORTED", 
+        "B6": "header 1", 
+        "A6": "block", 
+        "D6": "leaf block", 
+        "E6": "ATX heading", 
+        "C6": "# header 1"
+      }, 
+      {
+        "G7": "SUPPORTED", 
+        "F7": "SUPPORTED", 
+        "B7": "header 2", 
+        "A7": "block", 
+        "D7": "leaf block", 
+        "E7": "ATX heading", 
+        "C7": "## header 2"
+      }, 
+      {
+        "F8": "SUPPORTED", 
+        "G8": "SUPPORTED", 
+        "C8": "### header 3", 
+        "E8": "ATX heading", 
+        "D8": "leaf block", 
+        "A8": "block", 
+        "B8": "header 3"
+      }, 
+      {
+        "F9": "SUPPORTED", 
+        "G9": "SUPPORTED", 
+        "C9": "#### header 4", 
+        "E9": "ATX heading", 
+        "D9": "leaf block", 
+        "A9": "block", 
+        "B9": "header 4"
+      }, 
+      {
+        "D10": "leaf block", 
+        "A10": "block", 
+        "E10": "ATX heading", 
+        "B10": "header 5", 
+        "F10": "SUPPORTED", 
+        "C10": "##### header 5", 
+        "G10": "SUPPORTED"
+      }, 
+      {
+        "A11": "block", 
+        "D11": "leaf block", 
+        "E11": "ATX heading", 
+        "B11": "header 6", 
+        "C11": "###### header 6", 
+        "F11": "SUPPORTED", 
+        "G11": "SUPPORTED"
+      }, 
+      {
+        "D12": "leaf block", 
+        "A12": "block", 
+        "E12": "ATX heading", 
+        "B12": "header", 
+        "F12": "SUPPORTED", 
+        "C12": "### header 3 #####", 
+        "G12": "SUPPORTED"
+      }, 
+      {
+        "A13": "block", 
+        "D13": "leaf block", 
+        "E13": "setext heading", 
+        "B13": "header 1", 
+        "C13": "header 1\n===", 
+        "F13": "SUPPORTED", 
+        "G13": "SUPPORTED"
+      }, 
+      {
+        "D14": "leaf block", 
+        "A14": "block", 
+        "E14": "setext heading", 
+        "B14": "header 2", 
+        "G14": "SUPPORTED", 
+        "F14": "SUPPORTED", 
+        "C14": "header 2\n---"
+      }, 
+      {
+        "A15": "block", 
+        "D15": "leaf block", 
+        "E15": "indented code block", 
+        "B15": "code block", 
+        "G15": "SUPPORTED", 
+        "C15": "    code line\n        code line\n    code line", 
+        "F15": "SUPPORTED"
+      }, 
+      {
+        "D16": "leaf block", 
+        "A16": "block", 
+        "E16": "fenced code block", 
+        "B16": "code block", 
+        "G16": "SUPPORTED", 
+        "F16": "```lang\ncode line\n    code line\ncode line\n```", 
+        "C16": "NOT SUPPORTED"
+      }, 
+      {
+        "A17": "block", 
+        "D17": "leaf block", 
+        "E17": "fenced code block", 
+        "B17": "code block", 
+        "G17": "SUPPORTED", 
+        "C17": "NOT SUPPORTED", 
+        "F17": "~~~lang\ncode line\n    code line\ncode line\n~~~"
+      }, 
+      {
+        "E18": "HTML block", 
+        "D18": "leaf block", 
+        "A18": "block", 
+        "F18": "SUPPORTED", 
+        "C18": "paragraph\n\n<table>\n    <tr>\n        <td>text</td>\n    </tr>\n</table>\n\nparagraph", 
+        "G18": "SUPPORTED", 
+        "B18": "block-level HTML element"
+      }, 
+      {
+        "E19": "paragraph", 
+        "A19": "block", 
+        "D19": "leaf block", 
+        "C19": "paragraph", 
+        "F19": "SUPPORTED", 
+        "G19": "SUPPORTED", 
+        "B19": "paragraph"
+      }, 
+      {
+        "D20": "leaf block", 
+        "F20": "SUPPORTED", 
+        "E20": "blank line", 
+        "G20": "SUPPORTED", 
+        "B20": "blank line"
+      }, 
+      {
+        "D21": "leaf block", 
+        "F21": "NOT SUPPORTED", 
+        "C21": "NOT SUPPORTED", 
+        "E21": "table", 
+        "G21": "| col | col |\n| --- | --- |\n| foo | bar |"
+      }, 
+      {
+        "C22": "NOT SUPPORTED", 
+        "F22": "NOT SUPPORTED", 
+        "D22": "leaf block", 
+        "G22": "| col | col |\n|:--- |:---:|\n| foo | bar |", 
+        "E22": "table"
+      }, 
+      {
+        "C23": "> blockquote\n> \n> ## h2 in a blockquote\n> 1. list item\n> \n>         code block", 
+        "A23": "block", 
+        "G23": "SUPPORTED", 
+        "E23": "block quote", 
+        "D23": "container block", 
+        "B23": "blockquote", 
+        "F23": "SUPPORTED"
+      }, 
+      {
+        "E24": "block quote", 
+        "G24": "SUPPORTED", 
+        "A24": "block", 
+        "C24": "> blockquote\nblockquote", 
+        "B24": "blockquote", 
+        "D24": "container block", 
+        "F24": "SUPPORTED"
+      }, 
+      {
+        "E25": "block quote", 
+        "G25": "SUPPORTED", 
+        "A25": "block", 
+        "C25": "> blockquote\n>\n> > nested blockquote", 
+        "B25": "nested blockquote", 
+        "D25": "container block", 
+        "F25": "SUPPORTED"
+      }, 
+      {
+        "G26": "SUPPORTED", 
+        "E26": "list item; list", 
+        "C26": "* item\n* item", 
+        "A26": "block", 
+        "B26": "bulleted list", 
+        "D26": "container block", 
+        "F26": "SUPPORTED"
+      }, 
+      {
+        "G27": "SUPPORTED", 
+        "E27": "list item; list", 
+        "C27": "+ item\n+ item", 
+        "A27": "block", 
+        "B27": "bulleted list", 
+        "D27": "container block", 
+        "F27": "SUPPORTED"
+      }, 
+      {
+        "D28": "container block", 
+        "B28": "bulleted list", 
+        "A28": "block", 
+        "C28": "- item\n- item", 
+        "E28": "list item; list", 
+        "G28": "SUPPORTED", 
+        "F28": "SUPPORTED"
+      }, 
+      {
+        "D29": "container block", 
+        "B29": "numbered list", 
+        "A29": "block", 
+        "C29": "1. item\n2. item\n3. item", 
+        "E29": "list item; list", 
+        "G29": "SUPPORTED", 
+        "F29": "SUPPORTED"
+      }, 
+      {
+        "G30": "SUPPORTED", 
+        "A30": "block", 
+        "E30": "list item; list", 
+        "B30": "numbered list", 
+        "D30": "container block", 
+        "F30": "SUPPORTED", 
+        "C30": "1. item\n1. item\n1. item"
+      }, 
+      {
+        "G31": "SUPPORTED", 
+        "A31": "block", 
+        "E31": "list item; list", 
+        "B31": "numbered list", 
+        "D31": "container block", 
+        "F31": "SUPPORTED", 
+        "C31": "3. item\n1. item\n8. item"
+      }, 
+      {
+        "A32": "block", 
+        "G32": "SUPPORTED", 
+        "E32": "list item; list", 
+        "D32": "container block", 
+        "B32": "numbered list", 
+        "F32": "1) item\n2) item\n3) item", 
+        "C32": "NOT SUPPORTED"
+      }, 
+      {
+        "A33": "block", 
+        "G33": "SUPPORTED", 
+        "E33": "list item; list", 
+        "D33": "container block", 
+        "B33": "nested list", 
+        "F33": "SUPPORTED", 
+        "C33": "* item\n    1. item\n    2. item\n* item"
+      }, 
+      {
+        "E34": "list item; list", 
+        "G34": "SUPPORTED", 
+        "A34": "block", 
+        "B34": "list item", 
+        "D34": "container block", 
+        "F34": "SUPPORTED", 
+        "C34": "*   word word\n    word"
+      }, 
+      {
+        "E35": "list item; list", 
+        "G35": "SUPPORTED", 
+        "A35": "block", 
+        "B35": "list item", 
+        "D35": "container block", 
+        "F35": "SUPPORTED", 
+        "C35": "* word word\nword"
+      }, 
+      {
+        "E36": "list item; list", 
+        "A36": "block", 
+        "G36": "SUPPORTED", 
+        "D36": "container block", 
+        "B36": "multi-paragraph list item", 
+        "F36": "SUPPORTED", 
+        "C36": "*   item\n\n    paragraph"
+      }, 
+      {
+        "E37": "list item; list", 
+        "A37": "block", 
+        "G37": "SUPPORTED", 
+        "D37": "container block", 
+        "B37": "block with in a list item", 
+        "F37": "SUPPORTED", 
+        "C37": "*   item\n\n    > block quote\n\n        code block"
+      }, 
+      {
+        "F38": "NOT SUPPORTED", 
+        "G38": "- [ ] item\n- [x] item", 
+        "C38": "NOT SUPPORTED", 
+        "D38": "container block", 
+        "E38": "task list item"
+      }, 
+      {
+        "B39": "code", 
+        "D39": "inline", 
+        "G39": "SUPPORTED", 
+        "A39": "span", 
+        "E39": "code span", 
+        "C39": "text `code` text", 
+        "F39": "SUPPORTED"
+      }, 
+      {
+        "F40": "SUPPORTED", 
+        "E40": "code span", 
+        "C40": "text ``code with ` in it`` text", 
+        "B40": "code", 
+        "G40": "SUPPORTED", 
+        "A40": "span", 
+        "D40": "inline"
+      }, 
+      {
+        "F41": "SUPPORTED", 
+        "E41": "emphasis", 
+        "B41": "emphasis", 
+        "C41": "*emphasis*", 
+        "G41": "SUPPORTED", 
+        "A41": "span", 
+        "D41": "inline"
+      }, 
+      {
+        "E42": "emphasis", 
+        "F42": "SUPPORTED", 
+        "C42": "_emphasis_", 
+        "B42": "emphasis", 
+        "G42": "SUPPORTED", 
+        "A42": "span", 
+        "D42": "inline"
+      }, 
+      {
+        "E43": "strong emphasis", 
+        "F43": "SUPPORTED", 
+        "B43": "strong emphasis", 
+        "C43": "**strong emphasis**", 
+        "G43": "SUPPORTED", 
+        "A43": "span", 
+        "D43": "inline"
+      }, 
+      {
+        "C44": "__strong emphasis__", 
+        "B44": "strong emphasis", 
+        "F44": "SUPPORTED", 
+        "E44": "strong emphasis", 
+        "A44": "span", 
+        "G44": "SUPPORTED", 
+        "D44": "inline"
+      }, 
+      {
+        "C45": "NOT SUPPORTED", 
+        "F45": "NOT SUPPORTED", 
+        "G45": "~~text~~", 
+        "D45": "inline", 
+        "E45": "strikethrough"
+      }, 
+      {
+        "C46": "[link](http://example.com/)", 
+        "B46": "inline link", 
+        "E46": "inline link", 
+        "F46": "SUPPORTED", 
+        "A46": "span", 
+        "G46": "SUPPORTED", 
+        "D46": "inline"
+      }, 
+      {
+        "B47": "inline link", 
+        "C47": "[link](http://example.com/ \"title\")", 
+        "E47": "inline link", 
+        "F47": "SUPPORTED", 
+        "A47": "span", 
+        "G47": "SUPPORTED", 
+        "D47": "inline"
+      }, 
+      {
+        "F48": "SUPPORTED", 
+        "E48": "full reference link; link reference definition", 
+        "C48": "[text][1]\n\n[1]: http://example.com/ \"title\"", 
+        "B48": "reference-style link", 
+        "D48": "inline; leaf block", 
+        "G48": "SUPPORTED", 
+        "A48": "span"
+      }, 
+      {
+        "F49": "SUPPORTED", 
+        "E49": "full reference link; link reference definition", 
+        "B49": "reference-style link", 
+        "C49": "[text][1]\n\n[1]: http://example.com/ 'title'", 
+        "D49": "inline; leaf block", 
+        "G49": "SUPPORTED", 
+        "A49": "span"
+      }, 
+      {
+        "F50": "SUPPORTED", 
+        "C50": "[text][1]\n\n[1]: http://example.com/ (title)", 
+        "B50": "reference-style link", 
+        "A50": "span", 
+        "G50": "SUPPORTED", 
+        "D50": "inline; leaf block", 
+        "E50": "full reference link; link reference definition"
+      }, 
+      {
+        "C51": "[text][1]\n\n[1]: http://example.com/\n    \"title\"", 
+        "F51": "SUPPORTED", 
+        "B51": "reference-style link", 
+        "A51": "span", 
+        "G51": "SUPPORTED", 
+        "D51": "inline; leaf block", 
+        "E51": "full reference link; link reference definition"
+      }, 
+      {
+        "F52": "SUPPORTED", 
+        "C52": "[text][ref]\n\n[ref]: http://example.com/", 
+        "B52": "reference-style link", 
+        "G52": "SUPPORTED", 
+        "A52": "span", 
+        "D52": "inline; leaf block", 
+        "E52": "full reference link; link reference definition"
+      }, 
+      {
+        "C53": "[text][]\n\n[text]: http://example.com/", 
+        "F53": "SUPPORTED", 
+        "B53": "reference-style link", 
+        "G53": "SUPPORTED", 
+        "A53": "span", 
+        "D53": "inline; leaf block", 
+        "E53": "collapsed reference link; link reference definition"
+      }, 
+      {
+        "E54": "shortcut reference link", 
+        "F54": "[text]\n\n[text]: http://example.com/ \"title\"", 
+        "C54": "INCLUDED IN PERL CODE", 
+        "D54": "inline; leaf block", 
+        "G54": "SUPPORTED"
+      }, 
+      {
+        "C55": "![alt text](/path/to/img.jpg \"title\")", 
+        "F55": "SUPPORTED", 
+        "B55": "image", 
+        "A55": "span", 
+        "G55": "SUPPORTED", 
+        "E55": "image", 
+        "D55": "inline"
+      }, 
+      {
+        "F56": "SUPPORTED", 
+        "C56": "![alt text][id]\n\n[id]: /path/to/img.jpg \"title\"", 
+        "B56": "image", 
+        "G56": "SUPPORTED", 
+        "A56": "span", 
+        "E56": "image; link reference definition", 
+        "D56": "inline; leaf block"
+      }, 
+      {
+        "C57": "<http://example.com/>", 
+        "F57": "SUPPORTED", 
+        "B57": "automatic link", 
+        "G57": "SUPPORTED", 
+        "A57": "micellaneous", 
+        "E57": "URI autolink", 
+        "D57": "inline"
+      }, 
+      {
+        "B58": "automatic link", 
+        "F58": "SUPPORTED", 
+        "C58": "<address@example.com>", 
+        "D58": "inline", 
+        "E58": "email autolink", 
+        "A58": "micellaneous", 
+        "G58": "SUPPORTED"
+      }, 
+      {
+        "D59": "inline", 
+        "G59": "www.commonmark.com", 
+        "E59": "extended www autolink", 
+        "C59": "NOT SUPPORTED", 
+        "F59": "NOT SUPPORTED"
+      }, 
+      {
+        "E60": "extended url autolink", 
+        "G60": "http://example.com", 
+        "D60": "inline", 
+        "C60": "NOT SUPPORTED", 
+        "F60": "NOT SUPPORTED"
+      }, 
+      {
+        "E61": "extended email autolink", 
+        "G61": "address@example.com", 
+        "D61": "inline", 
+        "F61": "NOT SUPPORTED", 
+        "C61": "NOT SUPPORTED"
+      }, 
+      {
+        "G62": "mailto:address@example.com", 
+        "E62": "extended protocol autolink", 
+        "C62": "NOT SUPPORTED", 
+        "F62": "NOT SUPPORTED", 
+        "D62": "inline"
+      }, 
+      {
+        "B63": "span-level HTML element", 
+        "C63": "text <del>text</del> text", 
+        "A63": "span", 
+        "G63": "SUPPORTED", 
+        "E63": "raw HTML", 
+        "F63": "SUPPORTED", 
+        "D63": "inline"
+      }, 
+      {
+        "D64": "inline", 
+        "C64": "NOT SUPPORTED", 
+        "F64": "NOT SUPPORTED", 
+        "E64": "disallowed raw HTML", 
+        "G64": "<title> <textarea> <style> <xmp> <iframe> <noembed> <noframes> <script> <plaintext>"
+      }, 
+      {
+        "B65": "hard wrap", 
+        "A65": "block", 
+        "C65": "line  \nline", 
+        "D65": "inline", 
+        "F65": "SUPPORTED", 
+        "E65": "hard line break", 
+        "G65": "SUPPORTED"
+      }, 
+      {
+        "C66": "NOT SUPPORTED", 
+        "F66": "line\\\nline", 
+        "D66": "inline", 
+        "G66": "SUPPORTED", 
+        "E66": "hard line break"
+      }, 
+      {
+        "B67": "paragraph", 
+        "C67": "word\nword", 
+        "A67": "block", 
+        "F67": "SUPPORTED", 
+        "D67": "inline", 
+        "G67": "SUPPORTED", 
+        "E67": "soft line break"
+      }, 
+      {
+        "E68": "texual content", 
+        "G68": "SUPPORTED", 
+        "D68": "inline", 
+        "C68": "hello $.;'there", 
+        "F68": "SUPPORTED"
+      }, 
+      {
+        "A69": "micellaneous", 
+        "C69": "\\\\ \\` \\* \\_ \\{ \\} \\[ \\] \\( \\) \\# \\+ \\- \\. \\!", 
+        "B69": "backslash escapes", 
+        "E69": "backslash escape", 
+        "G69": "SUPPORTED", 
+        "D69": "preliminary", 
+        "F69": "SUPPORTED"
+      }, 
+      {
+        "B70": "backslash escapes", 
+        "D70": "preliminary", 
+        "C70": "NOT SUPPORTED", 
+        "A70": "micellaneous", 
+        "G70": "SUPPORTED", 
+        "E70": "backslash escape", 
+        "F70": "\\\" \\$ \\% \\& \\' \\, \\/ \\: \\; \\< \\> \\= \\? \\@ \\^ \\| \\~"
+      }, 
+      {
+        "B71": "special characters", 
+        "D71": "preliminary", 
+        "C71": "&copy; &amp; &lt;", 
+        "A71": "micellaneous", 
+        "G71": "SUPPORTED", 
+        "E71": "entity and numeric character reference", 
+        "F71": "SUPPORTED"
+      }
+    ], 
+    "extended": [
+      {
+        "A1": "Typora", 
+        "C1": "math block", 
+        "E1": "Obsidian; Enhanced markdown; Pandoc's Markdown; MultiMarkdown; GFM with extensions", 
+        "B1": "block", 
+        "D1": "$$\ny=x^2\n$$"
+      }, 
+      {
+        "C2": "footnote", 
+        "A2": "Typora", 
+        "D2": "text[^fn1]\n\n[^fn1]: text in *footnote*", 
+        "B2": "block", 
+        "E2": "Markdown Guide; MultiMarkdown; PHP Markdown Extra; Obsidian; GFM with extensions"
+      }, 
+      {
+        "C3": "YAML front matter", 
+        "A3": "Typora", 
+        "D3": "---\nlayout: post\ntitle: Blogging Like a Hacker\n---", 
+        "E3": "MultiMarkdown; Pandoc's Markdown", 
+        "B3": "block"
+      }, 
+      {
+        "B4": "block", 
+        "D4": "[toc]", 
+        "A4": "Typora", 
+        "C4": "table of contents"
+      }, 
+      {
+        "E5": "GFM with extensions", 
+        "B5": "block", 
+        "D5": "> [!NOTE]\n> text", 
+        "A5": "Typora", 
+        "C5": "callout / GitHub style alert "
+      }, 
+      {
+        "D6": "### Header 3\n\n[link](#header-3)", 
+        "B6": "span", 
+        "E6": "GFM with extensions", 
+        "C6": "internal link", 
+        "A6": "Typora"
+      }, 
+      {
+        "D7": ":smile:", 
+        "E7": "Markdown Guide; Enhanced markdown; Pandoc extension (emoji); GFM with extensions", 
+        "B7": "span", 
+        "C7": "emoji", 
+        "A7": "Typora"
+      }, 
+      {
+        "A8": "Typora", 
+        "C8": "inline math", 
+        "B8": "span", 
+        "E8": "Obsidian; Pandoc's Markdown; MultiMarkdown; GFM with extensions", 
+        "D8": "$y=x^2$"
+      }, 
+      {
+        "A9": "Typora", 
+        "C9": "subscript", 
+        "E9": "Markdown Guide; MultiMarkdown; Pandoc's Markdown", 
+        "B9": "span", 
+        "D9": "H~2~O"
+      }, 
+      {
+        "E10": "Markdown Guide; MultiMarkdown; Pandoc's Markdown", 
+        "C10": "superscript", 
+        "D10": "X^2^", 
+        "A10": "Typora", 
+        "B10": "span"
+      }, 
+      {
+        "E11": "Obsidian; Markdown Guide", 
+        "C11": "highlight", 
+        "A11": "Typora", 
+        "D11": "==highlight==", 
+        "B11": "span"
+      }, 
+      {
+        "C12": "embed content", 
+        "E12": " ", 
+        "B12": "HTML", 
+        "D12": "<iframe height='265' scrolling='no' title='Fancy Animated SVG Menu' src='http://codepen.io/jeangontijo/embed/OxVywj/?height=265&theme-id=0&default-tab=css,result&embed-version=2' frameborder='no' allowtransparency='true' allowfullscreen='true' style='width: 100%;'></iframe>", 
+        "A12": "Typora"
+      }, 
+      {
+        "C13": "sequence diagram", 
+        "B13": "block", 
+        "A13": "Typora", 
+        "D13": "```sequence\n```"
+      }, 
+      {
+        "D14": "```flow\n```", 
+        "A14": "Typora", 
+        "B14": "block", 
+        "C14": "flowchart"
+      }, 
+      {
+        "A15": "Typora", 
+        "D15": "```mermaid\n```", 
+        "B15": "block", 
+        "E15": "Obsidian", 
+        "C15": "mermaid"
+      }, 
+      {
+        "D16": "###header", 
+        "A16": "Typora", 
+        "C16": "without Strict Mode"
+      }, 
+      {
+        "A17": "Typora", 
+        "D17": "1. word\n  word", 
+        "C17": "without Strict Mode"
+      }, 
+      {
+        "C18": "without Strict Mode", 
+        "D18": "1. item\n  1. item", 
+        "A18": "Typora"
+      }, 
+      {
+        "C19": "block comment", 
+        "A19": "Obsidian", 
+        "D19": "%%\ncomment\n%%", 
+        "B19": "block"
+      }, 
+      {
+        "A20": "Obsidian", 
+        "D20": "%%comment%%", 
+        "C20": "inline comment", 
+        "B20": "span"
+      }, 
+      {
+        "D21": "[[note title]]", 
+        "A21": "Obsidian", 
+        "C21": "internal link (Wikilink)", 
+        "B21": "inline"
+      }, 
+      {
+        "C22": "internal link (Markdown)", 
+        "A22": "Obsidian", 
+        "D22": "[note title](note%20title.md)", 
+        "B22": "inline"
+      }, 
+      {
+        "C23": "inline HTML", 
+        "D23": "paragraph\n<div>\ntext\n</div>", 
+        "A23": "PHP Markdown Extra"
+      }, 
+      {
+        "E24": "Pandoc extension (markdown_attribute)", 
+        "A24": "PHP Markdown Extra", 
+        "D24": "<div markdown=\"1\">\nThis is *true* markdown text.\n</div>", 
+        "C24": "markdown Inside HTML Blocks"
+      }, 
+      {
+        "E25": "Markdown Guide", 
+        "D25": "### Heading 3 {#heading-id}\n\n[link](#heading-id)", 
+        "A25": "PHP Markdown Extra", 
+        "C25": "special attributes"
+      }, 
+      {
+        "C26": "special attributes", 
+        "A26": "PHP Markdown Extra", 
+        "D26": "## heading ##  {.main}"
+      }, 
+      {
+        "C27": "special attributes", 
+        "D27": "## heading ##  {lang=fr}", 
+        "A27": "PHP Markdown Extra"
+      }, 
+      {
+        "A28": "PHP Markdown Extra", 
+        "D28": "[link](url){#id .class}\n![img](url){#id .class}", 
+        "C28": "special attributes"
+      }, 
+      {
+        "D29": "[ref]: url \"title\" {#id .class}", 
+        "A29": "PHP Markdown Extra", 
+        "C29": "special attributes"
+      }, 
+      {
+        "A30": "PHP Markdown Extra", 
+        "C30": "fenced code block", 
+        "D30": "~~~ .html\nhtml code\n~~~"
+      }, 
+      {
+        "A31": "PHP Markdown Extra", 
+        "C31": "fenced code block", 
+        "D31": "~~~ {.html #example-1}\nhtml code\n~~~"
+      }, 
+      {
+        "A32": "PHP Markdown Extra", 
+        "D32": "first term\n: definition\n\nsecond tern\n: definition 1\n: definition 2", 
+        "E32": "MultiMarkdown; Markdown Guide", 
+        "C32": "definition list"
+      }, 
+      {
+        "A33": "PHP Markdown Extra", 
+        "D33": "*[HTML]: Hyper Text Markup Language", 
+        "C33": "abbreviation"
+      }, 
+      {
+        "C34": "ordered list", 
+        "D34": "3. item\n4. item\n5. item", 
+        "A34": "PHP Markdown Extra"
+      }, 
+      {
+        "C35": "abbreviation", 
+        "D35": "[>MMD] text [>(MD) Markdown]\n\n[>MMD]: MultiMarkdown", 
+        "A35": "MultiMarkdown"
+      }, 
+      {
+        "D36": "[locator][#Doe:2006]\n\n[#Doe2006]: John Doe. Title. Press, 2006", 
+        "B36": "citation", 
+        "C36": "citation", 
+        "A36": "MultiMarkdown"
+      }, 
+      {
+        "D37": "[][#Doe:2006]\n\n[#Doe2006]: John Doe. Title. Press, 2006", 
+        "C37": "citation", 
+        "B37": "citation", 
+        "A37": "MultiMarkdown"
+      }, 
+      {
+        "A38": "MultiMarkdown", 
+        "B38": "citation", 
+        "C38": "citation", 
+        "D38": "[Not cited][#citekey]"
+      }, 
+      {
+        "A39": "MultiMarkdown", 
+        "C39": "inline citation", 
+        "B39": "citation", 
+        "D39": "text[#John Doe. Title. Press, 2006.]"
+      }, 
+      {
+        "D40": "[#citekey]\n[#citekey][]\n[#citekey;]", 
+        "C40": "BibTeX citation", 
+        "B40": "citation", 
+        "A40": "MultiMarkdown"
+      }, 
+      {
+        "D41": "{--text--}", 
+        "B41": "CriticMarkup ", 
+        "C41": "deletion", 
+        "A41": "MultiMarkdown"
+      }, 
+      {
+        "D42": "{++text++}", 
+        "A42": "MultiMarkdown", 
+        "C42": "addition", 
+        "B42": "CriticMarkup "
+      }, 
+      {
+        "D43": "{~~text~>text~~}", 
+        "A43": "MultiMarkdown", 
+        "B43": "CriticMarkup ", 
+        "C43": "substitution"
+      }, 
+      {
+        "C44": "highlighting", 
+        "B44": "CriticMarkup ", 
+        "A44": "MultiMarkdown", 
+        "D44": "{==text==}"
+      }, 
+      {
+        "B45": "CriticMarkup ", 
+        "C45": "comment", 
+        "A45": "MultiMarkdown", 
+        "D45": "{>>text<<}"
+      }, 
+      {
+        "A46": "MultiMarkdown", 
+        "C46": "cross-reference", 
+        "D46": "### header [header-id] ##\n\n[header-id][]"
+      }, 
+      {
+        "A47": "MultiMarkdown", 
+        "C47": "file transclusion", 
+        "D47": "{{file.txt}}"
+      }, 
+      {
+        "D48": "{{file.*}}", 
+        "C48": "wildcard extention", 
+        "A48": "MultiMarkdown"
+      }, 
+      {
+        "D49": "[?(term) explanation] is a glossary term.\n[?term] is also a glossary term\n\n[?term]: explanation", 
+        "C49": "glossary", 
+        "A49": "MultiMarkdown"
+      }, 
+      {
+        "D50": "![Alt text](/path/to/img.jpg)", 
+        "A50": "MultiMarkdown", 
+        "C50": "image block"
+      }, 
+      {
+        "A51": "MultiMarkdown", 
+        "D51": "text ![image][] text [link][]\n\n[image]: url \"title\" width=40px height=400px\n[link]: url \"title\" class=external", 
+        "C51": "link and image attribute"
+      }, 
+      {
+        "D52": "text [link](url \"title\" class=external)", 
+        "A52": "MultiMarkdown", 
+        "C52": "link and image attribute"
+      }, 
+      {
+        "A53": "MultiMarkdown", 
+        "D53": "text \\\\(equation\\\\) text\n\n\\\\[equation\\\\]", 
+        "C53": "math", 
+        "E53": "Pandoc extension (tex_math_double_backslash)"
+      }, 
+      {
+        "C54": "superscript", 
+        "D54": "This apartment has an area of 100m^2", 
+        "A54": "MultiMarkdown"
+      }, 
+      {
+        "C55": "subscript", 
+        "A55": "MultiMarkdown", 
+        "D55": "One must consider the value of x~z"
+      }, 
+      {
+        "C56": "metadata \"variable\"", 
+        "D56": "foo: foo-test\n\ntext [%foo] text", 
+        "A56": "MultiMarkdown"
+      }, 
+      {
+        "C57": "raw source", 
+        "A57": "MultiMarkdown", 
+        "D57": "text `code`{=html}\n\n```{=latex}\ncode\n```"
+      }, 
+      {
+        "D58": "--- -- ... ' ' \" \"", 
+        "A58": "MultiMarkdown", 
+        "E58": "Pandoc extension (smart); Typora", 
+        "C58": "smart typography"
+      }, 
+      {
+        "A59": "MultiMarkdown", 
+        "D59": "{{TOC}}", 
+        "C59": "table of contents"
+      }, 
+      {
+        "A60": "MultiMarkdown", 
+        "D60": "{{TOC:2}}\n{{TOC:2-3}}", 
+        "C60": "table of contents"
+      }, 
+      {
+        "D61": "|             |          Grouping           ||\nFirst Header  | Second Header | Third Header |\n ------------ | :-----------: | -----------: |\nContent       |          *Long Cell*        ||\nContent       |   **Cell**    |         Cell |\n\nNew section   |     More      |         Data |\nAnd more      | With an escaped '\\|'         ||  \n[Prototype table]", 
+        "A61": "MultiMarkdown", 
+        "C61": "table"
+      }, 
+      {
+        "B62": " ", 
+        "C62": "custom anchor", 
+        "A62": "GFM with extensions", 
+        "D62": "<a name=\"custom-anchor-point\"></a>\ntext\n\n[link ](#custom-anchor-point)"
+      }, 
+      {
+        "C63": "mention person", 
+        "D63": "@github/support text", 
+        "A63": "GFM with extensions"
+      }, 
+      {
+        "A64": "GFM with extensions", 
+        "D64": "#26", 
+        "C64": "autolink issue"
+      }, 
+      {
+        "D65": "GH-26", 
+        "A65": "GFM with extensions", 
+        "C65": "autolink issue"
+      }, 
+      {
+        "C66": "autolink issue", 
+        "A66": "GFM with extensions", 
+        "D66": "jlord/sheetsee.js#26"
+      }, 
+      {
+        "C67": "autolink external resources", 
+        "D67": "JIRA-123", 
+        "A67": "GFM with extensions"
+      }, 
+      {
+        "A68": "GFM with extensions", 
+        "D68": "a5c3785", 
+        "C68": "autolink commit SHA"
+      }, 
+      {
+        "D69": "jlord@a5c3785", 
+        "A69": "GFM with extensions", 
+        "C69": "autolink commit SHA"
+      }, 
+      {
+        "C70": "autolink commit SHA", 
+        "D70": "jlord/sheetsee.js@a5c3785", 
+        "A70": "GFM with extensions"
+      }, 
+      {
+        "C71": "math block", 
+        "E71": "Pandoc extension (tex_math_gfm)", 
+        "D71": "```math\ny=x^2\n```", 
+        "A71": "GFM with extensions"
+      }, 
+      {
+        "D72": "```{r fig.cap = \"title\", echo = FALSE}\nimage(volcano)\n```", 
+        "C72": "code chunk", 
+        "A72": "R Markdown"
+      }, 
+      {
+        "D73": "text `r colorFunc` text", 
+        "C73": "inline code", 
+        "A73": "R Markdown"
+      }, 
+      {
+        "A77": "Enhanced markdown", 
+        "D77": "text {color=\"blue\"}", 
+        "C77": "color", 
+        "B77": "style"
+      }, 
+      {
+        "B78": "block", 
+        "C78": "toggle heading", 
+        "D78": "# heading {toggle=\"true\"}", 
+        "E78": "PHP Markdown Extra", 
+        "A78": "Enhanced markdown"
+      }, 
+      {
+        "C80": "callout", 
+        "B80": "extended HTML", 
+        "A80": "Enhanced markdown", 
+        "D80": "<callout icon=\"emoji\">\n text\n</callout>"
+      }, 
+      {
+        "B81": "extended HTML", 
+        "C81": "empty line", 
+        "A81": "Enhanced markdown", 
+        "D81": "<empty-block/>"
+      }, 
+      {
+        "A82": "Enhanced markdown", 
+        "C82": "columns", 
+        "B82": "extended HTML", 
+        "D82": "<columns>\n <column>\n  text\n </column>\n <column>\n  text\n </column>\n</columns>"
+      }, 
+      {
+        "A83": "Enhanced markdown", 
+        "B83": "extended HTML", 
+        "C83": "media block (file)", 
+        "D83": "<file src=\"URL\">caption</file>"
+      }, 
+      {
+        "D84": "<pdf src=\"URL\">caption</pdf>", 
+        "C84": "media block (PDF)", 
+        "B84": "extended HTML", 
+        "A84": "Enhanced markdown"
+      }, 
+      {
+        "D85": "<page url=\"URL\">title</page>", 
+        "B85": "extended HTML", 
+        "C85": "page reference", 
+        "A85": "Enhanced markdown"
+      }, 
+      {
+        "D86": "<database url=\"URL\">title</database>", 
+        "A86": "Enhanced markdown", 
+        "C86": "database reference", 
+        "B86": "extended HTML"
+      }, 
+      {
+        "D87": "<table_of_contents/>", 
+        "A87": "Enhanced markdown", 
+        "B87": "extended HTML", 
+        "C87": "table of contents"
+      }, 
+      {
+        "C88": "synced block", 
+        "B88": "extended HTML", 
+        "A88": "Enhanced markdown", 
+        "D88": "<synced_block url=\"URL\">\n text\n</synced_block>\n\n<synced_block_reference url=\"URL\">\n text\n</synced_block_reference>"
+      }
+    ]
+  }, 
+  "captured": "2026-09-22"
+}

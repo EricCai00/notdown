@@ -1,12 +1,16 @@
 import MarkdownIt from "markdown-it";
+import { readObjectBlock, writeObjectBlock } from "./object-codec";
+import { multiMarkdownTable } from "./table-markdown";
 import type Token from "markdown-it/lib/token.mjs";
 import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "./editor-schema.js";
 import {
   editorFingerprint,
+  blockMarkdown,
   inlineMarkdown,
   parseEditorMarkdown,
   parseInline,
+  serializeEditorMarkdown,
 } from "./editor-markdown.js";
 import {
   attributesXml,
@@ -32,7 +36,7 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
   if (
     !tag ||
     (tag.tag !== "span" &&
-      !/^mention-(?:page|user|database|data-source|agent|date)$/.test(tag.tag))
+      !/^mention-(?:page|user|database|data-source|date|link)$/.test(tag.tag))
   )
     return false;
   let finish = tag.length,
@@ -88,6 +92,7 @@ md.inline.ruler.before("escape", "notion_math_citation", (state, silent) => {
 });
 // [[...]] remains an input convenience and a legacy reader, never new output.
 md.inline.ruler.before("link", "legacy_page_mention", (state, silent) => {
+  if (!state.env.legacyWiki) return false;
   const match = /^\[\[([^\]\r\n]+)\]\]/.exec(state.src.slice(state.pos));
   if (!match || silent) return false;
   const [target, ...label] = match[1].split("|");
@@ -133,7 +138,14 @@ function lineAttributes(source: string): {
 
 /** Parse structure before rich text. A tab belongs to the block tree; tabs and
  * tag-looking lines inside code fences are always literal code. */
-export function parseNotionMarkdown(source: string): PMNode {
+export interface NotionExtensions {
+  headingLimit?: number;
+  inline: (source: string) => PMNode[];
+  blocks: (source: string, atDocumentStart: boolean) => Map<number, { node: PMNode; lines: number }>;
+}
+export function parseNotionMarkdown(source: string, allowObject: (name: string) => boolean = () => false, extensions?: NotionExtensions): PMNode {
+  const notionInline = extensions?.inline ?? ((text: string) => parseInline(md.parseInline(text, {})[0]?.children ?? []));
+  const paragraph = (text = "", attrs: Record<string, unknown> = {}) => schema.nodes.paragraph.create(attrs, notionInline(text));
   const lines = source.split(/\r\n|\n|\r/);
   const offsets = [0];
   for (const match of source.matchAll(/\r\n|\n|\r/g))
@@ -210,6 +222,7 @@ export function parseNotionMarkdown(source: string): PMNode {
     from: number,
     end: number,
     level: number,
+    extra?: { node: PMNode; lines: number },
   ): {
     node: PMNode;
     next: number;
@@ -217,6 +230,12 @@ export function parseNotionMarkdown(source: string): PMNode {
     order?: number;
   } {
     const text = textAt(from);
+    if (extra) return { node: extra.node, next: from + extra.lines };
+    const object = /^<(?:tabs|bookmark|link-preview|breadcrumb|button|meeting-notes|ai-block|html-embed|web-embed|figure)(?:\s|\/?>)/.test(text)
+      ? readObjectBlock(lines.map(line => line.slice(level)), from, end, raw => parseNotionMarkdown(raw, allowObject, extensions)) : undefined;
+    if (object) return (object.node.type.name === "opaque_block" || allowObject(object.node.type.name)) ? object : {
+      node: schema.nodes.opaque_block.create({ raw: lines.slice(from, object.next).map(line => line.slice(level)).join("\n") }), next: object.next,
+    };
     const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(text);
     if (fence) {
       let close = from + 1;
@@ -286,11 +305,16 @@ export function parseNotionMarkdown(source: string): PMNode {
       const count = String(legacy.attrs.source || text).split(
         /\r\n|\n|\r/,
       ).length;
-      return { node: legacy, next: Math.min(end, from + count) };
+      return { node: schema.nodes.opaque_block.create({ raw: lines.slice(from, Math.min(end, from + count)).map(line => line.slice(level)).join("\n") }), next: Math.min(end, from + count) };
     }
     const tag = openingTag(text.trimStart());
     if (tag) {
       const trimmed = text.trimStart();
+      // Block carriers must occupy the whole line. Never discard a suffix
+      // merely because the line begins with a self-closing block tag.
+      if (tag.selfClosing && trimmed.slice(tag.length).trim() &&
+          !tag.tag.startsWith("mention-") && !["span", "br"].includes(tag.tag))
+        return { node: paragraph(text), next: from + 1 };
       const attrs = { nfmAttrs: tag.attrs, color: tag.attrs.color || "" };
       const endTag = `</${tag.tag}>`;
       const single = !tag.selfClosing && trimmed.endsWith(endTag);
@@ -330,13 +354,7 @@ export function parseNotionMarkdown(source: string): PMNode {
           };
         if (tag.tag === "database")
           return {
-            node: schema.nodes.database.create({
-              ...attrs,
-              url: tag.attrs.url || "",
-              label: decodeXml(body),
-              icon: tag.attrs.icon || "▦",
-              inline: tag.attrs.inline === "true",
-            }),
+            node: opaque(from, next),
             next,
           };
         if (tag.tag === "table_of_contents")
@@ -373,11 +391,11 @@ export function parseNotionMarkdown(source: string): PMNode {
       ) {
         if (close < 0) return { node: opaque(from, end), next: end };
         if (tag.tag === "table") {
-          const table = parseTable(body, attrs);
+          const table = parseTable(body, attrs, notionInline);
           return { node: table || opaque(from, next), next };
         }
         let content = single
-          ? kids(parseNotionMarkdown(body))
+          ? kids(parseNotionMarkdown(body, allowObject, extensions))
           : inside(from + 1, close, level + 1);
         if (tag.tag === "columns") {
           if (
@@ -395,7 +413,7 @@ export function parseNotionMarkdown(source: string): PMNode {
         if (tag.tag === "callout")
           return {
             node: schema.nodes.callout.create(
-              { ...attrs, icon: tag.attrs.icon || "💡" },
+              { ...attrs, icon: tag.attrs.icon ?? "💡" },
               nonempty(content),
             ),
             next,
@@ -417,7 +435,7 @@ export function parseNotionMarkdown(source: string): PMNode {
           : /^\s*<summary>(.*?)<\/summary>\s*$/.exec(lines[from + 1] || "");
         if (!summary) return { node: opaque(from, next), next };
         content = single
-          ? kids(parseNotionMarkdown(body.slice(summary[0].length)))
+          ? kids(parseNotionMarkdown(body.slice(summary[0].length), allowObject, extensions))
           : inside(from + 2, close, level + 1);
         return {
           node: schema.nodes.toggle_block.create(attrs, [
@@ -479,7 +497,7 @@ export function parseNotionMarkdown(source: string): PMNode {
     if (list) {
       const checkbox = /^\[([ xX])\](?: |$)/.exec(list[3]);
       return {
-        node: schema.nodes.list_item.create(
+        node: schema.nodes[checkbox ? "task_list_item" : list[2] ? "numbered_list_item" : "bullet_list_item"].create(
           {
             ...parsed.attrs,
             checked: checkbox ? checkbox[1].toLowerCase() === "x" : null,
@@ -500,7 +518,7 @@ export function parseNotionMarkdown(source: string): PMNode {
     if (heading)
       return {
         node: schema.nodes.heading.create(
-          { ...parsed.attrs, level: Math.min(4, heading[1].length) },
+          { ...parsed.attrs, level: Math.min(extensions?.headingLimit ?? 4, heading[1].length) },
           notionInline(heading[2]),
         ),
         next: from + 1,
@@ -517,6 +535,7 @@ export function parseNotionMarkdown(source: string): PMNode {
   }
   function sequence(from: number, end: number, level: number): PMNode[] {
     const result: PMNode[] = [];
+    const prepared = extensions?.blocks(lines.slice(from, end).map(line => line.startsWith("\t".repeat(level)) ? line.slice(level) : line).join("\n"), from === 0 && level === 0);
     for (let cursor = from; cursor < end;) {
       if (!lines[cursor].trim()) {
         cursor++;
@@ -533,7 +552,7 @@ export function parseNotionMarkdown(source: string): PMNode {
         result.push(withSource(opaque(start, cursor), start, cursor));
         continue;
       }
-      const item = one(cursor, end, level);
+      const item = one(cursor, end, level, prepared?.get(cursor - from));
       let node = item.node;
       cursor = Math.max(cursor + 1, item.next);
       let nextContent = cursor;
@@ -557,7 +576,7 @@ export function parseNotionMarkdown(source: string): PMNode {
             ...nested,
           ]);
         } else if (
-          ["list_item", "blockquote", "callout", "toggle_block"].includes(
+          ["bullet_list_item", "numbered_list_item", "task_list_item", "blockquote", "callout", "toggle_block"].includes(
             node.type.name,
           )
         )
@@ -616,9 +635,22 @@ export function parseNotionMarkdown(source: string): PMNode {
       ? node
       : schema.nodes.opaque_block.create({ raw: node.attrs.source || source }),
   );
+  const gaps: string[] = [];
+  let previousEnd = 0;
+  nodes = nodes.map((node, index) => {
+    gaps.push(source.slice(previousEnd, node.attrs.sourceStart ?? previousEnd));
+    previousEnd = node.attrs.sourceEnd ?? previousEnd;
+    return node.type.create(
+      { ...node.attrs, sourceKey: index },
+      node.content,
+      node.marks,
+    );
+  });
   const doc = schema.nodes.doc.create(
     {
       source,
+      sourceGaps: gaps,
+      sourceSuffix: source.slice(previousEnd),
       sourceFormat: "notion-markdown",
       sourceNewline: source.match(/\r\n|\n|\r/)?.[0] || "\n",
     },
@@ -633,6 +665,7 @@ export function parseNotionMarkdown(source: string): PMNode {
 function parseTable(
   body: string,
   attrs: Record<string, unknown>,
+  inline = notionInline,
 ): PMNode | null {
   const widths: string[] = [],
     columnAttrs: TagAttributes[] = [],
@@ -669,7 +702,7 @@ function parseTable(
       cells.push(
         schema.nodes.table_cell.create(
           { nfmAttrs: cell.attrs },
-          paragraph(content.slice(cell.length, finish).trim()),
+          schema.nodes.paragraph.create(null, inline(content.slice(cell.length, finish).trim())),
         ),
       );
       content = content.slice(finish + cell.tag.length + 3).trim();
@@ -696,9 +729,12 @@ function suffix(node: PMNode): string {
   return Object.keys(attrs).length ? ` {${attributesXml(attrs).trim()}}` : "";
 }
 function blocks(nodes: PMNode[]): string {
-  return nodes.map(notionBlockMarkdown).join("\n");
+  return nodes.map(node => notionBlockMarkdown(node)).join("\n\n");
 }
-export function notionBlockMarkdown(node: PMNode): string {
+export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => string = notionBlockMarkdown, inline: (node: PMNode) => string = node => inlineMarkdown(node, true)): string {
+  const blocks = (nodes: PMNode[]) => nodes.map(node => write(node)).join("\n\n");
+  const object = writeObjectBlock(node, child => write(child));
+  if (object !== undefined) return object;
   const attrs = attrsFor(node);
   const container = (
     name: string,
@@ -709,15 +745,15 @@ export function notionBlockMarkdown(node: PMNode): string {
   switch (node.type.name) {
     case "paragraph":
       return node.content.size
-        ? inlineMarkdown(node, true) + suffix(node)
+        ? inline(node) + suffix(node)
         : `<empty-block${attributesXml(attrs)}/>`;
     case "heading":
-      return `${"#".repeat(Math.min(4, node.attrs.level))} ${inlineMarkdown(node, true)}${suffix(node)}`;
+      return `${"#".repeat(Math.min(4, node.attrs.level))} ${inline(node)}${suffix(node)}`;
     case "nested_block": {
       let head = node.firstChild!;
       if (head.type === schema.nodes.heading)
         head = head.type.create({ ...head.attrs, toggle: true }, head.content);
-      return `${notionBlockMarkdown(head)}${node.childCount > 1 ? `\n${indent(blocks(kids(node).slice(1)))}` : ""}`;
+      return `${write(head)}${node.childCount > 1 ? `\n${indent(blocks(kids(node).slice(1)))}` : ""}`;
     }
     case "bullet_list":
     case "ordered_list":
@@ -733,7 +769,7 @@ export function notionBlockMarkdown(node: PMNode): string {
               : item.attrs.checked
                 ? "[x] "
                 : "[ ] ";
-          return `${marker}${check}${inlineMarkdown(item.firstChild!, true)}${suffix(item)}${item.childCount > 1 ? `\n${indent(blocks(kids(item).slice(1)))}` : ""}`;
+          return `${marker}${check}${inline(item.firstChild!)}${suffix(item)}${item.childCount > 1 ? `\n${indent(blocks(kids(item).slice(1)))}` : ""}`;
         })
         .join("\n");
     case "blockquote": {
@@ -742,7 +778,7 @@ export function notionBlockMarkdown(node: PMNode): string {
           ? node.firstChild
           : null;
       const children = kids(node).slice(head ? 1 : 0);
-      return `> ${head ? inlineMarkdown(head, true) : ""}${suffix(node)}${children.length ? `\n${indent(blocks(children))}` : ""}`;
+      return `> ${head ? inline(head) : ""}${suffix(node)}${children.length ? `\n${indent(blocks(children))}` : ""}`;
     }
     case "code_block": {
       const params = String(node.attrs.params || "").replace(/[\r\n]/g, "");
@@ -764,9 +800,12 @@ export function notionBlockMarkdown(node: PMNode): string {
     case "column":
       return container("column", kids(node));
     case "callout":
-      return container("callout", kids(node), { icon: node.attrs.icon });
+      // An absent icon uses the default; an explicit empty icon means removed.
+      return node.attrs.icon === ""
+        ? `<callout${attributesXml({ ...attrs, icon: "" })} icon="">\n${indent(blocks(kids(node)))}\n</callout>`
+        : container("callout", kids(node), { icon: node.attrs.icon });
     case "toggle_block":
-      return `<details${attributesXml(attrs)}>\n<summary>${inlineMarkdown(node.firstChild!, true)}</summary>${node.childCount > 1 ? `\n${indent(blocks(kids(node).slice(1)))}` : ""}\n</details>`;
+      return `<details${attributesXml(attrs)}>\n<summary>${inline(node.firstChild!)}</summary>${node.childCount > 1 ? `\n${indent(blocks(kids(node).slice(1)))}` : ""}\n</details>`;
     case "synced_block":
       return container(
         node.attrs.reference ? "synced_block_reference" : "synced_block",
@@ -775,8 +814,6 @@ export function notionBlockMarkdown(node: PMNode): string {
       );
     case "child_page":
       return `<page${attributesXml({ ...attrs, url: node.attrs.url || pageUrl(node.attrs.target) })}>${escapeXml(node.attrs.label || node.attrs.target)}</page>`;
-    case "database":
-      return `<database${attributesXml({ ...attrs, url: node.attrs.url, inline: String(node.attrs.inline), icon: node.attrs.icon })}>${escapeXml(node.attrs.label)}</database>`;
     case "table_of_contents":
       return `<table_of_contents${attributesXml(attrs)}/>`;
     case "unknown_block":
@@ -786,6 +823,7 @@ export function notionBlockMarkdown(node: PMNode): string {
     case "equation":
       return `$$\n${node.textContent}\n$$`;
     case "table": {
+      if (node.attrs.syntaxForm === "mmd") return multiMarkdownTable(node, n => inlineMarkdown(n), n => blockMarkdown(n));
       const columns: TagAttributes[] = node.attrs.columnAttrs?.length
         ? node.attrs.columnAttrs
         : (node.attrs.widths || []).map((width: string) => ({ width }));
@@ -798,7 +836,7 @@ export function notionBlockMarkdown(node: PMNode): string {
               .map(
                 (cell) =>
                   `\t\t<td${attributesXml(cell.attrs.nfmAttrs)}>${kids(cell)
-                    .map((p) => inlineMarkdown(p, true))
+                    .map((p) => inline(p))
                     .join("<br>")}</td>`,
               )
               .join("\n")}\n\t</tr>`,
@@ -816,28 +854,14 @@ export function notionBlockMarkdown(node: PMNode): string {
  * is converted as a whole once, so mixed newline semantics cannot enter a file. */
 export function serializeNotionMarkdown(doc: PMNode): string {
   const enhanced = doc.attrs.sourceFormat === "notion-markdown";
-  if (
-    enhanced &&
-    doc.attrs.source !== null &&
-    doc.attrs.sourceFingerprint === editorFingerprint(doc)
-  )
-    return doc.attrs.source;
+  if (enhanced) return serializeEditorMarkdown(doc, notionBlockMarkdown);
   const newline = doc.attrs.sourceNewline || "\n";
-  const output = kids(doc).map((node) =>
-    enhanced &&
-    node.attrs.source !== null &&
-    node.attrs.sourceFingerprint === editorFingerprint(node)
-      ? node.attrs.source.replace(/\r\n|\n|\r/g, "\n")
-      : notionBlockMarkdown(node),
-  );
-  if (!enhanced) {
-    // Reference definitions and unrendered legacy metadata stay recoverable.
-    for (const gap of doc.attrs.sourceGaps || [])
-      if (gap.trim()) output.push(gap.trim());
-    for (const hidden of doc.attrs.sourceHidden || [])
-      output.push(hidden.source);
-    if (doc.attrs.sourceSuffix?.trim())
-      output.push(doc.attrs.sourceSuffix.trim());
-  }
-  return output.join("\n").replace(/\r\n|\n|\r/g, newline);
+  const output = kids(doc).map(node => notionBlockMarkdown(node));
+  // Reference definitions and unrendered legacy metadata stay recoverable.
+  for (const gap of doc.attrs.sourceGaps || [])
+    if (gap.trim()) output.push(gap.trim());
+  for (const hidden of doc.attrs.sourceHidden || []) output.push(hidden.source);
+  if (doc.attrs.sourceSuffix?.trim())
+    output.push(doc.attrs.sourceSuffix.trim());
+  return output.join("\n\n").replace(/\r\n|\n|\r/g, newline);
 }

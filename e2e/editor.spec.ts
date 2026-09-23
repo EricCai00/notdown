@@ -1,3 +1,4 @@
+import { expectSource } from "./source-helper.js";
 import {
   expect,
   test,
@@ -73,7 +74,7 @@ test("plain text supports nested Tab, Shift Tab, subtree dragging and source rel
     page,
     request,
     note,
-    /Tail\nParent\n\tChild edited/,
+    /Tail\n\n:::nest\nParent\n:::children\nChild edited\n:::endnest/,
   );
   await page.reload();
   await expect(page.locator(".pm-nested-block > p")).toHaveText([
@@ -119,12 +120,10 @@ test("Shift Enter inserts a hard break inside paragraphs and todo rows across sa
     page,
     request,
     note,
-    /First line<br>Second line\n- \[ \] Task<br>Details/,
+    /First line<br>Second line\n\n- \[ \] Task<br>Details/,
   );
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue(
-    await body(request, note.id),
-  );
+  await expectSource(page, await body(request, note.id));
   await page.keyboard.press("Control+e");
   await expect(page.locator(".pm-document li")).toHaveCount(1);
   await page.reload();
@@ -151,9 +150,13 @@ async function createNote(
   request: APIRequestContext,
   title: string,
   body = "",
-  bodyFormat: "markdown" | "notion-markdown" = body ? "markdown" : "notion-markdown",
+  bodyFormat: "markdown" | "notion-markdown" = body
+    ? "markdown"
+    : "notion-markdown",
 ): Promise<Note> {
-  const response = await request.post("/api/pages", { data: { title, body, bodyFormat } });
+  const response = await request.post("/api/pages", {
+    data: { title, body, bodyFormat, ...(bodyFormat === "markdown" ? { syntax: { version: 1, variant: "commonmark", extensions: { strikeout: true, pipe_tables: true, task_lists: true, wikilinks_title_after_pipe: true, notion_nesting: true, notion_columns: true, notion_pages: true } } } : {}) },
+  });
   expect(response.status()).toBe(201);
   return response.json();
 }
@@ -293,7 +296,7 @@ test("long outlines support keyboard and pinning, and refresh after heading edit
 
   await page.locator('.sidebar-bottom [data-action="settings"]').click();
   await page.locator("#pin-toc").check();
-  await page.getByRole("button", { name: "完成", exact: true }).click();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.mouse.move(750, 500);
   await expect(toc).toHaveClass(/pinned/);
   await expect(toc.locator(".toc-text").last()).toBeVisible();
@@ -382,7 +385,7 @@ test.describe("outline navigation with normal scrolling", () => {
         .hover({ position: { x: 2, y: 10 } });
       await page.locator(".pm-block-handle").click();
       await page
-        .getByRole("menuitem", { name: "折叠标题", exact: true })
+        .getByRole("menuitem", { name: "Collapse heading", exact: true })
         .click();
     }
     const target = editor.getByRole("heading", {
@@ -529,9 +532,7 @@ test("Markdown input and Enter create consecutive blocks; Tab and Shift Tab edit
   await expect(editor.locator(":scope > ul > li")).toHaveCount(2);
   await save(page, request, note, /- First\s+[-*] Second/);
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue(
-    await body(request, note.id),
-  );
+  await expectSource(page, await body(request, note.id));
   await page.keyboard.press("Control+e");
   await expect(page.locator(".pm-document > ul > li")).toHaveCount(2);
 });
@@ -578,7 +579,7 @@ test("dragging a nested todo moves only that child and retains its own subtree",
   await expect(child.locator("ul > li > .pm-item-content > p")).toHaveText(
     "Grandchild",
   );
-  await save(page, request, note, /Last\r?\n- \[x\] Child\r?\n\t- Grandchild/);
+  await save(page, request, note, /Last\r?\n- \[x\] Child\r?\n  - Grandchild/);
   await page.reload();
   await expect(
     page.locator(".pm-document > ul > li > .pm-item-content > p"),
@@ -610,7 +611,7 @@ test("dragging a parent moves its complete subtree in one undoable change", asyn
     editor.locator(":scope > ul > li > .pm-item-content > p"),
   ).toHaveText(["Parent", "Sibling", "Last"]);
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue("- [ ] Parent\n\t- [x] Child\n\t\t- Grandchild\n- [ ] Sibling\n- Last");
+  await expectSource(page, source);
 });
 
 test("page mentions and child pages stay visual when the cursor passes them", async ({
@@ -644,7 +645,10 @@ test("page mentions and child pages stay visual when the cursor passes them", as
     fullPage: true,
   });
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue(`Before <mention-page url="#page/${target.id}">Linked page</mention-page> after [Example](https://example.com).\n<page url="#page/${target.id}">${target.id}</page>`);
+  await expectSource(
+    page,
+    `Before [[${target.id}|Linked page]] after [Example](https://example.com).\n\n::page{id="${target.id}"}\n`,
+  );
 });
 
 test("the six-dot menu can duplicate and delete a nested block without changing its parent", async ({
@@ -656,7 +660,9 @@ test("the six-dot menu can duplicate and delete a nested block without changing 
   const editor = await openNote(page, note);
   await row(page, "Child").hover({ position: { x: 2, y: 10 } });
   await page.locator(".pm-block-handle").click();
-  await page.getByRole("menuitem", { name: "复制块", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Duplicate block", exact: true })
+    .click();
   await expect(row(page, "Child")).toHaveCount(2);
   await expect(row(page, "Grandchild")).toHaveCount(2);
   await expect(
@@ -666,11 +672,11 @@ test("the six-dot menu can duplicate and delete a nested block without changing 
     .last()
     .hover({ position: { x: 2, y: 10 } });
   await page.locator(".pm-block-handle").click();
-  await page.getByRole("menuitem", { name: "删除", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await expect(row(page, "Child")).toHaveCount(1);
   await expect(row(page, "Grandchild")).toHaveCount(1);
   await page.keyboard.press("Control+e");
-  await expect(page.locator("#source-editor")).toHaveValue("- Parent\n\t- Child\n\t\t- Grandchild\n- Tail");
+  await expectSource(page, source);
 });
 
 test("converting one list row to numbered leaves its neighbors and children intact", async ({
@@ -685,7 +691,9 @@ test("converting one list row to numbered leaves its neighbors and children inta
   const editor = await openNote(page, note);
   await row(page, "Target").hover({ position: { x: 2, y: 10 } });
   await page.locator(".pm-block-handle").click();
-  await page.getByRole("menuitem", { name: "编号列表", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Numbered list item", exact: true })
+    .click();
   await expect(
     editor.locator(":scope > ol > li > .pm-item-content > p"),
   ).toHaveText("Target");
@@ -698,4 +706,320 @@ test("converting one list row to numbered leaves its neighbors and children inta
     ),
   ).toHaveText("Child");
   await save(page, request, note, /1\. Target\r?\n\s+- Child/);
+});
+
+test("page tail creates one focused empty block and hover exposes both controls", async ({
+  page,
+  request,
+}) => {
+  const note = await createNote(
+    request,
+    "Tail and hover controls",
+    "First\n\nLast",
+  );
+  const editor = await openNote(page, note);
+  const last = editor.locator(":scope > p").last();
+  await last.hover({ position: { x: 250, y: 12 } });
+  await expect(page.locator(".pm-block-handle")).toHaveClass(/visible/);
+  await expect(
+    page.getByRole("button", { name: "Add block below" }),
+  ).toHaveClass(/visible/);
+  await page.locator("#page-title").hover();
+  await expect(page.locator(".pm-block-handle")).not.toHaveClass(/visible/);
+  await expect(page.locator(".pm-block-add")).not.toHaveClass(/visible/);
+  let rect = (await last.boundingBox())!;
+  await page.mouse.click(rect.x + 100, rect.y + rect.height + 40);
+  await expect(editor.locator(":scope > p")).toHaveCount(3);
+  await expect(editor.locator("p[data-placeholder]")).toHaveCount(1);
+  rect = (await editor.locator(":scope > p").last().boundingBox())!;
+  await page.mouse.click(rect.x + 100, rect.y + rect.height + 40);
+  await expect(editor.locator(":scope > p")).toHaveCount(3);
+  await page.keyboard.type("Tail input");
+  await expect(editor.locator(":scope > p").last()).toHaveText("Tail input");
+  await editor
+    .locator(":scope > p")
+    .first()
+    .hover({ position: { x: 200, y: 12 } });
+  await page.getByRole("button", { name: "Add block below" }).click();
+  await page.keyboard.type("Inserted");
+  await expect(editor.locator(":scope > p")).toHaveText([
+    "First",
+    "Inserted",
+    "Last",
+    "Tail input",
+  ]);
+  await save(page, request, note, /First\s+Inserted\s+Last\s+Tail input/);
+});
+
+for (const side of ["left", "right"] as const) {
+  test(`marquee from ${side} moves selected rows using either handle and undoes together`, async ({
+    page,
+    request,
+  }) => {
+    const note = await createNote(
+      request,
+      "Multiple block drag " + side,
+      "First\n\nSecond\n\nThird\n\nTail",
+    );
+    const editor = await openNote(page, note);
+    const rows = editor.locator(":scope > p");
+    const first = (await rows.nth(0).boundingBox())!;
+    const second = (await rows.nth(1).boundingBox())!;
+    const x = side === "left" ? first.x - 65 : first.x + first.width + 20;
+    await page.mouse.move(x, first.y + 1);
+    await page.mouse.down();
+    await page.mouse.move(
+      first.x + first.width / 2,
+      second.y + second.height - 1,
+      { steps: 12 },
+    );
+    await expect(page.locator(".pm-selection-box")).toBeVisible();
+    await page.mouse.up();
+    await expect(editor.locator(".pm-block-selected")).toHaveText([
+      "First",
+      "Second",
+    ]);
+    await rows
+      .nth(side === "left" ? 0 : 1)
+      .hover({ position: { x: 200, y: 12 } });
+    await page
+      .locator(".pm-block-handle")
+      .dragTo(rows.nth(3), { targetPosition: { x: 8, y: 28 } });
+    await expect(rows).toHaveText(["Third", "Tail", "First", "Second"]);
+    await page.keyboard.press("Control+z");
+    await expect(rows).toHaveText(["First", "Second", "Third", "Tail"]);
+  });
+}
+
+test("marquee moves todo rows with descendants and plus inserts a sibling todo", async ({
+  page,
+  request,
+}) => {
+  const note = await createNote(
+    request,
+    "Todo group controls",
+    "- [x] One\n  - Child\n- [ ] Two\n\nTail",
+  );
+  const editor = await openNote(page, note);
+  const one = row(page, "One"),
+    two = row(page, "Two");
+  const first = (await one.boundingBox())!,
+    second = (await two.boundingBox())!;
+  const bounds = (await editor.boundingBox())!;
+  await page.mouse.move(bounds.x - 65, first.y + 1);
+  await page.mouse.down();
+  await page.mouse.move(first.x + 150, second.y + second.height - 1, {
+    steps: 12,
+  });
+  await page.screenshot({ path: "test-results/block-marquee.png" });
+  await page.mouse.up();
+  await expect(editor.locator(".pm-block-selected")).toHaveCount(2);
+  await two.hover({ position: { x: 160, y: 12 } });
+  await page
+    .locator(".pm-block-handle")
+    .dragTo(editor.locator(":scope > p"), { targetPosition: { x: 8, y: 28 } });
+  await expect(editor.locator(":scope > :first-child")).toHaveText("Tail");
+  await expect(row(page, "Child")).toHaveCount(1);
+  await save(page, request, note, /Tail\s+- \[x\] One\s+- Child\s+- \[ \] Two/);
+  await two.hover({ position: { x: 160, y: 12 } });
+  await page.getByRole("button", { name: "Add block below" }).click();
+  await page.keyboard.type("Three");
+  await expect(row(page, "Three").locator("xpath=../..")).toHaveAttribute(
+    "data-checked",
+    "false",
+  );
+  await save(page, request, note, /- \[ \] Two\s+- \[ \] Three/);
+  await page.reload();
+  await expect(row(page, "Child")).toHaveCount(1);
+  await expect(row(page, "Three")).toHaveCount(1);
+});
+
+for (const format of ["markdown", "notion-markdown"] as const) {
+  test(`${format} block gutters align across top-level types and follow nested list depth`, async ({ page, request }) => {
+    const note = await createNote(request, "Block gutter alignment", [
+      "Plain text",
+      "## Heading",
+      "- [ ] Parent\n\t- [x] Child\n\t\t- Grandchild\n- [ ] Sibling\n- Bullet",
+      "1. Numbered",
+      "> Quote",
+      ...(format === "notion-markdown" ? [
+        "<details>\n<summary>Toggle</summary>\n\tToggle child\n</details>",
+        '<callout icon="💡">\n\tCallout\n</callout>',
+      ] : []),
+    ].join("\n\n"), format);
+    const editor = await openNote(page, note);
+    const handle = page.locator(".pm-block-handle");
+    const plus = page.getByRole("button", { name: "Add block below" });
+    const controls = async (text: string) => {
+      const line = editor.locator("p, h2").filter({ hasText: new RegExp(`^${text}$`) });
+      await line.hover({ position: { x: 80, y: 12 } });
+      await expect(handle).toHaveClass(/visible/);
+      await expect(plus).toHaveClass(/visible/);
+      return { grip: (await handle.boundingBox())!, plus: (await plus.boundingBox())! };
+    };
+    const baseline = await controls("Plain text");
+    expect((await editor.boundingBox())!.x - baseline.grip.x - baseline.grip.width).toBeCloseTo(12, 0);
+    for (const text of ["Heading", "Parent", "Sibling", "Bullet", "Numbered", "Quote",
+      ...(format === "notion-markdown" ? ["Toggle", "Callout"] : [])]) {
+      const current = await controls(text);
+      expect(Math.abs(current.grip.x - baseline.grip.x), text).toBeLessThan(1);
+      expect(Math.abs(current.plus.x - baseline.plus.x), text).toBeLessThan(1);
+    }
+    const child = await controls("Child");
+    const grandchild = await controls("Grandchild");
+    expect(child.grip.x - baseline.grip.x).toBeCloseTo(26, 0);
+    expect(grandchild.grip.x - child.grip.x).toBeCloseTo(26, 0);
+    await controls("Child");
+    await page.screenshot({ path: `test-results/block-gutter-${format}.png` });
+    await handle.click();
+    await expect(row(page, "Child").locator("xpath=../..")).toHaveClass(/pm-block-selected/);
+    await page.keyboard.press("Escape");
+    expect(await body(request, note.id)).toBe(note.body);
+  });
+}
+
+test("plus aligns icons and opens searchable insertion; block menu identifies the current type", async ({
+  page,
+  request,
+}) => {
+  const note = await createNote(
+    request,
+    "Plus command menu",
+    "## Existing heading\n\nTail",
+  );
+  const editor = await openNote(page, note);
+  await editor.locator("h2").hover({ position: { x: 160, y: 12 } });
+  const plus = page.getByRole("button", { name: "Add block below" });
+  const plusRect = (await plus.locator("svg").boundingBox())!;
+  const gripRect = (await page.locator(".pm-block-handle svg").boundingBox())!;
+  expect(
+    Math.abs(
+      plusRect.y + plusRect.height / 2 - gripRect.y - gripRect.height / 2,
+    ),
+  ).toBeLessThan(1);
+  await page.locator(".pm-block-handle").click();
+  await expect(page.locator(".pm-block-menu > :first-child")).toHaveText(
+    "Heading 2",
+  );
+  await page.keyboard.press("Escape");
+  await editor.locator("h2").hover({ position: { x: 160, y: 12 } });
+  await plus.click();
+  await expect(
+    page.getByRole("dialog", { name: "Choose block type" }),
+  ).toBeVisible();
+  await expect(editor).not.toContainText("/");
+  await page.keyboard.type("heading");
+  await page.getByRole("option", { name: /Heading 3/ }).click();
+  await page.keyboard.type("New heading");
+  await expect(editor.locator("h3")).toHaveText("New heading");
+  await expect(page.locator(".inline-slash")).toHaveCount(0);
+  await editor.locator("h3").hover({ position: { x: 160, y: 12 } });
+  await plus.click();
+  await page.getByRole("dialog", { name: "Choose block type" }).getByRole("option", { name: /^Paragraph / }).click();
+  await page.keyboard.type("Plain block");
+  await expect(editor.locator(":scope > p")).toHaveText([
+    "Plain block",
+    "Tail",
+  ]);
+  await save(
+    page,
+    request,
+    note,
+    /Existing heading\s+### New heading\s+Plain block\s+Tail/,
+  );
+});
+
+for (const key of ["Delete", "Backspace"]) {
+  test(`block handle selects its row and ${key} deletes it with menu focus`, async ({ page, request }) => {
+    const note = await createNote(request, "Handle keyboard " + key, "First\n\nSecond\n\nTail");
+    const editor = await openNote(page, note);
+    const rows = editor.locator(":scope > p");
+    await rows.nth(2).click(); // The text cursor must not determine which block is deleted.
+    await rows.nth(1).hover({ position: { x: 160, y: 12 } });
+    await page.locator(".pm-block-handle").click();
+    await expect(page.getByRole("menu", { name: "Block actions" })).toBeVisible();
+    await expect(editor.locator(".pm-block-selected")).toHaveText(["Second"]);
+    await page.keyboard.press(key);
+    await expect(rows).toHaveText(["First", "Tail"]);
+    await expect(editor.locator(".pm-block-selected")).toHaveCount(0);
+    await expect(page.locator(".pm-block-menu")).toHaveCount(0);
+    await page.keyboard.press("Control+z");
+    await expect(rows).toHaveText(["First", "Second", "Tail"]);
+  });
+
+  test(`marquee ${key} deletes whole rows and descendants in one undo`, async ({ page, request }) => {
+    const note = await createNote(request, "Selected list deletion " + key, "- [x] One\n  - Child\n- [ ] Two\n\nTail");
+    const editor = await openNote(page, note);
+    const first = (await row(page, "One").boundingBox())!;
+    const second = (await row(page, "Two").boundingBox())!;
+    const bounds = (await editor.boundingBox())!;
+    await page.mouse.move(bounds.x - 65, first.y + 1);
+    await page.mouse.down();
+    await page.mouse.move(first.x + 150, second.y + second.height - 1, { steps: 12 });
+    await page.mouse.up();
+    await expect(editor.locator(".pm-block-selected")).toHaveCount(2);
+    await page.keyboard.press(key);
+    await expect(editor.locator("li")).toHaveCount(0);
+    await expect(editor.locator(":scope > p")).toHaveText(["Tail"]);
+    await save(page, request, note, /^\s*Tail\s*$/);
+    await page.keyboard.press("Control+z");
+    await expect(row(page, "One")).toHaveCount(1);
+    await expect(row(page, "Child")).toHaveCount(1);
+    await expect(row(page, "Two")).toHaveCount(1);
+  });
+}
+
+test("Escape clears block selection and external input retains normal deletion", async ({ page, request }) => {
+  const note = await createNote(request, "Selection cancellation", "First\n\nSecond\n\nTail");
+  const editor = await openNote(page, note);
+  const rows = editor.locator(":scope > p");
+  await rows.first().hover({ position: { x: 160, y: 12 } });
+  await page.locator(".pm-block-handle").click();
+  await expect(editor.locator(".pm-block-selected")).toHaveText(["First"]);
+  await page.keyboard.press("Escape");
+  await expect(editor.locator(".pm-block-selected")).toHaveCount(0);
+  await expect(page.locator(".pm-block-menu")).toHaveCount(0);
+  const first = (await rows.first().boundingBox())!;
+  const second = (await rows.nth(1).boundingBox())!;
+  await page.mouse.move(first.x - 65, first.y + 1);
+  await page.mouse.down();
+  await page.mouse.move(first.x + 150, second.y + second.height - 1, { steps: 12 });
+  await page.mouse.up();
+  await expect(editor.locator(".pm-block-selected")).toHaveCount(2);
+  await page.keyboard.press("Escape");
+  await expect(editor.locator(".pm-block-selected")).toHaveCount(0);
+  await rows.nth(1).click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Backspace");
+  await expect(rows).toHaveText(["First", "Secon", "Tail"]);
+  await rows.first().hover({ position: { x: 160, y: 12 } });
+  await page.locator(".pm-block-handle").click();
+  await page.locator("#page-title").click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Backspace");
+  await expect(page.locator("#page-title")).toHaveValue("Selection cancellatio");
+  await expect(rows).toHaveText(["First", "Secon", "Tail"]);
+});
+
+test("deleting every selected block keeps an editable document and can be undone", async ({ page, request }) => {
+  const note = await createNote(request, "Delete all blocks", "First\n\nSecond");
+  const editor = await openNote(page, note);
+  const rows = editor.locator(":scope > p");
+  const first = (await rows.first().boundingBox())!;
+  const last = (await rows.last().boundingBox())!;
+  await page.mouse.move(first.x - 65, first.y + 1);
+  await page.mouse.down();
+  await page.mouse.move(first.x + 150, last.y + last.height - 1, { steps: 12 });
+  await page.mouse.up();
+  await expect(editor.locator(".pm-block-selected")).toHaveCount(2);
+  await page.keyboard.press("Delete");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toHaveText([""]);
+  await page.keyboard.press("Control+z");
+  await expect(rows).toHaveText(["First", "Second"]);
+  await rows.first().hover({ position: { x: 160, y: 12 } });
+  await page.locator(".pm-block-handle").click();
+  await page.keyboard.press("Delete");
+  await page.keyboard.type("Still editable");
+  await expect(editor).toContainText("Still editable");
 });

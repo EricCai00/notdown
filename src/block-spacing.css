@@ -1,0 +1,84 @@
+/* One owner for space BETWEEN document blocks. Node styles still own their
+   internal padding. One-sided margins avoid collapse/stacking differences
+   between paragraphs, atom node views and nested contentDOM wrappers. */
+.pm-editor .pm-document {
+  --pm-block-gap: 4px;
+  --pm-surface-gap: 12px;
+  --pm-heading-gap: 16px;
+}
+
+/* Only actual document content stacks: never settings forms, previews,
+   breadcrumb items, table cells or list-item internals. */
+.pm-editor :is(
+  .pm-document.ProseMirror,
+  .pm-document.ProseMirror :where(
+    blockquote, .note-column, .pm-nested-block, .pm-toggle-content,
+    .pm-callout-content, .pm-alert > div,
+    .pm-object-content:not(.pm-tabs-panels)
+  ):not(:where([contenteditable="false"] *))
+) > * {
+  margin-block: 0;
+}
+
+.pm-editor :is(
+  .pm-document.ProseMirror,
+  .pm-document.ProseMirror :where(
+    blockquote, .note-column, .pm-nested-block, .pm-toggle-content,
+    .pm-callout-content, .pm-alert > div,
+    .pm-object-content:not(.pm-tabs-panels)
+  ):not(:where([contenteditable="false"] *))
+) > * + * {
+  margin-block-start: var(--pm-block-gap);
+}
+
+/* Larger surfaces need the same breathing room on BOTH sides. Compact
+   Button, Breadcrumb, page links and ordinary text keep the 4px row gap. */
+.pm-editor :is(
+  .pm-document.ProseMirror,
+  .pm-document.ProseMirror :where(
+    blockquote, .note-column, .pm-nested-block, .pm-toggle-content,
+    .pm-callout-content, .pm-alert > div,
+    .pm-object-content:not(.pm-tabs-panels)
+  ):not(:where([contenteditable="false"] *))
+) > :where(
+  blockquote, pre, hr, table, .note-columns, .pm-callout,
+  .pm-content-object:not(.pm-object-breadcrumb), .pm-syntax-block,
+  .pm-html-block, .pm-media-block, .pm-preserved-block
+),
+.pm-editor :is(
+  .pm-document.ProseMirror,
+  .pm-document.ProseMirror :where(
+    blockquote, .note-column, .pm-nested-block, .pm-toggle-content,
+    .pm-callout-content, .pm-alert > div,
+    .pm-object-content:not(.pm-tabs-panels)
+  ):not(:where([contenteditable="false"] *))
+) > :where(
+  blockquote, pre, hr, table, .note-columns, .pm-callout,
+  .pm-content-object:not(.pm-object-breadcrumb), .pm-syntax-block,
+  .pm-html-block, .pm-media-block, .pm-preserved-block
+) + * {
+  margin-block-start: var(--pm-surface-gap);
+}
+
+.pm-editor :is(
+  .pm-document.ProseMirror,
+  .pm-document.ProseMirror :where(
+    blockquote, .note-column, .pm-nested-block, .pm-toggle-content,
+    .pm-callout-content, .pm-alert > div,
+    .pm-object-content:not(.pm-tabs-panels)
+  ):not(:where([contenteditable="false"] *))
+) > :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: var(--pm-heading-gap);
+}
+
+/* The parent owns its inset. A first child never adds another top margin. */
+.pm-editor :is(
+  .pm-document.ProseMirror,
+  .pm-document.ProseMirror :where(
+    blockquote, .note-column, .pm-nested-block, .pm-toggle-content,
+    .pm-callout-content, .pm-alert > div,
+    .pm-object-content:not(.pm-tabs-panels)
+  ):not(:where([contenteditable="false"] *))
+) > :first-child {
+  margin-block-start: 0;
+}

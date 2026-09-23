@@ -1,0 +1,271 @@
+.pm-document .pm-mention.pm-date-mention {
+  display: inline;
+  padding: 2px 3px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text, #37352f);
+  cursor: pointer;
+  white-space: break-spaces;
+}
+.pm-document .pm-mention.pm-date-mention:hover,
+.pm-document .pm-mention.pm-date-mention[aria-expanded="true"] {
+  background: #f1f1ef;
+}
+.pm-document .pm-mention.pm-date-empty {
+  background: #f7f7f5;
+  color: #787774;
+}
+.pm-date-mention svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+.pm-document .pm-mention.pm-date-reminder {
+  color: #2383e2;
+}
+.pm-document .pm-mention.pm-date-overdue {
+  color: #d44c47;
+}
+.pm-date-mention:focus-visible {
+  outline: 2px solid #2383e2;
+  outline-offset: 2px;
+}
+.pm-document input.pm-date-query {
+  display: inline-block;
+  width: 155px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  box-shadow: none;
+}
+.pm-date-panel {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 304px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #d8d7d4;
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--text, #37352f);
+  box-shadow:
+    0 10px 28px #0000001f,
+    0 2px 6px #0000000a;
+  font:
+    14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+.pm-date-quick {
+  width: 332px;
+  padding: 9px 5px 5px;
+  border-color: #454441;
+}
+.pm-date-heading {
+  padding: 4px 7px 7px;
+  color: #787774;
+  font-size: 12px;
+}
+.pm-date-panel button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  margin: 0;
+  padding: 5px;
+}
+.pm-date-panel button:hover,
+.pm-date-panel button:focus-visible {
+  background: #f1f1ef;
+}
+.pm-date-panel button:focus-visible,
+.pm-date-panel input:focus-visible,
+.pm-date-panel select:focus-visible {
+  outline: 2px solid #2383e2;
+  outline-offset: 1px;
+}
+.pm-date-panel .pm-date-choice {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  gap: 10px;
+  padding: 5px 7px;
+  min-height: 30px;
+  text-align: left;
+}
+.pm-date-choice[aria-selected="true"] {
+  background: #f1f1ef;
+}
+.pm-date-choice small {
+  color: #787774;
+  font-size: 12px;
+  margin-left: -4px;
+}
+.pm-date-choice svg {
+  flex-shrink: 0;
+}
+.pm-date-hint {
+  color: #787774;
+  font-size: 12px;
+  padding: 8px;
+}
+.pm-date-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pm-date-input-row {
+  display: flex;
+  gap: 6px;
+}
+.pm-date-panel .pm-date-input-row input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  height: 31px;
+  padding: 5px 8px;
+  border: 1px solid #d8d7d4;
+  border-radius: 4px;
+  background: #f7f7f5;
+  color: inherit;
+  font: inherit;
+}
+.pm-date-input-row input[type="time"] {
+  max-width: 120px;
+}
+.pm-date-nav {
+  display: flex;
+  align-items: center;
+  margin: 12px 0 7px;
+  font-weight: 500;
+}
+.pm-date-nav span {
+  flex: 1;
+  padding-left: 5px;
+}
+.pm-date-nav button {
+  height: 28px;
+  width: 28px;
+}
+.pm-date-weekdays,
+.pm-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+.pm-date-weekdays {
+  color: #9b9a97;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.pm-date-panel .pm-date-day {
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 13px;
+}
+.pm-date-day.outside {
+  color: #b6b5b2;
+}
+.pm-date-day.today {
+  color: #eb5757;
+  font-weight: 600;
+}
+.pm-date-panel .pm-date-day.in-range {
+  background: #eaf3fd;
+  border-radius: 0;
+}
+.pm-date-panel .pm-date-day.selected {
+  background: #2383e2;
+  color: white;
+}
+.pm-date-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 33px;
+  font-size: 13px;
+}
+.pm-date-setting select {
+  max-width: 175px;
+  border: 0;
+  padding: 4px 0;
+  border-radius: 4px;
+  color: #787774;
+  font: inherit;
+  background: transparent;
+  text-align: right;
+}
+.pm-date-setting input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  width: 28px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 10px;
+  background: #c7c6c3;
+  cursor: pointer;
+}
+.pm-date-setting input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 2px #0002;
+}
+.pm-date-setting input:checked {
+  background: #2383e2;
+}
+.pm-date-setting input:checked::after {
+  left: 14px;
+}
+.pm-date-formats {
+  border-top: 1px solid #eee;
+  margin-top: 5px;
+  padding-top: 8px;
+  font-size: 13px;
+}
+.pm-date-formats summary {
+  cursor: pointer;
+  color: #787774;
+  padding: 3px 0;
+}
+.pm-date-footer {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #eee;
+  margin-top: 9px;
+  padding-top: 7px;
+  font-size: 13px;
+}
+.pm-date-footer button:last-child {
+  color: #2383e2;
+}
+.pm-date-error {
+  display: block;
+  color: #c54640;
+  font-size: 12px;
+  margin: 7px 0;
+}
+.pm-date-error:empty {
+  display: none;
+}
