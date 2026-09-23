@@ -6,11 +6,21 @@ test("page icon picker searches the full catalog and remembers the selected grap
   expect(response.status()).toBe(201);
   const note = await response.json();
   await page.goto(`/#page/${note.id}`);
+  await page.evaluate(() => localStorage.setItem("notdown-callout-recent-icons", JSON.stringify(["🛙", "💡", "❤", "※"])));
   await page.locator("#page-title").hover();
   await page.getByRole("button", { name: "Add icon", exact: true }).click();
 
   const picker = page.getByRole("dialog", { name: "Choose page icon" });
   await expect(picker.locator(".pm-emoji-result-status")).toContainText("3972 emoji");
+  const grids = picker.locator(".pm-callout-icon-grid");
+  await expect(grids.first().locator("button").nth(0)).toHaveAttribute("title", "lighthouse");
+  await expect(grids.first().locator("button").nth(1)).toHaveAttribute("title", "light bulb");
+  await expect(grids.first().locator("button").nth(2)).toHaveAttribute("title", "red heart");
+  await expect(grids.first().locator("button").nth(3)).toHaveAttribute("title", "Custom icon: ※");
+  await expect(grids.nth(1).getByRole("button", { name: "red exclamation mark" })).toHaveAttribute("title", "red exclamation mark");
+  await picker.getByRole("searchbox").fill("提示");
+  await expect(picker.getByRole("button", { name: "light bulb", exact: true })).toHaveAttribute("title", "light bulb");
+  await picker.getByRole("searchbox").fill("");
   await picker.getByRole("combobox", { name: "Emoji style" }).selectOption("noto");
   await expect(page.locator("html")).toHaveAttribute("data-emoji-style", "noto");
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontFamily)).toContain("Notdown Noto Emoji");

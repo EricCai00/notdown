@@ -21,6 +21,7 @@ import {
 } from "../markdown-engine/config";
 import { refreshIcons } from "../shared/icons";
 import "./style.css";
+import notdownIcon from "../assets/notdown-icon.png";
 import "../editor/notion-blocks.css";
 import { api, ApiError, escape as e, type Page } from "../shared/types";
 import {
@@ -278,7 +279,7 @@ function renderSidebar() {
 
 function shell() {
   app.innerHTML = `<aside class="sidebar" id="sidebar">
-    <button class="workspace-switch" data-action="settings"><span class="workspace-avatar">${icon("notebook-pen")}</span><span><strong>Notdown workspace</strong></span>${icon("chevrons-up-down")}</button>
+    <button class="workspace-switch" data-action="settings"><img class="workspace-avatar" src="${notdownIcon}" width="28" height="28" alt="" /><span><strong>Notdown workspace</strong></span>${icon("chevrons-up-down")}</button>
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
@@ -485,7 +486,8 @@ function renderPageDecoration() {
   const position = typeof rawPosition === "number" && Number.isFinite(rawPosition) ? Math.max(0, Math.min(100, rawPosition)) : 50;
   document.querySelector(".document-wrap")?.classList.toggle("has-page-cover", hasCover);
   coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(cover)}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition">Reposition</button><a href="${e(cover)}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover">${icon("download")}</a></div>` : "";
-  host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon">${pageIcon(p)}</button>` : ""}<div class="page-decoration-actions"><button data-action="page-icon">${icon("smile")}${hasIcon ? "Change icon" : "Add icon"}</button><button data-action="page-cover">${icon("image")}${cover ? "Change cover" : "Add cover"}</button></div>`;
+  const actions = `${hasIcon ? "" : `<button data-action="page-icon">${icon("smile")}Add icon</button>`}${hasCover ? "" : `<button data-action="page-cover">${icon("image")}Add cover</button>`}`;
+  host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon">${pageIcon(p)}</button>` : ""}${actions ? `<div class="page-decoration-actions">${actions}</div>` : ""}`;
   refreshIcons();
 }
 function pageOptions() {

@@ -91,22 +91,13 @@
 
 .document-wrap.has-page-cover .page-decoration-actions {
   position: absolute;
-  top: 4px;
-  left: 84px;
+  top: 20px;
+  left: 0;
   margin: 0;
-}
-
-.document-wrap.has-page-cover .page-decoration-actions [data-action="page-cover"] {
-  display: none;
 }
 
 .document-wrap.has-page-cover #page-decoration:not(:has(.page-emblem)) {
   height: 74px;
-}
-
-.document-wrap.has-page-cover #page-decoration:not(:has(.page-emblem)) .page-decoration-actions {
-  left: 0;
-  top: 20px;
 }
 
 .page-cover-picker {

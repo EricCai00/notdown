@@ -1,26 +1,28 @@
 import { emojiStyle, emojiStyleOptions, setEmojiStyle, type EmojiStyle } from "./emoji-style";
 import type { EmojiEntry } from "./emoji-catalog";
 
-// Keep the familiar shortcuts and their search names while the complete
-// Unicode catalog is loaded only when a picker opens.
-const featured: EmojiEntry[] = [
-  ["💡", "Light bulb 提示"], ["❗", "Exclamation 重要"], ["❓", "Question 问题"],
-  ["⚠️", "Warning 警告"], ["ℹ️", "Information 信息"], ["✅", "Check 完成"],
-  ["❌", "Cross 错误"], ["⭐", "Star 星星"], ["🔥", "Fire 火"],
-  ["📌", "Pin 固定"], ["📎", "Paperclip 附件"], ["📝", "Note 笔记"],
-  ["📖", "Book 书"], ["📚", "Books 阅读"], ["🔗", "Link 链接"],
-  ["🔒", "Lock 锁"], ["🔑", "Key 钥匙"], ["🚫", "Prohibited 禁止"],
-  ["🛠️", "Tools 工具"], ["⚙️", "Settings 设置"], ["🐛", "Bug 错误"],
-  ["🎯", "Target 目标"], ["🚀", "Rocket 火箭"], ["🎉", "Celebration 庆祝"],
-  ["💬", "Speech 评论"], ["📢", "Announcement 通知"], ["🔔", "Bell 提醒"],
-  ["📅", "Calendar 日历"], ["⏰", "Alarm 时间"], ["⏳", "Hourglass 等待"],
-  ["➡️", "Arrow 箭头"], ["👉", "Point 指向"], ["👍", "Thumbs up 赞"],
-  ["👋", "Wave 挥手"], ["😊", "Smile 微笑"], ["🤔", "Thinking 思考"],
-  ["😅", "Sweat smile 汗"], ["❤️", "Heart 爱心"], ["💪", "Strength 力量"],
-  ["🌱", "Seedling 成长"], ["🌍", "Earth 地球"], ["☀️", "Sun 太阳"],
-  ["🌈", "Rainbow 彩虹"], ["🎵", "Music 音乐"], ["🎬", "Movie 电影"],
-  ["💻", "Computer 电脑"], ["📁", "Folder 文件夹"], ["💾", "Save 保存"],
+// Keep the shortcut search terms separate from the official English names
+// shown on hover. The complete catalog is loaded only when a picker opens.
+const featured: readonly (readonly [icon: string, name: string, searchTerms: string])[] = [
+  ["💡", "light bulb", "Light bulb 提示"], ["❗", "red exclamation mark", "Exclamation 重要"], ["❓", "red question mark", "Question 问题"],
+  ["⚠️", "warning", "Warning 警告"], ["ℹ️", "information", "Information 信息"], ["✅", "check mark button", "Check 完成"],
+  ["❌", "cross mark", "Cross 错误"], ["⭐", "star", "Star 星星"], ["🔥", "fire", "Fire 火"],
+  ["📌", "pushpin", "Pin 固定"], ["📎", "paperclip", "Paperclip 附件"], ["📝", "memo", "Note 笔记"],
+  ["📖", "open book", "Book 书"], ["📚", "books", "Books 阅读"], ["🔗", "link", "Link 链接"],
+  ["🔒", "locked", "Lock 锁"], ["🔑", "key", "Key 钥匙"], ["🚫", "prohibited", "Prohibited 禁止"],
+  ["🛠️", "hammer and wrench", "Tools 工具"], ["⚙️", "gear", "Settings 设置"], ["🐛", "bug", "Bug 错误"],
+  ["🎯", "bullseye", "Target 目标"], ["🚀", "rocket", "Rocket 火箭"], ["🎉", "party popper", "Celebration 庆祝"],
+  ["💬", "speech balloon", "Speech 评论"], ["📢", "loudspeaker", "Announcement 通知"], ["🔔", "bell", "Bell 提醒"],
+  ["📅", "calendar", "Calendar 日历"], ["⏰", "alarm clock", "Alarm 时间"], ["⏳", "hourglass not done", "Hourglass 等待"],
+  ["➡️", "right arrow", "Arrow 箭头"], ["👉", "backhand index pointing right", "Point 指向"], ["👍", "thumbs up", "Thumbs up 赞"],
+  ["👋", "waving hand", "Wave 挥手"], ["😊", "smiling face with smiling eyes", "Smile 微笑"], ["🤔", "thinking face", "Thinking 思考"],
+  ["😅", "grinning face with sweat", "Sweat smile 汗"], ["❤️", "red heart", "Heart 爱心"], ["💪", "flexed biceps", "Strength 力量"],
+  ["🌱", "seedling", "Seedling 成长"], ["🌍", "globe showing Europe-Africa", "Earth 地球"], ["☀️", "sun", "Sun 太阳"],
+  ["🌈", "rainbow", "Rainbow 彩虹"], ["🎵", "musical note", "Music 音乐"], ["🎬", "clapper board", "Movie 电影"],
+  ["💻", "laptop", "Computer 电脑"], ["📁", "file folder", "Folder 文件夹"], ["💾", "floppy disk", "Save 保存"],
 ];
+const featuredEntries: EmojiEntry[] = featured.map(([icon, name]) => [icon, name]);
+const featuredNames = new Map(featuredEntries);
 const recentKey = "notdown-callout-recent-icons";
 const pageSize = 160;
 
@@ -110,10 +112,11 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
     grid.className = "pm-callout-icon-grid";
     for (const [icon, name] of entries) {
       const button = document.createElement("button");
+      const displayName = catalog?.emojiName(icon) ?? name;
       button.type = "button";
       button.textContent = icon;
-      button.title = name;
-      button.setAttribute("aria-label", name);
+      button.title = displayName;
+      button.setAttribute("aria-label", displayName);
       button.addEventListener("click", () => select(icon));
       grid.append(button);
     }
@@ -143,15 +146,20 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
     results.replaceChildren();
     const query = search.value.trim().toLocaleLowerCase();
     if (!query && category === "Popular") {
-      group("Recent", recent.map(icon => [icon, featured.find(([value]) => value === icon)?.[1] || icon]));
-      group("Emoji & symbols", featured);
+      group("Recent", recent.flatMap(icon => {
+        const name = catalog?.emojiName(icon) ?? featuredNames.get(icon) ?? (catalog ? `Custom icon: ${icon}` : undefined);
+        return name ? [[icon, name] as const] : [];
+      }));
+      group("Emoji & symbols", featuredEntries);
       status.textContent = catalog ? `${catalog.emojiCount} emoji in ${catalog.emojiGroups.length} categories` : "Loading emoji catalog…";
       return;
     }
 
     let entries: EmojiEntry[];
     if (query) {
-      const matches = featured.filter(([icon, name]) => `${icon} ${name}`.toLocaleLowerCase().includes(query));
+      const matches: EmojiEntry[] = featured
+        .filter(([icon, name, searchTerms]) => `${icon} ${name} ${searchTerms}`.toLocaleLowerCase().includes(query))
+        .map(([icon, name]) => [icon, name]);
       const seen = new Set(matches.map(([icon]) => icon));
       entries = [...matches, ...(catalog?.findEmoji(query).filter(([icon]) => !seen.has(icon)) ?? [])];
     } else {

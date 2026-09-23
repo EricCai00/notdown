@@ -1502,19 +1502,11 @@ kbd {
   background: var(--hover);
 }
 .workspace-avatar {
-  display: grid;
-  place-items: center;
-  font:
-    500 19px Georgia,
-    serif;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  background: #e7e7e5;
-  color: #5f5e5b;
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .workspace-switch strong {
   display: block;
@@ -1915,13 +1907,11 @@ kbd {
 .page-emblem {
   place-items: center;
   position: relative;
-  margin-top: -21px;
-  margin-bottom: 17px;
   border-radius: 11px;
   display: flex;
   width: fit-content;
   height: 78px;
-  margin: 0 0 28px;
+  margin: 0 0 12px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -3353,7 +3343,7 @@ dialog .muted,
   }
   .page-emblem {
     height: 62px;
-    margin-bottom: 22px;
+    margin-bottom: 12px;
   }
   .page-emblem svg {
     width: 56px;

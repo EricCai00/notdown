@@ -43,10 +43,10 @@
 - `.run/logs/`：本地运行日志；`.run/` 也可存放临时分析和工具文件。
 - `test-results/`：Playwright 报告、trace、截图及隔离构建；`dist/`：默认生产构建。
 
-定向运行示例：`npx tsx --test tests/unit/markdown-engine.test.ts`；先构建后运行 `npx playwright test tests/e2e/markdown-lab.spec.ts`。端口与隔离构建配置见 [README](../../README.md#验证)。
+定向运行示例：`npx tsx --test tests/unit/markdown-engine.test.ts`；先构建后运行 `npx playwright test tests/e2e/markdown-lab.spec.ts`。端口与隔离构建配置见 [英文 README](../../README.md#validation) 或 [中文 README](../../README.zh-CN.md#验证)。
 
 `vault/` 是用户数据，不参与源码整理、测试或清理。未知字段、原文与 CAS 冲突保留规则仍按 [AGENTS.md](../../AGENTS.md) 和 [格式契约](../FORMAT.md) 执行。
 
 ## 文档
 
-当前正文契约保留在 `docs/FORMAT.md`。设计放 `architecture/`，格式和接口参考放 `reference/`，功能说明放 `features/`，审计放 `audits/`，历史验收放 `verification/`。新增文档同时更新 [文档导航](../README.md)，历史结果注明日期与范围。
+根目录 `README.md` 为英文主入口，`README.zh-CN.md` 为对应中文版，功能概览与边界应同步维护；逐次修复和验收记录写入对应专题文档。当前正文契约保留在 `docs/FORMAT.md`。设计放 `architecture/`，格式和接口参考放 `reference/`，功能说明放 `features/`，审计放 `audits/`，历史验收放 `verification/`，已被替代的文档快照放 `archive/`。新增文档同时更新 [文档导航](../README.md)，历史结果注明日期与范围。

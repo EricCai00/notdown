@@ -83,7 +83,7 @@ test("preserved metadata stays in Properties with Metadata values disabled; fenc
   await expect(page.locator(".pm-document")).toContainText("title: Code");
   await page.locator("#page-title").hover();
   await page.getByRole("button", { name: "Add icon", exact: true }).click();
-  await page.getByRole("dialog", { name: "Choose page icon" }).getByRole("button", { name: "Rocket 火箭", exact: true }).click();
+  await page.getByRole("dialog", { name: "Choose page icon" }).getByRole("button", { name: /^(Rocket 火箭|rocket)$/i }).click();
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).icon).toBe("🚀");
   expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body);
 });
@@ -181,8 +181,12 @@ test("page icon and cover can be added, replaced and removed without losing pend
   await page.locator("#page-title").hover();
   await page.getByRole("button", { name: "Add icon", exact: true }).click();
   let picker = page.getByRole("dialog", { name: "Choose page icon" });
-  await picker.getByRole("button", { name: "Rocket 火箭", exact: true }).click();
+  await picker.getByRole("button", { name: /^(Rocket 火箭|rocket)$/i }).click();
   await expect(page.getByRole("button", { name: "Change page icon", exact: true })).toHaveText("🚀");
+  await expect(page.getByRole("button", { name: "Change icon", exact: true })).toHaveCount(0);
+  const emblemBox = (await page.locator(".page-emblem").boundingBox())!;
+  const titleBox = (await page.locator("#page-title").boundingBox())!;
+  expect(titleBox.y - emblemBox.y - emblemBox.height).toBeLessThan(65);
   await expect(page.locator(".pm-document")).toContainText("pending");
   await page.locator(".pm-document p").click();
   await page.keyboard.press("Control+z");
@@ -194,6 +198,7 @@ test("page icon and cover can be added, replaced and removed without losing pend
   await page.getByLabel("Cover image URL", { exact: true }).fill("assets/test-cover.svg");
   await page.getByRole("button", { name: "Save cover", exact: true }).click();
   await expect(page.locator(".page-cover")).toHaveAttribute("src", "assets/test-cover.svg");
+  await expect(page.locator(".page-decoration-actions")).toHaveCount(0);
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).properties.cover).toBe("assets/test-cover.svg");
   await page.reload();
   await page.getByRole("button", { name: "Change page icon", exact: true }).click();
@@ -203,6 +208,8 @@ test("page icon and cover can be added, replaced and removed without losing pend
   await expect(page.getByRole("button", { name: "Change page icon", exact: true })).toHaveText("🌻");
   await page.getByRole("button", { name: "Change page icon", exact: true }).click();
   await page.getByRole("dialog", { name: "Choose page icon" }).getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Add icon", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Change icon", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Change cover", exact: true }).click();
   await page.getByRole("dialog", { name: "Choose page cover" }).getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.locator(".page-cover")).toHaveCount(0);
@@ -219,7 +226,7 @@ test("page cover gallery spans the page, overlaps the icon and keeps a repositio
   const note = await open(page, request, "Gallery body");
   await page.locator("#page-title").hover();
   await page.getByRole("button", { name: "Add icon", exact: true }).click();
-  await page.getByRole("dialog", { name: "Choose page icon" }).getByRole("button", { name: "Rocket 火箭", exact: true }).click();
+  await page.getByRole("dialog", { name: "Choose page icon" }).getByRole("button", { name: /^(Rocket 火箭|rocket)$/i }).click();
   await page.locator("#page-title").hover();
   await page.getByRole("button", { name: "Add cover", exact: true }).click();
   const gallery = page.getByRole("dialog", { name: "Choose page cover" });

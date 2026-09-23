@@ -10,6 +10,13 @@ export const emojiGroups: EmojiGroup[] = data.groups.map(group => ({
   entries: group.entries.map(([icon, name]) => [icon, name] as const),
 }));
 export const emojiCount = emojiGroups.reduce((count, group) => count + group.entries.length, 0);
+const names = new Map(emojiGroups.flatMap(group => group.entries));
+const namesWithoutVariationSelector = new Map(emojiGroups.flatMap(group =>
+  group.entries.map(([icon, name]) => [icon.replace(/\uFE0F/g, ""), name] as const)));
+
+export function emojiName(icon: string): string | undefined {
+  return names.get(icon) ?? namesWithoutVariationSelector.get(icon.replace(/\uFE0F/g, ""));
+}
 
 const keywords = data.keywords as Record<string, readonly string[]>;
 const skinTones = /[\u{1F3FB}-\u{1F3FF}]/gu;

@@ -1,6 +1,6 @@
 # 文档导航
 
-先读 [项目 README](../README.md)、[正文格式契约](FORMAT.md) 与 [仓库组织约定](architecture/REPOSITORY.md)。格式规则以当前契约及明确标注的后续修订为准；历史审计和验收结果不代表当前全部实现状态。
+先读项目 README（[English](../README.md) / [简体中文](../README.zh-CN.md)）、[正文格式契约](FORMAT.md) 与 [仓库组织约定](architecture/REPOSITORY.md)。格式规则以当前契约及明确标注的后续修订为准；历史审计和验收结果不代表当前全部实现状态。
 
 ## 架构与开发
 
@@ -37,4 +37,8 @@
 - [块选择](verification/BLOCK-SELECTION-VERIFICATION.md)、[按钮](verification/BUTTON-VERIFICATION.md)、[日期](verification/DATE-VERIFICATION.md)、[链接预览](verification/LINK-PREVIEW-VERIFICATION.md)
 - [设计验收记录](verification/design-qa.md)
 
-`data/` 保存语法来源快照和审计数据；`fixtures/` 保存测试语料及验收页面生成器。两者属于版本管理内容。执行日志、截图、临时构建放在仓库的 `.run/` 或 `test-results/`，不混入规范文档。
+## 历史存档
+
+- [整理前的 README（2026-09-23）](archive/README-2026-09-23.zh-CN.md)：保留历次功能与交互记录，含已被后续修订覆盖的说明；当前概览以根目录的中英文 README 为准。
+
+`data/` 保存语法来源快照和审计数据；`fixtures/` 保存测试语料及验收页面生成器；`archive/` 保存已被替代的文档快照。三者属于版本管理内容。执行日志、截图、临时构建放在仓库的 `.run/` 或 `test-results/`，不混入规范文档。
