@@ -71,7 +71,7 @@ ext([1], ["block.math_block"], ["display_math", "tex_math_dollars"], "双美元�
 ext([2], ["inline.footnote"], ["footnotes"], "脚注包含行内引用和块状定义，不能只归 block；GitHub Docs 支持，但不属于 GFM Spec。", { variants: ["typora", "markdown_mmd", "markdown_phpextra", "obsidian", "gfm", "markdown"] });
 ext([3], ["metadata.yaml_front_matter"], ["yaml_metadata_block", "mmd_title_block", "metadata_values"], "Typora/Pandoc 使用 YAML；MMD 接受这个简单键值样例和可选 ---，但不支持完整 YAML。页面属性与正文元数据分开。", { variants: ["typora", "markdown_mmd", "markdown"], correction: "MMD 对应 mmd_title_block，不应从该示例推断完整 yaml_metadata_block 支持。" });
 ext([4], ["block.table_of_contents"], ["toc_directives"], "Typora 的 [toc] 指令；Pandoc --toc 是输出选项，不是同名 Markdown 扩展。");
-ext([5], ["block.callout"], ["alerts"], "GitHub Docs / Typora / Obsidian 提示块；折叠 + / - 是产品变体，不能全部归 GitHub 规范。", { variants: ["typora", "gfm", "obsidian"] });
+ext([5], ["block.callout"], ["alerts"], "GitHub Docs / Typora / Obsidian 提示块；折叠 + / - 与同行自定义标题仅限 Obsidian，Notdown 集合方言兼容。", { variants: ["typora", "gfm", "obsidian"] });
 ext([6], ["inline.internal_link", "block.heading"], ["auto_identifiers", "gfm_auto_identifiers"], "(#header-3) 是基础链接；扩展控制目标标题 ID 的自动生成。", { variants: ["typora", "gfm"] });
 ext([7], ["inline.emoji"], ["emoji"], ":smile: 可用于表情短码；原生 Unicode emoji 不需要插件。Notion Enhanced Markdown 另有 :emoji_name: 自定义表情语法。Markdown Guide 是教程，不是方言。", { variants: ["typora", "markdown", "gfm", "notion-markdown"], correction: "更正此前审计：不能否认 Notion 的冒号表情语法。其自定义表情名称与通用 shortcode 字典不等价，也不属于 notion_mentions。", limitation: "本地 emoji 开关处理通用短码，未接入 Notion 工作区自定义表情解析。", references: [...reference(typora + "#emoji-happy"), ...reference(notion + "#custom-emoji")] });
 ext([8], ["inline.inline_math"], ["tex_math_dollars"], "美元行内数学；Typora 中是可选功能。", { variants: ["typora", "obsidian", "markdown", "markdown_mmd", "gfm"] });
@@ -112,11 +112,11 @@ ext([53], ["inline.inline_math", "block.math_block"], ["tex_math_double_backslas
 ext([54], ["inline.superscript"], ["short_subsuperscripts"], "MMD 简写上标连续读取字母数字，不需要结尾 ^。");
 ext([55], ["inline.subscript"], ["short_subsuperscripts"], "MMD 简写下标连续读取字母数字，不需要结尾 ~。");
 ext([56], ["metadata.yaml_front_matter", "inline.metadata_variable"], ["mmd_title_block", "metadata_values", "metadata_variables"], "MMD 顶部键值元数据由 [%foo] 引用；metadata_values 是 Notdown 展示层开关，不是 Pandoc 官方扩展。");
-ext([57], ["inline.raw_source", "block.raw_source"], ["raw_attribute"], "MMD v6 确实支持 {=html}/{=latex} 原始输出标记，Pandoc 也有同名扩展；本地保留源码，不执行 TeX。");
+ext([57], ["inline.inline_html", "block.html_block", "block.unsupported"], ["raw_attribute"], "MMD v6 确实支持 {=html}/{=latex} 原始输出标记，Pandoc 也有同名扩展；HTML 归入 HTML block / Inline HTML；其他格式归入 Unsupported 并保留源码。");
 ext([58], ["character.smart_typography"], ["smart"], "智能标点需要上下文；行首 --- 还可能是分隔线。Typora 可选设置不等于默认开启。", { variants: ["markdown_mmd", "markdown", "typora"] });
 ext([59, 60], ["block.table_of_contents"], ["toc_directives"], "MMD {{TOC}}；6.5 起 :N 只取该级别、:N-M 取级别区间，不是最大深度 N。");
 ext([61], ["block.table"], ["mmd_tables"], "MMD 分组表头、跨列、分区及题注；不能映射为只有 GFM pipe_tables 的能力。");
-ext([62], ["inline.inline_html", "inline.internal_link"], ["raw_html"], "HTML 自定义锚点 + 普通片段链接；不是独立 GitHub 扩展。", { limitation: "已确认本地 HTML 清理器移除 a 的 name/id，故此例虽保留源码，却不能生成可跳转的 custom-anchor-point 目标。" });
+ext([62], ["inline.inline_html", "inline.internal_link"], ["raw_html"], "HTML 自定义锚点 + 普通片段链接；不是独立 GitHub 扩展。安全投影保留 id/name 的命名空间映射，原始源码不变。");
 ext(range(63, 70), ["inline.link"], [], "GitHub 站点语义，需要账号、仓库或集成配置，不属于 GFM Spec 的裸 URL 自动链接。", { correction: "应标记 GitHub Docs / 平台功能；不能映射为 emoji、notion_mentions 或 autolink_bare_uris。第 63 行 @github/support 是团队提及，不是单个用户。", limitation: "Notdown 未实现团队通知、Issue/PR/JIRA/SHA 短引用解析；原文按普通文本保留。", references: reference(github) });
 ext([71], ["block.math_block"], ["tex_math_gfm"], "GitHub Docs 的 math 围栏；对应 Pandoc tex_math_gfm，可选于本地 GFM。");
 ext([72, 73], ["block.code_block", "inline.code_span"], [], "R Markdown/knitr 的可执行代码块与行内 R 表达式。", { limitation: "Notdown 未注册 R Markdown 方言或 knitr 执行器；只显示/保留代码，不计算输出。", references: reference("https://rmarkdown.rstudio.com/lesson-3.html"), variants: [] });

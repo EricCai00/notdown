@@ -44,6 +44,108 @@ async function saved(request: APIRequestContext, id: string) {
   return (await (await request.get(`/api/pages/${id}`)).json()).body as string;
 }
 
+test("empty line-block rows stay empty after editing, source switch and reload", async ({ page, request }) => {
+  const body = "| First line\n| \n| \n| Last line\n\nTail";
+  const note = await open(page, request, body);
+  const rows = page.locator(".pm-line-block > .pm-verse-line");
+  await expect(rows).toHaveCount(4);
+  await rows.first().click();
+  await page.keyboard.press("Home");
+  await page.keyboard.insertText("EDIT ");
+  const expected = body.replace("First line", "EDIT First line");
+  await mode(page, "source");
+  await expectSource(page, expected);
+  await expect.poll(() => saved(request, note.id)).toBe(expected);
+  await mode(page, "document");
+  await page.reload();
+  await expect(rows).toHaveText(["EDIT First line", "", "", "Last line"]);
+});
+
+test("HTML source floats without a toolbar row and opens a highlighted, numbered pane", async ({ page, request }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const raw = '<section class="sample">\n  <h2>HTML preview</h2>\n  <p>Second line</p>\n</section>';
+  const note = await open(page, request, raw + '\n\nTail');
+  const block = page.locator('.pm-html-block');
+  const button = block.getByRole('button', { name: 'HTML source', exact: true });
+  const pane = block.locator('.pm-html-source');
+  await page.mouse.move(0, 0);
+  await expect(button).toHaveCSS('opacity', '0');
+  await expect(pane).toBeHidden();
+  const before = await block.boundingBox();
+  const preview = await block.locator('.pm-html-preview').boundingBox();
+  expect(preview!.y).toBe(before!.y);
+  await block.hover();
+  await expect(button).toHaveCSS('opacity', '1');
+  await expect(button).toHaveCSS('position', 'absolute');
+  expect(await block.boundingBox()).toEqual(before);
+  const control = await button.boundingBox();
+  expect(control!.x + control!.width).toBe(before!.x + before!.width);
+  expect(control!.y).toBe(before!.y);
+  // Click the SVG itself to exercise nested node-view event handling.
+  await button.locator('svg').click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(pane).toBeVisible();
+  await expect(pane.locator('.cm-lineNumbers .cm-gutterElement')).toContainText(['1', '2', '3', '4']);
+  const input = block.getByRole('textbox', { name: 'HTML block source' });
+  await expect(input).toBeFocused();
+  await expect(input.locator('.cm-line')).toHaveText(raw.split('\n'));
+  const tag = input.locator('.cm-line span').filter({ hasText: /^section$/ }).first();
+  await expect(tag).toBeVisible();
+  expect(await tag.evaluate(el => getComputedStyle(el).color)).not.toBe(await input.evaluate(el => getComputedStyle(el).color));
+  await page.screenshot({ path: 'test-results/html-source-pane.png' });
+  await input.press('Control+End');
+  await input.press('Enter');
+  await page.keyboard.insertText('<p>Added from source</p>');
+  await expect(block.locator('.pm-html-preview')).toContainText('Added from source');
+  await input.press('Escape');
+  await expect(pane).toBeHidden();
+  await expect(button).toBeFocused();
+  await button.press('Enter');
+  await expect(input).toBeFocused();
+  await expect(input.locator('.cm-line').last()).toHaveText('<p>Added from source</p>');
+  await mode(page, 'source');
+  await expectSource(page, raw + '\n<p>Added from source</p>\n\nTail');
+  await expect.poll(() => saved(request, note.id)).toBe(raw + '\n<p>Added from source</p>\n\nTail');
+  expect(errors).toEqual([]);
+});
+
+test("raw HTML uses the HTML block editor and other formats remain unsupported through save and reopen", async ({ page, request }) => {
+  const raw = '````{=html}\n<h2>*Raw HTML*</h2>\n````';
+  const unsupported = '```{=latex}\n\\text{Preserved}\n```';
+  const source = raw + '\n\n' + unsupported + '\n\nBefore `<b>raw inline</b>`{=html} and `\\alpha`{=latex}.\n\nTail';
+  const note = await open(page, request, source, { raw_attribute: true, raw_html: false });
+  await expect(page.locator('.pm-html-preview h2')).toHaveText('*Raw HTML*');
+  await expect(page.locator('.pm-html-inline b')).toHaveText('raw inline');
+  await expect(page.locator('.opaque-block[aria-label="Unsupported"]')).toHaveText(unsupported);
+  await expect(page.locator('.pm-unsupported-inline')).toHaveText('`\\alpha`{=latex}');
+  await page.locator('.pm-html-block').hover();
+  await page.getByRole('button', { name: 'HTML source', exact: true }).click();
+  const input = page.getByLabel('HTML block source', { exact: true });
+  await expect(input.locator('.cm-line')).toHaveText(raw.split('\n'));
+  const edited = raw.replace('*Raw HTML*', '*Edited*');
+  await input.fill(edited);
+  await expect(page.locator('.pm-html-preview h2')).toHaveText('*Edited*');
+  await input.press('Control+z');
+  await expect(page.locator('.pm-html-preview h2')).toHaveText('*Raw HTML*');
+  await page.getByLabel('HTML block source', { exact: true }).press('Control+Shift+z');
+  await expect(page.locator('.pm-html-preview h2')).toHaveText('*Edited*');
+  await mode(page, 'source');
+  await expectSource(page, source.replace(raw, edited));
+  await expect.poll(() => saved(request, note.id)).toBe(source.replace(raw, edited));
+  await mode(page, 'document');
+  await page.reload();
+  await expect(page.locator('.pm-html-preview h2')).toHaveText('*Edited*');
+  await expect(page.locator('.opaque-block[aria-label="Unsupported"]')).toHaveText(unsupported);
+  await page.locator('.pm-html-block').hover();
+  await page.getByRole('button', { name: 'HTML source', exact: true }).click();
+  await page.getByLabel('HTML block source', { exact: true }).fill(edited.replace('{=html}', '{=latex}'));
+  await expect(page.locator('.opaque-block[aria-label="Unsupported"]')).toHaveCount(2);
+  await page.locator('.pm-syntax-block').first().getByRole('button', { name: 'Edit source', exact: true }).click();
+  await page.getByLabel('Extension block source', { exact: true }).first().fill(edited);
+  await expect(page.locator('.pm-html-preview h2')).toHaveText('*Edited*');
+});
+
 test("HTML and Markdown containers edit in the page and survive source view, save and reopen", async ({
   page,
   request,
@@ -69,7 +171,8 @@ test("HTML and Markdown containers edit in the page and survive source view, sav
     path: "test-results/markdown-blocks.png",
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Edit HTML", exact: true }).click();
+  await page.locator('.pm-html-block').hover();
+  await page.getByRole("button", { name: "HTML source", exact: true }).click();
   await page
     .getByLabel("HTML block source", { exact: true })
     .fill('<h2 class="from-browser">Edited HTML</h2>');
@@ -80,7 +183,7 @@ test("HTML and Markdown containers edit in the page and survive source view, sav
     .getByLabel("HTML block source", { exact: true })
     .press("Control+Shift+z");
   await expect(page.locator(".pm-html-preview h2")).toHaveText("Edited HTML");
-  await page.getByRole("button", { name: "Hide source", exact: true }).click();
+  await page.getByRole("button", { name: "HTML source", exact: true }).click();
   for (const selector of [
     ".pm-definition-list dt",
     ".pm-definition-list dd p",
@@ -187,6 +290,10 @@ test("Slash inserts the five new block types and respects disabled extensions", 
     await page.keyboard.press("ArrowUp");
     await page.keyboard.type("/");
     await page.locator(`[data-insert="${command}"]`).click();
+    if (command === "footnote") {
+      await page.getByRole("textbox", { name: "Footnote text" }).fill("Footnote text.");
+      await page.getByRole("button", { name: "Insert reference", exact: true }).click();
+    }
     await expect(page.locator(selector)).toHaveCount(1);
   }
   await page.locator(".pm-html-block").hover({ position: { x: 2, y: 10 } });

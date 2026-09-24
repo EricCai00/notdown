@@ -87,12 +87,16 @@ export function blockAtPos(doc: PMNode, position: number): EditorBlock | null {
     return null;
   }
   if (exact && isItem(exact)) return describe(doc, path);
+  if (exact?.type.name === "fenced_div") return describe(doc, path);
 
   // An item's first paragraph is its own editable row. Nested list items have
   // their own nearer list_item ancestor and therefore their own drag handle.
   for (let depth = $pos.depth; depth > 0; depth--) {
+    // A Div has no heading row: every child is independently movable. Its
+    // exact boundary still resolves to the container for whole-group actions.
+    if ($pos.node(depth).type.name === "fenced_div") break;
     if (
-      ["definition_list", "line_block", "fenced_div"].includes(
+      ["definition_list", "line_block"].includes(
         $pos.node(depth).type.name,
       )
     )

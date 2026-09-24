@@ -1,11 +1,12 @@
 import type { EditorView } from "prosemirror-view";
 import DOMPurify from "dompurify";
+import { readMmdCitation } from "../document/mmd-citations";
 const requests = new WeakMap<EditorView, { key: string; time: number; citations?: Record<string, string>; bibliography?: string; error?: string }>();
 export function refreshCitations(view: EditorView, metadata: Record<string, unknown>): boolean {
   const bibliography = String(metadata.bibliography || metadata.bibtex || ""), style = String(metadata.csl || "");
   const nodes: { pos: number; source: string }[] = [];
   view.state.doc.descendants((node, pos) => {
-    if (node.type.name === "syntax_inline" && node.attrs.kind === "citation" && !node.attrs.raw.startsWith("[#")) nodes.push({ pos, source: node.attrs.raw });
+    if (node.type.name === "syntax_inline" && node.attrs.kind === "citation" && !readMmdCitation(node.attrs.raw)) nodes.push({ pos, source: node.attrs.raw });
   });
   if (!bibliography || !nodes.length) { requests.delete(view); view.dom.parentElement?.querySelector(".md-csl-bibliography")?.remove(); return false; }
   const key = JSON.stringify([bibliography, style, nodes.map(n => n.source)]);

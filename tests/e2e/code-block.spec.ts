@@ -16,16 +16,37 @@ test("code toolbar changes language, copies code, wraps long lines and saves a c
   await page.goto(`/#page/${note.id}`);
   const block = page.locator(".pm-document .pm-code-block");
   await expect(block.locator("code")).toHaveText(code);
-  await expect(block.locator(".hljs-keyword")).toContainText("const");
+  await expect(block.locator(".pm-code-keyword")).toContainText("const");
   const gaps = await page.locator(".pm-document > *").evaluateAll(nodes =>
     nodes.slice(1).map((node, index) => node.getBoundingClientRect().top - nodes[index].getBoundingClientRect().bottom));
   expect(gaps).toEqual([12, 12]);
+
+  const toolbar = block.getByRole("toolbar", { name: "Code block" });
+  await page.mouse.move(0, 0);
+  await expect(toolbar).toHaveCSS("opacity", "0");
+  const restingBounds = await block.boundingBox();
+  expect(restingBounds!.height).toBeLessThan(116);
+  const padding = await block.locator("pre").evaluate(node => {
+    const style = getComputedStyle(node);
+    return { top: style.paddingTop, bottom: style.paddingBottom };
+  });
+  expect(padding.top).toBe(padding.bottom);
+  await block.hover();
+  await expect(toolbar).toHaveCSS("opacity", "1");
+  const toolbarBounds = await toolbar.boundingBox();
+  const codeBounds = await block.locator("code").boundingBox();
+  expect(toolbarBounds!.y + toolbarBounds!.height).toBeLessThanOrEqual(codeBounds!.y);
+  expect(await block.boundingBox()).toEqual(restingBounds);
+  await page.mouse.move(0, 0);
+  await expect(toolbar).toHaveCSS("opacity", "0");
+  await block.hover();
 
   await block.getByRole("button", { name: "Code language" }).click();
   await page.getByRole("searchbox", { name: "Search for a language" }).fill("python");
   await page.getByRole("button", { name: "Python", exact: true }).click();
   await expect(block.getByRole("button", { name: "Code language" })).toContainText("Python");
 
+  await block.hover();
   await block.getByRole("button", { name: "Copy code" }).click();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(code);
 
@@ -34,6 +55,12 @@ test("code toolbar changes language, copies code, wraps long lines and saves a c
   await wrap.click();
   await expect(wrap).toHaveAttribute("aria-pressed", "true");
   await expect(block.locator("pre")).toHaveCSS("white-space", "pre-wrap");
+  await page.mouse.move(0, 0);
+  await expect(toolbar).toHaveCSS("opacity", "0");
+  await page.keyboard.press("Tab");
+  await expect(block.getByRole("button", { name: "Code block options" })).toBeFocused();
+  await expect(toolbar).toHaveCSS("opacity", "1");
+  await block.hover();
 
   await block.getByRole("button", { name: "Code block options" }).click();
   await page.getByRole("menuitem", { name: "Add caption" }).click();
@@ -44,6 +71,7 @@ test("code toolbar changes language, copies code, wraps long lines and saves a c
   await page.reload();
   await expect(page.locator(".pm-code-caption")).toHaveValue('Example "quoted" {name} & text');
   await expect(page.locator(".pm-code-pre code")).toHaveText(code);
+  await block.hover();
   await page.locator(".pm-code-block").getByRole("button", { name: "Code block options" }).click();
   await page.getByRole("menuitem", { name: "Remove caption" }).click();
   await expect(page.locator(".pm-code-caption")).toBeHidden();
@@ -59,8 +87,8 @@ test("official Notion code keeps caption controls unavailable", async ({ page, r
   const note = await response.json();
   await page.goto(`/#page/${note.id}`);
   const code = page.locator(".pm-code-block code");
-  await expect(code.locator(".hljs-built_in, .hljs-title").first()).toBeVisible();
-  await page.locator(".pm-code-block pre").click({ position: { x: 12, y: 75 } });
+  await expect(code.locator(".pm-code-keyword")).toHaveText("print");
+  await code.click();
   await page.keyboard.press("Control+End");
   await page.keyboard.press("Enter");
   await page.keyboard.type("print(2)");

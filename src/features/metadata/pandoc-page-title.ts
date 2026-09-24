@@ -3,6 +3,30 @@ import { parseNative, serializeNative } from "../../markdown-engine/codec";
 import { enabled, type SyntaxConfig } from "../../markdown-engine/config";
 import { pandocTitleValues } from "../../markdown-engine/metadata-editing";
 import { metadataSourceTransaction } from "./metadata-source";
+import { documentMetadata } from "./document-metadata";
+import { editMetadata } from "../../markdown-engine/metadata-editing";
+
+export function documentPageTitle(source: string, _config?: SyntaxConfig): string | undefined {
+  try {
+    const title = documentMetadata(source).values.title;
+    return typeof title === "string" && title.trim() && title.length <= 500 ? title : undefined;
+  } catch { return undefined; }
+}
+
+export function renameDocumentPageSource(source: string, config: SyntaxConfig, title: string): string {
+  if (source.startsWith("\uFEFF")) return "\uFEFF" + renameDocumentPageSource(source.slice(1), config, title);
+  const metadata = documentMetadata(source);
+  if (typeof metadata.values.title !== "string") return source;
+  if (metadata.form === "yaml") {
+    const prefix = /^(?:\uFEFF)?---[^\n]*\n[\s\S]*?\r?\n(?:---|\.\.\.)[\t ]*(?=\r?\n|$)/.exec(source);
+    if (prefix) return editMetadata(prefix[0], "yaml", "title", title) + source.slice(prefix[0].length);
+  }
+  if (metadata.form === "pandoc") {
+    const prefix = /^(?:\uFEFF)?%(?:[^\n]*)(?:\r?\n(?:%[^\n]*|[\t ]+\S[^\n]*))*/.exec(source);
+    if (prefix) return replacePandocTitle(prefix[0], title) + source.slice(prefix[0].length);
+  }
+  return source;
+}
 
 export function pandocPageTitle(source: string, config: SyntaxConfig): string | undefined {
   if (!enabled(config, "pandoc_title_block") || !source.startsWith("%")) return;

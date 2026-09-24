@@ -88,7 +88,7 @@ for (const sample of cases)
     await expect(page.locator(".pm-document ol > li")).toHaveCount(3);
     await page.locator('.editing-modes [data-mode="split"]').click();
     const variants = page.getByLabel("Markdown dialect", { exact: true });
-  await expect(variants.locator("option")).toHaveCount(12);
+    await expect(variants.locator("option")).toHaveCount(13);
     await expect(variants.locator("option:disabled")).toHaveCount(0);
     await expect(page.locator(".pm-document " + sample.selector)).toHaveCount(
       sample.count,

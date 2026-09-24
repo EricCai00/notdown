@@ -118,7 +118,7 @@ test("unified Callout persists fold edits and TOC updates share the same editor 
   const callout = root.locator('details.pm-callout');
   await expect(callout).not.toHaveAttribute('open');
   await expect(root.locator('.pm-toc button')).toHaveText('Included');
-  await callout.locator('summary').click();
+  await callout.locator('.pm-alert-fold').click();
   await expect(callout).toHaveAttribute('open');
   await expect.poll(async () => (await (await request.get('/api/pages/' + note.id)).json()).body).toContain('[!custom]+ Details');
   const paragraph = callout.locator('p').filter({ hasText: 'A note' });
@@ -304,8 +304,9 @@ test("Typora nested task parents toggle and persist; filtered HTML keeps editabl
   await expect(root.locator('.pm-html-preview').nth(1)).toBeEmpty();
   await expect(root.locator('.pm-html-preview').nth(2)).toBeEmpty();
   const html = root.locator(".pm-html-block").first();
-  await html.getByRole("button", { name: "Edit HTML" }).click();
-  await expect(html.getByRole("textbox", { name: "HTML block source" })).toHaveValue('<textarea>PROBE textarea text</textarea>');
+  await html.hover();
+  await html.getByRole("button", { name: "HTML source" }).click();
+  await expect(html.getByRole("textbox", { name: "HTML block source" })).toHaveText('<textarea>PROBE textarea text</textarea>');
   await html.getByRole("textbox", { name: "HTML block source" }).fill('<p>Visible content</p>');
   await expect(html.locator(".pm-html-preview")).toHaveText("Visible content");
   await expect(html.locator(".pm-html-empty")).toHaveCount(0);
@@ -616,10 +617,11 @@ test("definition source edits refresh inline references without changing their s
   await expect(
     page.locator(".pm-syntax-inline").filter({ hasText: /^MMD$/ }),
   ).toHaveAttribute("title", "Updated abbreviation");
-  await definitions.nth(1).getByRole("button", { name: "Edit source" }).click();
-  await definitions.nth(1).locator("textarea").fill("[#doe]: Updated citation");
+  await page.locator(".md-bibliography").getByRole("button", { name: "Edit definition" }).click();
+  await page.getByRole("textbox", { name: "Definition source" }).fill("[#doe]: Updated citation");
+  await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   await expect(
-    page.locator(".pm-syntax-inline").filter({ hasText: /^\[doe\]$/ }),
+    page.locator(".pm-syntax-inline").filter({ hasText: /^\(1\)$/ }),
   ).toHaveAttribute("title", "Updated citation");
   await page.getByRole("button", { name: "Source", exact: true }).click();
   await expectSource(page, /\[>MMD\] \[#doe\]/);

@@ -1,6 +1,7 @@
 node_modules/
 dist/
-vault/
+desktop-dist/
+/vault/
 test-results/
 *.log
 public/vendor/

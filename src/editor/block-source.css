@@ -1,0 +1,37 @@
+.pm-block-source-dialog {
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px;
+  color: var(--text, #37352f);
+  background: var(--bg, #fff);
+  box-shadow: 0 16px 64px #0003;
+}
+.pm-block-source-dialog::backdrop { background: #0005; }
+.pm-block-source-dialog header,
+.pm-block-source-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pm-block-source-dialog h2 { margin: 0; font-size: 18px; }
+.pm-block-source-dialog button { padding: 6px 10px; cursor: pointer; }
+.pm-block-source-dialog textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: min(420px, 55dvh);
+  margin: 16px 0;
+  padding: 12px;
+  resize: none;
+  tab-size: 2;
+  font: 13px/1.6 Consolas, monospace;
+  color: inherit;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+}
+.pm-block-source-dialog output { font-size: 12px; }

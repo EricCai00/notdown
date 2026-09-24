@@ -32,7 +32,8 @@ test("canonical Markdown survives reopen and metadata edits preserve body and un
   });
   const file = path.join(vault.vaultPath, "pages", `${created.id}.md`);
   let source = await fs.readFile(file, "utf8");
-  assert.match(source, /^---\nid:/);
+  assert.equal(source, body);
+  source = "---\n# keep this comment\nexternal_field:\n  nested: keep\n---\n" + source;
   source = source.replace(
     "title: 测试",
     "title: 测试\n# keep this comment\nexternal_field:\n  nested: keep",
@@ -40,7 +41,7 @@ test("canonical Markdown survives reopen and metadata edits preserve body and un
   await fs.writeFile(file, source);
   const external = await createVault(vault.vaultPath).get(created.id);
   assert.notEqual(external.revision, created.revision);
-  assert.equal(external.body, body);
+  assert.equal(external.body, source);
   const updated = await vault.update(
     created.id,
     { title: "新标题" },
@@ -49,11 +50,12 @@ test("canonical Markdown survives reopen and metadata edits preserve body and un
   const saved = await fs.readFile(file, "utf8");
   assert.match(saved, /# keep this comment/);
   assert.match(saved, /external_field:\n  nested: keep/);
-  assert.equal(updated.body, body);
+  assert.equal(updated.body, source);
   assert.deepEqual(updated.properties, {
     tags: ["Markdown"],
     done: false,
     count: 0,
+    external_field: { nested: "keep" },
   });
   assert.equal((await createVault(vault.vaultPath).list())[0].title, "新标题");
   const history = await fs.readFile(
@@ -212,7 +214,7 @@ test("malformed YAML and duplicate IDs stop writes without damaging source", asy
     path.join(directory, `${page.id}.md`),
     "utf8",
   );
-  await fs.writeFile(path.join(directory, "duplicate.md"), original);
+  await fs.writeFile(path.join(directory, "duplicate.md"), `---\nid: ${page.id}\n---\n` + original);
   await assert.rejects(vault.list(), { status: 422 });
   await assert.rejects(
     vault.update(page.id, { body: "overwrite" }, page.revision),

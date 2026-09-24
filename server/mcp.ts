@@ -76,7 +76,7 @@ export function createNoteMcpServer(
       .string()
       .optional()
       .describe(
-        "Complete body without YAML. New pages use Notion Enhanced Markdown: one newline per block, tabs for children, <br> inside a block, <columns>/<column>, <page>, <mention-page>, media tags. Preserve <unknown> and unknown markup. Read bodyFormat before editing legacy pages; omitted fields stay unchanged.",
+        "Complete Markdown file, including any existing YAML or Pandoc title block. Common page metadata is stored in vault metadata.json; document metadata overrides it. Do not add an application YAML header. New pages use Notion Enhanced Markdown: one newline per block, tabs for children, <br> inside a block, <columns>/<column>, <page>, <mention-page>, media tags. Preserve <unknown> and unknown markup. Read bodyFormat before editing legacy pages; omitted fields stay unchanged.",
       ),
     bodyFormat: z
       .enum(["markdown", "notion-markdown"])

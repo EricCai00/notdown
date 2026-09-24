@@ -3,6 +3,82 @@ import { test, expect, type Page } from "@playwright/test";
 const sidebar = (page: Page) => page.locator("#sidebar");
 const handle = (page: Page) => page.getByRole("separator", { name: "Resize sidebar" });
 const toggle = (page: Page) => page.getByRole("button", { name: "Toggle sidebar", exact: true });
+
+test("parent arrows replace icons without shifting titles and keep keyboard expansion usable", async ({ page, request }) => {
+  const create = async (title: string, parent: string | null = null, icon = "📁") =>
+    (await request.post("/api/pages", { data: { title, parent, icon, body: "Sidebar content" } })).json();
+  const parent = await create("Compact parent");
+  const child = await create("Compact child", parent.id, "folder");
+  const leaf = await create("Compact leaf", child.id);
+  await page.goto(`/#page/${leaf.id}`);
+  const row = (id: string) => page.locator(`#page-tree [data-page-row="${id}"]`);
+  const parentRow = row(parent.id), childRow = row(child.id), leafRow = row(leaf.id);
+  const arrow = parentRow.locator(".tree-toggle");
+  const icon = parentRow.locator(".page-link-icon");
+  const titleX = (id: string) => row(id).locator(".tree-page > span:last-child").evaluate(el => el.getBoundingClientRect().x);
+  await expect(leafRow).toBeVisible();
+  await page.mouse.move(900, 100);
+  await expect(arrow).toHaveCSS("opacity", "0");
+  await expect(icon).toHaveCSS("opacity", "1");
+  await expect(leafRow.locator(".tree-toggle")).toHaveCount(0);
+  const originalX = await titleX(parent.id);
+  expect(await titleX(child.id) - originalX).toBe(10);
+  expect(await titleX(leaf.id) - await titleX(child.id)).toBe(10);
+
+  await parentRow.hover();
+  await expect(arrow).toHaveCSS("opacity", "1");
+  await expect(icon).toHaveCSS("opacity", "0");
+  expect(await titleX(parent.id)).toBe(originalX);
+  const arrowBox = (await arrow.boundingBox())!, iconBox = (await icon.boundingBox())!;
+  expect(arrowBox.x + arrowBox.width / 2).toBeCloseTo(iconBox.x + iconBox.width / 2);
+  await arrow.click();
+  await expect(childRow).toHaveCount(0);
+  await expect(page.locator("#page-title")).toHaveValue(leaf.title);
+  await expect(arrow).toHaveAttribute("aria-expanded", "false");
+  await expect(arrow).toBeFocused();
+  await page.mouse.move(900, 100);
+  await expect(arrow).toHaveCSS("opacity", "0");
+  await expect(icon).toHaveCSS("opacity", "1");
+  expect(await titleX(parent.id)).toBe(originalX);
+  await parentRow.hover();
+  await expect(arrow).toHaveCSS("opacity", "1");
+  await arrow.click();
+  await expect(childRow).toBeVisible();
+  await page.mouse.move(900, 100);
+  await expect(arrow).toHaveCSS("opacity", "0");
+  await expect(icon).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(arrow).toBeFocused();
+  await expect(arrow).toHaveCSS("opacity", "1");
+  await expect(icon).toHaveCSS("opacity", "0");
+  await page.keyboard.press("Space");
+  await expect(childRow).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await expect(childRow).toBeVisible();
+  await expect(arrow).toBeFocused();
+  await expect(arrow).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(childRow).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(parentRow.locator(".tree-page")).toBeFocused();
+  await expect(arrow).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#page-title")).toHaveValue(parent.title);
+
+  await page.locator("#page-title").focus();
+  await childRow.hover();
+  await expect(childRow.locator(".page-link-icon")).toHaveCSS("opacity", "0");
+  await leafRow.hover();
+  await expect(leafRow.locator(".page-link-icon")).toHaveCSS("opacity", "1");
+  await page.mouse.move(900, 100);
+  await expect(icon).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: "test-results/sidebar-compact-idle.png" });
+  await parentRow.hover();
+  await page.screenshot({ path: "test-results/sidebar-compact-hover.png" });
+});
+
 async function width(page: Page) {
   return sidebar(page).evaluate((element) => element.getBoundingClientRect().width);
 }

@@ -3,35 +3,8 @@ import type { EditorView, NodeView } from "prosemirror-view";
 import { closeHistory } from "prosemirror-history";
 import { createElement, Check, ChevronDown, Copy, CornerDownLeft, Ellipsis, type IconNode } from "lucide";
 import { codeCaption } from "../document/code-caption";
+import { codeLanguage, codeLanguageLabel, filterCodeLanguages } from "./code-languages";
 import "./code-block.css";
-
-const languages = [
-  ["plain text", "Plain Text"], ["abap", "ABAP"], ["arduino", "Arduino"],
-  ["bash", "Bash"], ["basic", "Basic"], ["c", "C"], ["c#", "C#"],
-  ["c++", "C++"], ["clojure", "Clojure"], ["coffeescript", "CoffeeScript"],
-  ["css", "CSS"], ["dart", "Dart"], ["diff", "Diff"], ["docker", "Docker"],
-  ["elixir", "Elixir"], ["elm", "Elm"], ["erlang", "Erlang"], ["f#", "F#"],
-  ["flow", "Flow"], ["fortran", "Fortran"], ["gherkin", "Gherkin"],
-  ["glsl", "GLSL"], ["go", "Go"], ["graphql", "GraphQL"],
-  ["groovy", "Groovy"], ["haskell", "Haskell"], ["html", "HTML"],
-  ["java", "Java"], ["javascript", "JavaScript"], ["json", "JSON"],
-  ["julia", "Julia"], ["kotlin", "Kotlin"], ["latex", "LaTeX"],
-  ["less", "Less"], ["lisp", "Lisp"], ["livescript", "LiveScript"],
-  ["lua", "Lua"], ["makefile", "Makefile"], ["markdown", "Markdown"],
-  ["markup", "Markup"], ["matlab", "MATLAB"], ["mermaid", "Mermaid"],
-  ["nix", "Nix"], ["objective-c", "Objective-C"], ["ocaml", "OCaml"],
-  ["pascal", "Pascal"], ["perl", "Perl"], ["php", "PHP"],
-  ["powershell", "PowerShell"], ["prolog", "Prolog"],
-  ["protobuf", "Protobuf"], ["python", "Python"], ["r", "R"],
-  ["racket", "Racket"], ["reason", "Reason"], ["rocq", "Rocq"],
-  ["ruby", "Ruby"], ["rust", "Rust"], ["sass", "Sass"],
-  ["scala", "Scala"], ["scheme", "Scheme"], ["scss", "SCSS"],
-  ["shell", "Shell"], ["sql", "SQL"], ["swift", "Swift"],
-  ["typescript", "TypeScript"], ["vb.net", "VB.NET"],
-  ["verilog", "Verilog"], ["vhdl", "VHDL"],
-  ["visual basic", "Visual Basic"], ["webassembly", "WebAssembly"],
-  ["xml", "XML"], ["yaml", "YAML"],
-] as const;
 
 const icon = (glyph: IconNode) => createElement(glyph, {
   width: 16, height: 16, "stroke-width": 1.8, "aria-hidden": "true",
@@ -44,11 +17,6 @@ function button(label: string, glyph: IconNode): HTMLButtonElement {
   element.setAttribute("aria-label", label);
   element.append(icon(glyph));
   return element;
-}
-
-function languageLabel(params: string): string {
-  if (!params.trim()) return "Plain Text";
-  return languages.find(([id, label]) => id.toLowerCase() === params.toLowerCase() || label.toLowerCase() === params.toLowerCase())?.[1] || params;
 }
 
 /** Toolbar and caption are outside contentDOM, so code stays one ProseMirror text node. */
@@ -122,7 +90,10 @@ export class CodeBlockView implements NodeView {
     for (const attr of Array.from(this.pre.attributes)) this.pre.removeAttribute(attr.name);
     for (const attr of Array.from((spec.dom as HTMLElement).attributes)) this.pre.setAttribute(attr.name, attr.value);
     this.pre.classList.add("pm-code-pre");
-    this.languageText.textContent = languageLabel(String(this.node.attrs.params || ""));
+    this.languageText.textContent = codeLanguageLabel(String(this.node.attrs.params || ""));
+    this.languageButton.disabled = Boolean(this.node.attrs.rChunk);
+    this.languageButton.title = this.node.attrs.rChunk ? String(this.node.attrs.params) + " · Edit chunk options in Source" : "Code language";
+    this.moreButton.hidden = Boolean(this.node.attrs.rChunk);
     this.dom.classList.toggle("pm-code-wrapped", this.wrapped);
     this.wrapButton.setAttribute("aria-pressed", String(this.wrapped));
     this.wrapButton.title = this.wrapped ? "Don't wrap code" : "Wrap code";
@@ -213,29 +184,42 @@ export class CodeBlockView implements NodeView {
     const list = document.createElement("div");
     list.className = "pm-code-language-list";
     const current = String(this.node.attrs.params || "").trim().toLowerCase();
-    const choices: [string, string][] = languages.map(([id, label]) => [id, label]);
-    if (current && !choices.some(([id]) => id === current))
-      choices.unshift([String(this.node.attrs.params).trim(), String(this.node.attrs.params).trim()]);
+    const selected = codeLanguage(current);
     const renderList = () => {
       const query = search.value.trim().toLowerCase();
       list.replaceChildren();
-      for (const [id, label] of choices.filter(([id, label]) =>
-        !query || id.toLowerCase().includes(query) || label.toLowerCase().includes(query))) {
-        const option = document.createElement("button");
-        option.type = "button";
-        option.className = "pm-code-language-option";
-        option.textContent = label;
-        option.setAttribute("aria-label", label);
-        if (id.toLowerCase() === current || !current && id === "plain text") {
-          option.classList.add("is-current");
-          option.append(icon(Check));
+      const groups = filterCodeLanguages(query);
+      if (current && current !== "mermaid" && !selected && (!query || current.includes(query))) {
+        const original = String(this.node.attrs.params).trim();
+        groups.unshift({ label: "Current", languages: [{ id: original, label: original, grammar: null }] });
+      }
+      for (const group of groups) {
+        const section = document.createElement("div");
+        section.className = "pm-code-language-group";
+        section.setAttribute("role", "group");
+        section.setAttribute("aria-label", group.label);
+        const heading = document.createElement("div");
+        heading.className = "pm-code-language-heading";
+        heading.textContent = group.label;
+        section.append(heading);
+        for (const { id, label } of group.languages) {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.className = "pm-code-language-option";
+          option.textContent = label;
+          option.setAttribute("aria-label", label);
+          if (id.toLowerCase() === (selected?.id ?? current)) {
+            option.classList.add("is-current");
+            option.append(icon(Check));
+          }
+          option.addEventListener("click", () => {
+            this.closeMenu();
+            this.updateAttrs({ params: id === "plain text" ? "" : id });
+            this.view.focus();
+          });
+          section.append(option);
         }
-        option.addEventListener("click", () => {
-          this.closeMenu();
-          this.updateAttrs({ params: id === "plain text" ? "" : id });
-          this.view.focus();
-        });
-        list.append(option);
+        list.append(section);
       }
       if (!list.childElementCount) {
         const empty = document.createElement("p");

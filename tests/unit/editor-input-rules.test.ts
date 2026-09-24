@@ -161,6 +161,8 @@ test("inline code converts only text and leaves atoms intact", () => {
   editor.type("`");
   assert.equal(editor.state.doc.textContent, "hello");
   assert.equal(editor.state.doc.child(0).child(0).marks[0].type.name, "code");
+  editor.type("plain");
+  assert.equal(serializeEditorMarkdown(editor.state.doc), "`hello`plain");
   const atom = schema.nodes.page_link.create({ target: "page", label: "Page" });
   const mixed = harness(paragraph(schema.text("`"), atom));
   mixed.type("`");
@@ -194,7 +196,7 @@ test("Unicode and emoji wiki syntax becomes one page atom with a stable label", 
   assert.equal(atom.type.name, "page_link");
   assert.deepEqual(
     { ...atom.attrs },
-    { target: "研究/🧠", label: "每日计划", url: "", nfmAttrs: {} },
+    { target: "研究/🧠", label: "每日计划", url: "", syntaxForm: "wiki", labelMode: "custom", nfmAttrs: {} },
   );
   assert.equal(
     serializeEditorMarkdown(editor.state.doc),

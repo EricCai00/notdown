@@ -11,7 +11,7 @@ const contains = (source: string, c: SyntaxConfig, type: string) => {
   return found;
 };
 
-test("all twelve dialects retain their heading limits, including Notion's H5/H6 conversion", () => {
+test("all dialects retain their heading limits, including Notion's H5/H6 conversion", () => {
   for (const { id } of dialects) for (let level = 1; level <= 7; level++) {
     const c = config(id), source = "#".repeat(level) + " Heading\r\n\r\nTail";
     const doc = parseNative(source, c), head = doc.firstChild!;
@@ -25,7 +25,7 @@ test("all twelve dialects retain their heading limits, including Notion's H5/H6 
 });
 
 test("ordered-parenthesis markers are not inherited by the original Markdown family", () => {
-  const native = new Set<Dialect>(["commonmark", "gfm", "obsidian", "commonmark_x", "markdown", "notdown"]);
+  const native = new Set<Dialect>(["commonmark", "gfm", "obsidian", "commonmark_x", "markdown", "notdown", "rmarkdown"]);
   for (const { id } of dialects) {
     const c = config(id), source = "1) Item\n\nTail";
     assert.equal(contains(source, c, "ordered_list"), native.has(id), id);

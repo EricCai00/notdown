@@ -5,18 +5,56 @@ import { contentObject, resolveContentObject } from "../../src/document/content-
 import { blockCatalog } from "../../src/catalog/block-catalog-data";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 import type { SyntaxConfig } from "../../src/markdown-engine/config";
+import { htmlDocument } from "../../src/document/document-format";
 
-test("raw inline is a primary object with a real raw_attribute example", () => {
-  const entry = blockCatalog.find(e => e.id === "inline.raw_source")!;
-  assert.ok(entry.sample);
-  const config: SyntaxConfig = { version: 1, variant: entry.variant, extensions: { raw_attribute: true } };
-  const doc = parseNative(entry.sample, config);
-  assert.equal(resolveContentObject(doc.firstChild!.child(1))?.id, "inline.raw_source");
-  assert.equal(serializeNative(doc, config), entry.sample);
-  let state = EditorState.create({ doc });
-  state = state.apply(state.tr.insertText("!", state.doc.content.size - 1));
-  const reopened = parseNative(serializeNative(state.doc, config), config);
-  assert.equal(reopened.firstChild!.child(1).attrs.raw, doc.firstChild!.child(1).attrs.raw);
+test("raw HTML stays literal and sanitized while unsupported formats retain their complete source", () => {
+  const config: SyntaxConfig = { version: 1, variant: "markdown", extensions: { raw_attribute: true, raw_html: false } };
+  const raw = '```{=html}\n<i>*literal*</i><script>bad()</script>\n```';
+  const html = htmlDocument("Test", raw, [], "markdown", config);
+  assert(html.includes('<i>*literal*</i>'));
+  assert(!html.includes('<em>literal</em>'));
+  assert(!html.includes('<script>'));
+  for (const source of ['```{=latex}\n<b>literal</b>\n```', '`<b>literal</b>`{=latex}']) {
+    const output = htmlDocument("Test", source, [], "markdown", config);
+    assert(output.includes('&lt;b&gt;literal&lt;/b&gt;'));
+    assert(output.includes('{=latex}'));
+    assert(!output.includes('<b>literal</b>'));
+  }
+  const off = { ...config, extensions: { raw_attribute: false } };
+  assert.equal(resolveContentObject(parseNative(raw, off).firstChild!)?.id, "block.code_block");
+  const notion: SyntaxConfig = { version: 1, variant: "notion-markdown", extensions: { raw_attribute: true } };
+  assert.notEqual(resolveContentObject(parseNative(raw, notion).firstChild!)?.id, "block.html_block");
+  for (const source of ['\\begin{center}\nText\n\\end{center}', 'Before \\textbf{word} after']) {
+    const doc = parseNative(source, { ...config, extensions: { raw_tex: true } });
+    const node = doc.firstChild!.type.name === "syntax_block" ? doc.firstChild! : doc.firstChild!.child(1);
+    assert.equal(resolveContentObject(node)?.id, "block.unsupported");
+  }
+});
+
+test("raw source shares HTML objects and preserves other formats as unsupported", () => {
+  for (const variant of ["markdown", "markdown_mmd", "notdown"] as const) {
+    const config: SyntaxConfig = { version: 1, variant, extensions: { raw_attribute: true, raw_html: false } };
+    for (const format of ["html", "latex", "openxml", "odt", "epub", "*", "unknown-format"]) {
+      for (const inline of [false, true]) {
+        const raw = inline ? '`<b>*literal*</b>`{=' + format + '}'
+          : '````{=' + format + '}\r\n<b>*literal*</b>\r\n\r\n```\r\n````';
+        const source = (inline ? 'Before ' + raw + ' after.' : raw) + '\r\n\r\nTail\r\n';
+        const doc = parseNative(source, config);
+        const node = inline ? doc.firstChild!.child(1) : doc.firstChild!;
+        assert.equal(resolveContentObject(node)?.id, format === "html" ? inline ? "inline.inline_html" : "block.html_block" : "block.unsupported", variant + ':' + format);
+        assert.equal(serializeNative(doc, config), source);
+        const state = EditorState.create({ doc });
+        const changed = state.tr.insertText("!", doc.content.size - 1).doc;
+        const saved = serializeNative(changed, config);
+        assert.equal(saved, source.replace("Tail", "Tail!"));
+        const reopened = parseNative(saved, config);
+        assert.equal(resolveContentObject(inline ? reopened.firstChild!.child(1) : reopened.firstChild!)?.id, resolveContentObject(node)?.id);
+      }
+    }
+  }
+  assert.equal(contentObject("block.raw_source"), undefined);
+  assert.equal(contentObject("inline.raw_source"), undefined);
+  assert(!blockCatalog.some(entry => entry.id.endsWith(".raw_source")));
   assert.equal(contentObject("inline.media"), undefined);
   assert.equal(contentObject("inline.mention_agent"), undefined);
 });

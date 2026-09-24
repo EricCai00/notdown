@@ -567,7 +567,7 @@ button span[aria-hidden] {
 #preview li.task-list-item > input {
   margin-left: -20px;
 }
-#preview .pm-callout {
+#preview .pm-callout:not(.pm-alert) {
   background: #f2f0e9;
 }
 #preview .pm-callout p {

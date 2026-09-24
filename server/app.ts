@@ -6,16 +6,21 @@ import type { Request, Response, NextFunction } from "express";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { createVault, VaultError } from "./vault.js";
+import { openFile } from "./open-file.js";
 import { getMarkdownLabCapabilities, renderPreview, PreviewError, renderCitations } from "./pandoc.js";
 import { z } from "zod";
 import {syntaxFiles} from './syntax-files.js';
 import {bibliographyEntries} from '../src/markdown-engine/bibliography.js';
+import { prepareMarkdownImport, importSummary, type ImportPlan } from "./markdown-import.js";
+import { executeRMarkdown, rMarkdownCapabilities } from "./rmarkdown.js";
 
 export function createApp(options: {
   vaultPath: string;
   frontendDir?: string;
   allowedOrigins?: string[];
   recycleFile?: (filename: string) => Promise<void>;
+  openFile?: (filename: string) => Promise<void>;
+  accessToken?: string;
 }) {
   const app = express();
   const vault = createVault(options.vaultPath, { recycleFile: options.recycleFile });
@@ -43,6 +48,10 @@ export function createApp(options: {
     const sameOrigin = origin === `${req.protocol}://${req.get("host")}`;
     if (origin && !sameOrigin && !origins.has(origin)) {
       res.status(403).json({ error: "This origin cannot access the local vault" });
+      return;
+    }
+    if (options.accessToken && req.get("X-Notdown-Desktop") !== options.accessToken) {
+      res.status(403).json({ error: "This desktop vault is available only inside its application window" });
       return;
     }
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -74,6 +83,33 @@ export function createApp(options: {
     };
 
   const files=syntaxFiles(vault);
+  app.get("/api/rmarkdown/capabilities", route(async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(await rMarkdownCapabilities());
+  }));
+  app.post("/api/rmarkdown/run", route(async (req, res) => {
+    const controller = new AbortController();
+    const cancel = () => { if (!res.writableEnded) controller.abort(); };
+    res.on("close", cancel);
+    res.setHeader("Cache-Control", "no-store");
+    try { return res.json(await executeRMarkdown(req.body, controller.signal)); }
+    finally { res.off("close", cancel); }
+  }));
+  // Plans contain the exact selected bytes. Commit never rereads a changing source folder.
+  const imports = new Map<string, { plan: ImportPlan; expires: number }>();
+  app.post("/api/import/preview", route(async (req, res) => {
+    for (const [key, value] of imports) if (value.expires < Date.now()) imports.delete(key);
+    if (imports.size >= 3) imports.delete(imports.keys().next().value!);
+    const plan = prepareMarkdownImport(req.body);
+    imports.set(plan.id, { plan, expires: Date.now() + 30 * 60_000 });
+    return res.json(importSummary(plan));
+  }));
+  app.post("/api/import/commit", route(async (req, res) => {
+    const entry = imports.get(req.body?.id);
+    if (!entry || entry.expires < Date.now()) throw new VaultError(410, "Import preview expired. Select the folder again.");
+    if (entry.plan.errors.length && req.body.skipInvalid !== true) throw new VaultError(400, "Review and explicitly skip invalid files before importing");
+    return res.json(await vault.importBatch(entry.plan));
+  }));
   app.get('/api/people', route(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.json(await vault.people.list(req.query.includeDeleted === 'true'));
@@ -144,6 +180,26 @@ export function createApp(options: {
     "/api/pages/:id",
     route(async (req, res) => res.json(await vault.get(String(req.params.id)))),
   );
+  app.get("/api/pages/:id/source-file", route(async (req, res) => {
+    const file = await vault.sourceFile(String(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ path: file.path });
+  }));
+  app.get("/api/pages/:id/source", route(async (req, res) => {
+    const file = await vault.sourceFile(String(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+    return res.type("text/plain").send(file.source);
+  }));
+  app.post("/api/pages/:id/source-file/open", route(async (req, res) => {
+    if (!z.object({}).strict().safeParse(req.body).success)
+      throw new VaultError(400, "This action accepts only a page ID, not a file path.");
+    const file = await vault.sourceFile(String(req.params.id));
+    try { await (options.openFile ?? openFile)(file.path); }
+    catch { throw new VaultError(503, "Could not open the source file. Check the default Markdown app, or copy the file path and open it manually."); }
+    return res.json({ opened: true });
+  }));
   app.post(
     "/api/pages/:id/duplicate",
     route(async (req, res) => res.status(201).json(await vault.duplicate(String(req.params.id), req.body?.baseRevision))),

@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import { internalReference, referenceHref, resolveReferencePage } from "./internal-reference";
 import type Token from "markdown-it/lib/token.mjs";
 
 export interface PageReference {
@@ -52,10 +53,6 @@ function plainText(tokens: Token[] = []): string {
 function markdown(pages: PageReference[] = []): MarkdownIt {
   const md = new MarkdownIt({ html: false, linkify: false, breaks: false });
   const escape = md.utils.escapeHtml;
-  const resolve = (target: string) =>
-    pages.find((page) => page.id === target || page.title === target)?.id ??
-    target;
-
   md.inline.ruler.before("link", "wiki_link", (state, silent) => {
     const start = state.pos;
     // Link-label lookahead must see balanced literal brackets; otherwise this rule
@@ -74,8 +71,9 @@ function markdown(pages: PageReference[] = []): MarkdownIt {
       const token = state.push("wiki_link", "", 0);
       token.content =
         separator < 0 ? target : inside.slice(separator + 1).trim();
-      token.meta = { target };
-      token.attrSet("href", `#page/${encodeURIComponent(resolve(target))}`);
+      token.meta = { target, explicitLabel: separator >= 0 };
+      const reference = internalReference(target, "wiki");
+      token.attrSet("href", reference ? referenceHref(reference, resolveReferencePage(reference, pages)?.id) : `#page/${encodeURIComponent(target)}`);
     }
     state.pos = end + 2;
     return true;
@@ -408,7 +406,9 @@ function walkTokens(tokens: Token[], visit: (token: Token) => void): void {
 export function extractLinks(source: string): string[] {
   const targets = new Set<string>();
   walkTokens(markdown().parse(source, {}), (token) => {
-    if (token.type === "wiki_link") targets.add(token.meta.target);
+    const reference = token.type === "wiki_link" ? internalReference(token.meta.target, "wiki")
+      : token.type === "link_open" ? internalReference(token.attrGet("href") || "") : null;
+    if (reference?.address && reference.addressing !== "url") targets.add(reference.address.replace(/\.(?:md|markdown)$/i, ""));
   });
   return [...targets];
 }

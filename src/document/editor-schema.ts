@@ -1,8 +1,9 @@
 import { Schema, type DOMOutputSpec, type NodeSpec } from "prosemirror-model";
 import { objectNodeSpecs, objectMarkSpecs } from "./object-model";
-import { colorStyle, pageUrl, safeReference } from "./notion-syntax.js";
+import { colorStyle, inlineColorStyle, pageUrl, safeReference } from "./notion-syntax.js";
 import { domAttributes } from "../markdown-engine/attributes.js";
 import { columnTracks, columnWidths } from "../blocks/column-widths.js";
+import { alertDOM } from "./alert-presentation";
 
 /** Source bookkeeping is carried by document transactions, never rendered. */
 const sourceAttrs = {
@@ -66,6 +67,21 @@ function safeUrl(value: string): string {
   return /^(?:javascript|vbscript|data):/i.test(value.trim()) ? "" : value;
 }
 
+function referenceDomAttributes(dom: HTMLElement) {
+  let nfmAttrs: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(dom.getAttribute("data-reference-attrs") || "{}");
+    if (parsed && !Array.isArray(parsed) && typeof parsed === "object")
+      nfmAttrs = Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  } catch { /* Pasted HTML without valid source attributes remains a basic reference. */ }
+  return {
+    url: dom.getAttribute("data-reference-url") || "",
+    syntaxForm: dom.getAttribute("data-reference-syntax") || "",
+    labelMode: dom.getAttribute("data-label-mode") || "",
+    nfmAttrs,
+  };
+}
+
 /** Media players only request local relative assets, never an external origin. */
 export function localMediaSource(value: string): string {
   if (
@@ -109,6 +125,7 @@ export const editorSchema = new Schema({
         sourceSuffix: { default: "" },
         sourceNewline: { default: "\n" },
         sourceFormat: { default: "markdown" },
+        sourceSyntax: { default: null },
       },
     },
     paragraph: block({
@@ -148,10 +165,14 @@ export const editorSchema = new Schema({
         config: { default: null },
       },
       toDOM: (node) =>
-        node.attrs.kind === "unresolved_reference"
+        node.attrs.kind === "raw" && node.attrs.title !== "html"
+          ? ["span", { class: "pm-syntax-inline pm-unsupported-inline", title: "Unsupported: " + node.attrs.title }, node.attrs.raw]
+          : node.attrs.kind === "unresolved_reference"
           ? ["a", { class: "pm-unresolved-reference", role: "link", "aria-disabled": "true", title: node.attrs.title }, node.attrs.label]
+          : node.attrs.kind === "block-anchor"
+          ? ["span", { class: "pm-block-anchor", "data-block-id": node.attrs.target, "aria-hidden": "true" }]
           : node.attrs.kind === "comment"
-          ? ["span", { class: "pm-comment", title: node.attrs.title }, "✎"]
+          ? ["span", { class: "pm-comment", hidden: "", "aria-hidden": "true" }]
           : node.attrs.target
             ? [
                 "a",
@@ -204,7 +225,7 @@ export const editorSchema = new Schema({
       group: "block",
       code: true,
       defining: true,
-      attrs: { params: { default: "" } },
+      attrs: { params: { default: "" }, rChunk: { default: false } },
       parseDOM: [{ tag: "pre", preserveWhitespace: "full" }],
       toDOM: (node) => [
         "pre",
@@ -213,6 +234,7 @@ export const editorSchema = new Schema({
       ],
     }),
     bullet_list: block({
+      attrs: { tight: { default: true } },
       content: "(bullet_list_item | task_list_item)+",
       group: "block",
       parseDOM: [{ tag: "ul" }],
@@ -221,12 +243,12 @@ export const editorSchema = new Schema({
     ordered_list: block({
       content: "(numbered_list_item | task_list_item)+",
       group: "block",
-      attrs: { order: { default: 1 }, markerStyle: { default: "decimal" }, markerDelimiter: { default: "." } },
+      attrs: { order: { default: 1 }, tight: { default: true }, markerStyle: { default: "decimal" }, markerDelimiter: { default: "." } },
       parseDOM: [
         {
           tag: "ol",
           getAttrs: (dom) => ({
-            order: Number(dom.getAttribute("start")) || 1,
+              order: dom.getAttribute("start") === "0" ? 0 : Number(dom.getAttribute("start")) || 1,
           }),
         },
       ],
@@ -306,7 +328,7 @@ export const editorSchema = new Schema({
       atom: true,
       isolating: true,
       draggable: true,
-      attrs: { raw: { default: "" } },
+      attrs: { raw: { default: "" }, tagfilter: { default: false }, gfmConfig: { default: null } },
       toDOM: (node) => [
         "div",
         { class: "pm-html-block", contenteditable: "false" },
@@ -418,6 +440,7 @@ export const editorSchema = new Schema({
         kind: { default: "" },
         title: { default: "" },
         fold: { default: "" },
+        alertStyle: { default: "github" },
         syntaxForm: { default: "notion" },
       },
       parseDOM: [
@@ -425,19 +448,13 @@ export const editorSchema = new Schema({
           getAttrs: (dom: HTMLElement) => ({
             syntaxForm: "alert", icon: dom.dataset.icon || "", kind: dom.dataset.calloutKind || "NOTE",
             title: dom.dataset.calloutTitle || "", fold: dom.dataset.calloutFold || "", color: dom.dataset.blockColor || "",
+            alertStyle: dom.dataset.alertStyle === "obsidian" ? "obsidian" : "github",
           }),
         })),
         { tag: "aside.pm-callout", contentElement: (dom) => dom.querySelector(".pm-callout-content") || dom,
           getAttrs: (dom) => ({ icon: dom.dataset.icon ?? "💡", color: dom.dataset.blockColor || "" }) },
       ],
-      toDOM: (node) => node.attrs.syntaxForm === "alert" ? [
-        node.attrs.fold ? "details" : "aside",
-        { class: "pm-callout pm-alert", "data-icon": node.attrs.icon,
-          "data-callout-kind": node.attrs.kind, "data-callout-title": node.attrs.title, "data-callout-fold": node.attrs.fold,
-          open: node.attrs.fold === "+" ? "" : null },
-        [node.attrs.fold ? "summary" : "strong", { contenteditable: "false" }, node.attrs.title || node.attrs.kind],
-        ["div", 0],
-      ] : [
+      toDOM: (node) => node.attrs.syntaxForm === "alert" ? alertDOM(node) : [
         "aside",
         { class: "pm-callout", "data-icon": node.attrs.icon },
         0,
@@ -585,7 +602,15 @@ export const editorSchema = new Schema({
       parseDOM: ["td", "th"].map(tag => ({ tag, getAttrs: (dom: HTMLElement) => ({ colspan: Math.max(1, Number(dom.getAttribute("colspan")) || 1), rowspan: Math.max(1, Number(dom.getAttribute("rowspan")) || 1), header: tag === "th" }) })),
       toDOM: (node) => [
         node.attrs.header ? "th" : "td",
-        { colspan: node.attrs.colspan, rowspan: node.attrs.rowspan, style: colorStyle(node.attrs.nfmAttrs.color || "") },
+        {
+          colspan: node.attrs.colspan,
+          rowspan: node.attrs.rowspan,
+          style: [
+            colorStyle(node.attrs.nfmAttrs.color || ""),
+            ["left", "center", "right"].includes(node.attrs.nfmAttrs.align)
+              ? `text-align:${node.attrs.nfmAttrs.align}` : "",
+          ].filter(Boolean).join(";"),
+        },
         0,
       ],
     },
@@ -684,12 +709,15 @@ export const editorSchema = new Schema({
         target: { default: "" },
         label: { default: "" },
         url: { default: "" },
+        syntaxForm: { default: "" },
+        labelMode: { default: "" },
         nfmAttrs: { default: {} },
       },
       parseDOM: [
         {
           tag: "a.page-mention[data-page-target]",
           getAttrs: (dom) => ({
+            ...referenceDomAttributes(dom),
             target: dom.getAttribute("data-page-target") ?? "",
             label:
               dom.querySelector(".page-link-label")?.textContent ??
@@ -704,6 +732,10 @@ export const editorSchema = new Schema({
           class: "page-mention",
           href: safeReference(node.attrs.url || pageUrl(node.attrs.target)),
           "data-page-target": node.attrs.target,
+          "data-reference-url": node.attrs.url,
+          "data-reference-syntax": node.attrs.syntaxForm,
+          "data-reference-attrs": JSON.stringify(node.attrs.nfmAttrs),
+          "data-label-mode": node.attrs.labelMode,
           contenteditable: "false",
         },
         pageIcon,
@@ -728,7 +760,7 @@ export const editorSchema = new Schema({
             ? "ins"
             : "mark",
         {
-          class: "pm-critic",
+          class: mark.attrs.kind === "comment" ? "pm-critic pm-comment" : "pm-critic",
           title:
             mark.attrs.kind === "substitution"
               ? "Original: " + mark.attrs.old
@@ -757,18 +789,19 @@ export const editorSchema = new Schema({
       toDOM: () => ["u", 0],
     },
     color: {
-      attrs: { color: { default: "" }, nfmAttrs: { default: {} } },
+      attrs: { color: { default: "" }, bg_color: { default: "" }, nfmAttrs: { default: {} } },
       parseDOM: [
         {
           tag: "span[data-text-color]",
-          getAttrs: (dom) => ({ color: dom.getAttribute("data-text-color") }),
+          getAttrs: (dom) => ({ color: dom.getAttribute("data-text-color") || "", bg_color: dom.getAttribute("data-bg-color") || "" }),
         },
       ],
       toDOM: (mark) => [
         "span",
         {
           "data-text-color": mark.attrs.color,
-          style: colorStyle(mark.attrs.color),
+          "data-bg-color": mark.attrs.bg_color || null,
+          style: inlineColorStyle(mark.attrs),
         },
         0,
       ],

@@ -1,8 +1,22 @@
 # Markdown 正文格式 v0.4：方言配置与 Notion Enhanced Markdown
 
+2026-09-24 R Markdown：新增 `syntax.variant: rmarkdown`，复用 Pandoc Markdown 规则并优先保留 knitr `{r ...}` 代码块及行内 R 原文。显式运行使用本机 R/knitr/rmarkdown，结果只作为临时 HTML 预览，不写回正文或 metadata；导入 `.Rmd` 自动选择该方言。详见 [R Markdown](features/R-MARKDOWN.md)。
+
+2026-09-24 存储修订（覆盖下文应用 YAML 的历史说明）：完整 `pages/*.md` 是 API body 与源码模式内容；通用页面属性集中保存在 `vault/metadata.json`。旧应用 YAML 通过显式迁移流程移入统一 JSON，先完整备份再移除应用头部；后面的正文保持原字节。文档自己的 YAML / Pandoc title block 继续覆盖 JSON 默认值，不再生成或隐藏应用 YAML。版本、历史、冲突和中断恢复同时覆盖 Markdown 与对应 metadata。详见 [Vault metadata 契约](features/VAULT-METADATA.md)。
+
+2026-09-24 引用统一：页面提及、Wiki 和 Markdown 内链统一为 Internal link；菜单区分页面链接与位置链接。保留原有编码与显式标签，位置覆盖标题、Obsidian 块／列表项 ID 和锚点。官方 Notion 方言仍不解析 Wiki／块 ID。详见[页面与位置链接](features/INTERNAL-REFERENCES.md)。
+
+2026-09-24 行内对象修订：Citation、Abbreviation、Glossary、Metadata variable 和 CriticMarkup 增删替换提供按方言控制的插入入口，复用原编码，不新增产品块类型。MMD 专属语法仅在 MultiMarkdown 与 Notdown 可用；Pandoc citations、PHP abbreviations 受各自 reader 边界限制，显式开关不能绕过。Notdown 默认汇集已有扩展。MMD 书目与脚注分别编号，原引用键和未使用定义保留；题注与表格交互沿用原编码。详见[本地对象契约](features/INLINE-OBJECTS.md)。
+
+2026-09-24 Obsidian 默认值说明：`syntax.variant: obsidian` 默认不开启 Notion 扩展，但仍提供支持的可选扩展开关，显式配置及旧版别名继续生效。Notdown 专用补充编码和已有方言边界不变。已有源码和配置保留，不迁移用户内容。
+
+2026-09-24 Notion 边界修订：官方 `notion-markdown` 的图片只在独立媒体段落解析；段落、标题、列表首行、span 和表格富文本中的图片语法，以及尖括号／裸 URL 自动链接均不启用。普通 `[text](URL)`（包含片段目标）和 `<mention-page>` 保留；不解释 Wiki 源码，不生成标题 slug。普通标题带子块不再静默转 toggle；有序任务、波浪线围栏、`<th>`、图片 title 和 small-caps/native span 保留源码。`[^URL]` 仅识别带 scheme 的 URL 引用，不把 `[^label]` 当作引用 URL；引用遵循 `notion_mentions` 开关。详见[本轮审计](audits/NOTION-BOUNDARY-2026-09-24.md)。
+
+2026-09-23 Raw Source 归类：`raw_attribute` 开启时，块级 `{=html}` 与裸 HTML 共用 HTML block 对象和预览／源码编辑，行内对应 Inline HTML；其他格式（含 `latex`、`openxml`、MMD `*`）及已有 raw TeX 归入 Unsupported，保留完整源码、格式标记及原有位置，不执行或转换目标格式。内部保留独立语法载体以维持原编码，未修改正文不迁移。`raw_html` 与 `raw_attribute` 仍各自控制相应语法；官方 `notion-markdown` 的边界不变。
+
 2026-09-23 代码块交互：页面代码块提供语言搜索/切换、复制和 `Wrap code` 显示开关。换行只改变视图，不插入换行符、不改变 Markdown。Notion Block API 的代码块有 caption，但官方 Enhanced Markdown 的代码围栏只定义语言与正文，未定义 caption 编码。`syntax.variant: notdown` 且启用既有 `fenced_code_attributes` 时，单行纯文本 caption 复用 Pandoc 围栏属性，如 `` ```python {caption="说明"} ``；其他围栏属性和原文保留。`notion-markdown` 不新写或解释该属性，遇到带 caption 的围栏保留可恢复源码；页面菜单提示切换到 Notdown。其他 Markdown 方言仅在其 `fenced_code_attributes` 生效时可编辑 caption。本地 caption 不等同于 Notion API 的富文本 caption，无云端往返承诺。
 
-2026-09-23 脚注展示：`[^id]` 与 `[^id]: 正文` 的文件语法不变。页面将定义集中显示在一条横线后的文末区域，按首次引用顺序编号，重复引用复用编号，未引用定义保留在后；原 ID、定义原位置和未知内容不因显示排序而改写。`footnote_anchor` / `footnote_section` / `footnoteKey` 仅为编辑器呈现信息，序列化前还原，不写入 Markdown 或 YAML。定义可编辑，不作为可拖拽的独立页面块。
+2026-09-23 脚注展示：`[^id]` 与 `[^id]: 正文` 的文件语法不变。页面将定义集中显示在一条横线后的文末区域，按首次引用顺序编号，重复引用复用编号，导入时已有的未引用定义保留在后；原 ID、定义原位置和未知内容不因显示排序而改写。`footnote_anchor` / `footnote_section` / `footnoteKey` 仅为编辑器呈现信息，序列化前还原，不写入 Markdown 或 YAML。定义可编辑，不作为可拖拽的独立页面块。页面编辑中删除最后一个引用同步删除其定义并可撤销；源码编辑不自动清理定义。插入时填写正文或复用已有定义，引用悬浮显示正文。脚注支持按当前方言启用的 Markdown 多块内容，菜单不提供产品容器或嵌套脚注；规范来源和测试边界见[脚注说明](features/FOOTNOTES.md)。
 
 2026-09-23 最终边界（覆盖下文历史说明）：Notdown 集合已有 Markdown 方言与 Notion。自定义正文语法仅用于补足官方 Enhanced Markdown 不支持的 Notion block、已有 block 的属性、inline 和 style，且只能在 `syntax.variant: notdown` 启用；`notion-markdown` 仅启用官方文档定义的语法，显式扩展开关也不能越过此边界。能用已有方言表达的内容复用该方言，不能另造重复协议。旧文件和未知字段必须可恢复保留，不批量迁移用户内容。 `local_figure` 已移除，旧自定义指令仅原文保留；Lab 专用围栏已停用。日期提醒/格式、列宽、折叠 open、本地同步参数属于 Notdown 专用补充属性，官方 variant 不解释、不新写。官方日期使用 start/end/startTime/timeZone。复杂表格使用已有 Pandoc grid table。详见 [整改清单](./audits/CUSTOM-SYNTAX-AUDIT-2026-09-23.md)。
 
@@ -67,6 +81,10 @@ Notion 规范定义正文；页面稳定 ID、唯一父页和 MyBase 属性继�
 可选字符串 `sidebarOrder` 保存侧栏同级顺序，值为十进制数字组成的位置键（不是数值）。读取时结合稳定 ID 形成确定顺序；缺省使用稳定 ID 排序。拖拽只更新被移动页面的 `parent` 与位置键，不批量改写同级页面或正文；移动整棵子树时后代的父关系与文件保持原样。来源或目标区域版本变化会保留冲突分支，不强制重试。拖到 Trash 仍只是应用回收站，不直接调用系统回收站。
 
 ## Markdown 方言补充块
+
+`alerts` 扩展保留各方言已有的基础 `> [!NOTE]` 支持。紧跟 `]` 的 `+`（默认展开）、`-`（默认收起）以及同行自定义标题属于 Obsidian callout 语法，仅 `obsidian` 与兼容它的 `notdown` 集合方言接受；其他方言即使显式启用 `alerts`，也不将这些写法识别为提示块，按普通引用处理并保留原文。方言默认值不变，不新增独立插件。
+
+Notdown 的 **GitHub-style Alert** 直接插入 `> [!NOTE]`，不显示插入表单。图标菜单展示类型的图标、颜色和名称，可随时更改类型并启用或取消 Collapsible；标题直接编辑，标题后的空心箭头向右表示收起、向下表示展开。更改类型保留标题、正文及折叠状态。`Callout` 入口仍写 `<callout>`，两种编码共用内部节点但不互相转换。Obsidian 和 Notdown 支持全部 27 个内置关键词及别名（忽略大小写），其他启用 alerts 的方言仅识别五种标准大写类型。Notdown 五种标准类型沿用 GitHub Octicons 与配色，新增类型使用 Obsidian 官方图标及浅色主题配色；Obsidian 方言全部采用 Obsidian 配色。自定义标题按纯文本显示，未知类型保留原名称并使用 Note 外观。内部 `alertStyle` 由方言派生，不引入新的正文或 YAML 字段。
 
 `raw_html` 显示 HTML 预览并保留标签原文；`definition_lists`、`footnotes`、`line_blocks`、`fenced_divs` 分别启用定义列表、脚注、逐行排版和 Markdown 容器。HTML 在十种 Markdown 预设默认开启，其他规则按方言取默认值，详见支持矩阵。HTML 只执行允许的显示规则；Div 保留未知属性，显示允许的 class、锚点及受限尺寸。Notion codec 尚未提供这五个独立开关。
 
@@ -152,6 +170,21 @@ $$
 ```
 
 提示块和折叠内容可编辑；公式由本地 KaTeX 渲染，点击编辑 LaTeX。颜色仅使用规范的有限名称映射，不执行任意 CSS。
+
+### Notdown 行内双颜色（2026-09-24）
+
+`syntax.variant: notdown` 且 `notion_colors` 开启时，沿用 span 载体，`color` 表示文字色，`bg_color` 独立表示背景色：
+
+```md
+<span color="red" bg_color="yellow">红字黄底，可含 **粗体**</span>
+<span bg_color="blue">仅背景色</span>
+```
+
+两个字段均使用 `gray / brown / orange / yellow / green / blue / purple / pink / red`，省略即不设置该通道；不接受任意 CSS、十六进制值或 `bg_color="yellow_bg"`。未知值和属性仍保留，但不执行。嵌套 span 按通道继承，内层指定的同通道覆盖外层。
+
+旧 `color="yellow_bg"` 继续作为背景色读取，未修改原文不迁移；若同时指定 `bg_color`，以非空的后者为准。通过 Notdown 颜色菜单编辑选中文本时写独立字段，保留另一通道及未知属性。`Default text` 仅移除文字色，`Default background` 仅移除背景色，`Clear formatting` 同时清除两者；操作可撤销，页面与 HTML 输出均显示双颜色。
+
+`bg_color` 仅扩展行内 span，不改变块颜色、表格颜色或页面 YAML。官方 `notion-markdown` 不解释或新写此属性，即使显式启用颜色扩展也不越界；带该属性的官方正文按可恢复原文保留，其他方言不启用双颜色语义。关闭颜色扩展、切换方言及代码中的标签均不批量改写源文件。
 
 ## 表格和目录
 

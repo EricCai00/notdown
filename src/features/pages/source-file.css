@@ -1,0 +1,6 @@
+.source-file-options[hidden] { display: none; }
+.source-file-options > summary { width: auto; gap: 6px; padding: 0 7px; font-size: 12px; white-space: nowrap; }
+.source-file-options > summary > svg:last-child { width: 12px; height: 12px; }
+@media (max-width: 700px) {
+  .source-file-options > summary > span { display: none; }
+}

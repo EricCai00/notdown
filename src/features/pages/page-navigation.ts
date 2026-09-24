@@ -1,15 +1,20 @@
 export type LibraryRoute = "gallery" | "list" | "tree" | "graph";
-export type PageRoute = { kind: "page"; id: string } | { kind: "vault"; view: LibraryRoute };
+export type PageRoute = { kind: "page"; id: string; fragment?: string } | { kind: "vault"; view: LibraryRoute };
 type Entry = { session: string; index: number; route: PageRoute };
 const key = "notdownNavigation";
 
 export function routeHash(route: PageRoute): string {
-  return route.kind === "page" ? `#page/${encodeURIComponent(route.id)}` : `#vault/${route.view}`;
+  return route.kind === "page" ? `#page/${encodeURIComponent(route.id)}${route.fragment ? "#" + encodeURIComponent(route.fragment) : ""}` : `#vault/${route.view}`;
 }
 
 export function parseRoute(hash: string): PageRoute | null {
   if (hash.startsWith("#page/")) {
-    try { const id = decodeURIComponent(hash.slice(6)); return id ? { kind: "page", id } : null; }
+    try {
+      const separator = hash.indexOf("#", 6);
+      const id = decodeURIComponent(hash.slice(6, separator < 0 ? undefined : separator));
+      const fragment = separator < 0 ? "" : decodeURIComponent(hash.slice(separator + 1));
+      return id ? { kind: "page", id, ...(fragment ? { fragment } : {}) } : null;
+    }
     catch { return null; }
   }
   const view = hash.slice(7);

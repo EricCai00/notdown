@@ -24,7 +24,22 @@ Pandoc AST 与 ProseMirror 文档只在预览请求内存中存在；直接渲�
 
 ## 外部程序直出 HTML
 
-选择器提供 `multimarkdown-cli`、`markdown-pl` 两个直出入口，分别运行 libMultiMarkdown `multimarkdown` 和 Gruber 的 `Markdown.pl`，从标准输入读取源码并返回标准输出。MultiMarkdown 使用 `--snippet --notransclude --to=html`；Markdown.pl 由 Perl 运行，不附加语法选项。它们不消费 Lab 的扩展开关或块插件，相关设置按钮禁用。Pandoc 方言 reader 也调用 Pandoc CLI，但经过 AST 链路并支持该 reader 的扩展开关，所以不再单列 `pandoc-cli` 直出入口。`markdown_mmd` 是 Pandoc 的 reader；独立的 libMultiMarkdown CLI 仍可用于输出对照。
+2026-09-23 新增 `commonmark-js`、`cmark-gfm`、`php-markdown-extra`，连同下面已有两项共五个官方直出入口。分别运行 [CommonMark.js](https://github.com/commonmark/commonmark.js)、[GitHub cmark-gfm C 实现](https://github.com/github/cmark-gfm)（经 Python cmarkgfm 绑定）、[Michelf PHP Markdown Extra](https://github.com/michelf/php-markdown)；桥接脚本只收发原文/HTML，不替代解析规则。CommonMark.js 随 `npm ci` 安装，固定 0.31.2；PHP/Python 及其库由本机提供。本机为 cmarkgfm 2025.10.22、PHP Markdown Extra 2.0.0。
+
+新增三项同样禁用 Lab 扩展开关，以原生默认规则直出。CommonMark.js 保留 raw HTML；cmark-gfm 使用默认 GFM 扩展和 UNSAFE 输出选项以保留原始 HTML，页面预览仍经清理。没有自动上传源码到 GitHub，也没有将 Typora/Obsidian/Notion 的近似实现列为官方 parser。
+
+新增工具配置（更改后需重启后端）：
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `MARKDOWN_PYTHON_PATH` | Python 3 可执行文件，未设置时查本地配置/PATH |
+| `CMARKGFM_PATH` | cmarkgfm 包目录；可用所选 Python 的 `-m pip install --target <目录> cmarkgfm==2025.10.22` 安装 |
+| `PHP_PATH` | PHP 可执行文件 |
+| `PHP_MARKDOWN_EXTRA_PATH` | 含 `MarkdownInterface.php`、`Markdown.php`、`MarkdownExtra.php` 的目录；Composer 安装时为 `vendor/michelf/php-markdown/Michelf` |
+
+也可建立忽略文件 `.run/markdown-lab-tools.json`，键为 `python`、`cmarkgfm`、`php`、`phpMarkdownExtra`，值为可信本地绝对路径。环境变量优先；本次已为审计安装写好此配置。未配置库目录时复用 `.run/gfm-renderer` 和 `.run/dialect-audit/tools`。这些临时安装不会随 Git 分发，换机器需安装。服务不会自动联网下载工具；浏览器请求不能指定程序路径。缺失时显示不可用原因，不回退至 Pandoc。
+
+原有 `multimarkdown-cli`、`markdown-pl` 两个直出入口，分别运行 libMultiMarkdown `multimarkdown` 和 Gruber 的 `Markdown.pl`，从标准输入读取源码并返回标准输出。MultiMarkdown 使用 `--snippet --notransclude --to=html`；Markdown.pl 由 Perl 运行，不附加语法选项。它们不消费 Lab 的扩展开关或块插件，相关设置按钮禁用。Pandoc 方言 reader 也调用 Pandoc CLI，但经过 AST 链路并支持该 reader 的扩展开关，所以不再单列 `pandoc-cli` 直出入口。`markdown_mmd` 是 Pandoc 的 reader；独立的 libMultiMarkdown CLI 仍可用于输出对照。
 
 探测只使用服务端环境中的可信安装。`PANDOC_PATH`、`MULTIMARKDOWN_PATH`、`MARKDOWN_PL_PATH`、`PERL_PATH` 可在启动前指定绝对路径；MultiMarkdown 还会从 PATH 和 Windows `Program Files/libMultiMarkdown *` 查找，Perl 从 PATH、Git for Windows、Strawberry Perl 查找。Markdown.pl 的脚本需要用户安装并设置路径。本机目前找到 Pandoc 3.11、libMultiMarkdown 6.7.0 和 Markdown.pl 1.0.1；后者使用 Git for Windows 的 Perl。改变安装或路径后须重启服务。浏览器请求只传固定渲染器 ID，不传程序路径或参数。
 
@@ -34,7 +49,7 @@ HTML 标签页把程序结果作为纯文本展示；页面标签页用 DOMPurif
 
 完整参考见 [Pandoc 扩展与 Markdown 方言完整对照](../reference/PANDOC-EXTENSIONS.md)，包含手册的 89 个扩展名、八种方言的开关矩阵、默认关闭及非 Markdown 专用项，并说明开关可用与最终预览效果之间的差别。
 
-`src/markdown-lab/model.ts` 注册 `gfm`、`commonmark`、`commonmark_x`、`markdown`、`markdown_mmd`、`markdown_phpextra`、`markdown_strict`、`markdown_github`，覆盖本机 Pandoc 3.11 全部八种 Markdown reader，并单独适配 `notion-markdown` 和 `notdown`；再加两个外部程序直出入口。方言显示名直接取自主编辑器的 `variant` 注册表，内部 ID 不变。旧版 `markdown_github` 的弃用说明保留在扩展面板。后端先读取 `--list-input-formats`，只查询实际安装 reader 的扩展；界面禁用不可用项，已选正文不被自动切换或重写。旧会话若选过 `pandoc-cli`，恢复源码并改选 `markdown`。请求校验与界面共用这一份注册表。未来 Pandoc 若新增方言 ID，需要补充注册表；测试会对照本机完整 Markdown reader 列表检查遗漏。实验室的选择类型独立于知识库 `BodyFormat`，避免在尚无可用写入 codec 时扩大磁盘格式契约。
+`src/markdown-lab/model.ts` 注册 `gfm`、`commonmark`、`commonmark_x`、`markdown`、`markdown_mmd`、`markdown_phpextra`、`markdown_strict`、`markdown_github`，覆盖本机 Pandoc 3.11 全部八种 Markdown reader，并单独适配 `notion-markdown` 和 `notdown`；再加五个官方直出入口。方言显示名直接取自主编辑器的 `variant` 注册表，内部 ID 不变。旧版 `markdown_github` 的弃用说明保留在扩展面板。后端先读取 `--list-input-formats`，只查询实际安装 reader 的扩展；界面禁用不可用项，已选正文不被自动切换或重写。旧会话若选过 `pandoc-cli`，恢复源码并改选 `markdown`。请求校验与界面共用这一份注册表。未来 Pandoc 若新增方言 ID，需要补充注册表；测试会对照本机完整 Markdown reader 列表检查遗漏。实验室的选择类型独立于知识库 `BodyFormat`，避免在尚无可用写入 codec 时扩大磁盘格式契约。
 
 本机 `pandoc --list-extensions=<variant>` 提供支持项及默认值。界面允许正负覆盖；后端仅接收布尔值，并对实际支持项校验后构造 `variant+extension-extension`。`sourcepos` 由同步系统使用，不作为用户扩展开关。Notion 作为完整方言呈现，现有的分栏、提示、Tab 子块等保持原语义；暂不宣称这些语法已可逐项开关。
 
@@ -87,3 +102,9 @@ HTML 标签页把程序结果作为纯文本展示；页面标签页用 DOMPurif
 主要模块：`src/markdown-lab/main.ts`（双栏与请求生命周期）、`scroll.ts`（位置插值）、`plugins.ts`（停用旧演示的空兼容入口）、`model.ts`（能力契约）。`src/document/document-format.ts` 提供可选源码位置及代码块显示回调，默认调用保持原行为。
 
 参考：[Pandoc 模块化结构](https://pandoc.org/MANUAL.html#description)、[方言](https://pandoc.org/MANUAL.html#markdown-variants)、[扩展](https://pandoc.org/MANUAL.html#extensions)、[CodeMirror](https://codemirror.net/docs/ref/)。
+
+## 2026-09-23 官方解析器接入验证
+
+三个新增入口均在本机通过实际调用。完整单元测试 505 项，504 通过、1 跳过；构建成功。新增检查覆盖各自特有语法、raw HTML 代码与清理预览的分离、取消请求、禁止 Lab 扩展覆盖，以及运行时缺失时返回 503 而不替换解析器。
+
+审计对照页也增加隔离 HTML 渲染预览，合并官方即 Pandoc 的列，隐藏缺失输出。单元与独立 Chrome 测试检查列数、实际标题渲染、代码原文、脚本/外部请求隔离及窄屏布局。Lab 与对照页的 11 项浏览器测试在独立构建目录、独立输出目录、临时知识库下全部通过；首次使用共享 dist 的运行曾受其他构建改写干扰，隔离后复跑通过。日志位于 `.run/logs/markdown-lab-parsers-*.log`。本次没有修改主编辑器解析规则或用户内容。

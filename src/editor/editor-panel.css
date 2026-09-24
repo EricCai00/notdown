@@ -1,0 +1,58 @@
+dialog.pm-editor-panel {
+  position: fixed;
+  inset: 76px 24px auto auto;
+  z-index: 1200;
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 100px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line, #e5e5e3);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: var(--text, #37352f);
+  box-shadow: 0 8px 32px #00000018, 0 2px 6px #00000008;
+  font: 14px/1.5 system-ui, sans-serif;
+}
+.pm-editor-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line, #e5e5e3);
+}
+.pm-editor-panel h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.pm-editor-panel > form { padding: 16px 18px; }
+.pm-editor-panel form label { display: block; margin: 0 0 12px; font: inherit; color: #6b6b68; }
+.pm-editor-panel form :is(input:not([type="checkbox"]), textarea, select) {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 6px 0 0;
+  padding: 9px 10px;
+  border: 1px solid #dededb;
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--text, #37352f);
+  font: inherit;
+}
+.pm-editor-panel form textarea { min-height: 132px; max-height: 40dvh; resize: vertical; }
+.pm-editor-panel form input[type="checkbox"] { display: inline-block; width: auto; margin: 0 8px; }
+.pm-editor-panel :is(input, textarea, select, button):focus-visible { outline: 2px solid #2383e2; outline-offset: 2px; }
+.pm-editor-panel form output { display: block; color: #b44736; font-size: 13px; overflow-wrap: anywhere; }
+.pm-editor-panel form output:empty { display: none; }
+.pm-editor-panel form .muted { margin: 8px 0 16px; font-size: 12px; color: #787774; }
+.pm-editor-panel footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.pm-editor-panel button { padding: 7px 12px; border: 1px solid #dededb; border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.pm-editor-panel button:hover { background: #f4f4f2; }
+.pm-editor-panel button[type="submit"] { order: 1; background: #2383e2; border-color: #2383e2; color: white; }
+.pm-editor-panel button[type="submit"]:hover { background: #1873ce; }
+.pm-editor-panel > header button { padding: 0; width: 28px; height: 28px; border: 0; font-size: 22px; line-height: 1; color: #787774; }
+@media (max-width: 600px) {
+  dialog.pm-editor-panel { top: 64px; right: 16px; max-height: calc(100dvh - 80px); }
+}

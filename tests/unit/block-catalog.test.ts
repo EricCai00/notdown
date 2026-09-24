@@ -78,7 +78,11 @@ test("the Unsupported specimen leaves following sections editable in every diale
     assert.equal(doc.child(doc.childCount - 2).textContent, "Next case", id);
     assert.equal(doc.lastChild!.type.name, "paragraph", id);
     assert.equal(doc.lastChild!.textContent, "Editable tail", id);
-    if (id !== "notion-markdown") {
+    if (id === "gfm") {
+      // GFM's grammar treats unknown directive text as a paragraph; source
+      // preservation must not replace ordinary Markdown with an opaque block.
+      assert.equal(doc.firstChild!.type.name, "paragraph", id);
+    } else if (id !== "notion-markdown") {
       assert.equal(doc.firstChild!.type.name, "opaque_block", id);
       assert.equal(doc.firstChild!.attrs.raw, sample, id);
     }

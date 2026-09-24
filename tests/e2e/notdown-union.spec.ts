@@ -25,7 +25,7 @@ test("Footnotes use decimal markers, align multiple paragraphs and return to eac
   await page.keyboard.press("Control+s");
   expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body);
   await page.reload();
-  await expect(first.getByRole("button")).toHaveCount(2);
+  await expect(first.getByRole("button", { name: /^Return to footnote/ })).toHaveCount(2);
   await page.screenshot({ path: "test-results/notdown-footnotes-backlinks.png" });
 });
 
@@ -72,6 +72,8 @@ test("Footnote inserts inline without splitting prose, appends its definition an
   const menu = page.locator(".inline-slash");
   await expect(menu.locator('[data-insert="footnote"] svg')).toHaveAttribute("data-lucide", "footnote");
   await menu.locator('[data-insert="footnote"]').click();
+  await page.getByRole("textbox", { name: "Footnote text" }).fill("Footnote text.");
+  await page.getByRole("button", { name: "Insert reference", exact: true }).click();
   await expect(page.locator(".pm-document > p").first()).toHaveText("Before [note2] after");
   await expect(page.locator(".pm-footnotes > .pm-footnote").first()).toHaveAttribute("data-footnote-label", "note2");
   await page.keyboard.press("Control+z");

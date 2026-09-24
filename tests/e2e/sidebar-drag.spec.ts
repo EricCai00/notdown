@@ -76,7 +76,9 @@ test("destination changes during a drag keep the original hierarchy and a recove
   await page.mouse.move(box!.x + 25, box!.y + 40, { steps: 5 });
   await expect(page.locator(".sidebar")).toHaveClass(/is-page-dragging/);
   await request.put(`/api/pages/${target.id}`, { data: { baseRevision: target.revision, body: "Changed elsewhere" } });
-  await row(page, target.id).scrollIntoViewIfNeeded();
+  // Keep edge autoscroll from moving the target after measuring a long sidebar.
+  await page.mouse.move(900, 500);
+  await row(page, target.id).evaluate(element => element.scrollIntoView({ block: "center" }));
   const destination = await row(page, target.id).boundingBox();
   await page.mouse.move(destination!.x + 95, destination!.y + destination!.height / 2, { steps: 5 });
   await page.mouse.up();

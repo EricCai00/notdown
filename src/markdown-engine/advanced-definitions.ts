@@ -14,7 +14,7 @@ export const advancedDescriptions: Record<string, string> = {
   rebase_relative_paths: "Resolve Markdown link/image URLs against sourcePath when provided, retaining their original spelling for saving.",
   citations: "Edit Pandoc citation syntax and preview CSL citations using local bibliography/style files and installed Pandoc.",
   latex_macros: "Apply document macro definitions to subsequent KaTeX math previews, preserving definitions and formula source.",
-  raw_tex: "Preserve and edit TeX commands and environments as target-format source; does not execute TeX in the browser.",
+  raw_tex: "TeX target-format source, grouped under Outside Markdown scope in Notdown. Preserves commands and environments without executing TeX in the browser.",
   markdown_in_html_blocks: "Parse Markdown children in block Div containers while retaining HTML attributes and encoding.",
   grid_tables: "Parse and edit grid tables using the shared table model, including cell spans.",
   simple_tables: "Parse fixed-width simple tables using the shared editable table model.",

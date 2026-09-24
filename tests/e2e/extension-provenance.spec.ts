@@ -1,5 +1,51 @@
 import { test, expect } from "@playwright/test";
 
+test("editor extensions search preserves configuration, focus, and filtered toggles", async ({ page, request }) => {
+  const response = await request.post("/api/pages", { data: { title: "Extension search", body: "Unchanged source", bodyFormat: "markdown", syntax: { version: 1, variant: "gfm", extensions: {} } } });
+  expect(response.status()).toBe(201);
+  const note = await response.json();
+  await page.addInitScript(id => localStorage.setItem("notdown-page", id), note.id);
+  await page.goto("/");
+  await page.locator(".syntax-options summary").click();
+  const panel = page.locator(".syntax-options-panel");
+  const search = panel.getByRole("searchbox", { name: "Search extensions" });
+  const rows = panel.locator(".extension-choice");
+  const total = await rows.count();
+  await search.pressSequentially("  PIPE_TABLES  ");
+  await expect(search).toBeFocused();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.locator("code")).toHaveText("pipe_tables");
+  await expect(panel.getByRole("status")).toHaveText(`1 of ${total} extensions`);
+  await expect(panel.locator("[data-extension-group]")).toHaveCount(1);
+  await search.fill("no-such-extension");
+  await expect(rows).toHaveCount(0);
+  await expect(panel.locator(".extension-search-empty")).toBeVisible();
+  const unchanged = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(unchanged.revision).toBe(note.revision);
+  expect(unchanged.syntax).toEqual(note.syntax);
+  await search.fill("Backslash line breaks");
+  await expect(panel.locator('[data-builtin-extension="escaped_line_breaks"]')).toBeVisible();
+  await expect(rows.locator("input")).toHaveCount(0);
+  await search.fill("Collapsible GitHub");
+  await expect(rows.locator("code")).toHaveText("alerts");
+  await search.fill("footnotes");
+  const toggle = panel.locator('input[data-extension="footnotes"]');
+  await toggle.check();
+  await expect(search).toHaveValue("footnotes");
+  await expect(toggle).toBeChecked();
+  await search.fill("");
+  await expect(rows).toHaveCount(total);
+  await expect(toggle).toBeChecked();
+  await search.fill("footnotes");
+  await panel.getByRole("button", { name: "Reset dialect defaults" }).click();
+  await expect(search).toHaveValue("footnotes");
+  await expect(toggle).not.toBeChecked();
+  await page.getByRole("combobox", { name: "Markdown dialect" }).selectOption("typora");
+  await expect(search).toHaveValue("footnotes");
+  await expect(rows).toHaveCount(1);
+  await page.screenshot({ path: "test-results/extension-search.png" });
+});
+
 test("Notion source filter includes local feature counterparts with honest encoding evidence", async ({ page }) => {
   await page.goto("/block-catalog.html#tab=extensions&id=notion_meeting_notes&variant=typora&source=notion");
   const detail = page.locator(".catalog-detail");
@@ -85,6 +131,8 @@ test("page extension settings group syntax evidence separately from Pandoc defau
   await expect(row("footnotes").locator("input")).not.toBeChecked();
   await expect(row("footnotes")).toContainText("Pandoc default: on");
   expect(await panel.locator("input[data-extension]").evaluateAll(nodes => nodes.map(n => n.getAttribute("data-extension")))).toEqual(before);
+  await page.getByRole("combobox", { name: "Markdown dialect" }).selectOption("markdown");
+  await expect(panel.locator('[data-extension-group="outside"] input[data-extension="raw_tex"]')).toBeChecked();
   await page.getByRole("combobox", { name: "Markdown dialect" }).selectOption("typora");
   await expect(row("highlight")).toContainText("Typora Docs · Optional setting");
   await expect(row("highlight")).toContainText("Pandoc: no preset");
@@ -105,6 +153,7 @@ test("Block Explorer groups extension lists and variant relations, preserving fi
   await expect(card("footnotes")).toContainText("GFM Docs · Optional");
   await expect(results.locator('[data-extension-group="other"]')).toContainText("yaml_metadata_block");
   await expect(results.locator('[data-extension-group="outside"]')).toContainText("amuse");
+  await expect(results.locator('[data-extension-group="outside"] [data-extension-id="raw_tex"]')).toBeVisible();
   await page.getByRole("combobox", { name: "Catalog dialect" }).selectOption("typora");
   await expect(card("diagrams")).toContainText("Optional setting");
   await expect(card("diagrams")).toContainText("Pandoc: no preset");

@@ -9,7 +9,7 @@ export const pandocDefaults = pandocSnapshot.variants as Record<
   Record<string, boolean>
 >;
 export const markdownFamily = (config: SyntaxConfig) =>
-  config.variant.startsWith("markdown") || config.variant === "typora";
+  config.variant.startsWith("markdown") || config.variant === "typora" || config.variant === "rmarkdown";
 
 const productExtensions = new Set([
   "highlight",
@@ -30,6 +30,7 @@ const productExtensions = new Set([
 export const productDefaults = dialectDefaults;
 
 export const dialects = [
+  { id: "rmarkdown", label: "R Markdown", native: true },
   { id: "typora", label: "Typora", native: true },
   { id: "obsidian", label: "Obsidian", native: true },
   { id: "notion-markdown", label: "Notion-flavored Markdown", native: true },
@@ -73,6 +74,7 @@ type Extension = {
   kind: "syntax" | "block";
 };
 export const extensions: Extension[] = [
+  { id: "symbol_replacements", label: "Symbol replacements", description: "Notdown typing only: arrows, comparisons, ellipsis and copyright symbols. Backspace reverts the last replacement; source and pasted text stay unchanged.", kind: "syntax" },
   ...Object.entries(localObjectPlugins).filter(([name]) => name !== "tab" && name !== "link_mention").map(([name, id]) => ({
     id, label: blockLabels[name],
     description: "Supplemental Notion encoding, available only in the Notdown variant. Not part of official enhanced Markdown.",
@@ -82,7 +84,7 @@ export const extensions: Extension[] = [
   ...nativeAdvancedExtensions.map(id => ({ id, label: id.replace(/_/g, " ").replace(/^./, c => c.toUpperCase()), description: advancedDescriptions[id] || `Parse and edit ${id.replace(/_/g, " ")} with the local Markdown codec.`, kind: "syntax" as const })),
   ...(
     [
-      ["alerts", "Alerts and callouts", "Collapsible GitHub / Obsidian > [!NOTE] alerts."],
+      ["alerts", "Alerts and callouts", "> [!NOTE] alerts. Folding (+/-) and custom titles require Obsidian or Notdown."],
       ["highlight", "Highlight", "==text==."],
       ["comments", "Hidden comments", "%%inline or multiline comments%%."],
       ["toc_directives", "Table of contents directives", "[toc], {{TOC}}, and heading level ranges."],
@@ -391,10 +393,21 @@ export function validSyntax(value: unknown): value is SyntaxConfig {
   );
 }
 export function supportsOption(config: SyntaxConfig, name: string) {
+  if (config.variant === "rmarkdown") return supportsOption({ ...config, variant: "markdown" }, name);
   name = canonicalExtensionId(name);
   const registered = extensions.some((e) => e.id === name);
   if (!registered) return false;
   if (config.variant === "notdown") return true;
+  if (config.variant === "notion-markdown")
+    return Object.hasOwn(dialectDefaults["notion-markdown"], name);
+  // These grammars belong to MMD, PHP Extra or the Pandoc Markdown readers.
+  // Explicit flags must not inject them into unrelated upstream dialects.
+  if (["mmd_abbreviations", "mmd_citations", "glossary", "metadata_variables", "critic_markup"].includes(name))
+    return config.variant === "markdown_mmd";
+  if (name === "citations") return ["markdown", "markdown_github"].includes(config.variant);
+  if (name === "abbreviations") return ["markdown_phpextra", "markdown", "markdown_github"].includes(config.variant);
+  if (name === "implicit_figures") return ["markdown", "markdown_mmd", "markdown_github"].includes(config.variant);
+  if (name === "symbol_replacements") return false;
   if (Object.values(localObjectPlugins).includes(name)) return false;
   if (name === "notion_nesting" && !usesNotionSyntax(config)) return false;
   if (name === "gutenberg") return true;
@@ -440,6 +453,16 @@ export function resetExtensions(config: SyntaxConfig): Record<string, boolean> {
   );
 }
 export function commandEnabled(config: SyntaxConfig, command: string) {
+  if (command === "emoji_shortcode") return enabled(config, "emoji");
+  if (command === "alert_title") return ["obsidian", "notdown"].includes(config.variant) && enabled(config, "alerts");
+  if (command === "notion_image_caption") return usesNotionSyntax(config);
+  if (command === "citation") return (["notdown", "notion-markdown"].includes(config.variant) && enabled(config, "notion_mentions")) || enabled(config, "mmd_citations") || enabled(config, "citations");
+  if (command === "abbreviation") return enabled(config, "abbreviations") || enabled(config, "mmd_abbreviations");
+  if (command === "image_caption") return enabled(config, "implicit_figures");
+  if (command === "symbol_replacements") return enabled(config, command);
+  if (command === "inline_image") return config.variant !== "notion-markdown";
+  if (command === "wiki_syntax") return enabled(config, "wikilinks_title_after_pipe");
+  if (["page_link", "location_link"].includes(command)) return true;
   if (command === "notion_custom") return config.variant === "notdown";
   if (command === "code_caption") return config.variant !== "notion-markdown" && enabled(config, "fenced_code_attributes");
   if (command === "image_block") return false;
@@ -452,21 +475,23 @@ export function commandEnabled(config: SyntaxConfig, command: string) {
   if (command === "table_caption") return enabled(config, "table_captions") || enabled(config, "mmd_tables");
   if (command === "callout")
     return enabled(config, "alerts") || enabled(config, "notion_callouts");
-  if (command === "ordered_task") return config.variant !== "typora";
+  if (command === "ordered_task") return !["typora", "notion-markdown"].includes(config.variant);
   if (command === "ordered_parenthesis") return config.variant !== "notion-markdown" &&
     (!markdownFamily(config) || enabled(config, "fancy_lists"));
   if (command === "toc")
     return enabled(config, "notion_toc") || enabled(config, "toc_directives");
   const requirement: Record<string, string> = {
+    glossary: "glossary", metadata_variable: "metadata_variables", addition: "critic_markup", deletion: "critic_markup", substitution: "critic_markup",
     inline_equation: "tex_math_dollars", background: "notion_colors",
     subscript: "subscript", superscript: "superscript", highlight: "highlight",
     synced_block: "notion_synced", mention_person: "notion_mentions", date_or_reminder: "notion_mentions",
-    native_span: "bracketed_spans", small_caps: "bracketed_spans", raw_inline: "raw_attribute", raw_tex: "raw_tex", inline_note: "inline_notes",
+    native_span: "bracketed_spans", small_caps: "bracketed_spans", inline_note: "inline_notes",
     table_grid: "grid_tables", table_notion: "notion_tables", table_mmd: "mmd_tables",
     example_list_item: "example_lists",
     diagram: "diagrams",
     alert: "alerts",
     comment: "comments",
+    inline_comment: "comments",
     transclusion: "transclusion",
     embed: "html_embed",
     html: "raw_html",

@@ -708,7 +708,7 @@ test("converting one list row to numbered leaves its neighbors and children inta
   await save(page, request, note, /1\. Target\r?\n\s+- Child/);
 });
 
-test("page tail creates one focused empty block and hover exposes both controls", async ({
+for (const mode of ["document", "split"]) test(`${mode} tail clicks reuse one empty block and hover exposes both controls`, async ({
   page,
   request,
 }) => {
@@ -718,6 +718,7 @@ test("page tail creates one focused empty block and hover exposes both controls"
     "First\n\nLast",
   );
   const editor = await openNote(page, note);
+  await page.locator(`.editing-modes [data-mode="${mode}"]`).click();
   const last = editor.locator(":scope > p").last();
   await last.hover({ position: { x: 250, y: 12 } });
   await expect(page.locator(".pm-block-handle")).toHaveClass(/visible/);
@@ -727,15 +728,20 @@ test("page tail creates one focused empty block and hover exposes both controls"
   await page.locator("#page-title").hover();
   await expect(page.locator(".pm-block-handle")).not.toHaveClass(/visible/);
   await expect(page.locator(".pm-block-add")).not.toHaveClass(/visible/);
-  let rect = (await last.boundingBox())!;
+  const rect = (await last.boundingBox())!;
   await page.mouse.click(rect.x + 100, rect.y + rect.height + 40);
-  await expect(editor.locator(":scope > p")).toHaveCount(3);
-  await expect(editor.locator("p[data-placeholder]")).toHaveCount(1);
-  rect = (await editor.locator(":scope > p").last().boundingBox())!;
-  await page.mouse.click(rect.x + 100, rect.y + rect.height + 40);
-  await expect(editor.locator(":scope > p")).toHaveCount(3);
+  await expect(editor.locator(":scope > p")).toHaveText(["First", "Last", ""]);
+  for (let i = 0; i < 3; i++) {
+    const tail = (await last.boundingBox())!;
+    await page.mouse.click(tail.x + 100, tail.y + tail.height + 40);
+    await expect(editor.locator(":scope > p")).toHaveText(["First", "Last", ""]);
+  }
   await page.keyboard.type("Tail input");
   await expect(editor.locator(":scope > p").last()).toHaveText("Tail input");
+  if (mode === "split") {
+    await save(page, request, note, /First\s+Last\s+Tail input/);
+    return;
+  }
   await editor
     .locator(":scope > p")
     .first()

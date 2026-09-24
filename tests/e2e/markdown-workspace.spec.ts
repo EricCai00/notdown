@@ -36,6 +36,40 @@ async function open(
 const mode = (page: Page, name: string) =>
   page.locator(`.editing-modes [data-mode="${name}"]`).click();
 
+for (const pane of ["source", "document"] as const) {
+  test(`${pane} typing batches Split projection without dimming and undoes a word`, async ({ page, request }) => {
+    const original = "Start\n\nTail\n";
+    const note = await open(page, request, original);
+    await mode(page, "split");
+    const input = page.locator(pane === "source" ? "#source-editor .cm-line" : ".pm-document > p").first();
+    await input.click();
+    await page.keyboard.press("Home");
+    const projection = page.locator(pane === "source" ? ".pm-document" : "#source-editor");
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+    for (const char of "word") {
+      await page.keyboard.type(char);
+      await page.clock.runFor(150);
+      expect(await projection.textContent()).not.toContain("word");
+      expect(await page.locator(".page-pane").evaluate(el => getComputedStyle(el).opacity)).toBe("1");
+    }
+    await page.clock.runFor(501);
+    await expect(projection).toContainText("wordStart");
+    await page.keyboard.press("Control+z");
+    await expectSource(page, original);
+    await expect(page.locator(".pm-document")).not.toContainText("word");
+    await page.keyboard.press("Control+Shift+z");
+    await expectSource(page, `word${original}`);
+    // Save while the opposite pane still has a pending update.
+    await page.keyboard.type("!");
+    await page.keyboard.press("Control+s");
+    await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("!");
+    await page.clock.resume();
+    await page.reload();
+    await expect(page.locator(".pm-document")).toContainText("word");
+  });
+}
+
 for (const newline of ['\n', '\r\n']) {
 test(`source paste preserves blank line heights, line numbers and exact Markdown (${newline.length === 1 ? 'LF' : 'CRLF'})`, async ({ page, request }) => {
   const note = await open(page, request, 'initial' + newline + 'line', 'obsidian');

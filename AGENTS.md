@@ -4,7 +4,7 @@
 
 本项目独立于父目录的上游 clone。思源是本地内核参考，AFFiNE/AppFlowy 是块交互参考。实际编辑器为单一 ProseMirror 文档与自有 Markdown codec；不要把实现描述成任何完整上游 fork。
 
-- 正文真相是 `vault/pages/*.md`，不是缓存的块 JSON；页面属性写 YAML。目录中已有文件及未知字段必须保留。
+- 正文真相是 `vault/pages/*.md`，不是缓存的块 JSON；通用页面属性集中写 `vault/metadata.json`，文档内 YAML / Pandoc title block 覆盖 JSON 默认值。源码模式包含完整文件，不自动添加应用 YAML。目录中已有文件及未知字段必须保留。
 - 写入走 `createVault`，所有更新使用 `baseRevision`，冲突必须保留两份可恢复内容。不要因版本不匹配自动强制重试。
 - `vault/` 是用户内容。测试使用临时知识库；默认演示只由 `seedNewDefaultVault` 在首次启动时创建。
 - 编辑器视图切换前必须收取 pending 输入。后台外部刷新不得将旧 DOM 正文与新 revision 混合；不同窗口草稿不得互相覆盖。

@@ -1,5 +1,7 @@
 # Notdown 对象统一与实现 Roadmap
 
+2026-09-23 修订：Raw Source 不再是独立对象。`{=html}` 合并到 HTML block / Inline HTML，其他格式和 raw TeX 归入 Unsupported；全部保留原编码和可恢复源码。当前目录共 78 项（41 block、2 metadata、31 inline、4 character），下文旧数量与归类以此为准。
+
 2026-09-22。原 80 项对象清单加上用户要求的 Inline raw source，共 81 项：43 个 block、2 个 metadata、32 个 inline、4 个 character。对象身份独立于 Markdown 写法和 ProseMirror 节点；单一 ProseMirror 文档与原有 codec 继续工作，Markdown 文件仍是正文真相。
 
 ## 当前交付
@@ -33,7 +35,6 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | block.diagram | Diagram; Mermaid; sequence; flowchart | syntax.diagram (source; diagrams) | implemented / P2 | Mermaid, sequence and flow diagrams have local previews and a source editor. Rendering errors leave editable source intact. |
 | block.math_block | Math block; block equation; equation | equation (direct; tex_math_dollars); equation (direct; tex_math_double_backslash) | implemented / P0 |  |
 | block.html_block | HTML block; raw HTML | html_block (source; raw_html); syntax.raw.html (source; raw_attribute); syntax.html-markdown (source; markdown_attribute) | implemented / P2 | Sanitized HTML preview and a source editor; HTML embed remains a separate document object. |
-| block.raw_source | Raw source; raw format | syntax.raw (source; raw_attribute) | implemented / P2 | Format-tagged content has a source editor and preserves the declared format. Browser rendering is available for HTML; other target formats remain raw for their writers. |
 | block.raw_tex | Raw TeX; raw latex | syntax.raw.tex (source; raw_attribute); syntax.raw.tex (source; raw_tex) | implemented / P3 | Bare TeX environments and commands, explicit raw TeX fences, source editing and Markdown round trips. TeX is not executed by the browser. |
 | block.native_div | Native div; Div container; Div containers; fenced div; fenced_div | fenced_div (direct; fenced_divs); fenced_div (direct; native_divs) | implemented / P3 | Fenced and native HTML Div share editable children and a properties form; original encoding and unknown attributes are retained. |
 | block.image_block | Image block; image; figure; image and caption | image_block (direct); paragraph.image (direct); syntax.figure (source; implicit_figures) | implemented / P2 | Editable image URL, alternative text, title and separate caption. |
@@ -66,7 +67,6 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | block.unsupported | Unsupported; unknown; unknown block; preserved source; opaque block | opaque_block (preserved); opaque_block.database (preserved; notion_databases); unknown_block (reference) | implemented / P0 | Unknown source can be edited through properties; reference-only placeholders have separate URL/description fields. Unchanged raw content is retained. |
 | metadata.yaml_front_matter | YAML front matter; icon; cover; page property; page properties; MultiMarkdown title block; MMD metadata | page.yaml (direct); syntax.metadata.yaml (source; yaml_metadata_block + metadata_values); opaque_block.metadata.yaml (preserved; yaml_metadata_block); syntax.metadata.mmd (source; mmd_title_block + metadata_values); opaque_block.metadata.mmd (preserved; mmd_title_block) | implemented / P2 | Page properties include a cover field. Body YAML/MMD have field and source editors and never overwrite page YAML. MMD remains restricted plain-text metadata, not full YAML. |
 | metadata.pandoc_title_block | Pandoc title block | syntax.metadata.pandoc (source; pandoc_title_block + metadata_values); opaque_block.metadata.pandoc (preserved; pandoc_title_block) | implemented / P2 | Title, author and date fields, continuation lines and source editing retain the Pandoc title-block encoding separately from page YAML. |
-| inline.raw_source | Inline raw source; raw inline | syntax_inline.raw (source; raw_attribute) | implemented / P2 | Double-click to edit target-format raw source; format tags persist. HTML preview is sanitized and other formats are retained for their writers. |
 | inline.code_span | Code span; verbatim; inline code | mark.code (direct) | implemented / P0 |  |
 | inline.emphasis | Emphasis; italic; em | mark.em (direct) | implemented / P0 |  |
 | inline.strong_emphasis | Strong emphasis; bold; strong | mark.strong (direct) | implemented / P0 |  |
@@ -75,7 +75,7 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | inline.image | Image; inline image | image (direct) | implemented / P2 | Inline images have editable URL, alternative text and title through double-click properties. |
 | inline.autolink | Autolink; automatic link | mark.link (text) | implemented / P0 | Shares the link mark; the original spelling is source provenance, not a separate node. |
 | inline.inline_html | Inline HTML; html_inline | html_inline (source; raw_html) | implemented / P2 | Double-click to edit one HTML fragment as source; preview stays sanitized. |
-| inline.internal_link | Internal link; cross-reference; wikilink; page link | page_link (reference; wikilinks_title_after_pipe); mark.link (direct) | implemented / P2 | Editable local page/heading links, both wiki-link title orders and labelled example references; targets remain distinct from child-page ownership. |
+| inline.internal_link | Internal link; page link; page mention; location link; wikilink | page_link (reference; notion_pages or wikilinks_title_after_pipe); mark.link (direct) | implemented / P2 | Unified page and location references; headings, existing Obsidian block/list-item IDs and anchors. Original syntax and explicit display labels are retained; references do not establish ownership. |
 | inline.emoji | Emoji | text (text); text (text; emoji) | implemented / P2 | Unicode text and enabled shortcode expansion; follows normal text insertion, selection, movement and undo. |
 | inline.inline_math | Inline math; inline equation | inline_math (direct; tex_math_dollars) | implemented / P0 |  |
 | inline.subscript | Subscript | mark.subscript (direct; subscript) | implemented / P0 |  |
@@ -94,7 +94,7 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | inline.small_caps | Small caps | mark.small_caps (direct; bracketed_spans); mark.small_caps (direct; native_spans); mark.small_caps (direct; attributes) | implemented / P3 | Native editable structure with source-preserving parsing and serialization. |
 | inline.native_span | Native span | mark.native_span (direct; bracketed_spans); mark.native_span (direct; native_spans); mark.native_span (direct; attributes) | implemented / P3 | Native editable structure with source-preserving parsing and serialization. |
 | inline.mention_person | Mention person; mention user | mention.user (reference; notion_mentions) | implemented / P4 | Editable person reference URL and display label. This local object does not authenticate a member or connect an external directory. |
-| inline.mention_page_or_data_source | Mention page or data source; mention page; mention database | page_link (reference; notion_pages); mention.database (reference; notion_mentions); mention.data-source (reference; notion_mentions) | implemented / P2 | Editable page/data-source references and labels; local pages resolve to their current titles. A reference does not create a database. |
+| inline.mention_page_or_data_source | Mention data source; mention database | mention.database (reference; notion_mentions); mention.data-source (reference; notion_mentions) | implemented / P2 | Database/data-source references remain distinct; page mentions belong to inline.internal_link. The historical object ID is retained for catalog compatibility. |
 | inline.date_or_reminder | Date or reminder; date mention | mention.date (reference; notion_mentions) | implemented / P4 | Editable date range and explicit reminder timestamp. Local reminders run while the app is open and catch up on reopening; desktop notifications require browser permission. |
 | inline.text_color | Text color; color | mark.color (direct; notion_colors) | implemented / P0 |  |
 | inline.background_color | Background color; background | mark.color.background (direct; notion_colors) | implemented / P0 |  |

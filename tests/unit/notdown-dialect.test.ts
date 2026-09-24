@@ -19,7 +19,7 @@ test("Notdown inherits all Notion defaults and enables additional Markdown conte
   assert.equal(syntaxFormat(config()), "notion-markdown");
   for (const extension of extensions) {
     const block = Object.values(localObjectPlugins).includes(extension.id);
-    assert.equal(enabled(config(), extension.id), block || !!notdownMarkdownDefaults[extension.id] || enabled(base, extension.id), extension.id);
+    assert.equal(enabled(config(), extension.id), extension.id === "symbol_replacements" || block || !!notdownMarkdownDefaults[extension.id] || enabled(base, extension.id), extension.id);
     assert.equal(supportsOption(config(), extension.id), true, extension.id);
   }
   for (const command of ["toggle_heading", "callout", "table", "columns", "toc", "link", "color", "underline", ...Object.keys(localObjectPlugins)]) assert(commandEnabled(config(), command), command);

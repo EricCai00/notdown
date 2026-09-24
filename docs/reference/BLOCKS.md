@@ -145,7 +145,7 @@ AST
 | 完整标题／元数据语义 | `pandoc_title_block`、`mmd_title_block`、`yaml_metadata_block` | 已识别正文开头的常见写法，metadata_values 可显示元数据并编辑源码；不应用到页面 YAML。完整语法、结构化元数据编辑与字段映射未完成 |
 | HTML → 结构容器 | `native_divs`、`markdown_in_html_blocks`、`markdown_attribute` | 已能预览 HTML，也已有 fenced Div；已实现 markdown_attribute 的常见包装块；native_divs 和完整混合解析仍待补齐 |
 | 更多编号列表写法 | `fancy_lists`、`example_lists` 等 | 已有普通有序列表和 `startnum` 开关；罗马字母、示例编号与引用等未完整实现；无需每种编号新建一种块 |
-| 引文和生成参考文献 | `citations` + citeproc | MMD 引用与固定格式 BibTeX 已实现；Pandoc citations/citeproc、CSL 样式待补齐 |
+| 引文和生成参考文献 | `mmd_citations` / `citations` + citeproc | MMD 独立书目编号、定义编辑及返回链接；Pandoc 支持本地书目/CSL 和已安装 Pandoc 的 citeproc 预览。方言与入口见 [对象说明](../features/INLINE-OBJECTS.md) |
 | 其他生态容器／图表 | Markdown directives、admonition、Mermaid 等 | 已接入 alerts、Mermaid、常用 sequence/flow；通用 directives 与完整旧图表引擎未实现 |
 
 ### 与 Pandoc AST 的关系

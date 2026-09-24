@@ -1,4 +1,6 @@
+import { nodeReference, markReference, referenceHref, referenceLabel, resolveReferencePage, type ReferencePage } from "./internal-reference";
 import { isListItem } from "./list-items";
+import { alertExportStyles } from "./alert-presentation";
 import { tocIncludes } from "../blocks/content-toc";
 import type { DOMOutputSpec, Node as PMNode } from "prosemirror-model";
 import {
@@ -7,8 +9,9 @@ import {
   type PageReference,
 } from "./markdown.js";
 import { parseNotionMarkdown } from "./notion-markdown.js";
-import { parseNative } from "../markdown-engine/codec.js";
+import { parseNative, renderGfmSyntax, serializeNative } from "../markdown-engine/codec.js";
 import { defaultSyntax, type SyntaxConfig } from "../markdown-engine/config.js";
+import { coreGfm } from "../markdown-engine/gfm";
 import {
   escapeXml,
   localPageTarget,
@@ -28,6 +31,8 @@ export function extractLinks(
   source: string,
   format: BodyFormat = "markdown",
   syntax?: SyntaxConfig,
+  pages?: readonly ReferencePage[],
+  currentId?: string,
 ): string[] {
   syntax ??= defaultSyntax(format);
   const targets = new Set<string>();
@@ -35,10 +40,10 @@ export function extractLinks(
     ? parseNative(source, syntax)
     : parseNotionMarkdown(source)
   ).descendants((node) => {
-    if (node.type.name === "page_link") {
-      const target = localPageTarget(
-        node.attrs.url || pageUrl(node.attrs.target),
-      );
+    const references = [nodeReference(node), ...node.marks.map(markReference)];
+    for (const reference of references) {
+      if (!reference || reference.addressing === "url" || reference.addressing === "current") continue;
+      const target = pages ? resolveReferencePage(reference, pages, currentId)?.id : reference.address.replace(/\.(?:md|markdown)$/i, "");
       if (target) targets.add(target);
     }
   });
@@ -124,11 +129,18 @@ export function renderNotionMarkdown(
   } = {},
 ): string {
   const doc = options.document ?? parseNotionMarkdown(source);
+  const syntax: SyntaxConfig | null = doc.attrs.sourceSyntax;
+  // Render the same GFM tokens as the editor in one HTML context: independently
+  // sanitizing raw opening/closing tags breaks details, tables and inline HTML.
+  // Additional product extensions still use their schema-owned renderers below.
+  if (syntax && coreGfm(syntax) && !options.codeBlock && !options.syntaxBlock)
+    return renderRawHtml(renderGfmSyntax(serializeNative(doc, syntax), syntax, options.sourcePositions), false, true);
   let headingIndex = 0;
   const renderSpec = (spec: DOMOutputSpec, content: string): string => {
     if (typeof spec === "string") return escapeXml(spec);
     if (!Array.isArray(spec)) return "";
-    const [tag, ...parts] = spec;
+    const [namespacedTag, ...parts] = spec;
+    const tag = namespacedTag.includes(" ") ? namespacedTag.slice(namespacedTag.indexOf(" ") + 1) : namespacedTag;
     const first = parts[0];
     const attributes =
       first && typeof first === "object" && !Array.isArray(first)
@@ -194,7 +206,7 @@ export function renderNotionMarkdown(
     }
     if (node.type.name === "html_block")
       return (
-        '<div class="pm-html-block">' + renderRawHtml(node.attrs.raw) + "</div>"
+        '<div class="pm-html-block">' + renderRawHtml(node.attrs.gfmConfig ? renderGfmSyntax(node.attrs.raw, node.attrs.gfmConfig) : node.attrs.raw, node.attrs.tagfilter, Boolean(node.attrs.gfmConfig)) + "</div>"
       );
     if (node.type.name === "html_inline")
       return (
@@ -232,14 +244,11 @@ export function renderNotionMarkdown(
     else if (node.type.name === "table_of_contents")
       content = `<nav class="pm-toc">${headings.filter((h) => tocIncludes(node, h.level)).map((h) => `<a href="#${escapeXml(h.id)}" style="padding-left:${(h.level - 1) * 16}px">${escapeXml(h.title)}</a>`).join("")}</nav>`;
     else if (["child_page", "page_link"].includes(node.type.name)) {
-      const target = node.attrs.target,
-        page = pages.find(
-          (item) => item.id === target || item.title === target,
-        );
-      const url = page
-        ? `#page/${encodeURIComponent(page.id)}`
-        : safeReference(node.attrs.url || pageUrl(target));
-      content = `<a class="${node.type.name === "child_page" ? "child-page-node" : "page-mention"}" href="${escapeXml(url)}"><span aria-hidden="true">▤</span> ${escapeXml(page?.title || node.attrs.label || target)}</a>`;
+      const target = node.attrs.target;
+      const reference = nodeReference(node);
+      const page = reference ? resolveReferencePage(reference, pages) : undefined;
+      const url = safeReference(reference ? referenceHref(reference, page?.id) : node.attrs.url || pageUrl(target));
+      content = `<a class="${node.type.name === "child_page" ? "child-page-node" : "page-mention"}" href="${escapeXml(url)}"><span aria-hidden="true">▤</span> ${escapeXml(reference ? referenceLabel(node, reference, page) : node.attrs.label || target)}</a>`;
     } else if (node.type.name === "toggle_block") {
       content = `<details open class="pm-toggle"><summary>${childHtml[0]}</summary>${childHtml.slice(1).join("")}</details>`;
     } else if (["inline_math", "equation"].includes(node.type.name)) {
@@ -293,9 +302,10 @@ export function htmlDocument(
   const shell = legacyHtml(title, "", pages);
   const styles = `.note-columns{grid-template-columns:var(--column-widths,repeat(var(--column-count,2),minmax(0,1fr)))}.pm-callout{padding:16px 20px;background:#f1f1ef;border-radius:4px}.pm-callout:before{content:attr(data-icon);float:left;margin-right:12px}.pm-toggle>summary>p{display:inline}.pm-toc a{display:block}.pm-mention{background:#f1f1ef;border-radius:3px;padding:1px 4px}.pm-database,.pm-unknown{display:block;padding:8px}.page-mention,.child-page-node{color:inherit;text-decoration:none}.child-page-node{display:block}.page-mention{border-bottom:1px solid #ddd}.pm-media-block{margin:12px 0}.pm-equation{font-family:serif;text-align:center;padding:16px}.pm-synced{border:1px solid #e6e5e3;padding:12px}@media(max-width:620px){.note-columns{grid-template-columns:1fr}}`;
   return shell
+    .replace("</style>", `${alertExportStyles}</style>`)
     .replace(
       "</style>",
-      `${styles}.pm-line-block{white-space:pre-wrap;margin:1em 0}.pm-verse-line{min-height:1.5em}.pm-definition-list dt{font-weight:bold}.pm-definition-list dd{margin-left:2em}.pm-footnote{border-top:1px solid #ddd;padding:1em}.pm-footnote:before{content:'[' attr(data-footnote-label) ']';font-size:.8em}.pm-fenced-div{border:1px dashed #ddd;padding:1em;margin:1em 0}</style>`,
+      `${styles}.pm-line-block{white-space:pre-wrap;margin:1em 0}.pm-verse-line{min-height:1.5em}.pm-definition-list dt{font-weight:bold}.pm-definition-list dd{margin-left:2em}.pm-footnote{border-top:1px solid #ddd;padding:1em}.pm-footnote:before{content:'[' attr(data-footnote-label) ']';font-size:.8em}.pm-fenced-div{margin:0}</style>`,
     )
     .replace(
       "<article></article>",

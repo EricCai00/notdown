@@ -27,7 +27,7 @@ import {
   serializeNotionMarkdown,
   notionBlockMarkdown,
 } from "../document/notion-markdown.js";
-import { openingTag } from "../document/notion-syntax.js";
+import { inlineColors, openingTag } from "../document/notion-syntax.js";
 import {
   enabled,
   nativeDialect,
@@ -41,6 +41,8 @@ import { readAttributes, writeAttributes } from "./attributes.js";
 import { renderRawHtml } from "./html.js";
 import { installDialectRules, dialectCodeBlock } from "./dialects.js";
 import { editableBlankParagraphs } from "./spacing.js";
+import { installRMarkdown } from "./rmarkdown";
+import { coreGfm, gfmHtmlRanges, installGfm } from "./gfm";
 
 const children = (node: PMNode) => {
   const result: PMNode[] = [];
@@ -55,6 +57,7 @@ const features: Record<string, string> = {
   media_block: "notion_media",
   child_page: "notion_pages",
   mention: "notion_mentions",
+  citation: "notion_mentions",
   synced_block: "notion_synced",
   table_of_contents: "notion_toc",
   nested_block: "notion_nesting",
@@ -93,6 +96,8 @@ function unavailable(node: PMNode, config: SyntaxConfig): boolean {
       (config.variant === "notion-markdown" || config.variant === "notdown" && !enabled(config, "fenced_code_attributes"))) return true;
   if (config.variant !== "notdown" && hasSupplementalAttributes(node)) return true;
   if (config.variant === "notion-markdown" && needsMarkdownTable(node)) return true;
+  if (config.variant === "notion-markdown" && node.marks.some(mark =>
+    ["native_span", "small_caps"].includes(mark.type.name))) return true;
   if (node.type.name === "heading" && node.attrs.toggle && !enabled(config, "notion_nesting")) return true;
   if (node.attrs.metadataForm) {
     const flag = ({ mmd: "mmd_title_block", yaml: "yaml_metadata_block", pandoc: "pandoc_title_block" } as Record<string, string>)[node.attrs.metadataForm];
@@ -168,7 +173,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
         if (enabled(config, "hard_line_breaks")) token.type = "hardbreak";
         else {
           token.type = "text";
-          token.content = enabled(config, "ignore_line_breaks") ? "" : " ";
+          token.content = enabled(config, "ignore_line_breaks") ? "" : config.variant === "gfm" ? "\n" : " ";
         }
       }
   });
@@ -198,7 +203,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
           continue;
         const inline = state.tokens[i + 2],
           first = inline?.children?.[0];
-        const marker = /^\[([ xX])\](?:[ \t]|$)/.exec(inline?.content ?? "");
+        const marker = /^\[([ xX])\](?=[ \t\n]|$)/.exec(inline?.content ?? "");
         if (
           !marker ||
           first?.type !== "text" ||
@@ -206,10 +211,28 @@ function parser(config: SyntaxConfig): MarkdownIt {
         )
           continue;
         first.content = first.content.slice(marker[0].length);
+        for (const child of inline.children!) {
+          if (child.type === "softbreak") { child.type = "text"; child.content = ""; continue; }
+          if (child.type !== "text") break;
+          child.content = child.content.replace(/^[ \t]+/, "");
+          if (child.content) break;
+        }
         const checkbox = new state.Token("task_checkbox", "input", 0);
         checkbox.meta = { checked: marker[1].toLowerCase() === "x" };
         inline.children!.unshift(checkbox);
       }
+    });
+  if (["obsidian", "notdown"].includes(config.variant))
+    md.inline.ruler.before("escape", "obsidian_block_id", (state, silent) => {
+      if (state.pos > 0 && !/\s/.test(state.src[state.pos - 1])) return false;
+      const match = /^\^([A-Za-z0-9-]+)[ \t]*$/.exec(state.src.slice(state.pos));
+      if (!match || "linkLevel" in state && Number(state.linkLevel) > 0) return false;
+      if (!silent) {
+        const token = state.push("source_inline", "", 0);
+        token.meta = { node: schema.nodes.syntax_inline.create({ kind: "block-anchor", target: match[1], raw: match[0] }) };
+      }
+      state.pos += match[0].length;
+      return true;
     });
   if (enabled(config, "wikilinks_title_after_pipe"))
     md.inline.ruler.before("link", "native_wiki", (state, silent) => {
@@ -227,7 +250,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
         target = (split < 0 ? text : text.slice(0, split)).trim();
       if (!target) return false;
       const token = state.push("wiki_link", "", 0);
-      token.meta = { target };
+      token.meta = { target, explicitLabel: split >= 0 };
       token.content = split < 0 ? target : text.slice(split + 1).trim();
       state.pos = end + 2;
       return true;
@@ -319,7 +342,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
         tag = openingTag(rest);
       if (!tag) return false;
       const requirement =
-        tag.tag === "span" && tag.attrs.color
+        tag.tag === "span" && (tag.attrs.color || Object.hasOwn(tag.attrs, "bg_color"))
           ? "notion_colors"
           : tag.tag === "span" && tag.attrs.underline
             ? "notion_underline"
@@ -331,6 +354,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
               ? "notion_mentions"
               : null;
       if (!requirement || !enabled(config, requirement)) return false;
+      if (tag.tag === "span" && Object.hasOwn(tag.attrs, "bg_color") && config.variant !== "notdown") return false;
       if (tag.tag === "span" && ((tag.attrs.color && !enabled(config, "notion_colors")) || (tag.attrs.underline && !enabled(config, "notion_underline")))) return false;
       let close = rest.indexOf("</" + tag.tag + ">", tag.length);
       if (config.variant === "notdown" && tag.tag === "span" && !tag.selfClosing) {
@@ -351,7 +375,18 @@ function parser(config: SyntaxConfig): MarkdownIt {
         const styled = parseNotionMarkdown(rest.slice(0, tag.length) + "x</span>").firstChild?.firstChild;
         for (const child of parseInline(md.parseInline(rest.slice(tag.length, close), state.env)[0]?.children ?? [])) {
           const token = state.push("source_inline", "", 0);
-          token.meta = { node: child.mark(child.marks.reduce((marks, mark) => mark.addToSet(marks), styled?.marks ?? [])) };
+          token.meta = { node: child.mark(child.marks.reduce((marks, mark) => {
+            const outer = marks.find(m => m.type.name === "color");
+            if (outer && mark.type.name === "color") {
+              const parentColors = inlineColors(outer.attrs), innerColors = inlineColors(mark.attrs);
+              mark = mark.type.create({
+                color: innerColors.color || parentColors.color,
+                bg_color: innerColors.bg_color || parentColors.bg_color,
+                nfmAttrs: { ...outer.attrs.nfmAttrs, ...mark.attrs.nfmAttrs },
+              });
+            }
+            return mark.addToSet(marks);
+          }, styled?.marks ?? [])) };
         }
         state.pos += end;
         return true;
@@ -497,9 +532,19 @@ function parser(config: SyntaxConfig): MarkdownIt {
   installPandocTables(md, config, (raw, env) => parseNative(raw, config, (env.nativeDepth || 0) + 1, env));
   installDocumentOptions(md, config);
   installLatexMacros(md, config);
+  if (config.variant === "rmarkdown" || config.variant === "notdown") installRMarkdown(md);
+  installGfm(md, config);
   if (parsers.size >= 16) parsers.delete(parsers.keys().next().value!);
   parsers.set(key, md);
   return md;
+}
+
+/** GFM syntax HTML, before the application's HTML allowlist. Never mount directly. */
+export function renderGfmSyntax(source: string, config: SyntaxConfig = { version: 1, variant: "gfm", extensions: {} }, sourcePositions = false): string {
+  const md = parser(config), env = {}, tokens = md.parse(source, env);
+  if (sourcePositions) for (const token of tokens)
+    if (token.block && token.map && token.nesting !== -1) token.attrSet("data-source-line", String(token.map[0] + 1));
+  return md.renderer.render(tokens, md.options, env);
 }
 
 function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Token[] {
@@ -544,7 +589,7 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
           )?.[1];
         cells.push(
           schema.nodes.table_cell.create(
-            { nfmAttrs: align ? { align } : {}, colspan: Number(t.attrGet("colspan")) || 1, rowspan: Number(t.attrGet("rowspan")) || 1, header: enabled(config, "mmd_tables") && t.type === "th_open" },
+            { nfmAttrs: align ? { align } : {}, colspan: Number(t.attrGet("colspan")) || 1, rowspan: Number(t.attrGet("rowspan")) || 1, header: (config.variant === "gfm" || enabled(config, "mmd_tables")) && t.type === "th_open" },
             inline?.type === "inline" ? schema.nodes.paragraph.create(
               null,
               inline?.type === "inline"
@@ -631,6 +676,20 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
     env = { ...context, nativeDepth: depth },
     tokens = md.parse(source, env),
     projected: Token[] = [];
+  if (coreGfm(config)) {
+    const ranges = gfmHtmlRanges(tokens, md, env);
+    for (const [first, last] of [...ranges].sort((a, b) => b[0] - a[0])) {
+      const token = tokens[first];
+      token.map = [token.map![0], tokens[last].map![1]];
+      const raw = source.split(/\r\n|\n|\r/).slice(...token.map).join(source.match(/\r\n|\n|\r/)?.[0] ?? "\n").replace(/[\r\n]+$/, "");
+      token.type = "source_node";
+      token.meta = { node: schema.nodes.html_block.create({ raw, tagfilter: true, gfmConfig: config }) };
+      tokens.splice(first + 1, last - first);
+    }
+  }
+  // The native codec must trust GFM token classification, including malformed
+  // tags that the CommonMark grammar intentionally treats as paragraph text.
+  if (config.variant === "gfm") for (const token of tokens) token.meta = { ...token.meta, gfm: true };
   for (const t of tokens) {
     // A simple HTML line break is editable inline structure, not an opaque
     // HTML preview containing all of the surrounding paragraph/cell text.
@@ -663,6 +722,7 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
     if (t.type === "html_block")
       node = schema.nodes.html_block.create({
         raw: t.content.replace(/\n$/, ""),
+        tagfilter: config.variant === "gfm",
       });
     if (t.type === "footnote_open" || t.type === "fenced_div_open") {
       const name = t.type === "footnote_open" ? "footnote" : "fenced_div";
@@ -702,7 +762,8 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
     }
     projected.push(t);
   }
-  const doc = parseEditorMarkdown(source, tableNodes(projected, config, source));
+  let doc = parseEditorMarkdown(source, tableNodes(projected, config, source));
+  if (config.variant === "gfm") doc = doc.type.create({ ...doc.attrs, sourceSyntax: config }, doc.content);
   return config.variant === "typora" && depth === 0 ? editableBlankParagraphs(doc) : doc;
 }
 function writeBlock(node: PMNode, config: SyntaxConfig): string {
@@ -761,7 +822,8 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
       ).replace(
         markdownFamily(config) && !enabled(config, "space_in_atx_header")
           ? /^(\s*)(#{1,6})(?!#)/
-          : /$^/,
+          // A disabled rule must not match even empty inline content (unlike /$^/).
+          : /(?!)/,
         "$1\\$2",
       );
   switch (node.type.name) {
@@ -815,11 +877,11 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
       if (!node.content.size) return "";
       return inline(node)
         .replace(
-          enabled(config, "mmd_title_block") ? /^([A-Za-z0-9][A-Za-z0-9 _-]*):/ : /$^/,
+          enabled(config, "mmd_title_block") ? /^([A-Za-z0-9][A-Za-z0-9 _-]*):/ : /(?!)/,
           "$1&#58;",
         )
         .replace(
-          enabled(config, "pandoc_title_block") ? /^%(?=\s|$)/ : /$^/,
+          enabled(config, "pandoc_title_block") ? /^%(?=\s|$)/ : /(?!)/,
           "&#37;",
         );
     case "heading":
@@ -856,7 +918,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
             )
             .join("\n");
         })
-        .join("\n");
+        .join(config.variant === "gfm" && node.attrs.tight === false ? "\n\n" : "\n");
     case "blockquote":
       return blocks(kids)
         .split("\n")
@@ -878,6 +940,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
                 .map(inline)
                 .join(" ")
                 .replace(/\|/g, "\\|")
+                .replace(config.variant === "gfm" ? / {2}\n/g : /(?!)/g, "<br>")
                 .replace(/\n/g, " "),
             )
             .join(" | ") +
@@ -970,7 +1033,7 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
         const basic = ["paragraph", "heading", "blockquote", "bullet_list", "ordered_list", "horizontal_rule", "code_block"];
         if (basic.includes(node.type.name)) {
           const fancy = node.type.name === "ordered_list" && (node.attrs.markerStyle !== "decimal" && node.attrs.markerStyle || /^\d+\) /.test(first) || node.attrs.markerDelimiter === ")");
-          const attributedCode = node.type.name === "code_block" && Object.keys(node.attrs.markdownAttrs || {}).length;
+          const attributedCode = node.type.name === "code_block" && (node.attrs.rChunk || Object.keys(node.attrs.markdownAttrs || {}).length);
           const attributedHeading = node.type.name === "heading" && /\{(?:[#.]|[^{}]*=[^"'])|\[[^\]]+\]/.test(first);
           const spacedList = ["ordered_list", "bullet_list"].includes(node.type.name) && /\n {2,}\S/.test(raw);
           if (!fancy && !attributedCode && !attributedHeading && !spacedList) {

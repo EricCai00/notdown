@@ -1,26 +1,10 @@
-import {
-  createElement,
-  FileText,
-  BookOpen,
-  NotebookPen,
-  PenLine,
-  Lightbulb,
-  Sprout,
-  Network,
-  Database,
-  Calendar,
-  Star,
-  Folder,
-  House,
-  Code,
-  Link2,
-  ArrowUpRight,
-  type IconNode,
-} from "lucide";
+import { createElement, ArrowUpRight } from "lucide";
+import { pageIconElement } from "../shared/page-icons";
 import type { Mark, Node as ProseMirrorNode } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import type { NodeView, NodeViewConstructor } from "prosemirror-view";
 import { localPageTarget, pageUrl, safeReference } from "../document/notion-syntax";
+import { nodeReference, referenceHref, referenceLabel, resolveReferencePage } from "../document/internal-reference";
 
 export interface LinkedPage {
   id: string;
@@ -69,50 +53,13 @@ export function linkRangeAtSelection(
   return from >= start && to <= end ? { from: start, to: end, mark } : null;
 }
 
-const pageIcons: Record<string, IconNode> = {
-  "file-text": FileText,
-  "book-open": BookOpen,
-  "notebook-pen": NotebookPen,
-  "pen-line": PenLine,
-  lightbulb: Lightbulb,
-  sprout: Sprout,
-  network: Network,
-  database: Database,
-  calendar: Calendar,
-  star: Star,
-  folder: Folder,
-  home: House,
-  house: House,
-  code: Code,
-  "link-2": Link2,
-};
-
-export function pageIconElement(icon?: string): Element {
-  // Workspace icons are either plain emoji or Lucide names. Never interpret
-  // icon/title strings as HTML, including metadata written by external tools.
-  if (icon && /[^a-z-]/.test(icon)) {
-    const span = document.createElement("span");
-    span.className = "page-link-icon emoji";
-    span.setAttribute("aria-hidden", "true");
-    span.textContent = icon;
-    return span;
-  }
-  return createElement(pageIcons[icon ?? ""] ?? FileText, {
-    class: "page-link-icon",
-    width: 16,
-    height: 16,
-    "stroke-width": 1.65,
-    "aria-hidden": "true",
-    focusable: "false",
-  });
-}
-
 class PageLinkView implements NodeView {
   readonly dom: HTMLAnchorElement;
 
   constructor(
     private node: ProseMirrorNode,
     private pages: () => readonly LinkedPage[],
+    private currentPage?: () => { id: string } | undefined,
   ) {
     this.dom = document.createElement("a");
     this.dom.contentEditable = "false";
@@ -123,29 +70,30 @@ class PageLinkView implements NodeView {
   private render(): void {
     const target = String(this.node.attrs.target ?? "");
     const pages = this.pages();
-    const page =
-      pages.find((entry) => entry.id === target) ??
-      pages.find((entry) => entry.title === target);
-    // IDs remain the source of truth. Renaming a linked page updates the label
-    // when its node view renders, even if the stored Markdown has an old alias.
-    const label =
-      page?.title || String(this.node.attrs.label || target || "Untitled page");
+    const reference = nodeReference(this.node);
+    const page = reference ? resolveReferencePage(reference, pages, this.currentPage?.()?.id) : undefined;
+    const label = reference ? referenceLabel(this.node, reference, page) : String(this.node.attrs.label || target);
     this.dom.className =
       this.node.type.name === "child_page"
         ? "child-page-node child-page"
         : "page-mention wiki-link";
     this.dom.setAttribute(
       "href",
-      safeReference(page ? `#page/${encodeURIComponent(page.id)}` : this.node.attrs.url || pageUrl(target)),
+      safeReference(reference ? referenceHref(reference, page?.id) : this.node.attrs.url || pageUrl(target)),
     );
     this.dom.setAttribute("data-page-target", target);
     this.dom.setAttribute("data-page-id", page?.id ?? target);
+    this.dom.dataset.referenceKind = reference?.kind || "page";
+    this.dom.dataset.referenceSyntax = reference?.syntax || "mention";
+    this.dom.dataset.referenceUrl = this.node.attrs.url || "";
+    this.dom.dataset.referenceAttrs = JSON.stringify(this.node.attrs.nfmAttrs || {});
+    this.dom.dataset.labelMode = this.node.attrs.labelMode || "";
     this.dom.setAttribute("aria-label", label);
     this.dom.title = page || !localPageTarget(target) ? label : `Page not found: ${label}`;
     const text = document.createElement("span");
     text.className = "page-link-label";
     text.textContent = label;
-    const icon = pageIconElement(page?.icon);
+    const icon = reference?.kind === "location" ? createElement(ArrowUpRight, { width: 16, height: 16 }) : pageIconElement(page?.icon);
     if (this.node.type.name === "child_page") {
       const iconSlot = document.createElement("span");
       iconSlot.className = "page-link-icon-slot";
@@ -196,7 +144,8 @@ class PageLinkView implements NodeView {
 
 export function createPageNodeViews(
   pages: () => readonly LinkedPage[],
+  currentPage?: () => { id: string } | undefined,
 ): Record<string, NodeViewConstructor> {
-  const create: NodeViewConstructor = (node) => new PageLinkView(node, pages);
+  const create: NodeViewConstructor = (node) => new PageLinkView(node, pages, currentPage);
   return { page_link: create, child_page: create };
 }

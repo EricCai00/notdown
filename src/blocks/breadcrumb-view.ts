@@ -1,5 +1,5 @@
 import type { LinkedPage } from "../editor/editor-links";
-import { pageIconElement } from "../editor/editor-links";
+import { pageIconElement } from "../shared/page-icons";
 
 export interface BreadcrumbPage extends LinkedPage { parent?: string | null; trashed?: boolean }
 /** Navigation always follows the containing page, never legacy saved path IDs. */

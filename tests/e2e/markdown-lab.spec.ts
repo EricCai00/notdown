@@ -30,13 +30,37 @@ async function storedSource(page: Page) {
   );
 }
 
+test('new official parsers render locally and keep raw HTML separate from inert preview',async({page})=>{
+ const c=await (await page.request.get('/api/markdown/capabilities')).json();
+ await openLab(page,false);
+ for(const [variant,source,selector,text]of [
+  ['commonmark-js','# CommonMark\n\n<script>window.labExecuted=true</script>','#preview h1','CommonMark'],
+  ['cmark-gfm','~Single tilde~','#preview del','Single tilde'],
+  ['php-markdown-extra','*[HTML]: Hypertext\n\nHTML','#preview abbr','HTML'],
+ ]){
+  if(!c.renderers?.[variant]?.available){await expect(page.locator(`#variant option[value="${variant}"]`)).toBeDisabled();continue;}
+  await page.locator('#variant').selectOption(variant);
+  await replaceSource(page,source);await ready(page);
+  await expect(page.locator(selector)).toHaveText(text);
+  await expect(page.locator('#configure')).toBeDisabled();
+  if(variant==='commonmark-js'){
+   await expect(page.locator('#preview script')).toHaveCount(0);
+   await page.getByRole('button',{name:'HTML',exact:true}).click();
+   await expect(page.locator('#html-output')).toContainText('<script>');
+   await page.getByRole('button',{name:'Page',exact:true}).click();
+  }
+  expect(await storedSource(page)).toBe(source);
+ }
+ expect(await page.evaluate(()=>(window as any).labExecuted)).toBeUndefined();
+});
+
 test("all Pandoc Markdown dialects are selectable with independent working extensions", async ({
   page,
 }) => {
   test.setTimeout(60_000);
   await openLab(page);
   await ready(page);
-  await expect(page.locator("#variant option")).toHaveCount(12);
+  await expect(page.locator("#variant option")).toHaveCount(15);
   await expect(page.locator('#variant option[value="commonmark_x"]')).toHaveText("CommonMark X");
   await expect(page.locator('#variant option[value="markdown_mmd"]')).toHaveText("MultiMarkdown");
   await expect(page.locator('#variant option[value="pandoc-cli"]')).toHaveCount(0);

@@ -16,7 +16,7 @@ import {
   Check,
   type IconNode,
 } from "lucide";
-import { colorStyle } from "../document/notion-syntax";
+import { colorStyle, inlineColors } from "../document/notion-syntax";
 import { inTableCell } from "./editor-table";
 import "./selection-menu.css";
 
@@ -33,6 +33,7 @@ export type SelectionBlockType =
   | "code";
 interface Options {
   canCommand: (name: string) => boolean;
+  canCombineColors: () => boolean;
   convert: (type: SelectionBlockType) => void;
   link: () => void;
 }
@@ -171,7 +172,9 @@ export function selectionMenu(options: Options) {
             !node.marks.some(
               (mark) =>
                 mark.type.name === name &&
-                (value === undefined || mark.attrs.color === value),
+                (value === undefined || (name === "color" && options.canCombineColors()
+                  ? value.endsWith("_bg") ? inlineColors(mark.attrs).bg_color === value.slice(0, -3) : inlineColors(mark.attrs).color === value
+                  : mark.attrs.color === value)),
             )
           )
             all = false;
@@ -195,17 +198,22 @@ export function selectionMenu(options: Options) {
           );
           const attrs = { ...old?.attrs.nfmAttrs };
           delete attrs.color;
+          delete attrs.bg_color;
           // Underline already has its own mark; stale source attributes must not restore it.
           delete attrs.underline;
+          const dual = options.canCombineColors();
+          const next = dual && value ? inlineColors(old?.attrs || {}) : { color: "", bg_color: "" };
+          if (dual && value.endsWith("_bg")) next.bg_color = value === "default_bg" ? "" : value.slice(0, -3);
+          else next.color = value === "default" || value === "default_bg" ? "" : value;
           const start = Math.max(from, pos),
             end = Math.min(to, pos + node.nodeSize);
           tr = tr.removeMark(start, end, state.schema.marks.color);
-          if (value || Object.keys(attrs).length)
+          if (next.color || next.bg_color || Object.keys(attrs).length)
             tr.addMark(
               start,
               end,
               state.schema.marks.color.create({
-                color: value,
+                ...next,
                 nfmAttrs: attrs,
               }),
             );
@@ -215,7 +223,7 @@ export function selectionMenu(options: Options) {
       const applyColor = (value: string) => {
         if (!options.canCommand("color")) return;
         view.dispatch(closeHistory(colorTransaction(value)));
-        if (value)
+        if (value && value !== "default" && value !== "default_bg")
           recent = [value, ...recent.filter((c) => c !== value)].slice(0, 5);
         finish();
       };
@@ -416,7 +424,7 @@ export function selectionMenu(options: Options) {
               const label = `${base[0].toUpperCase() + base.slice(1)} ${bg ? "background" : "text"}`;
               const swatch = button(
                 label,
-                () => applyColor(base === "default" ? "" : value),
+                () => applyColor(value),
                 bg ? "" : "A",
               );
               swatch.style.cssText = colorStyle(value);
@@ -424,7 +432,15 @@ export function selectionMenu(options: Options) {
                 "aria-pressed",
                 String(
                   base === "default"
-                    ? !state.doc.rangeHasMark(
+                    ? options.canCombineColors()
+                      ? (() => {
+                        let clear = true;
+                        state.doc.nodesBetween(from, to, node => {
+                          if (node.isText && node.marks.some(mark => mark.type.name === "color" && inlineColors(mark.attrs)[bg ? "bg_color" : "color"])) clear = false;
+                        });
+                        return clear;
+                      })()
+                      : !state.doc.rangeHasMark(
                         from,
                         to,
                         state.schema.marks.color,

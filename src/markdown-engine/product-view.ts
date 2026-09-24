@@ -7,6 +7,9 @@ import { mmdMetadataKey } from "./mmd-metadata.js";
 import { slug } from "./attributes.js";
 import DOMPurify from "dompurify";
 import { refreshCitations } from "./citation-view";
+import { imageCaptionRange, replaceImageCaption } from "../document/image-caption";
+import { refreshMmdCitations } from "./mmd-citation-view";
+import { showEditorPanel } from "../editor/editor-panel";
 let diagramId = 0;
 const bibliographyRequests = new WeakMap<
   EditorView,
@@ -77,6 +80,8 @@ export class SyntaxBlockView implements NodeView {
   private controller?: AbortController;
   private timer?: ReturnType<typeof setInterval>;
   private lastInclude = "";
+  private captionButton = document.createElement("button");
+  private captionDialog?: HTMLDialogElement;
   constructor(
     private node: PMNode,
     private view: EditorView,
@@ -140,7 +145,30 @@ export class SyntaxBlockView implements NodeView {
         }
       }
     };
-    this.dom.append(this.button, this.preview, this.input);
+    this.captionButton.type = "button"; this.captionButton.textContent = "Edit caption";
+    this.captionButton.onclick = () => {
+      if (!this.view.editable) return;
+      const original = this.node, range = imageCaptionRange(original.attrs.raw);
+      if (!range) return;
+      this.captionDialog?.remove();
+      const dialog = this.captionDialog = document.createElement("dialog"); dialog.className = "pm-link-dialog"; dialog.setAttribute("aria-label", "Image caption");
+      const form = document.createElement("form"), label = document.createElement("label"), input = document.createElement("input"), output = document.createElement("output");
+      label.textContent = "Caption"; input.setAttribute("aria-label", "Caption");
+      input.value = original.attrs.raw.slice(range.from, range.to).replace(/\\([\\\[\]])/g, "$1"); label.append(input);
+      const save = document.createElement("button"), cancel = document.createElement("button"); save.type = "submit"; save.textContent = "Save"; cancel.type = "button"; cancel.textContent = "Cancel"; cancel.onclick = () => dialog.close();
+      form.append(label, output, save, cancel); dialog.append(form); document.body.append(dialog);
+      form.onsubmit = event => {
+        event.preventDefault(); const pos = this.getPos();
+        if (pos === undefined || !this.node.eq(original)) { output.textContent = "Image changed. Reopen its caption."; return; }
+        // An untouched rich caption keeps its exact original Markdown.
+        if (input.value === original.attrs.raw.slice(range.from, range.to).replace(/\\([\\\[\]])/g, "$1")) { dialog.close(); return; }
+        const parsed = parseNative(replaceImageCaption(original.attrs.raw, input.value), original.attrs.config);
+        if (parsed.childCount !== 1) { output.textContent = "The image must remain a single block."; return; }
+        this.view.dispatch(this.view.state.tr.replaceWith(pos, pos + original.nodeSize, parsed.firstChild!)); dialog.close(); this.view.focus();
+      };
+      dialog.onclose = () => dialog.remove(); showEditorPanel(dialog, "Image caption", this.view.dom); input.focus({ preventScroll: true });
+    };
+    this.dom.append(this.button, this.captionButton, this.preview, this.input);
     this.update(node);
     if (this.node.attrs.kind === "transclusion")
       this.timer = setInterval(() => {
@@ -153,8 +181,11 @@ export class SyntaxBlockView implements NodeView {
   }
   update(node: PMNode) {
     if (node.type.name !== "syntax_block") return false;
+    if (node.attrs.kind === "raw" && node.attrs.data?.format === "html") return false;
     this.node = node;
     this.dom.dataset.syntaxKind = node.attrs.kind;
+    this.captionButton.hidden = node.attrs.kind !== "figure";
+    this.dom.hidden = node.attrs.kind === "comment" || node.attrs.kind === "definition" && String(node.attrs.data.key).startsWith("#");
     if (this.input.value !== node.attrs.raw) this.input.value = node.attrs.raw;
     if (this.lastRaw !== node.attrs.raw || !this.preview.childNodes.length) {
       this.lastRaw = node.attrs.raw;
@@ -239,6 +270,7 @@ export class SyntaxBlockView implements NodeView {
     return true;
   }
   destroy() {
+    this.captionDialog?.remove();
     this.disposed = true;
     this.controller?.abort();
     clearInterval(this.timer);
@@ -246,9 +278,9 @@ export class SyntaxBlockView implements NodeView {
 }
 export function refreshProductViews(view: EditorView) {
   const meta: Record<string, unknown> = {}, definitions: Record<string, string> = {};
-  const footnotes = new Set<string>();
+  const footnotes = new Map<string, string>();
   view.state.doc.descendants((node) => {
-    if (node.type.name === "footnote") footnotes.add(node.attrs.label);
+    if (node.type.name === "footnote" && !footnotes.has(node.attrs.label)) footnotes.set(node.attrs.label, node.textBetween(0, node.content.size, "\n", " "));
     if (node.type.name === "syntax_block" && node.attrs.kind === "metadata")
       Object.assign(meta, metadataValues(node.attrs.raw, node.attrs.metadataForm));
     if (node.type.name === "syntax_block" && node.attrs.kind === "definition")
@@ -259,7 +291,7 @@ export function refreshProductViews(view: EditorView) {
     if (!(dom instanceof HTMLElement)) return;
     if (node.type.name === "footnote_reference") {
       const missing = !footnotes.has(node.attrs.label);
-      dom.title = missing ? "Footnote definition not found: " + node.attrs.label : "Footnote: " + node.attrs.label;
+      dom.title = missing ? "Footnote definition not found: " + node.attrs.label : footnotes.get(node.attrs.label) || "Empty footnote";
       dom.setAttribute("aria-invalid", String(missing));
     }
     if (
@@ -283,10 +315,9 @@ export function refreshProductViews(view: EditorView) {
 
   });
   const bib = String(meta.bibliography || meta.bibtex || "");
-  if (refreshCitations(view, meta)) { bibliographyRequests.delete(view); view.dom.parentElement?.querySelector(".md-bibliography")?.remove(); return; }
+  refreshCitations(view, meta);
   if (!bib) {
     bibliographyRequests.delete(view);
-    view.dom.parentElement?.querySelector(".md-bibliography")?.remove();
   }
   if (bib) {
     const prior = bibliographyRequests.get(view);
@@ -317,41 +348,6 @@ export function refreshProductViews(view: EditorView) {
         })
         .catch(() => {});
     }
-    const entries = bibliographyRequests.get(view)?.entries || {},
-      used = new Set<string>();
-    view.state.doc.descendants((node, pos) => {
-      if (node.type.name !== "syntax_inline" || node.attrs.kind !== "citation")
-        return;
-      const key =
-        /\[#([^\]]+)\]/.exec(node.attrs.raw)?.[1].replace(/;$/, "") || "";
-      const dom = view.nodeDOM(pos);
-      if (entries[key] && dom instanceof HTMLElement) {
-        dom.title = entries[key];
-        dom.setAttribute("href", "#md-bib-" + slug(key));
-        used.add(key);
-      } else if (dom instanceof HTMLElement) {
-        dom.title =
-          definitions["#" + key] || node.attrs.title || "Citation not found: " + key;
-        if (definitions["#" + key])
-          dom.setAttribute("href", "#md-def-" + slug(key));
-        else dom.removeAttribute("href");
-      }
-    });
-    let panel =
-      view.dom.parentElement?.querySelector<HTMLElement>(".md-bibliography");
-    if (!panel && used.size) {
-      panel = document.createElement("aside");
-      panel.className = "md-bibliography";
-      view.dom.parentElement?.append(panel);
-    }
-    if (panel) {
-      panel.replaceChildren();
-      for (const key of used) {
-        const p = document.createElement("p");
-        p.id = "md-bib-" + slug(key);
-        p.textContent = entries[key];
-        panel.append(p);
-      }
-    }
   }
+  refreshMmdCitations(view, bibliographyRequests.get(view)?.entries || {});
 }

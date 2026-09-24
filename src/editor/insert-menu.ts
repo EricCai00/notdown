@@ -12,13 +12,23 @@ function insertGroup(id: string): string {
   if (["columns", "toc", "equation", "toggle_heading", "synced_block", "button", "breadcrumb", "meeting_notes", "ai_block", "tabs"].includes(id)) return "Notion advanced";
   if (["code", "file", "web_bookmark", "link_preview", "image_block"].includes(id)) return "Notion media";
   if (["embed", "html_embed"].includes(id)) return "Notion embeds";
-  if (["inline", "mention", "mention_person", "date_or_reminder", "inline_equation", "emoji"].includes(id)) return "Notion inline";
+  if (["inline", "page_link", "location_link", "mention", "mention_person", "date_or_reminder", "inline_equation", "emoji"].includes(id)) return "Notion inline";
   if (["bold", "italic", "underline", "strike", "color", "background"].includes(id)) return "Notion style";
-  if (["footnote", "native_span", "small_caps", "raw_inline", "inline_note", "subscript", "superscript", "highlight"].includes(id)) return "Markdown inline";
+  if (["citation", "abbreviation", "glossary", "metadata_variable", "addition", "deletion", "substitution", "footnote", "native_span", "small_caps", "inline_note", "inline_comment", "subscript", "superscript", "highlight"].includes(id)) return "Markdown inline";
   return "Markdown blocks";
 }
-export function insertMenuItems(config?: SyntaxConfig) {
+// The footer offers portable Markdown blocks. Existing extension content is
+// still preserved by the codec; product containers are not offered here.
+const footnoteCommands = new Set("text task heading1 heading2 heading3 heading4 heading5 heading6 list number quote divider code inline table equation diagram html definitions lines div file image_block inline_equation bold italic underline strike color background subscript superscript highlight emoji native_span small_caps".split(" "));
+export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
   return [
+    ["citation", "quote", "Citation", "Insert or reuse a source reference.", "citation 引文 文献"],
+    ["abbreviation", "type", "Abbreviation", "Define or reuse an abbreviation.", "abbreviation acronym 缩写"],
+    ["glossary", "book-open", "Glossary", "Define or reuse a glossary term.", "glossary 术语"],
+    ["metadata_variable", "type", "Metadata variable", "Insert a reference to document metadata.", "metadata variable 变量"],
+    ["addition", "plus", "Addition", "Propose added text with CriticMarkup.", "revision addition 修订 新增"],
+    ["deletion", "minus", "Deletion", "Propose removed text with CriticMarkup.", "revision deletion 修订 删除"],
+    ["substitution", "arrow-right", "Substitution", "Propose replacement text with CriticMarkup.", "revision substitution 修订 替换"],
     ["text", "pen-line", "Text", "Start writing plain text.", "paragraph text"],
     ["child", "file-plus-2", "Page", "Embed a child page here.", "page child"],
     [
@@ -40,16 +50,11 @@ export function insertMenuItems(config?: SyntaxConfig) {
     ["divider", "minus", "Divider", "Separate sections visually.", "divider hr"],
     ["code", "code", "Code", "Add a code block.", "code"],
     ["inline", "code-xml", "Inline code", "Insert code in your text.", "inline"],
-    ["link", "link-2", "Link to page", "Link to an existing page.", "link wiki"],
-    [
-      "mention",
-      "at-sign",
-      "Mention page",
-      "Mention an existing page in your text.",
-      "mention wiki",
-    ],
+    ["page_link", "link-2", "Page link", "Link to a page in your text.", "page link mention wiki 页面链接 页面提及"],
+    ["location_link", "hash", "Location link", "Link to a heading, block or anchor in any page.", "location heading block anchor line 位置链接 标题 块 锚点 行"],
     ["columns", "columns-2", "Two columns", "Place content side by side.", "columns"],
     ["callout", "lightbulb", "Callout", "Highlight a note.", "callout"],
+    ["alert", "circle-alert", "GitHub-style Alert", "A colored alert with an optional title and folding.", "github alert note tip important warning caution 提示 警告"],
     [
       "toggle",
       "chevron-right",
@@ -74,6 +79,7 @@ export function insertMenuItems(config?: SyntaxConfig) {
       "Preserve in source; hide on the page.",
       "comment",
     ],
+    ["inline_comment", "message-square", "Inline comment", "Write a hidden comment at the current text position.", "inline comment hidden 注释"],
     [
       "transclusion",
       "file-text",
@@ -138,8 +144,6 @@ export function insertMenuItems(config?: SyntaxConfig) {
     ["date_or_reminder", "calendar", "Date or reminder", "An editable date with an optional local reminder.", "date reminder"],
     ["native_span", "type", "Native span", "Inline text with editable attributes.", "span attributes"],
     ["small_caps", "type", "Small caps", "Text displayed in small capitals.", "small caps"],
-    ["raw_inline", "code", "Inline raw source", "Inline source for a declared output format.", "raw source inline"],
-    ["raw_tex", "code", "Raw TeX", "Editable TeX source for a target-format writer.", "raw latex tex"],
     ["inline_note", "message-square", "Inline note", "Write the note directly at the current text position.", "inline note 内联注释"],
     ["inline_equation", "sigma", "Inline equation", "Write a formula within text.", "inline math 公式"],
     ["bold", "bold", "Bold", "Insert bold text.", "strong 粗体"],
@@ -152,9 +156,9 @@ export function insertMenuItems(config?: SyntaxConfig) {
     ["superscript", "superscript", "Superscript", "Insert superscript text.", "上标"],
     ["highlight", "highlighter", "Highlight", "Insert highlighted text.", "高亮"],
     ["emoji", "smile", "Emoji", "Insert an emoji character.", "表情"],
-  ].filter(([id]) => contentCommand(id, config).enabled)
+  ].filter(([id]) => contentCommand(id, config).enabled && (id !== "alert" || config?.variant === "notdown") && (!inFootnote || footnoteCommands.has(id)))
     .map(([id, icon, title, description, aliases]) => {
       const entry = contentCommand(id);
-      return [id, icon, ["inline_note", "footnote"].includes(id) ? title : entry.label || title, description, [aliases, ...entry.aliases].join(" "), insertGroup(id)];
+      return [id, icon, ["inline_note", "footnote", "alert", "page_link", "location_link"].includes(id) ? title : entry.label || title, description, [aliases, ...entry.aliases].join(" "), insertGroup(id)];
     }).sort((a, b) => insertGroups.indexOf(a[5]) - insertGroups.indexOf(b[5]));
 }

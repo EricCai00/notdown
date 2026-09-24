@@ -122,7 +122,21 @@ const colors: Record<string, string> = {
   red_bg: "#fdebec",
 };
 export function colorStyle(color: string): string {
-  return colors[color]
+  return Object.hasOwn(colors, color)
     ? `${color.endsWith("_bg") ? "background-color" : "color"}:${colors[color]}`
     : "";
+}
+
+/** Independent inline channels; the old color="yellow_bg" remains readable. */
+export function inlineColors(attrs: { color?: string; bg_color?: string }) {
+  const legacyBackground = attrs.color?.endsWith("_bg");
+  return {
+    color: legacyBackground ? "" : attrs.color || "",
+    bg_color: attrs.bg_color || (legacyBackground ? attrs.color!.slice(0, -3) : ""),
+  };
+}
+
+export function inlineColorStyle(attrs: { color?: string; bg_color?: string }): string {
+  const { color, bg_color } = inlineColors(attrs);
+  return [colorStyle(color), bg_color ? colorStyle(`${bg_color}_bg`) : ""].filter(Boolean).join(";");
 }

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseFragment, serialize } from "parse5";
 import MarkdownIt from "markdown-it";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import {
   blockPlugins,
   type Capabilities,
   type RenderResult,
+  type DirectRenderer,
 } from "../src/markdown-lab/model.js";
 import { renderBlockPlugin } from "../src/markdown-lab/plugins.js";
 
@@ -165,7 +167,7 @@ export async function getPandocCapabilities(): Promise<Capabilities> {
   return cachedCapabilities;
 }
 
-type ExternalRenderer = "multimarkdown-cli" | "markdown-pl";
+type ExternalRenderer = DirectRenderer;
 type Program = { available: boolean; version: string; error?: string; executable?: string; args?: string[] };
 let cachedExternalPrograms: Promise<Record<ExternalRenderer, Program>> | undefined;
 
@@ -252,7 +254,31 @@ async function getExternalPrograms(): Promise<Record<ExternalRenderer, Program>>
         markdownPl = { available: true, version: "Markdown.pl (Perl)", executable: perl, args: [script] };
       } catch (error) { markdownPl.error = (error as Error).message; }
     }
-    return { "multimarkdown-cli": multimarkdown, "markdown-pl": markdownPl };
+    const root = fileURLToPath(new URL('../', import.meta.url));
+    const bridge = (name: string) => path.join(root, 'server/renderers', name);
+    // Local tool paths are administrator configuration, never HTTP parameters.
+    let local: Record<string, string> = {};
+    try {
+      const value = JSON.parse(await fs.readFile(path.join(root, '.run/markdown-lab-tools.json'), 'utf8'));
+      local = Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+    } catch { /* Optional local configuration; environment and PATH still work. */ }
+    async function probe(executable: string | undefined, args: string[], name: string, help: string): Promise<Program> {
+      if (!executable) return { available: false, version: `${name} unavailable`, error: help };
+      try {
+        const version = (await runProgram(executable, [...args, '--version'], '', undefined, name)).trim();
+        if (!version) throw new Error(`${name} did not report its version`);
+        return { available: true, version, executable, args };
+      } catch (error) { return { available: false, version: `${name} unavailable`, error: `${help} ${(error as Error).message}` }; }
+    }
+    const python = process.env.MARKDOWN_PYTHON_PATH || local.python || await findOnPath(process.platform === 'win32' ? ['python3.exe', 'python.exe'] : ['python3']);
+    const php = process.env.PHP_PATH || local.php || await findOnPath(process.platform === 'win32' ? ['php.exe'] : ['php']);
+    const phpLibrary = process.env.PHP_MARKDOWN_EXTRA_PATH || local.phpMarkdownExtra || path.join(root, '.run/dialect-audit/tools');
+    const cmarkLibrary = process.env.CMARKGFM_PATH || local.cmarkgfm || path.join(root, '.run/gfm-renderer');
+    // Sequential probes share the same four-process budget as normal previews.
+    const commonmark = await probe(process.execPath, [bridge('commonmark.mjs')], 'commonmark.js', 'Run npm ci and restart the server.');
+    const cmark = await probe(python, [bridge('cmark-gfm.py'), cmarkLibrary], 'cmark-gfm', 'Install Python 3 and cmarkgfm; configure MARKDOWN_PYTHON_PATH / CMARKGFM_PATH, then restart.');
+    const extra = await probe(php, [bridge('php-markdown-extra.php'), phpLibrary], 'PHP Markdown Extra', 'Install PHP and michelf/php-markdown; configure PHP_PATH / PHP_MARKDOWN_EXTRA_PATH, then restart.');
+    return { "multimarkdown-cli": multimarkdown, "markdown-pl": markdownPl, "commonmark-js": commonmark, "cmark-gfm": cmark, "php-markdown-extra": extra };
   })().catch((error: Error) => {
     cachedExternalPrograms = undefined;
     throw error;
@@ -262,14 +288,10 @@ async function getExternalPrograms(): Promise<Record<ExternalRenderer, Program>>
 
 export async function getMarkdownLabCapabilities(): Promise<Capabilities> {
   const [pandocCapabilities, programs] = await Promise.all([getPandocCapabilities(), getExternalPrograms()]);
-  const { "multimarkdown-cli": multimarkdown, "markdown-pl": markdownPl } = programs;
   const publicStatus = (program: Program) => ({ available: program.available, version: program.version, error: program.error });
   return {
     ...pandocCapabilities,
-    renderers: {
-      "multimarkdown-cli": publicStatus(multimarkdown),
-      "markdown-pl": publicStatus(markdownPl),
-    },
+    renderers: Object.fromEntries(Object.entries(programs).map(([id, program]) => [id, publicStatus(program)])),
   };
 }
 
@@ -324,10 +346,11 @@ export async function renderPreview(
   if (!parsed.success)
     throw new PreviewError("Invalid preview options or content exceeds 128,000 characters", 400);
   const { source, variant, extensions, plugins } = parsed.data;
-  if (variant === "multimarkdown-cli" || variant === "markdown-pl") {
+  const selected = variants.find((item) => item.id === variant)!;
+  if (selected.engine !== "pandoc" && selected.engine !== "notdown") {
     if (Object.keys(extensions).length || plugins.length)
       throw new PreviewError("Direct renderers do not accept Lab extensions or block plugins", 400);
-    const program = (await getExternalPrograms())[variant];
+    const program = (await getExternalPrograms())[variant as DirectRenderer];
     if (!program.available || !program.executable || !program.args)
       throw new PreviewError(program.error || `${program.version} unavailable`, 503);
     const html = await runProgram(program.executable, program.args, source, signal, program.version);

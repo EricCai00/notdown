@@ -34,6 +34,22 @@
   border-radius: 5px;
   background: #fff;
   box-shadow: 0 1px 4px #0002;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.page-cover-region:hover .page-cover-toolbar,
+.page-cover-toolbar:has(:focus-visible),
+.page-cover-region.is-repositioning .page-cover-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .page-cover-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .page-cover-toolbar > :is(button, a) {
@@ -79,6 +95,22 @@
   z-index: 1;
   margin-top: -40px;
   margin-bottom: 38px;
+}
+
+.document-wrap:not(.has-page-cover) #page-decoration:has(.page-emblem) .page-emblem {
+  margin-bottom: 0;
+  margin-left: -10px;
+}
+
+.document-wrap:not(.has-page-cover) #page-decoration:has(.page-emblem) .page-decoration-actions {
+  min-height: 28px;
+  margin: 0 0 4px -6px;
+}
+
+.document-wrap:not(.has-page-cover) #page-decoration:has(.page-emblem) .page-decoration-actions button {
+  min-height: 28px;
+  padding-block: 4px;
+  color: #787774;
 }
 
 .document-wrap.has-page-cover .document {

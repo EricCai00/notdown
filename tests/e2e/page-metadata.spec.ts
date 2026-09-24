@@ -60,7 +60,7 @@ for (const [label, body] of [
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Changed author");
   const saved = await (await request.get(`/api/pages/${note.id}`)).json();
   expect(saved.title).toBe(label.startsWith("YAML") ? note.title : "Body title\ncontinuation");
-  expect(saved.properties).toEqual(note.properties);
+  expect(saved.properties).toMatchObject({ ...note.properties, author: "Changed author" });
   expect(saved.body).toContain(label.startsWith("YAML") ? "# keep this comment" : "continuation");
   await page.reload();
   await page.locator(".page-properties > summary").click();
@@ -186,7 +186,9 @@ test("page icon and cover can be added, replaced and removed without losing pend
   await expect(page.getByRole("button", { name: "Change icon", exact: true })).toHaveCount(0);
   const emblemBox = (await page.locator(".page-emblem").boundingBox())!;
   const titleBox = (await page.locator("#page-title").boundingBox())!;
-  expect(titleBox.y - emblemBox.y - emblemBox.height).toBeLessThan(65);
+  expect(titleBox.y - emblemBox.y - emblemBox.height).toBeLessThan(36);
+  await page.locator("#page-title").hover();
+  await page.screenshot({ path: "test-results/page-icon-without-cover.png" });
   await expect(page.locator(".pm-document")).toContainText("pending");
   await page.locator(".pm-document p").click();
   await page.keyboard.press("Control+z");
@@ -210,6 +212,7 @@ test("page icon and cover can be added, replaced and removed without losing pend
   await page.getByRole("dialog", { name: "Choose page icon" }).getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByRole("button", { name: "Add icon", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Change icon", exact: true })).toHaveCount(0);
+  await page.locator("#page-cover-region").hover();
   await page.getByRole("button", { name: "Change cover", exact: true }).click();
   await page.getByRole("dialog", { name: "Choose page cover" }).getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.locator(".page-cover")).toHaveCount(0);
@@ -249,10 +252,12 @@ test("page cover gallery spans the page, overlaps the icon and keeps a repositio
   expect(emblem.y + emblem.height).toBeGreaterThan(region.y + region.height);
   await page.setViewportSize({ width: 1634, height: 600 });
   await page.getByRole("button", { name: "Toggle sidebar" }).click();
+  await page.locator("#page-cover-region").hover();
   await page.getByRole("button", { name: "Change cover", exact: true }).click();
   const mainShot = (await page.locator("#main").boundingBox())!;
   await page.screenshot({ path: "test-results/page-cover-gallery.png", clip: mainShot });
   await page.keyboard.press("Escape");
+  await page.locator("#page-cover-region").hover();
   await page.getByRole("button", { name: "Reposition", exact: true }).click();
   await page.locator("#page-cover-region").press("ArrowUp");
   await page.getByRole("button", { name: "Save position", exact: true }).click();
@@ -261,6 +266,7 @@ test("page cover gallery spans the page, overlaps the icon and keeps a repositio
   });
   await page.reload();
   await expect(page.locator(".page-cover-region .page-cover")).toHaveCSS("object-position", "50% 55%");
+  await page.locator("#page-cover-region").hover();
   await page.getByRole("button", { name: "Reposition", exact: true }).click();
   const imageBox = (await page.locator(".page-cover-region .page-cover").boundingBox())!;
   await page.mouse.move(imageBox.x + imageBox.width / 2, imageBox.y + imageBox.height / 2);
@@ -269,12 +275,14 @@ test("page cover gallery spans the page, overlaps the icon and keeps a repositio
   await page.mouse.up();
   await page.getByRole("button", { name: "Save position", exact: true }).click();
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).properties.coverPosition).toBeLessThan(55);
+  await page.locator("#page-cover-region").hover();
   await page.getByRole("button", { name: "Change cover", exact: true }).click();
   await gallery.getByRole("button", { name: "solid_red.png" }).click();
   await expect(page.locator(".page-cover-region .page-cover")).toHaveAttribute("src", "/page-covers/solid_red.png");
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).properties).toMatchObject({ cover: "/page-covers/solid_red.png" });
   expect((await (await request.get(`/api/pages/${note.id}`)).json()).properties.coverPosition).toBeUndefined();
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#page-cover-region").hover();
   await page.getByRole("button", { name: "Change cover", exact: true }).click();
   const pickerBox = (await page.getByRole("dialog", { name: "Choose page cover" }).boundingBox())!;
   expect(pickerBox.x).toBeGreaterThanOrEqual(0);

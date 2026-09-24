@@ -5,8 +5,9 @@
   padding-left: 32px;
   padding-right: 32px;
 }
-.document:has(.markdown-workspace[data-mode="split"]),
-.document:has(.markdown-workspace[data-mode="source"]) {
+/* Editing modes own the width, including pages with a cover. */
+.document-wrap .document:has(.markdown-workspace[data-mode="split"]),
+.document-wrap .document:has(.markdown-workspace[data-mode="source"]) {
   max-width: none;
 }
 .editing-toolbar {
@@ -55,6 +56,9 @@
   max-width: 240px;
   color: #37352f;
 }
+.syntax-options {
+  position: relative;
+}
 .syntax-options summary {
   cursor: pointer;
   list-style: none;
@@ -64,9 +68,10 @@
 }
 .syntax-options-panel {
   position: absolute;
-  right: 0;
-  top: 100%;
-  width: min(400px, 90vw);
+  right: var(--syntax-panel-right, 0px);
+  top: calc(100% + 4px);
+  box-sizing: border-box;
+  width: min(400px, calc(100vw - 16px));
   max-height: 65vh;
   overflow: auto;
   background: white;
@@ -86,6 +91,30 @@
   font-size: 12px;
   margin: 18px 0 10px;
   color: #787774;
+}
+.extension-search {
+  position: sticky;
+  top: -16px;
+  z-index: 1;
+  background: white;
+  padding-top: 8px;
+}
+.extension-search input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e4e3df;
+  border-radius: 5px;
+  color: #37352f;
+  font: inherit;
+}
+.extension-search input:focus-visible {
+  outline: 2px solid #3b7767;
+  outline-offset: 2px;
+}
+.extension-search .extension-search-count {
+  margin: 0;
+  padding: 6px 0 10px;
 }
 .extension-choice {
   display: flex;
@@ -194,6 +223,44 @@
 .source-mount .cm-focused {
   outline: 1px solid #b9ccc3;
 }
+.source-mount .cm-foldGutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  color: #c3bfb6;
+  cursor: pointer;
+}
+.source-mount .cm-foldGutter .cm-gutterElement span {
+  /* Font chevrons sit below their box center; draw a centered 10px icon. */
+  display: block;
+  width: 10px;
+  height: 10px;
+  font-size: 0;
+  line-height: 1;
+}
+.source-mount .cm-foldGutter .cm-gutterElement span::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 5 6.5 8 3.5' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.source-mount .cm-foldGutter .cm-gutterElement span[title="Unfold line"]::before {
+  transform: rotate(-90deg);
+}
+.source-mount .cm-foldGutter .cm-gutterElement:hover {
+  color: #787774;
+}
+.source-mount .cm-foldPlaceholder {
+  margin: 0 4px;
+  padding: 0 6px;
+  color: #53776a;
+  background: #edf2ee;
+  border: 1px solid #d7e1da;
+  border-radius: 4px;
+}
 .markdown-workspace[data-mode="document"] .source-pane,
 .markdown-workspace[data-mode="source"] .page-pane {
   display: none;
@@ -217,33 +284,44 @@
   padding: 12px;
   border-radius: 5px;
 }
-.markdown-workspace .page-pane[aria-busy="true"] {
-  opacity: 0.7;
-}
 .pm-html-block {
   position: relative;
-  min-height: 48px;
-  padding: 12px 0;
+  min-height: 28px;
+  padding: 0;
   margin: 12px 0;
 }
 .pm-html-edit {
-  font-size: 11px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
   color: #787774;
   border: 1px solid #e6e5e2;
   background: #fff;
   border-radius: 4px;
-  padding: 3px 7px;
-  float: right;
-  opacity: 0.45;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
   cursor: pointer;
 }
 .pm-html-block:hover .pm-html-edit,
 .pm-html-block:focus-within .pm-html-edit {
   opacity: 1;
+  pointer-events: auto;
+}
+.pm-html-edit:focus-visible {
+  outline: 2px solid #729b88;
+  outline-offset: 2px;
+}
+@media (hover: none) {
+  .pm-html-edit { opacity: 1; pointer-events: auto; }
 }
 .pm-html-preview {
   overflow: auto;
-  clear: both;
   white-space: normal;
 }
 .pm-html-preview h1,
@@ -264,16 +342,36 @@
 }
 .pm-html-source {
   width: 100%;
-  min-height: 140px;
-  resize: vertical;
-  font:
-    13px/1.7 Consolas,
-    monospace;
+  box-sizing: border-box;
   border: 1px solid #ddd;
   border-radius: 5px;
-  padding: 10px;
   background: #fafaf8;
   margin-top: 10px;
+  overflow: hidden;
+}
+.pm-html-source .cm-editor {
+  font-size: 13px;
+}
+.pm-html-source .cm-scroller {
+  min-height: 140px;
+  max-height: 360px;
+  overflow: auto;
+  font-family: Consolas, "Cascadia Code", monospace;
+  line-height: 1.7;
+}
+.pm-html-source .cm-content { padding: 10px 0; }
+.pm-html-source .cm-gutters {
+  background: #f3f2ef;
+  color: #97958e;
+  border-right: 1px solid #e6e5e2;
+}
+.pm-html-source .cm-activeLine,
+.pm-html-source .cm-activeLineGutter { background: #e9eeeb55; }
+.pm-html-source:focus-within { border-color: #94b2a2; }
+.pm-html-source .cm-focused { outline: none; }
+.pm-html-source .cm-line {
+  /* Override the surrounding ProseMirror document's wrapping rules. */
+  white-space: pre;
 }
 .pm-definition-list {
   margin: 16px 0;
@@ -289,12 +387,13 @@
 }
 .pm-line-block {
   white-space: pre-wrap;
-  margin: 16px 0;
-  border-left: 2px solid #e9e8e4;
-  padding-left: 18px;
+  margin: 0;
+  padding: 3px 0;
 }
 .pm-verse-line {
   min-height: 1.5em;
+  margin: 0;
+  padding: 0 2px;
 }
 .pm-footnote-anchor { display: none !important; }
 .pm-footnotes {
@@ -328,6 +427,7 @@
 .pm-footnote > * { grid-column: 2; }
 .pm-footnote > :first-child { margin-top: 0; }
 .pm-footnote-ref a {
+  display: inline-block;
   color: #53776a;
   text-decoration: none;
 }
@@ -347,6 +447,13 @@
   opacity: .65;
 }
 .pm-footnote-backref:hover { opacity: 1; text-decoration: underline; }
+.reference-backlink-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+.md-citation-backref { margin-left: 4px; }
 .pm-footnote-backref:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
 .pm-footnote-ref[data-footnote-number] a { font-size: 0; }
 .pm-footnote-ref[data-footnote-number] a::after {
@@ -355,19 +462,9 @@
   color: #53776a;
 }
 .pm-fenced-div {
-  margin: 16px 0;
-  padding: 16px;
-  border: 1px dashed #dfddd7;
-  border-radius: 5px;
-}
-.pm-fenced-div:before {
-  content: attr(data-div-attributes);
-  display: block;
-  font:
-    11px Consolas,
-    monospace;
-  color: #999;
-  margin-bottom: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 @media (max-width: 800px) {
   .editing-toolbar {

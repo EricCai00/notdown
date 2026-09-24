@@ -1,0 +1,40 @@
+.footnote-form > label {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  color: #787774;
+  font-size: 13px;
+}
+.footnote-form > label[hidden] { display: none; }
+.footnote-form :is(select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #dededb;
+  border-radius: 5px;
+  background: #fff;
+  color: #37352f;
+  font: inherit;
+  line-height: 1.5;
+}
+.footnote-form textarea { resize: vertical; min-height: 110px; }
+.footnote-form :is(select, textarea):focus-visible { outline: 2px solid #2383e2; outline-offset: 1px; }
+
+.pm-footnote-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(420px, calc(100vw - 16px));
+  max-height: min(300px, 50vh);
+  overflow: auto;
+  padding: 10px 14px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  color: var(--text, #222);
+  box-shadow: 0 4px 18px #0002;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}

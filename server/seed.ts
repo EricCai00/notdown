@@ -54,7 +54,7 @@ const samples: Array<PageInput & { id: string }> = [
 
 ## 文件与版本
 
-在工作区设置中可以查看知识库位置。页面属性写在文件开头的 YAML 中，正文仍然是 Markdown。
+在工作区设置中可以查看知识库位置。通用页面属性统一写在知识库的 metadata.json 中；Markdown 文件不自动添加应用 YAML，源码模式显示完整文件。文档内已有的 YAML 或 Pandoc title block 可以覆盖 JSON 属性。
 
 如果另一个窗口或外部编辑器改了同一页，保存时会保留两个版本供你合并。历史与冲突副本也存为本地文件。
 

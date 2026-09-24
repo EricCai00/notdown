@@ -50,6 +50,9 @@ export const variants = [
     label: "libMultiMarkdown CLI · direct HTML",
     engine: "multimarkdown-cli",
   },
+  { id: "commonmark-js", label: "CommonMark.js · official HTML", engine: "commonmark-js" },
+  { id: "cmark-gfm", label: "cmark-gfm · official HTML", engine: "cmark-gfm" },
+  { id: "php-markdown-extra", label: "PHP Markdown Extra · official HTML", engine: "php-markdown-extra" },
   {
     id: "markdown-pl",
     label: "Markdown.pl · direct HTML",
@@ -67,6 +70,7 @@ export const variants = [
   },
 ] as const;
 export type Variant = (typeof variants)[number]["id"];
+export type DirectRenderer = "multimarkdown-cli" | "markdown-pl" | "commonmark-js" | "cmark-gfm" | "php-markdown-extra";
 export interface LabProfile {
   variant: Variant;
   extensions: Record<string, boolean>;
@@ -78,7 +82,7 @@ export interface Capabilities {
   error?: string;
   extensions: Partial<Record<Variant, Record<string, boolean>>>;
   sourcePositions: Partial<Record<Variant, boolean>>;
-  renderers?: Partial<Record<"multimarkdown-cli" | "markdown-pl", {
+  renderers?: Partial<Record<DirectRenderer, {
     available: boolean;
     version: string;
     error?: string;

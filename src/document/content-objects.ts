@@ -1,3 +1,4 @@
+import { markReference } from "./internal-reference";
 import { localObjectPlugins } from "../markdown-engine/presets";
 import { isListItem } from "./list-items";
 import { objectId, objectSamples } from "./object-model";
@@ -155,26 +156,6 @@ const rows: Record<ContentCategory, Row[]> = {
       "P2",
       "html_block@raw_html:source;syntax.raw.html@raw_attribute:source;syntax.html-markdown@markdown_attribute:source",
       "Sanitized preview and source editing, not an independent embedded document.",
-    ],
-    [
-      "raw_source",
-      "Raw source",
-      "raw format",
-      "leaf",
-      "partial",
-      "P2",
-      "syntax.raw@raw_attribute:source",
-      "Format-tagged raw content for the corresponding renderer/exporter; not code or unknown content.",
-    ],
-    [
-      "raw_tex",
-      "Raw TeX",
-      "raw latex",
-      "leaf",
-      "partial",
-      "P3",
-      "syntax.raw.tex@raw_attribute:source;syntax.raw.tex@raw_tex:source",
-      "Raw TeX environments and inline commands retain their source; editable source is exported as TeX, not executed as document code.",
     ],
     [
       "native_div",
@@ -420,7 +401,7 @@ const rows: Record<ContentCategory, Row[]> = {
       "leaf",
       "partial",
       "P0",
-      "opaque_block:preserved;opaque_block.database@notion_databases:preserved;unknown_block:reference",
+      "opaque_block:preserved;opaque_block.database@notion_databases:preserved;unknown_block:reference;syntax.raw@raw_attribute:preserved;syntax.raw.tex@raw_tex:preserved;syntax_inline.raw@raw_attribute:preserved;syntax_inline.raw.tex@raw_tex:preserved",
       "Distinguish recoverable raw content from a reference-only placeholder.",
     ],
   ],
@@ -447,16 +428,6 @@ const rows: Record<ContentCategory, Row[]> = {
     ],
   ],
   inline: [
-    [
-      "raw_source",
-      "Inline raw source",
-      "raw inline",
-      "inline",
-      "partial",
-      "P2",
-      "syntax_inline.raw@raw_attribute:source",
-      "Pandoc raw_attribute syntax: a code span followed by {=format} is raw target-format content, not ordinary code. Notdown preserves it; HTML uses the sanitized inline HTML route, while other formats are not executed or exported by an external writer.",
-    ],
     [
       "code_span",
       "Code span",
@@ -502,6 +473,7 @@ const rows: Record<ContentCategory, Row[]> = {
       "partial",
       "P2",
       "image:direct",
+      "Inline images are Markdown content. Official Notion-flavored Markdown only defines standalone media images; use Image block there.",
     ],
     [
       "autolink",
@@ -511,7 +483,7 @@ const rows: Record<ContentCategory, Row[]> = {
       "implemented",
       "P0",
       "mark.link:text",
-      "Shares the link mark; the original spelling is source provenance, not a separate node.",
+      "Angle-bracket autolinks share the link mark; bare URLs require the dialect's linkify support. Neither is documented for official Notion-flavored Markdown; explicit [text](URL) links remain available.",
     ],
     [
       "inline_html",
@@ -520,18 +492,18 @@ const rows: Record<ContentCategory, Row[]> = {
       "inline",
       "partial",
       "P2",
-      "html_inline@raw_html:source",
+      "html_inline@raw_html:source;syntax_inline.raw.html@raw_attribute:source",
       "A sanitized fragment, edited as source.",
     ],
     [
       "internal_link",
       "Internal link",
-      "cross-reference;wikilink;page link",
+      "cross-reference;wikilink;page link;page mention;location link;anchor link;页面链接;位置链接",
       "inline",
       "partial",
       "P2",
-      "page_link@wikilinks_title_after_pipe:reference;mark.link:direct",
-      "Local page and heading links; not every cross-reference syntax is implemented.",
+      "page_link@wikilinks_title_after_pipe:reference;page_link@notion_pages:reference;mark.link:direct",
+      "One reference model for page mentions, Wiki links and Markdown internal links. Page and location links share navigation; original syntax and explicit labels are preserved.",
     ],
     [
       "emoji",
@@ -687,12 +659,12 @@ const rows: Record<ContentCategory, Row[]> = {
     ],
     [
       "mention_page_or_data_source",
-      "Mention page or data source",
-      "mention page;mention database",
+      "Mention data source",
+      "mention database;mention data source",
       "inline",
       "partial",
       "P2",
-      "page_link@notion_pages:reference;mention.database@notion_mentions:reference;mention.data-source@notion_mentions:reference",
+      "mention.database@notion_mentions:reference;mention.data-source@notion_mentions:reference",
     ],
     [
       "date_or_reminder",
@@ -824,21 +796,20 @@ for (const name of Object.keys(objectSamples)) {
 for (const [id, note] of Object.entries({
   "block.toggle_heading": "Official toggle heading with editable heading and children, subtree movement and undo. Persisted folding is supplemental and Notdown-only.",
   "block.table": "One model for pipe, Notion, MMD, grid, simple and multiline tables. Edit cells/captions, add/delete rows/columns, merge/split cells. Span commands require an enabled encoding that can retain geometry.",
+  "block.image_block": "Standalone images and existing implicit-figure encoding. Edit figure captions without changing the URL, title or unknown attributes. Captions require implicit_figures; no custom image block protocol.",
   "block.native_div": "Fenced and native HTML Div share editable children and a properties form; original encoding and unknown attributes are retained.",
-  "block.raw_tex": "Bare TeX environments and commands, explicit raw TeX fences, source editing and Markdown round trips. TeX is not executed by the browser.",
   "block.video": "Local playback and editable attachment URL/caption; undo and Markdown persistence.",
   "block.audio": "Local playback and editable attachment URL/caption; undo and Markdown persistence.",
   "block.file": "Editable attachment URL and caption with a download link; binary contents stay in the attachment.",
   "block.definition_list_item": "Edit terms and bodies; add, remove and move term/definition groups independently with undo.",
   "inline.image": "Inline images have editable URL, alternative text and title through double-click properties.",
   "inline.inline_html": "Double-click to edit one HTML fragment as source; preview stays sanitized.",
-  "inline.inline_comment": "Comments remain distinct from visible text; inline source can be edited through properties and CriticMarkup text stays editable.",
+  "inline.inline_comment": "Hidden on the page and retained in source; insert a comment through the input dialog and edit existing comments in Source view.",
   "inline.glossary": "Inline glossary source and definitions are editable; references resolve against document definitions.",
   "inline.metadata_variable": "Editable variable name and live lookup in body metadata; it does not overwrite page YAML.",
-  "block.unsupported": "Unknown source can be edited through properties; reference-only placeholders have separate URL/description fields. Unchanged raw content is retained.",
+  "block.unsupported": "Unknown content and non-HTML raw source (block or inline) remain recoverable and source-editable. Other raw output formats are not rendered or converted; reference-only placeholders retain URL/description fields.",
   "block.diagram": "Mermaid, sequence and flow diagrams have local previews and a source editor. Rendering errors leave editable source intact.",
-  "block.html_block": "Sanitized HTML preview and a source editor; HTML embed remains a separate document object.",
-  "block.raw_source": "Format-tagged content has a source editor and preserves the declared format. Browser rendering is available for HTML; other target formats remain raw for their writers.",
+  "block.html_block": "Bare HTML and {=html} raw source share a sanitized HTML preview and source editor, retaining their original encoding. HTML embed remains a separate document object.",
   "block.pdf": "Editable PDF attachment URL/caption, an embedded browser PDF viewer for local files and an Open PDF fallback link.",
   "block.file_transclusion": "Editable block/inline inclusion references and recursive local previews, with file-change refresh and cycle/path/size checks. Included source remains a separate file.",
   "block.embed_web_contents": "Editable URL iframe in an isolated preview. Availability depends on the remote site's embedding policy.",
@@ -848,15 +819,14 @@ for (const [id, note] of Object.entries({
   "block.synced_block": "Official tags preserve references and snapshots. In Notdown only: local source IDs, refresh/publish and optional live refresh that pauses on local edits. Publishing uses the captured source revision and preserves CAS conflicts. No cross-device sync.",
   "metadata.yaml_front_matter": "Page properties include a cover field. Body YAML/MMD have field and source editors and never overwrite page YAML. MMD remains restricted plain-text metadata, not full YAML.",
   "metadata.pandoc_title_block": "Title, author and date fields, continuation lines and source editing retain the Pandoc title-block encoding separately from page YAML.",
-  "inline.raw_source": "Double-click to edit target-format raw source; format tags persist. HTML preview is sanitized and other formats are retained for their writers.",
-  "inline.internal_link": "Editable local page/heading links, both wiki-link title orders and labelled example references; targets remain distinct from child-page ownership.",
+  "inline.internal_link": "Unified page and location references: Notion page mentions, Wiki links, Markdown file and fragment links. Location targets include headings, Obsidian block IDs (including list items), and supported anchors. Syntax remains dialect-specific.",
   "inline.emoji": "Unicode text and enabled shortcode expansion; follows normal text insertion, selection, movement and undo.",
   "inline.footnote": "Editable references, definition bodies and inline notes; missing definitions are indicated. Reference properties change the identifier.",
   "inline.abbreviation": "Editable MMD abbreviation source and PHP abbreviation text/expansion. Double-click properties update the document's abbreviation definition.",
-  "inline.citation": "Editable citation source, MMD bibliography lookup and Pandoc CSL citeproc preview with local bibliography/style files. CSL processing requires the installed Pandoc executable.",
+  "inline.citation": "Dialect-aware insertion: Notion URL references, MMD definitions and Pandoc citation keys. MMD citations have independent numbering, bibliography, backlinks and editable definitions. CSL processing requires local bibliography/style files and installed Pandoc.",
   "inline.substitution": "Replacement text is edited inline; double-click revision properties edits the retained original text. Both values persist as CriticMarkup.",
   "inline.mention_person": "Editable person reference URL and display label. This local object does not authenticate a member or connect an external directory.",
-  "inline.mention_page_or_data_source": "Editable page/data-source references and labels; local pages resolve to their current titles. A reference does not create a database.",
+  "inline.mention_page_or_data_source": "Editable database/data-source mentions; page mentions belong to Internal link. A reference does not create a database.",
   "inline.date_or_reminder": "Official date fields are editable through properties. Notdown additionally supports the date picker, formatting and local reminders while the app is open; desktop notifications require browser permission.",
   "character.smart_typography": "Dialect-controlled smart punctuation, legacy dash rules and ordinary text editing; a text-processing capability, not a separate node.",
 })) { const object = byId.get(id)!; object.status = "implemented"; object.note = note; }
@@ -868,6 +838,7 @@ export function getContentCapabilities(id: string, config: SyntaxConfig) {
   const adapters =
     object?.adapters.filter(
       (adapter) =>
+        !(config.variant === "notion-markdown" && ["inline.image", "inline.autolink"].includes(id)) &&
         adapter.extensions.every((flag) => enabled(config, flag)),
     ) || [];
   return {
@@ -982,11 +953,8 @@ export function resolveContentObject(
   if (node.type.name === "child_page")
     id =
       (context.pageRole ? context.pageRole === "child" : a.nfmAttrs?.role === "child") ? "block.child_page" : "block.link_to_page";
-  if (node.type.name === "page_link")
-    id =
-      Object.keys(a.nfmAttrs || {}).length || a.url
-        ? "inline.mention_page_or_data_source"
-        : "inline.internal_link";
+  if (node.type.name === "page_link") id = "inline.internal_link";
+  if (node.type.name === "syntax_inline" && a.kind === "block-anchor") return byId.get("inline.internal_link");
   if (node.type.name === "media_block") id = `block.${a.type}`;
   if (node.type.name === "mention")
     id =
@@ -1007,11 +975,7 @@ export function resolveContentObject(
       } as Record<string, string>
     )[a.kind];
     if (a.kind === "raw")
-      id = /^(tex|latex)$/.test(a.data?.format)
-        ? "block.raw_tex"
-        : a.data?.format === "html"
-          ? "block.html_block"
-          : "block.raw_source";
+      id = a.data?.format === "html" ? "block.html_block" : "block.unsupported";
     if (a.kind === "metadata")
       id =
         "metadata." +
@@ -1035,12 +999,13 @@ export function resolveContentObject(
   if (node.type.name === "syntax_inline" && a.kind === "transclusion")
     id = "block.file_transclusion";
   if (node.type.name === "syntax_inline" && a.kind === "raw")
-    id = a.title === "html" ? "inline.inline_html" : "inline.raw_source";
+    id = a.title === "html" ? "inline.inline_html" : "block.unsupported";
   return byId.get(objectId(node) || id);
 }
 export function resolveMarkObject(
   mark: Mark,
 ): ContentObjectDefinition | undefined {
+  if (markReference(mark)) return byId.get("inline.internal_link");
   const name = mark.type.name;
   const key =
     name === "critic"
@@ -1048,7 +1013,7 @@ export function resolveMarkObject(
         ? "inline_comment"
         : mark.attrs.kind
       : name === "color"
-        ? String(mark.attrs.color).endsWith("_bg")
+        ? String(mark.attrs.color).endsWith("_bg") || !mark.attrs.color && mark.attrs.bg_color
           ? "background_color"
           : "text_color"
         : (
@@ -1062,8 +1027,10 @@ export function resolveMarkObject(
   return byId.get(`inline.${key}`);
 }
 const commandObjects: Record<string, string> = {
+  citation: "inline.citation", abbreviation: "inline.abbreviation", glossary: "inline.glossary", metadata_variable: "inline.metadata_variable",
+  addition: "inline.addition", deletion: "inline.deletion", substitution: "inline.substitution",
   mention_person: "inline.mention_person", date_or_reminder: "inline.date_or_reminder",
-  native_span: "inline.native_span", small_caps: "inline.small_caps", raw_inline: "inline.raw_source", inline_note: "inline.footnote",
+  native_span: "inline.native_span", small_caps: "inline.small_caps", inline_note: "inline.footnote",
   text: "block.paragraph",
   heading1: "block.heading",
   heading2: "block.heading",
@@ -1077,7 +1044,9 @@ const commandObjects: Record<string, string> = {
   inline: "inline.code_span",
   child: "block.child_page",
   link: "block.link_to_page",
-  mention: "inline.mention_page_or_data_source",
+  mention: "inline.internal_link",
+  page_link: "inline.internal_link",
+  location_link: "inline.internal_link",
   columns: "block.columns",
   callout: "block.callout",
   alert: "block.callout",
@@ -1087,6 +1056,7 @@ const commandObjects: Record<string, string> = {
   equation: "block.math_block",
   diagram: "block.diagram",
   comment: "block.block_comment",
+  inline_comment: "inline.inline_comment",
   transclusion: "block.file_transclusion",
   embed: "block.embed_web_contents",
   html: "block.html_block",

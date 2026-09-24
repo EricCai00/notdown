@@ -1,7 +1,19 @@
+import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
+import { mountReferencePicker } from "../features/links/reference-picker";
+import { graphHTML, mountGraph } from "../features/pages/graph-view";
+import { openImportDialog } from "../features/vault/import-dialog";
+import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
+import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
+import { mountConflictDiff } from "../features/pages/conflict-diff";
+import "../features/pages/conflict-diff.css";
 import { insertMenuItems } from "../editor/insert-menu";
+import { inlineObjectDialog } from "../editor/inline-object-dialog";
+import { inlineObjectCommands, type InlineObjectCommand } from "../document/inline-objects";
+import { footnoteChoices, type FootnoteInput } from "../editor/footnotes";
 import { contentCommand } from "../document/content-objects";
-import { pandocPageTitle, renamePandocPageSource } from "../features/metadata/pandoc-page-title";
+import { documentPageTitle, renameDocumentPageSource } from "../features/metadata/pandoc-page-title";
 import { openCalloutIconPicker } from "../blocks/callout-icon-picker";
+import { pageIconElement } from "../shared/page-icons";
 import { emojiStyle, emojiStyleOptions, initializeEmojiStyle, setEmojiStyle, type EmojiStyle } from "../blocks/emoji-style";
 import { objectSamples } from "../document/object-model";
 import { mountServiceSettings } from "./service-settings";
@@ -66,6 +78,7 @@ let sourceSelection: { start: number; end: number } | null = null;
 let draftWarningShown = false;
 let slashCleanup: (() => void) | undefined;
 let tocCleanup: (() => void) | undefined;
+let graphCleanup: (() => void) | undefined;
 let pageActionBusy = false;
 let pageIconCleanup: (() => void) | undefined;
 let coverPickerCleanup: (() => void) | undefined;
@@ -110,6 +123,8 @@ const draftSession = (() => {
 })();
 const draftKey = (id: string) => `notdown-draft:${id}:${draftSession}`;
 const collapsed = new Set<string>();
+const libraryTreeExpansion = new Map<string, boolean>();
+const childPageExpansion = new Map<string, boolean>();
 function recentPages(): string[] {
   try {
     const value = JSON.parse(
@@ -167,6 +182,7 @@ function readDraft(id: string) {
 function status(text: string, kind = "") {
   const el = document.querySelector("#save-status");
   if (el) {
+    if (el.className === kind && el.querySelector("span")?.textContent === text) return;
     el.className = kind;
     el.innerHTML = `${icon(kind === "error" ? "circle-alert" : "circle-check")}<span>${e(text)}</span>`;
     refreshIcons();
@@ -215,6 +231,12 @@ async function save(): Promise<boolean> {
             JSON.stringify(draft.properties);
         current.revision = saved.revision;
         current.updated = saved.updated;
+        if (unchanged) {
+          Object.assign(current, saved);
+          const title = document.querySelector<HTMLTextAreaElement>("#page-title");
+          if (title) title.value = saved.title;
+          renderPageDecoration();
+        }
         dirty = !unchanged;
         if (!dirty) removeDraft(saved.id);
         else persistDraft(current);
@@ -242,9 +264,7 @@ async function save(): Promise<boolean> {
 }
 
 function pageIcon(page: Page) {
-  return page.icon && /[^a-z-]/.test(page.icon)
-    ? `<span class="emoji">${e(page.icon)}</span>`
-    : icon(page.icon || "file-text");
+  return pageIconElement(page.icon).outerHTML;
 }
 function renderSidebar() {
   if (sidebarDrag.isDragging()) return;
@@ -260,7 +280,7 @@ function renderSidebar() {
         visited.add(p.id);
         const children = pages.some((c) => c.parent === p.id);
         return `<div data-page-row="${e(p.id)}" class="tree-row ${current?.id === p.id && !library ? "active" : ""}" style="--depth:${depth}">
-        <button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}">${children ? icon(collapsed.has(p.id) ? "chevron-right" : "chevron-down") : ""}</button>
+        ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}" aria-expanded="${!collapsed.has(p.id)}">${icon(collapsed.has(p.id) ? "chevron-right" : "chevron-down")}</button>` : ""}
         <button class="tree-page" draggable="true" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span></button>
         <button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button><button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button></div>${collapsed.has(p.id) ? "" : rows(p.id, depth + 1)}`;
       })
@@ -283,9 +303,9 @@ function shell() {
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
-    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
+    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
     <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
-  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span><details id="page-options" class="page-options">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
+  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   const resizer = document.createElement("div");
   resizer.className = "sidebar-resizer";
   resizer.tabIndex = 0;
@@ -325,6 +345,8 @@ function captureEditor() {
   }
 }
 function destroyEditor() {
+  graphCleanup?.();
+  graphCleanup = undefined;
   pageIconCleanup?.();
   pageIconCleanup = undefined;
   coverPickerCleanup?.();
@@ -345,6 +367,15 @@ function destroyEditor() {
   }
   editorChanged = false;
   editorReady = false;
+}
+async function openReferencePage(id: string, reference?: InternalReference) {
+  if (!(await navigation?.navigate({ kind: "page", id, ...(reference?.fragment ? { fragment: reference.fragment } : {}) })) || current?.id !== id) return;
+  if (reference?.kind === "location") revealReference(reference);
+}
+function revealReference(reference: InternalReference) {
+  workspace?.capture();
+  if (view === "source") { workspace?.setMode("document"); view = "document"; }
+  if (!editor?.scrollToReference(reference)) toast("Linked location not found.");
 }
 async function openPage(id: string, allowTrashed = false) {
   return navigation?.navigate({ kind: "page", id }, allowTrashed);
@@ -415,6 +446,11 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   return true;
 }
 function refreshBreadcrumbs() {
+  const sourceMenu = document.querySelector<HTMLDetailsElement>("#source-file-options");
+  if (sourceMenu) {
+    sourceMenu.hidden = !current || library;
+    if (sourceMenu.hidden) sourceMenu.open = false;
+  }
   const header = document.querySelector("#breadcrumb");
   if (!header) return;
   if (!current || library) {
@@ -430,9 +466,9 @@ function refreshBreadcrumbs() {
 function renderDocument() {
   if (!current) return;
   destroyEditor();
-  const linkedTitle = pandocPageTitle(current.body, current.syntax ?? defaultSyntax(current.bodyFormat));
+  const linkedTitle = documentPageTitle(current.body, current.syntax ?? defaultSyntax(current.bodyFormat));
   if (linkedTitle !== undefined && !linkedTitle.trim() && current.title.trim()) {
-    current.body = renamePandocPageSource(current.body, current.syntax ?? defaultSyntax(current.bodyFormat), current.title);
+    current.body = renameDocumentPageSource(current.body, current.syntax ?? defaultSyntax(current.bodyFormat), current.title);
     markDirty();
   }
   if (linkedTitle?.trim() && linkedTitle.length <= 500 && linkedTitle !== current.title) {
@@ -525,7 +561,7 @@ function renderContent() {
           current.body = source;
           current.syntax = config;
           current.bodyFormat = syntaxFormat(config);
-          const linkedTitle = pandocPageTitle(source, config);
+          const linkedTitle = documentPageTitle(source, config);
           if (linkedTitle !== undefined && current.title !== linkedTitle) {
             current.title = linkedTitle;
             const title = document.querySelector<HTMLTextAreaElement>("#page-title");
@@ -547,8 +583,8 @@ function renderContent() {
         },
         onInsert: showInsert,
         onError: report,
-        onOpenPage: (id) => {
-          void openPage(id).catch(report);
+        onOpenPage: (id, reference) => {
+          void openReferencePage(id, reference).catch(report);
         },
       },
     );
@@ -699,18 +735,25 @@ function renderToc() {
 let tocUpdateTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleToc() {
   clearTimeout(tocUpdateTimer);
-  tocUpdateTimer = setTimeout(renderToc, 120);
+  tocUpdateTimer = setTimeout(renderToc, 500);
 }
 function renderRelations() {
   if (!current) return;
+  const pageId = current.id;
   const children = pages.filter((p) => p.parent === current!.id);
+  const childrenOpen = childPageExpansion.get(pageId) ?? children.length <= 5;
   document.querySelector("#children-links")!.innerHTML = children.length
-    ? `<section class="relations"><h3>${icon("files")}Child page <span>${children.length}</span></h3>${children.map((p) => `<button class="child-card" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span>${icon("arrow-up-right")}</button>`).join("")}</section>`
+    ? `<details class="relations child-pages" ${childrenOpen ? "open" : ""}><summary><h3>${icon("chevron-right", "child-pages-chevron")}${icon("files")}Child page <span>${children.length}</span></h3></summary>${children.map((p) => `<button class="child-card" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span>${icon("arrow-up-right")}</button>`).join("")}</details>`
     : "";
+  const childPages = document.querySelector<HTMLDetailsElement>("#children-links > details");
+  childPages?.querySelector("summary")?.addEventListener("click", () => {
+    // Native summary activation also handles Enter/Space. Record only user choices.
+    childPageExpansion.set(pageId, !childPages.open);
+  });
   const incoming = pages.filter(
     (p) =>
       p.id !== current!.id &&
-      extractLinks(p.body, p.bodyFormat, p.syntax).some(
+      extractLinks(p.body, p.bodyFormat, p.syntax, pages, p.id).some(
         (target) => target === current!.id || target === current!.title,
       ),
   );
@@ -747,6 +790,8 @@ async function loadLibrary(selected = libraryView, isCurrent = () => true): Prom
   return true;
 }
 function renderLibrary() {
+  graphCleanup?.();
+  graphCleanup = undefined;
   document.querySelector("#page-options")!.innerHTML = pageOptions();
   refreshBreadcrumbs();
   const filtered = pages.filter((p) =>
@@ -764,6 +809,13 @@ function renderLibrary() {
     `<section class="library"><div class="library-intro"><div><h1>Vault</h1></div><button class="primary-button" data-action="new">${icon("plus")}New page</button></div>
     <div class="library-toolbar"><div class="tabs">${modes.map(([v, i, label]) => `<button data-library-view="${v}" class="${libraryView === v ? "selected" : ""}">${icon(i)}${label}</button>`).join("")}</div><label class="library-search">${icon("search")}<input id="library-search" aria-label="Filter pages" placeholder="Filter pages…" value="${e(search)}" /></label></div>
     <div id="library-results">${libraryView === "gallery" ? galleryHTML(filtered) : libraryView === "list" ? listHTML(filtered) : libraryView === "graph" ? graphHTML(filtered) : libraryTreeHTML(filtered)}</div></section>`;
+  const graphRoot = document.querySelector<HTMLElement>("#library-results .graph-view");
+  if (graphRoot) graphCleanup = mountGraph(graphRoot, filtered, pages);
+  document.querySelectorAll<HTMLDetailsElement>(".library-tree details[data-tree-page]").forEach(details => {
+    details.addEventListener("toggle", () => {
+      if (details.isConnected) libraryTreeExpansion.set(details.dataset.treePage!, details.open);
+    });
+  });
   refreshIcons();
 }
 function galleryHTML(list: Page[]) {
@@ -798,62 +850,23 @@ function listHTML(list: Page[]) {
     .join("")}</tbody></table></div>`;
 }
 function libraryTreeHTML(list: Page[]) {
+  if (!list.length) return '<p class="empty-state">No matching pages.</p>';
   const ids = new Set(list.map((p) => p.id));
   const seen = new Set<string>();
-  const row = (p: Page): string => {
+  const row = (p: Page, depth: number): string => {
     if (seen.has(p.id)) return "";
     seen.add(p.id);
-    return `<li><details open><summary><button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button><span class="muted">${p.body.length} characters</span></summary><ul>${list
-      .filter((c) => c.parent === p.id)
-      .map(row)
-      .join("")}</ul></details></li>`;
+    const children = list.filter(c => c.parent === p.id && !seen.has(c.id));
+    const content = `<button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button><span class="muted">${p.body.length} characters</span>`;
+    if (!children.length) return `<li><div class="library-tree-row"><span class="library-tree-chevron-space" aria-hidden="true"></span>${content}</div></li>`;
+    // Roots are level 1. Open levels 1 and 2 to show exactly three levels.
+    const open = libraryTreeExpansion.get(p.id) ?? depth < 2;
+    return `<li><details data-tree-page="${e(p.id)}" ${open ? "open" : ""}><summary class="library-tree-row" aria-label="Toggle children of ${e(p.title)}">${icon("chevron-right", "library-tree-chevron")}${content}</summary><ul>${children.map(c => row(c, depth + 1)).join("")}</ul></details></li>`;
   };
   return `<div class="library-tree"><ul>${list
     .filter((p) => !p.parent || !ids.has(p.parent))
-    .map(row)
+    .map(p => row(p, 0))
     .join("")}</ul></div>`;
-}
-function graphHTML(list: Page[]) {
-  const width = 900,
-    height = 540;
-  const positions = new Map(
-    list.map((p, i) => [
-      p.id,
-      {
-        x:
-          width / 2 +
-          Math.cos((i * Math.PI * 2) / Math.max(1, list.length) - Math.PI / 2) *
-            Math.min(320, 85 + list.length * 20),
-        y:
-          height / 2 +
-          Math.sin((i * Math.PI * 2) / Math.max(1, list.length) - Math.PI / 2) *
-            195,
-      },
-    ]),
-  );
-  const edges = list
-    .flatMap((p) => {
-      const targets = [
-        ...extractLinks(p.body, p.bodyFormat, p.syntax).map(
-          (t) => pages.find((x) => x.id === t || x.title === t)?.id,
-        ),
-        p.parent,
-      ];
-      return [...new Set(targets)]
-        .filter((id): id is string => !!id && positions.has(id))
-        .map((id) => {
-          const from = positions.get(p.id)!,
-            to = positions.get(id)!;
-          return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="${id === p.parent ? "parent-edge" : "link-edge"}" />`;
-        });
-    })
-    .join("");
-  return `<div class="graph-view"><div class="graph-legend"><span class="legend-line"></span>Page links<span class="legend-line dashed"></span>Page hierarchy</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Vault page graph">${edges}${list
-    .map((p) => {
-      const pos = positions.get(p.id)!;
-      return `<a href="#page/${e(p.id)}"><circle cx="${pos.x}" cy="${pos.y}" r="${p.parent ? 11 : 17}" /><text x="${pos.x}" y="${pos.y + 37}" text-anchor="middle">${e(p.title.slice(0, 19))}</text></a>`;
-    })
-    .join("")}</svg></div>`;
 }
 function formatDate(value: string) {
   const date = new Date(value);
@@ -930,14 +943,14 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
       move.baseRevisions[localId] = current.revision;
     const base = current?.id === page.id ? current : page;
     const renamedBody = patch !== "duplicate" && patch.title !== undefined
-      ? renamePandocPageSource(base.body, base.syntax ?? defaultSyntax(base.bodyFormat), patch.title)
+      ? renameDocumentPageSource(base.body, base.syntax ?? defaultSyntax(base.bodyFormat), patch.title)
       : base.body;
     const saved = await api<Page>(`/pages/${page.id}${move ? "/move" : patch === "duplicate" ? "/duplicate" : ""}`, {
       method: move || patch === "duplicate" ? "POST" : "PUT",
       body: JSON.stringify({ ...(move ?? (patch === "duplicate" ? {} : patch)), ...(renamedBody !== base.body ? { body: renamedBody } : {}), baseRevision: base.revision }),
     });
     if (patch !== "duplicate" && Object.entries(patch).some(([key, value]) => saved[key as keyof Page] !== value))
-      throw new Error("The server did not apply the page action. Restart the local server and try again.");
+      toast("Document metadata overrides this property. Edit its YAML or title block to change it.");
     if (patch !== "duplicate" && current?.id === saved.id) {
       if (renamedBody !== base.body) {
         destroyEditor();
@@ -945,7 +958,7 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
         renderDocument();
       }
       // The editor still owns its body and undo history; only metadata changed.
-      Object.assign(current, patch, { revision: saved.revision, updated: saved.updated });
+      Object.assign(current, { title: saved.title, parent: saved.parent, favorite: saved.favorite, trashed: saved.trashed, sidebarOrder: saved.sidebarOrder, revision: saved.revision, updated: saved.updated });
       const title = document.querySelector<HTMLTextAreaElement>("#page-title");
       if (title && patch.title !== undefined) title.value = saved.title;
       const parent = document.querySelector<HTMLSelectElement>("#parent-select");
@@ -1117,7 +1130,7 @@ function showProperties() {
   captureEditor();
   const dialog = modal(
     "Page properties",
-    `<p class="muted">Properties are stored in Markdown YAML front matter and shared by the list view and MyBase metadata export.</p><form id="properties-form"><label>Properties (JSON object)<textarea name="properties" class="code-input" rows="10" spellcheck="false">${e(JSON.stringify(current.properties, null, 2))}</textarea></label><p class="muted">Example: {"status": "In progress", "tags": ["Design", "Knowledge management"]}</p><div class="dialog-actions"><button type="submit" class="primary-button">Save properties</button></div></form>`,
+    `<p class="muted">Properties are stored in vault metadata.json. YAML and Pandoc title blocks in the document override these defaults. Edit document overrides in source or Metadata details.</p><form id="properties-form"><label>Properties (JSON object)<textarea name="properties" class="code-input" rows="10" spellcheck="false">${e(JSON.stringify(current.properties, null, 2))}</textarea></label><p class="muted">Example: {"status": "In progress", "tags": ["Design", "Knowledge management"]}</p><div class="dialog-actions"><button type="submit" class="primary-button">Save properties</button></div></form>`,
   );
   const initialCover = typeof current.properties.cover === "string" ? current.properties.cover : "";
   const coverRow = document.createElement("label"), coverInput = document.createElement("input"); coverRow.textContent = "Cover image URL";
@@ -1161,7 +1174,7 @@ function showPageIcon(anchor: HTMLElement) {
     refreshBreadcrumbs();
     refreshIcons();
     document.querySelector<HTMLButtonElement>('[data-action="page-icon"]')?.focus();
-  }, "Page icon");
+  }, "Page icon", { lucide: true, current: page.icon });
 }
 function showPageCover(anchor: HTMLElement) {
   if (!current) return;
@@ -1272,7 +1285,7 @@ function startCoverReposition() {
 function showSettings() {
   const settingsDialog = modal(
     "Workspace settings",
-    `<div class="settings-section"><h3>Your files belong to you</h3><p>Content and page properties are saved in local Markdown files that any text editor or AI tool can read and write.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies are available. Background sync across devices is not yet implemented.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
+    `<div class="settings-section"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies are available. Background sync across devices is not yet implemented.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
   );
   const emojiRow = document.createElement("label");
   emojiRow.className = "switch-row";
@@ -1295,11 +1308,15 @@ function showConflict() {
   if (!conflict) return;
   const disk = conflict.current as Page,
     proposed = conflict.proposed as Page;
-  modal(
+  const draft = current?.id === proposed?.id ? current : proposed;
+  const diskBody = disk?.body ?? "";
+  const proposedBody = proposed?.body ?? draft?.body ?? "";
+  const dialog = modal(
     "Two versions detected; both have been preserved",
-    `<p class="muted">The file changed while you were editing. Compare both versions, edit the merged content, and save. Further file changes will preserve another conflict.</p><div class="conflict-columns"><label>Version on disk<pre>${e(disk?.body || "")}</pre></label><label>Your edits<pre>${e(proposed?.body || current?.body || "")}</pre></label></div><label>Merged content<textarea id="merged-body" rows="10" class="code-input">${e(current?.body || proposed?.body || "")}</textarea></label><p class="muted">Your edited title and properties will be used. The complete disk metadata remains in history.</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">Resolve later</button><button class="primary-button" data-action="resolve-conflict">Save merged version</button></div>`,
+    `<p class="muted">Review the changed lines below. Unchanged sections are folded. Both original versions are preserved.</p><section class="conflict-section"><h3>Disk → Your edits</h3><div class="conflict-legend"><span class="diff-count-removed">− Version on disk</span><span class="diff-count-added">+ Your edits</span></div><div class="conflict-diff" data-conflict-diff aria-label="Conflict differences"></div></section><section class="conflict-section"><h3>Merged result</h3><p class="muted">Changes that will be saved, compared with the version on disk.</p><div class="conflict-diff" data-merged-diff aria-label="Merged differences"></div><details class="conflict-source"><summary>Edit merged content</summary><label for="merged-body">Full Markdown source</label><textarea id="merged-body" rows="8" class="code-input">${e(draft?.body ?? proposedBody)}</textarea></details></section><p class="muted">Your edited title and properties will be used. The complete disk metadata remains in history. Further file changes will preserve another conflict.</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">Resolve later</button><button class="primary-button" data-action="resolve-conflict">Save merged version</button></div>`,
     true,
   );
+  mountConflictDiff(dialog, diskBody, proposedBody);
 }
 async function resolveConflict() {
   const body =
@@ -1536,7 +1553,7 @@ function showInsert() {
   )?.getBoundingClientRect();
   const anchor = caret?.height ? caret : fallback;
   editor?.captureSelection();
-  const items = insertMenuItems(workspace?.session.snapshot.config);
+  const items = insertMenuItems(workspace?.session.snapshot.config, workspace?.activePane !== "source" && editor?.inFootnote());
   let dialog: HTMLElement;
   if (inline) {
     slashCleanup?.();
@@ -1690,6 +1707,53 @@ async function handleInsert(id: string) {
     editor.consumeSlash();
     editor.captureSelection();
   }
+  if (inlineObjectCommands.includes(id as InlineObjectCommand)) {
+    captureEditor();
+    workspace?.capture();
+    const owner = current, ownerWorkspace = workspace, ownerEditor = editor;
+    const config = workspace?.session.snapshot.config ?? current!.syntax;
+    if (!config || !commandEnabled(config, id)) return;
+    const doc = workspace?.session.snapshot.doc ?? editor!.getDocument();
+    const originalBody = current!.body;
+    closeModal();
+    inlineObjectDialog(id as InlineObjectCommand, config, doc, value => {
+      if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor || current!.body !== originalBody)
+        throw new Error("The page changed. Reopen the insertion dialog.");
+      if (workspace) workspace.insertInlineObject(value);
+      else { editor!.insertInlineObject(value); captureEditor(); }
+      sourceSelection = null;
+    }, () => { if (current === owner) editor?.focus(); });
+    return;
+  }
+  if (id === "comment" || id === "inline_comment") {
+    const owner = current;
+    const ownerWorkspace = workspace;
+    const inline = id === "inline_comment";
+    const dialog = modal(inline ? "Inline comment" : "Block comment", `
+      <form class="comment-form">
+        <label>Comment<textarea aria-label="Comment" rows="${inline ? 3 : 6}" placeholder="Write a comment…" required></textarea></label>
+        <p class="muted">Hidden on the page. You can edit it later in Source view.</p>
+        <div class="dialog-actions"><button type="button" data-action="close-dialog">Cancel</button><button type="submit" class="primary-button">Insert comment</button></div>
+      </form>`);
+    dialog.setAttribute("aria-label", inline ? "Inline comment" : "Block comment");
+    const input = dialog.querySelector("textarea")!;
+    input.oninput = () => input.setCustomValidity("");
+    dialog.querySelector("form")!.onsubmit = event => {
+      event.preventDefault();
+      if (current !== owner || workspace !== ownerWorkspace) { closeModal(); return; }
+      const value = input.value;
+      const error = !value.trim() ? "Enter a comment."
+        : value.includes("%%") ? "Comments cannot contain a closing delimiter (%%)."
+        : inline && /[\r\n]/.test(value) ? "Use a block comment for multiple lines."
+        : "";
+      input.setCustomValidity(error);
+      if (!input.reportValidity()) return;
+      insertMarkdown(inline ? `%%${value}%%` : `\n\n%%\n${value}\n%%\n\n`);
+    };
+    dialog.addEventListener("cancel", event => { event.preventDefault(); closeModal(); editor?.focus(); });
+    input.focus();
+    return;
+  }
   if (id === "mention_person") {
     const ownerId = current?.id;
     captureEditor();
@@ -1700,10 +1764,36 @@ async function handleInsert(id: string) {
     return;
   }
   if (id === "footnote" && (workspace || (view === "document" && editor))) {
-    closeModal();
-    if (workspace) workspace.insertFootnote();
-    else { editor!.insertFootnote(); captureEditor(); }
-    sourceSelection = null;
+    const owner = current, ownerWorkspace = workspace, ownerEditor = editor;
+    workspace?.capture();
+    const notes = footnoteChoices(workspace?.session.snapshot.doc ?? editor!.getDocument());
+    const dialog = modal("Insert footnote", `<form class="footnote-form">
+      <label>Footnote<select aria-label="Footnote"><option value="">New footnote</option>${notes.map(note => `<option value="${e(note.label)}">[${e(note.label)}] ${e(note.text.slice(0, 100))}</option>`).join("")}</select></label>
+      <label data-footnote-text>Footnote text<textarea aria-label="Footnote text" rows="4" required placeholder="Write the footnote…"></textarea></label>
+      <p class="muted">You can edit the footnote at the bottom of the page.</p>
+      <div class="dialog-actions"><button type="button" data-action="close-dialog">Cancel</button><button type="submit" class="primary-button">Insert reference</button></div>
+    </form>`);
+    dialog.setAttribute("aria-label", "Insert footnote");
+    const select = dialog.querySelector("select")!, input = dialog.querySelector("textarea")!;
+    select.onchange = () => {
+      input.required = !select.value;
+      input.disabled = !!select.value;
+      dialog.querySelector<HTMLElement>("[data-footnote-text]")!.hidden = !!select.value;
+      input.setCustomValidity("");
+    };
+    input.oninput = () => input.setCustomValidity("");
+    dialog.querySelector("form")!.onsubmit = event => {
+      event.preventDefault();
+      if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor) { closeModal(); return; }
+      if (!select.value && !input.value.trim()) { input.setCustomValidity("Enter footnote text."); input.reportValidity(); return; }
+      const value: FootnoteInput = select.value ? { label: select.value } : { text: input.value };
+      closeModal();
+      if (workspace) workspace.insertFootnote(value);
+      else { editor!.insertFootnote(value); captureEditor(); }
+      sourceSelection = null;
+    };
+    dialog.addEventListener("cancel", event => { event.preventDefault(); closeModal(); editor?.focus(); });
+    input.focus();
     return;
   }
   if (id === "html_embed" || id === "embed") {
@@ -1751,10 +1841,9 @@ async function handleInsert(id: string) {
     synced_block: '\n<synced_block>\nShared content\n</synced_block>\n',
     date_or_reminder: workspace?.session.snapshot.config.variant === "notdown" ? '<mention-date/>' : `<mention-date start="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}"/>`,
     native_span: '[Text]{.custom}', small_caps: '[Small capitals]{.smallcaps}',
-    raw_inline: '`\\LaTeX`{=latex}', raw_tex: '\n\n\\begin{center}\nRaw TeX\n\\end{center}\n\n', inline_note: '^[Note text]',
+    inline_note: '^[Note text]',
     diagram: "\n\n```mermaid\nflowchart LR\nA[Start] --> B[Done]\n```\n\n",
     alert: "\n\n> [!NOTE]\n> Note content\n\n",
-    comment: "\n\n%%\nComment content\n%%\n\n",
     transclusion: "\n\n{{file.txt}}\n\n",
     embed:
       '\n\n<iframe src="https://example.com" title="Embedded page"></iframe>\n\n',
@@ -1822,6 +1911,18 @@ async function handleInsert(id: string) {
   if (id === "child") {
     closeModal();
     await newPage(current!.id, true);
+    return;
+  }
+  if (["page_link", "location_link"].includes(id)) {
+    captureEditor();
+    const owner = current!.id;
+    const kind = id === "location_link" ? "location" : "page";
+    modal(kind === "page" ? "Page link" : "Location link", '<div id="reference-picker"></div>');
+    mountReferencePicker(document.querySelector<HTMLElement>("#reference-picker")!, kind,
+      pages.map(page => page.id === owner ? current! : page), owner,
+      workspace?.session.snapshot.config || defaultSyntax(current!.bodyFormat), source => {
+        if (current?.id === owner) insertMarkdown(source);
+      });
     return;
   }
   if (id === "link" || id === "mention") {
@@ -1917,7 +2018,7 @@ async function exportHTML() {
 document.addEventListener("click", (event) => {
   const target = event.target as Element;
   const actionEl = target.closest<HTMLElement>(
-    "[data-action],[data-current-page-action],[data-page-menu],[data-open],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
+    "[data-action],[data-source-file],[data-current-page-action],[data-page-menu],[data-open],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
   );
   if (!actionEl) return;
   event.preventDefault();
@@ -1925,6 +2026,14 @@ document.addEventListener("click", (event) => {
     .closest<HTMLDetailsElement>(".page-options")
     ?.removeAttribute("open");
   void (async () => {
+    if (actionEl.dataset.sourceFile && current && !library) {
+      const id = current.id;
+      await handleSourceFile(actionEl.dataset.sourceFile, id, {
+        save: async () => (await save()) && !conflict,
+        isCurrent: () => current?.id === id && !library, toast,
+      });
+      return;
+    }
     if (actionEl.dataset.currentPageAction && current && !library) {
       captureEditor();
       await handlePageAction(structuredClone(current), actionEl.dataset.currentPageAction as PageAction);
@@ -1940,9 +2049,10 @@ document.addEventListener("click", (event) => {
       return;
     }
     if (actionEl.matches("a[href^='#page/']")) {
-      const id = decodeURIComponent(actionEl.getAttribute("href")!.slice(6));
-      if (pages.some((p) => p.id === id)) await openPage(id);
-      else toast("Linked page not found.");
+      const reference = internalReference(actionEl.getAttribute("href")!, (actionEl.dataset.referenceSyntax || "markdown") as ReferenceSyntax);
+      const page = reference && resolveReferencePage(reference, pages, current?.id);
+      if (page) await openReferencePage(page.id, reference!);
+      else toast("Linked page not found or ambiguous.");
       return;
     }
     if (actionEl.dataset.view) {
@@ -1964,8 +2074,10 @@ document.addEventListener("click", (event) => {
     }
     if (actionEl.dataset.toggle) {
       const id = actionEl.dataset.toggle;
+      const restoreFocus = document.activeElement === actionEl;
       collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
       renderSidebar();
+      if (restoreFocus) document.querySelector<HTMLButtonElement>(`[data-toggle="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
       return;
     }
     if (actionEl.dataset.child) {
@@ -2041,6 +2153,19 @@ document.addEventListener("click", (event) => {
       case "settings":
         showSettings();
         break;
+      case "import-folder":
+        openImportDialog({ save, complete: async ids => {
+          pages = await api<Page[]>("/pages");
+          renderSidebar();
+          const first = ids.find(id => pages.some(page => page.id === id));
+          if (first) await loadPage(first);
+          else await showLibrary();
+          toast("Markdown import complete. Source files were preserved.");
+        } });
+        break;
+      case "open-vault":
+        if (await save()) await window.notdownDesktop?.openVaultWindow();
+        break;
       case "export":
         await exportHTML();
         break;
@@ -2079,8 +2204,9 @@ document.addEventListener("click", (event) => {
   })().catch(report);
 });
 document.addEventListener("pointerdown", (event) => {
-  if (!(event.target as Element).closest(".page-options"))
-    document.querySelector(".page-options[open]")?.removeAttribute("open");
+  document.querySelectorAll(".page-options[open]").forEach(menu => {
+    if (!menu.contains(event.target as Node)) menu.removeAttribute("open");
+  });
 });
 document.addEventListener("input", (event) => {
   const target = event.target as HTMLInputElement;
@@ -2089,8 +2215,8 @@ document.addEventListener("input", (event) => {
     captureEditor();
     current.title = target.value;
     try {
-      if (workspace) workspace.blocks.setPageTitle(target.value);
-      else current.body = renamePandocPageSource(current.body, current.syntax ?? defaultSyntax(current.bodyFormat), target.value);
+      if (workspace) workspace.setPageTitle(target.value);
+      else current.body = renameDocumentPageSource(current.body, current.syntax ?? defaultSyntax(current.bodyFormat), target.value);
     } catch (error) { report(error); }
     refreshBreadcrumbs();
     target.style.height = "auto";
@@ -2153,7 +2279,7 @@ document.addEventListener(
     }
     if (eventTarget.id === "page-title" && workspace && current &&
       (event.ctrlKey || event.metaKey) && !event.altKey && ["z", "y"].includes(event.key.toLowerCase()) &&
-      pandocPageTitle(current.body, current.syntax ?? defaultSyntax(current.bodyFormat)) !== undefined) {
+      documentPageTitle(current.body, current.syntax ?? defaultSyntax(current.bodyFormat)) !== undefined) {
       event.preventDefault();
       workspace.history(event.key.toLowerCase() === "y" || event.shiftKey ? "redo" : "undo");
       return;
@@ -2297,6 +2423,7 @@ window.addEventListener("beforeunload", (event) => {
     event.returnValue = "";
   }
 });
+installDesktopCloseGuard(save);
 
 async function boot() {
   const [loaded, info] = await Promise.all([
@@ -2320,12 +2447,19 @@ async function boot() {
     await loadPage(pages.find((p) => p.id === linked)?.id || pages.find((p) => p.id === saved)?.id || pages[0].id);
   else await loadLibrary(route?.kind === "vault" ? route.view : "gallery");
   navigation = new PageNavigation(
-    current && !library ? { kind: "page", id: current.id } : { kind: "vault", view: libraryView },
-    (route, isCurrent, allowTrashed) => route.kind === "page" ? loadPage(route.id, allowTrashed, isCurrent) : loadLibrary(route.view, isCurrent),
+    current && !library ? { kind: "page", id: current.id, ...(route?.kind === "page" && route.id === current.id && route.fragment ? { fragment: route.fragment } : {}) } : { kind: "vault", view: libraryView },
+    async (route, isCurrent, allowTrashed) => {
+      if (route.kind !== "page") return loadLibrary(route.view, isCurrent);
+      const loaded = await loadPage(route.id, allowTrashed, isCurrent);
+      if (loaded && isCurrent() && route.fragment) revealReference(internalReference("#" + encodeURIComponent(route.fragment))!);
+      return loaded;
+    },
     updateNavigationButtons,
     report,
   );
   updateNavigationButtons();
+  if (route?.kind === "page" && route.fragment && current?.id === route.id)
+    revealReference(internalReference("#" + encodeURIComponent(route.fragment))!);
   startReminders(() => pages, vaultPath, toast);
   setInterval(() => {
     captureEditor();

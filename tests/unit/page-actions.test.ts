@@ -15,10 +15,10 @@ async function fixture(t: test.TestContext) {
 
 test("page actions preserve unknown YAML, exact body, and independent copy identity", async (t) => {
   const { root, vault } = await fixture(t);
-  const body = "```custom\r\nunknown **source**\r\n```\r\n";
+  const body = "---\ncustom: {nested: keep}\n---\n```custom\r\nunknown **source**\r\n```\r\n";
   const original = await vault.create({ title: "Original", body, properties: { unknown: [1, "x"] } });
   const file = path.join(root, "pages", `${original.id}.md`);
-  await fs.writeFile(file, (await fs.readFile(file, "utf8")).replace("---\n", "---\ncustom: {nested: keep}\n"));
+
   const page = await vault.get(original.id);
   const favored = await vault.update(page.id, { favorite: true, title: "Renamed" }, page.revision);
   const copy = await vault.duplicate(page.id, favored.revision);
@@ -27,7 +27,7 @@ test("page actions preserve unknown YAML, exact body, and independent copy ident
   assert.equal(copy.body, body);
   assert.deepEqual(copy.properties, page.properties);
   assert.equal(copy.favorite, false);
-  assert.match(await fs.readFile(path.join(root, "pages", `${copy.id}.md`), "utf8"), /custom: \{ nested: keep \}/);
+  assert.match(await fs.readFile(path.join(root, "pages", `${copy.id}.md`), "utf8"), /custom: \{nested: keep\}/);
   assert.equal((await vault.get(page.id)).body, body);
   await assert.rejects(vault.update(page.id, { favorite: "yes" as any }, favored.revision), /boolean/);
 });

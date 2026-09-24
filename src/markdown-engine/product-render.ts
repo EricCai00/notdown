@@ -4,6 +4,8 @@ import { escapeXml } from "../document/notion-syntax.js";
 import { renderRawHtml } from "./html.js";
 
 export function syntaxHtml(node: PMNode) {
+  if (node.attrs.kind === "raw" && node.attrs.data?.format !== "html")
+    return '<pre class="opaque-block" aria-label="Unsupported"><code>' + escapeXml(node.attrs.raw) + "</code></pre>";
   if (node.attrs.kind === "comment") return "";
   if (node.attrs.kind === "metadata")
     return (

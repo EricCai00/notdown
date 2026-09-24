@@ -5,8 +5,37 @@ import { history, undo } from "prosemirror-history";
 import { editTable } from "../../src/editor/table-commands";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 import type { SyntaxConfig } from "../../src/markdown-engine/config";
+import { TableSelection, tableMap, selectTableCells, pasteTableText, selectedTableText } from "../../src/editor/table-selection";
 
 const config: SyntaxConfig = { version: 1, variant: "markdown", extensions: { grid_tables: true, pipe_tables: true, table_captions: true } };
+test("table rectangle selection copies, pastes, clears and merges as reversible cell operations", () => {
+  let state = initial();
+  const map = tableMap(state.doc, 0);
+  state = state.apply(state.tr.setSelection(new TableSelection(state.doc.resolve(map.cells[0].pos), state.doc.resolve(map.cells[3].pos))));
+  assert.equal(selectedTableText(state.selection as TableSelection), "A\tB\nC\tD");
+  assert.equal(pasteTableText(state, "one\ttwo\tthree"), null);
+  state = state.apply(pasteTableText(state, "1\t2\n3\t4")!);
+  assert.equal(state.doc.textContent, "1234"); state.doc.check();
+  assert(editTable("merge-selection", "grid")(state, tr => state = state.apply(tr)));
+  assert.equal(state.doc.firstChild!.firstChild!.firstChild!.attrs.colspan, 2);
+  assert.equal(state.doc.firstChild!.firstChild!.firstChild!.attrs.rowspan, 2);
+  assert.equal(parseNative(serializeNative(state.doc, config), config).textContent, "1234");
+});
+
+test("row/column movement and selection preserve unknown metadata; spans block unsafe moves", () => {
+  let state = initial();
+  assert(editTable("column-right")(state, tr => state = state.apply(tr)));
+  assert.equal(state.doc.textContent, "BADC");
+  assert(editTable("row-before")(state, tr => state = state.apply(tr)));
+  assert.equal(state.doc.firstChild!.childCount, 3);
+  const selection = selectTableCells(state, "column")!;
+  state = state.apply(state.tr.setSelection(selection));
+  assert.equal(selection.cells.length, 3);
+  const tr = state.tr; selection.replace(tr); state = state.apply(tr); state.doc.check();
+  assert.equal(state.doc.firstChild!.child(1).firstChild!.textContent, "");
+  assert(editTable("merge-down")(state, tr => state = state.apply(tr)));
+  assert.equal(editTable("row-down")(state), false);
+});
 function initial() {
   const doc = parseNative("| A | B |\n|---|---|\n| C | D |", config);
   return EditorState.create({ doc, selection: TextSelection.create(doc, 4), plugins: [history()] });

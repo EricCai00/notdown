@@ -86,7 +86,7 @@ test("page mentions are stable atoms and ordinary links are editable marked labe
   assert.equal(atoms[0].isAtom, true);
   assert.deepEqual(
     { ...atoms[0].attrs },
-    { target: "note-1", label: "Project plan", url: "", nfmAttrs: {} },
+    { target: "note-1", label: "Project plan", url: "", syntaxForm: "wiki", labelMode: "custom", nfmAttrs: {} },
   );
   assert.equal(linked?.text, "the website");
   assert.equal(linked?.marks[0].attrs.href, "https://example.com/a?b=1");

@@ -39,7 +39,14 @@ export const objectReferences: Record<string, Reference[]> = {
     { label: "Pandoc YAML metadata", url: pandoc + "#extension-yaml_metadata_block" },
   ],
   "block.file_transclusion": [{ label: "MultiMarkdown file transclusion", url: mmd + "transclusion.html" }, { label: "MultiMarkdown source: markers may occur within a paragraph", url: "https://github.com/fletcher/MultiMarkdown-6/blob/master/src/transclude.c#L122-L139" }],
-  "inline.raw_source": [{ label: "Pandoc raw inline attributes", url: pandoc + "#extension-raw_attribute" }],
+  "inline.inline_html": [{ label: "Pandoc raw inline attributes", url: pandoc + "#extension-raw_attribute" }],
+  "inline.image": [{ label: "Notion images are media blocks", url: notion + "#media-blocks" }],
+  "inline.autolink": [{ label: "Notion documents explicit links", url: notion + "#rich-text-formatting" }],
+  "inline.internal_link": [
+    { label: "Notion links and page mentions", url: notion + "#rich-text-formatting" },
+    { label: "Obsidian pages, headings and block IDs", url: "https://obsidian.md/help/links" },
+    { label: "Typora file and anchor links", url: "https://support.typora.io/Links/" },
+  ],
 };
 export function objectFeatureNotes(id: string): string[] {
   const object = catalogObjects.find(o => o.id === id);
@@ -66,6 +73,7 @@ const notionAnchors: Record<string, string> = {
 };
 const ref = (label: string, url: string): Reference => ({ label, url });
 export const variantReferences: Record<Dialect, Reference[]> = {
+  rmarkdown: [ref("R Markdown", "https://rmarkdown.rstudio.com/authoring_quick_tour.html"), ref("knitr chunk options", "https://yihui.org/knitr/options/")],
   typora: [ref("Typora Markdown reference", typora)],
   obsidian: [ref("Obsidian formatting syntax", obsidian)],
   "notion-markdown": [ref("Notion enhanced Markdown", notion)],
@@ -153,6 +161,7 @@ export const extensionNames: Record<string, { label: string; note: string }> = {
 };
 
 const productReferences: Record<string, Reference[]> = {
+  symbol_replacements: [ref("ProseMirror input rules (implementation mechanism)", "https://prosemirror.net/docs/ref/#inputrules")],
   highlight: [
     ref("Typora highlight syntax", typora),
     ref("Obsidian formatting", obsidian),
@@ -211,7 +220,7 @@ export const catalogExtensions = workbook.rows.map((row, index) => {
     sourceRange: `A${index + 3}:N${index + 3}`,
     workbookStates: { ...Object.fromEntries(
       workbookVariants.map((v, i) => [v, row[i + 2]]),
-    ), notdown: "—" } as Record<Dialect, string>,
+    ), notdown: "—", rmarkdown: "—" } as Record<Dialect, string>,
     workbookRegistration: row[13]!,
     status: registered
       ? "registered"
@@ -240,7 +249,7 @@ export const catalogExtensions = workbook.rows.map((row, index) => {
   category: extensionCategory(e.id), sourceLabel: notionFeatureOrigins[e.id] ? "Notion feature / Notdown local encoding" : notionAnchors[e.id] ? "Notion enhanced Markdown" : "Notdown blocks and extensions", sourceRange: "",
   workbookStates: Object.fromEntries(dialects.map(v => [v.id, "—"])) as Record<Dialect, string>,
   workbookRegistration: "", status: "registered", namingNote: notionFeatureOrigins[e.id] ? localEncodingNote + " " + notionFeatureOrigins[e.id].note : extensionNames[e.id]?.note ?? "Local adapter; upstream dialect defaults are independent.",
-  references: notionFeatureOrigins[e.id] ? [ref(notionFeatureOrigins[e.id].label, notionFeatureOrigins[e.id].url)] : notionAnchors[e.id] ? [ref("Notion enhanced Markdown", notion + "#" + notionAnchors[e.id])] : e.id === "display_math" ? [ref("Typora math blocks", typora + "#math-blocks")] : [],
+  references: notionFeatureOrigins[e.id] ? [ref(notionFeatureOrigins[e.id].label, notionFeatureOrigins[e.id].url)] : notionAnchors[e.id] ? [ref("Notion enhanced Markdown", notion + "#" + notionAnchors[e.id])] : e.id === "display_math" ? [ref("Typora math blocks", typora + "#math-blocks")] : productReferences[e.id] ?? [],
 }))).sort((a, b) => Number(a.status === "out-of-scope") - Number(b.status === "out-of-scope"));
 export type CatalogExtension = (typeof catalogExtensions)[number];
 export const catalogExtension = (id: string) =>
@@ -249,6 +258,7 @@ export const catalogExtension = (id: string) =>
 // Adapter requirements are one kind of relation. Modifiers and planned syntax
 // must also be discoverable, without presenting them as working adapters.
 const modifiers: Record<string, string[]> = {
+  symbol_replacements: ["block.paragraph", "block.heading", "character.smart_typography"],
   blank_before_header: ["block.heading"],
   space_in_atx_header: ["block.heading"],
   header_attributes: ["block.heading"],
@@ -320,7 +330,7 @@ const planned: Record<string, string[]> = {
   markdown_in_html_blocks: ["block.html_block"],
   native_divs: ["block.native_div"],
   old_dashes: ["character.smart_typography"],
-  raw_tex: ["block.raw_tex"],
+  raw_tex: ["block.unsupported"],
   rebase_relative_paths: ["inline.link", "inline.image", "block.image_block"],
   shortcut_reference_links: ["inline.link"],
   spaced_reference_links: ["inline.link"],

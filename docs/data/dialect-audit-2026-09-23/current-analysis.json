@@ -1,0 +1,3793 @@
+{
+  "generatedAt": "2026-09-23T14:05:14.594Z",
+  "scope": "Current parseNative -> renderNotionMarkdown; frozen upstream HTML; no fresh upstream execution and no browser visual measurement.",
+  "baselinePath": ".run/dialect-audit/results/results.json",
+  "baselineSha256": "0fe42477bfbac241e97a95aae32fa5076e931f35ffb0927eee252e428a254da9",
+  "baselineTimestamp": "2026-09-23T11:22:01.923Z",
+  "engineHashes": {
+    "src/document/block-document.ts": "cc303a1fec000e816483bd68bc309e81e773ea0bbed5b2403ae5aeb9df7c545f",
+    "src/document/code-caption.ts": "64654e150210039b068f89db23a6e74306ab410a978b103230f0efea1a012e87",
+    "src/document/content-objects.ts": "5583a86950364cfe61778c37eb49bc738461dffdb425b6f8507a113dab8085f8",
+    "src/document/document-format.ts": "d0f257f8819431d85ffccd29c51aa9759f64b33d1adabdb17f9afda84d005282",
+    "src/document/editor-markdown.ts": "ee8779dbeb6ba27b5bd27ac492f24b132a8a3d9d554f773b45e3b80fd59a4f8b",
+    "src/document/editor-schema.ts": "9b5a4fb1bbef847cfc4d22184287ddb04322b9326f6dc51a82e4fef5c2ff0cdd",
+    "src/document/list-items.ts": "37ccbd453e1e03a309961a82565a8943bc6aa33519417595c26088a3d4e25341",
+    "src/document/markdown.ts": "d1f7f866957f555c4ce31314dad5e14dd7d70b74721f4275c3a8cb40017fc7d8",
+    "src/document/notdown-boundary.ts": "48185875a89e440c827876bc890053e3e871de256a79bcc1a1be36822df45910",
+    "src/document/notion-markdown.ts": "62c07813143fda938265be9e03b6bc3496bfc616d6530541f553fc5f041ed42e",
+    "src/document/notion-syntax.ts": "bce52f1e140ce89950754894c4e843cb6a075d0d70fd7b26e6d44a7a964eabd3",
+    "src/document/object-codec.ts": "ed4d3e784e0cc442426a8b15efb36ec2ff937333794aedd61d56df7f41fb6521",
+    "src/document/object-model.ts": "eaf02c7391ec80686138e267cf008d6a18056b31a18a20b0b759f2d9df8114c4",
+    "src/document/table-markdown.ts": "1c172387ed1f893e99163f937fd6f3336cbe01afd533f3544d9e91a9c5c59243",
+    "src/markdown-engine/advanced-definitions.ts": "a6c04119213a529bc19d696559c0f4e8e931a8cfbb0f132d07024f402fb53700",
+    "src/markdown-engine/advanced.ts": "4305ca256408bd0c90796a008d6e8f0e8cbb1bba90f91def421098588e642bed",
+    "src/markdown-engine/attributes.ts": "89f8f273b37f441220748b371c39a1d998726cea19be662b164ad0375f410fd7",
+    "src/markdown-engine/bibliography.ts": "4303c6546731e02156faf42e231e6836060a64890126ac81a26845ebaa8071bd",
+    "src/markdown-engine/blocks.ts": "11d8b7b008b8e0bb29399b4b55ec4d4f4d76485cc05a061c7561b11956afb34e",
+    "src/markdown-engine/citation-view.ts": "a602bf1dfdf12c27bf9c0ab300a7dc922c8ecd814cf7283073db456ed7ab8d31",
+    "src/markdown-engine/codec.ts": "0000063b01ec2ae3f401226c4bb48312d76b1b80f15aba0bd450ab059708dbee",
+    "src/markdown-engine/config.ts": "8953731beb7aacb797a35f36d11ed3787a7aea750e3fa1b7228c8582d1147ebf",
+    "src/markdown-engine/dialects.ts": "55fcb6bb5035db025caca513638e24a41a8d84ea9f68a5505f9e10646583c7d0",
+    "src/markdown-engine/document-options.ts": "74b978101e6320ba7be12ddda2f862181143831569bab918d600d13c7cd94d05",
+    "src/markdown-engine/html-view.ts": "733f798f5dc0bc752a791d4ddc28fa6f0dd831ffa3483faf6315de2104624e9d",
+    "src/markdown-engine/html.ts": "4eaf5c4fbf138ac2ec14055f472f6b7183914794a2966a1e37adc68b3f8973b8",
+    "src/markdown-engine/latex-macros.ts": "4adf24d7dd2795bfa6bd697ebff76afb0c8866a16c2f1fe522f1f89eb14d4190",
+    "src/markdown-engine/metadata-editing.ts": "f959dc67cc7829c12aba5a909e985f809dbc8f94ed7dbf0ab15cbda0a4f5291f",
+    "src/markdown-engine/mmd-metadata.ts": "09c8aa8fa3f17d0eaf5242df9e9f3347d16dcd2947f32a1cad8a101b1f9a843f",
+    "src/markdown-engine/pandoc-tables.ts": "9ffd3f3d5335c4a4281c1b045ffe971bf0e28b485fb11077d274cef8134248b9",
+    "src/markdown-engine/presets.ts": "a7dd383e4546f8df60efe5e011a85d05ef0ecaacadb9dc94706fbc21fd766477",
+    "src/markdown-engine/product-render.ts": "c8951d046c1dbb53ed7a44eb0a179996b8172367d489d88d7a1be4f625616acf",
+    "src/markdown-engine/product-view.ts": "13f39fa6abfe99ca5a4b5c4d250bca9a6468320f048a08827f03fe9d4ef7e148",
+    "src/markdown-engine/products.ts": "c65788f841179f9167602bb486a8cf1618fdf61c22bd802a31e63746c801cc7f",
+    "src/markdown-engine/reference-options.ts": "333b07cd401fc25add6296410584b699d24a96de1ef317d9eb51aca7488cabd9",
+    "src/markdown-engine/session.ts": "3365eefc4c5d6c83fe473ee805e79001e37d59842dc507d9f43903896fc21c42",
+    "src/markdown-engine/spacing.ts": "4165df1cf36a0f59a9151e1d0baa6d893eb532f026bae7ccab30b959ea9ac6c7",
+    "src/markdown-engine/vendor.d.ts": "bf45073e565c0323909cf7d7c2a563f7a0c65ca80c61cce44c1c502bebcb2cd4",
+    "src/markdown-engine/workspace.ts": "d401810d1732d0e42e77e87fdd191f2d9ea60bfdd92322c6254d2bea6b9c660d"
+  },
+  "engineChangedDuringRun": false,
+  "totals": {
+    "runs": 2561,
+    "compared": 2324,
+    "rawEqual": 0,
+    "domEqual": 756,
+    "textEqual": 2079,
+    "roundtripExact": 2561,
+    "errors": 0,
+    "nativeChanged": 2
+  },
+  "defaults": {
+    "runs": 2179,
+    "compared": 1954,
+    "rawEqual": 0,
+    "domEqual": 647,
+    "textEqual": 1799,
+    "roundtripExact": 2179,
+    "errors": 0,
+    "nativeChanged": 2
+  },
+  "variants": [
+    {
+      "variant": "commonmark",
+      "defaults": {
+        "runs": 686,
+        "compared": 686,
+        "rawEqual": 0,
+        "domEqual": 255,
+        "textEqual": 684,
+        "roundtripExact": 686,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 686,
+        "compared": 686,
+        "rawEqual": 0,
+        "domEqual": 255,
+        "textEqual": 684,
+        "roundtripExact": 686,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "gfm",
+      "defaults": {
+        "runs": 750,
+        "compared": 750,
+        "rawEqual": 0,
+        "domEqual": 257,
+        "textEqual": 723,
+        "roundtripExact": 750,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 761,
+        "compared": 761,
+        "rawEqual": 0,
+        "domEqual": 257,
+        "textEqual": 725,
+        "roundtripExact": 761,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "markdown_strict",
+      "defaults": {
+        "runs": 34,
+        "compared": 34,
+        "rawEqual": 0,
+        "domEqual": 8,
+        "textEqual": 28,
+        "roundtripExact": 34,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 34,
+        "compared": 34,
+        "rawEqual": 0,
+        "domEqual": 8,
+        "textEqual": 28,
+        "roundtripExact": 34,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "markdown_phpextra",
+      "defaults": {
+        "runs": 62,
+        "compared": 62,
+        "rawEqual": 0,
+        "domEqual": 12,
+        "textEqual": 54,
+        "roundtripExact": 62,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 62,
+        "compared": 62,
+        "rawEqual": 0,
+        "domEqual": 12,
+        "textEqual": 54,
+        "roundtripExact": 62,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "markdown_mmd",
+      "defaults": {
+        "runs": 103,
+        "compared": 103,
+        "rawEqual": 0,
+        "domEqual": 11,
+        "textEqual": 43,
+        "roundtripExact": 103,
+        "errors": 0,
+        "nativeChanged": 1
+      },
+      "allProfiles": {
+        "runs": 103,
+        "compared": 103,
+        "rawEqual": 0,
+        "domEqual": 11,
+        "textEqual": 43,
+        "roundtripExact": 103,
+        "errors": 0,
+        "nativeChanged": 1
+      }
+    },
+    {
+      "variant": "markdown",
+      "defaults": {
+        "runs": 121,
+        "compared": 121,
+        "rawEqual": 0,
+        "domEqual": 34,
+        "textEqual": 99,
+        "roundtripExact": 121,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 270,
+        "compared": 270,
+        "rawEqual": 0,
+        "domEqual": 75,
+        "textEqual": 213,
+        "roundtripExact": 270,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "commonmark_x",
+      "defaults": {
+        "runs": 77,
+        "compared": 77,
+        "rawEqual": 0,
+        "domEqual": 23,
+        "textEqual": 61,
+        "roundtripExact": 77,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 138,
+        "compared": 138,
+        "rawEqual": 0,
+        "domEqual": 40,
+        "textEqual": 101,
+        "roundtripExact": 138,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "markdown_github",
+      "defaults": {
+        "runs": 121,
+        "compared": 121,
+        "rawEqual": 0,
+        "domEqual": 47,
+        "textEqual": 107,
+        "roundtripExact": 121,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 270,
+        "compared": 270,
+        "rawEqual": 0,
+        "domEqual": 98,
+        "textEqual": 231,
+        "roundtripExact": 270,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "typora",
+      "defaults": {
+        "runs": 70,
+        "compared": 0,
+        "rawEqual": 0,
+        "domEqual": 0,
+        "textEqual": 0,
+        "roundtripExact": 70,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 82,
+        "compared": 0,
+        "rawEqual": 0,
+        "domEqual": 0,
+        "textEqual": 0,
+        "roundtripExact": 82,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    },
+    {
+      "variant": "obsidian",
+      "defaults": {
+        "runs": 103,
+        "compared": 0,
+        "rawEqual": 0,
+        "domEqual": 0,
+        "textEqual": 0,
+        "roundtripExact": 103,
+        "errors": 0,
+        "nativeChanged": 1
+      },
+      "allProfiles": {
+        "runs": 103,
+        "compared": 0,
+        "rawEqual": 0,
+        "domEqual": 0,
+        "textEqual": 0,
+        "roundtripExact": 103,
+        "errors": 0,
+        "nativeChanged": 1
+      }
+    },
+    {
+      "variant": "notion-markdown",
+      "defaults": {
+        "runs": 52,
+        "compared": 0,
+        "rawEqual": 0,
+        "domEqual": 0,
+        "textEqual": 0,
+        "roundtripExact": 52,
+        "errors": 0,
+        "nativeChanged": 0
+      },
+      "allProfiles": {
+        "runs": 52,
+        "compared": 0,
+        "rawEqual": 0,
+        "domEqual": 0,
+        "textEqual": 0,
+        "roundtripExact": 52,
+        "errors": 0,
+        "nativeChanged": 0
+      }
+    }
+  ],
+  "changed": [
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-critic-comment",
+      "profile": "default",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      }
+    },
+    {
+      "variant": "obsidian",
+      "id": "obs-comments",
+      "profile": "default",
+      "previousComparison": null,
+      "comparison": null
+    }
+  ],
+  "evidence": [
+    {
+      "variant": "commonmark",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://spec.commonmark.org/0.31.2/",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<ol>\n<li>outer\n<ul>\n<li>middle\n<ol>\n<li>inner</li>\n</ol>\n</li>\n</ul>\n</li>\n<li>next</li>\n</ol>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer</p><ul><li data-list-item=\"bullet\"><p>middle</p><ol start=\"1\"><li data-list-item=\"numbered\"><p>inner</p></li></ol></li></ul></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://spec.commonmark.org/0.31.2/",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark",
+      "id": "cm-606",
+      "profile": "default",
+      "url": "https://spec.commonmark.org/0.31.2/#example-606",
+      "source": "<foo\\+@bar.example.com>\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>&lt;foo+@bar.example.com&gt;</p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre class=\"opaque-block\" contenteditable=\"false\"><code>&lt;foo\\+@bar.example.com&gt;</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false,
+      "specComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      }
+    },
+    {
+      "variant": "commonmark",
+      "id": "cm-632",
+      "profile": "default",
+      "url": "https://spec.commonmark.org/0.31.2/#example-632",
+      "source": "<a href=\"\\\"\">\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>&lt;a href=&quot;&quot;&quot;&gt;</p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre class=\"opaque-block\" contenteditable=\"false\"><code>&lt;a href=&quot;\\&quot;&quot;&gt;</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false,
+      "specComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      }
+    },
+    {
+      "variant": "gfm",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<ol>\n<li>outer\n<ul>\n<li>middle\n<ol>\n<li>inner</li>\n</ol>\n</li>\n</ul>\n</li>\n<li>next</li>\n</ol>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer</p><ul><li data-list-item=\"bullet\"><p>middle</p><ol start=\"1\"><li data-list-item=\"numbered\"><p>inner</p></li></ol></li></ul></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "gfm",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "gfm",
+      "id": "table-align",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "| left | center | right |\n| :--- | :---: | ---: |\n| *a* | **b** | `c` |\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<table>\n<thead>\n<tr>\n<th align=\"left\">left</th>\n<th align=\"center\">center</th>\n<th align=\"right\">right</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"left\"><em>a</em></td>\n<td align=\"center\"><strong>b</strong></td>\n<td align=\"right\"><code>c</code></td>\n</tr>\n</tbody>\n</table>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600;text-align:left\"><p>left</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:center\"><p>center</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:right\"><p>right</p></td></tr><tr><td style=\"text-align:left\"><p><em>a</em></p></td><td style=\"text-align:center\"><p><strong>b</strong></p></td><td style=\"text-align:right\"><p><code>c</code></p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "gfm",
+      "id": "autolink-boundary",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "abcwww.example.com <https://example.com> `https://example.com` https://example.com/a&amp;\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>abcwww.example.com <a href=\"https://example.com\">https://example.com</a> <code>https://example.com</code> <a href=\"https://example.com/a\">https://example.com/a</a>&amp;</p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><a href=\"http://abcwww.example.com\" title=\"http://abcwww.example.com · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">abcwww.example.com</a> <a href=\"https://example.com\" title=\"https://example.com · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">https://example.com</a> <code>https://example.com</code> <a href=\"https://example.com/a&amp;amp\" title=\"https://example.com/a&amp;amp · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">https://example.com/a&amp;amp</a>;</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "gfm",
+      "id": "gfm-example-491",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/#example-491",
+      "source": "~~Hi~~ Hello, ~there~ world!\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><del>Hi</del> Hello, <del>there</del> world!</p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><s>Hi</s> Hello, ~there~ world!</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false,
+      "specComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      }
+    },
+    {
+      "variant": "gfm",
+      "id": "gfm-example-493",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/#example-493",
+      "source": "This will ~~~not~~~ strike.\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>This will ~~~not~~~ strike.</p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>This will ~<s>not</s>~ strike.</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false,
+      "specComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      }
+    },
+    {
+      "variant": "gfm",
+      "id": "doc-math-dollar",
+      "profile": "default",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax",
+      "source": "Inline $x^2$ and $`y+1`$.\n\n$$\nx^2+y^2=z^2\n$$\n",
+      "authority": "GitHub REST /markdown (gfm, public github/docs context)",
+      "extensions": {},
+      "official": "<p dir=\"auto\">Inline <math-renderer class=\"js-inline-math\" style=\"display: inline-block\" data-run-id=\"cb7d822223983740dc831addfebc3ba3\">$x^2$</math-renderer> and <math-renderer class=\"js-inline-math\" style=\"display: inline-block\" data-run-id=\"cb7d822223983740dc831addfebc3ba3\">$y+1$</math-renderer>.</p>\n<p dir=\"auto\"><math-renderer class=\"js-display-math\" style=\"display: block\" data-run-id=\"cb7d822223983740dc831addfebc3ba3\">$$\nx^2+y^2=z^2\n$$</math-renderer></p>",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p>Inline $x^2$ and $<code>y+1</code>$.</p><p>$$ x^2+y^2=z^2 $$</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "gfm",
+      "id": "doc-math-dollar",
+      "profile": "documented",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax",
+      "source": "Inline $x^2$ and $`y+1`$.\n\n$$\nx^2+y^2=z^2\n$$\n",
+      "authority": "GitHub REST /markdown (gfm, public github/docs context)",
+      "extensions": {
+        "tex_math_dollars": true,
+        "tex_math_gfm": true
+      },
+      "official": "<p dir=\"auto\">Inline <math-renderer class=\"js-inline-math\" style=\"display: inline-block\" data-run-id=\"cb7d822223983740dc831addfebc3ba3\">$x^2$</math-renderer> and <math-renderer class=\"js-inline-math\" style=\"display: inline-block\" data-run-id=\"cb7d822223983740dc831addfebc3ba3\">$y+1$</math-renderer>.</p>\n<p dir=\"auto\"><math-renderer class=\"js-display-math\" style=\"display: block\" data-run-id=\"cb7d822223983740dc831addfebc3ba3\">$$\nx^2+y^2=z^2\n$$</math-renderer></p>",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>Inline <span class=\"katex\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><semantics><mrow><msup><mi>x</mi><mn>2</mn></msup></mrow><annotation encoding=\"application/x-tex\">x^2</annotation></semantics></math></span> and <span class=\"katex\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><semantics><mrow><mi mathvariant=\"normal\">‘</mi><mi>y</mi><mo>+</mo><mn>1</mn><mi mathvariant=\"normal\">‘</mi></mrow><annotation encoding=\"application/x-tex\">`y+1`</annotation></semantics></math></span>.</p><span class=\"katex\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\" display=\"block\"><semantics><mrow><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><msup><mi>y</mi><mn>2</mn></msup><mo>=</mo><msup><mi>z</mi><mn>2</mn></msup></mrow><annotation encoding=\"application/x-tex\">x^2+y^2=z^2</annotation></semantics></math></span>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "gfm",
+      "id": "doc-collapse",
+      "profile": "default",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax",
+      "source": "<details>\n<summary>More</summary>\n\n### Nested title\n\n**body**\n\n</details>\n",
+      "authority": "GitHub REST /markdown (gfm, public github/docs context)",
+      "extensions": {},
+      "official": "<details>\n<summary>More</summary>\n<h3 dir=\"auto\">Nested title</h3>\n<p dir=\"auto\"><strong>body</strong></p>\n</details>",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<div class=\"pm-html-block\"><details>\n<summary>More</summary></details></div><h3 id=\"nfm-heading-0\">Nested title</h3><p><strong>body</strong></p><div class=\"pm-html-block\"></div>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_strict",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<ol>\n<li>outer\n<ul>\n<li>middle\n<ol>\n<li>inner</li>\n</ol></li>\n</ul></li>\n<li>next</li>\n</ol>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer - middle 1. inner</p></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_strict",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> [Ref]</p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<ol>\n<li>outer\n\n<ul>\n<li>middle\n\n<ol>\n<li>inner</li>\n</ol></li>\n</ul></li>\n<li>next</li>\n</ol>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer - middle 1. inner</p></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "table-align",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "| left | center | right |\n| :--- | :---: | ---: |\n| *a* | **b** | `c` |\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<table>\n<thead>\n<tr>\n  <th align=\"left\">left</th>\n  <th align=\"center\">center</th>\n  <th align=\"right\">right</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n  <td align=\"left\"><em>a</em></td>\n  <td align=\"center\"><strong>b</strong></td>\n  <td align=\"right\"><code>c</code></td>\n</tr>\n</tbody>\n</table>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600;text-align:left\"><p>left</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:center\"><p>center</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:right\"><p>right</p></td></tr><tr><td style=\"text-align:left\"><p><em>a</em></p></td><td style=\"text-align:center\"><p><strong>b</strong></p></td><td style=\"text-align:right\"><p><code>c</code></p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "extra-fence-length",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "~~~\nshort\n~~~~\nstill code?\n~~~\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<pre><code>short\n~~~~\nstill code?\n</code></pre>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre data-language=\"\"><code>short</code></pre><p>still code?</p><pre data-language=\"\"><code></code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "extra-definitions",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "Term A\nTerm B\n:   first definition\n:   second definition\n\nTerm C\n:   third\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<dl>\n<dt>Term A</dt>\n<dt>Term B</dt>\n<dd>first definition</dd>\n\n<dd>second definition</dd>\n\n<dt>Term C</dt>\n<dd>third</dd>\n</dl>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>Term A Term B :   first definition :   second definition</p><dl class=\"pm-definition-list\"><dt>Term C</dt><dd><p>third</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "extra-definition-lazy",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "Term\n:   first line\nlazy continuation\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<dl>\n<dt>Term</dt>\n<dd>first line\nlazy continuation</dd>\n</dl>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>first line lazy continuation</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "extra-definition-loose",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "Term\n\n:   paragraph one\n\n    paragraph two\n\n    > quote\n\n    - list\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<dl>\n<dt>Term</dt>\n<dd>\n<p>paragraph one</p>\n\n<p>paragraph two</p>\n\n<blockquote>\n  <p>quote</p>\n</blockquote>\n\n<ul>\n<li>list</li>\n</ul>\n</dd>\n</dl>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>paragraph one</p><p>paragraph two</p><blockquote><p>quote</p></blockquote><ul><li data-list-item=\"bullet\"><p>list</p></li></ul></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_phpextra",
+      "id": "extra-abbreviation",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "ABC abc ABCD multi word EMPTY\n\n*[ABC]: Alpha Beta\n*[multi word]: Longer phrase\n*[EMPTY]:\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><abbr title=\"Alpha Beta\">ABC</abbr> abc ABCD <abbr title=\"Longer phrase\">multi word</abbr> <abbr>EMPTY</abbr></p>\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><abbr title=\"Alpha Beta\">ABC</abbr> abc ABCD <abbr title=\"Longer phrase\">multi word</abbr> EMPTY</p><p>*[EMPTY]:</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<ol>\r\n<li>outer\r\n\r\n<ul>\r\n<li>middle\r\n\r\n<ol>\r\n<li>inner</li>\r\n</ol></li>\r\n</ul></li>\r\n<li>next</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer - middle 1. inner</p></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "extra-definitions",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "Term A\nTerm B\n:   first definition\n:   second definition\n\nTerm C\n:   third\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<dl>\r\n<dt>Term A</dt>\r\n<dt>Term B</dt>\r\n<dd>first definition</dd>\r\n\r\n<dd>second definition</dd>\r\n\r\n<dt>Term C</dt>\r\n<dd>third</dd>\r\n</dl>\r\n\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>Term A Term B :   first definition :   second definition</p><dl class=\"pm-definition-list\"><dt>Term C</dt><dd><p>third</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "extra-definition-lazy",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "Term\n:   first line\nlazy continuation\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<dl>\r\n<dt>Term</dt>\r\n<dd>first line\r\nlazy continuation</dd>\r\n</dl>\r\n\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>first line lazy continuation</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "extra-definition-loose",
+      "profile": "default",
+      "url": "https://michelf.ca/projects/php-markdown/extra/",
+      "source": "Term\n\n:   paragraph one\n\n    paragraph two\n\n    > quote\n\n    - list\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>Term</p>\r\n\r\n<p>:paragraph one\r\n<p>paragraph two</p>\r\n\r\n<blockquote>\r\n<p>quote</p>\r\n</blockquote>\r\n\r\n<ul>\r\n<li>list</li>\r\n</ul></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>paragraph one</p><p>paragraph two</p><blockquote><p>quote</p></blockquote><ul><li data-list-item=\"bullet\"><p>list</p></li></ul></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-citation",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "claim[p. 8][#smith:2026] and [][#smith:2026]\n\n[#smith:2026]: Alex Smith. *Testing*. 2026.\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>claim<a href=\"#cn:1\" id=\"cnref:1\" title=\"see citation\" class=\"citation\">(p. 8, 1)</a> and <a href=\"#cn:1\" title=\"see citation\" class=\"citation\">(1)</a></p>\r\n\r\n<div class=\"citations\">\r\n<hr />\r\n<ol>\r\n\r\n<li id=\"cn:1\">\r\n<p>Alex Smith. <em>Testing</em>. 2026. <a href=\"#cnref:1\" title=\"return to body\" class=\"reversecitation\">&#160;&#8617;&#xfe0e;</a></p>\r\n</li>\r\n\r\n</ol>\r\n</div>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>claim<a class=\"pm-syntax-inline\" href=\"#md-def-smith2026\" title=\"Alex Smith. *Testing*. 2026.\">[p. 8, smith:2026]</a> and <a class=\"pm-syntax-inline\" href=\"#md-def-smith2026\" title=\"Alex Smith. *Testing*. 2026.\">[smith:2026]</a></p><div id=\"md-def-smith2026\"><dl><dt>smith:2026</dt><dd>Alex Smith. <em>Testing</em>. 2026.</dd></dl></div>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-citation-inline",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "claim[#Alex Smith. *Testing*. 2026.]\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>claim<a href=\"#cn:1\" id=\"cnref:1\" title=\"see citation\" class=\"citation\">(1)</a></p>\r\n\r\n<div class=\"citations\">\r\n<hr />\r\n<ol>\r\n\r\n<li id=\"cn:1\">\r\n<p>Alex Smith. <em>Testing</em>. 2026. <a href=\"#cnref:1\" title=\"return to body\" class=\"reversecitation\">&#160;&#8617;&#xfe0e;</a></p>\r\n</li>\r\n\r\n</ol>\r\n</div>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>claim<span class=\"pm-syntax-inline\" title=\"Alex Smith. *Testing*. 2026.\">[Alex Smith. *Testing*. 2026.]</span></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-citation-uncited",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "[Not cited][#unused]\n\n[#unused]: Unused work.\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p></p>\r\n\r\n<div class=\"citations\">\r\n<hr />\r\n<ol>\r\n\r\n<li id=\"cn:1\">\r\n<p>Unused work. <a href=\"#cnref:1\" title=\"return to body\" class=\"reversecitation\">&#160;&#8617;&#xfe0e;</a></p>\r\n</li>\r\n\r\n</ol>\r\n</div>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><a class=\"pm-syntax-inline\" href=\"#md-def-unused\" title=\"Unused work.\"></a></p><div id=\"md-def-unused\"><dl><dt>unused</dt><dd>Unused work.</dd></dl></div>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-transclude",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "before\n\n{{include.md}}\n\nafter\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>before</p>\r\n\r\n<p><strong>Included text</strong></p>\r\n\r\n<p>after</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>before</p><span class=\"md-transclusion\">include.md</span><p>after</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-transclude-code",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "```\n{{include.txt}}\n```\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<pre><code>literal include\r\n\r\n</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre data-language=\"\"><code>{{include.txt}}</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-transclude-wildcard",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "{{include.*}}\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><b>HTML wildcard include</b></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<span class=\"md-transclusion\">include.*</span>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-transclude-base",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "Transclude Base: assets\n\n{{include.md}}\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p><strong>Nested include</strong></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<dl class=\"md-metadata\"><dt>transcludebase</dt><dd>assets</dd></dl><span class=\"md-transclusion\">include.md</span>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-image-figure",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "![A **bold** caption](/sample.png)\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<figure>\r\n<img src=\"/sample.png\" alt=\"A bold caption\" />\r\n<figcaption>A <strong>bold</strong> caption</figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"A **bold** caption\"><figcaption>A **bold** caption</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-metadata",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "Title: *Plain title*\nAuthor: A\nLong Key: first\n    second: value\n\n[%title] [%longkey] [%missing]\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>*Plain title* first second: value [%missing]</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<dl class=\"md-metadata\"><dt>title</dt><dd>*Plain title*</dd><dt>author</dt><dd>A</dd><dt>longkey</dt><dd>first\nsecond: value</dd></dl><p><span class=\"pm-syntax-inline\" title=\"\">*Plain title*</span> <span class=\"pm-syntax-inline\" title=\"\">first\nsecond: value</span> <span class=\"pm-syntax-inline\" title=\"\">Undefined: missing</span></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-metadata-delimited",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "---\nTitle: Demo\n...\n\n[%title]\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>Demo ...</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<dl class=\"md-metadata\"><dt>title</dt><dd>Demo</dd></dl><p><span class=\"pm-syntax-inline\" title=\"\">Demo</span></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-metadata-not-start",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "\nTitle: Not metadata\n\n[%title]\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<p>Title: Not metadata</p>\r\n\r\n<p>[%title]</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>Title: Not metadata</p><p><span class=\"pm-syntax-inline\" title=\"\">Undefined: title</span></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-table",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "| Group ||\n| A | B |\n| :--- | ---: |\n| joined ||\n\n| next | row |\n[Caption][table-label]\n\n[table-label]\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<table id=\"table-label\">\r\n<caption style=\"caption-side: bottom;\">Caption</caption>\r\n<colgroup>\r\n<col style=\"text-align:left;\"/>\r\n<col style=\"text-align:right;\"/>\r\n</colgroup>\r\n\r\n<thead>\r\n<tr>\r\n\t<th style=\"text-align:left;\" colspan=\"2\"> Group </th>\r\n</tr>\r\n<tr>\r\n\t<th style=\"text-align:left;\"> A </th>\r\n\t<th style=\"text-align:right;\"> B </th>\r\n</tr>\r\n</thead>\r\n\r\n<tbody>\r\n<tr>\r\n\t<td style=\"text-align:left;\" colspan=\"2\"> joined </td>\r\n</tr>\r\n</tbody>\r\n\r\n<tbody>\r\n<tr>\r\n\t<td style=\"text-align:left;\"> next </td>\r\n\t<td style=\"text-align:right;\"> row </td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n\r\n<p><a href=\"#table-label\">table-label</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"mmd\" style=\"caption-side:bottom\" data-header-row=\"true\" data-header-column=\"false\"><caption id=\"tablelabel\">Caption</caption><tr><th colspan=\"2\" style=\"background-color:#f7f7f5;font-weight:600;text-align:left\"><p>Group</p></th></tr><tr><th style=\"background-color:#f7f7f5;font-weight:600;text-align:left\"><p>A</p></th><th style=\"background-color:#f7f7f5;font-weight:600;text-align:right\"><p>B</p></th></tr><tr><td colspan=\"2\" style=\"text-align:left\"><p>joined</p></td></tr><tr><td style=\"text-align:left\"><p>next</p></td><td style=\"text-align:right\"><p>row</p></td></tr></table><p>[table-label]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-table-escape",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "| A | B |\n| --- | --- |\n| x\\|y | `code` |\n[Caption]\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<table id=\"caption\">\r\n<caption style=\"caption-side: bottom;\">Caption</caption>\r\n<colgroup>\r\n<col />\r\n<col />\r\n</colgroup>\r\n\r\n<thead>\r\n<tr>\r\n\t<th> A </th>\r\n\t<th> B </th>\r\n</tr>\r\n</thead>\r\n\r\n<tbody>\r\n<tr>\r\n\t<td> x|y </td>\r\n\t<td> <code>code</code> </td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"mmd\" style=\"caption-side:bottom\" data-header-row=\"true\" data-header-column=\"false\"><caption id=\"caption\">Caption</caption><tr><th style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></th><th style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></th></tr><tr><td style=\"\"><p>x|y</p></td><td style=\"\"><p><code>code</code></p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-table-wrap",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "| A | B |\n| --- | --- |\n| first | second |\\\n| continued | content |\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<table>\r\n<colgroup>\r\n<col />\r\n<col />\r\n</colgroup>\r\n\r\n<thead>\r\n<tr>\r\n\t<th> A </th>\r\n\t<th> B </th>\r\n</tr>\r\n</thead>\r\n\r\n<tbody>\r\n<tr>\r\n\t<td> first </td>\r\n\t<td> second </td>\r\n</tr>\r\n<tr>\r\n\t<td> continued </td>\r\n\t<td> content </td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"mmd\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><th style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></th><th style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></th></tr><tr><td style=\"\"><p>first continued</p></td><td style=\"\"><p>second content</p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_mmd",
+      "id": "mmd-table-no-block",
+      "profile": "default",
+      "url": "https://fletcher.github.io/MultiMarkdown-6/syntax/",
+      "source": "| A | B |\n| --- | --- |\n| # not heading | - not list |\n",
+      "authority": "upstream parser",
+      "extensions": {},
+      "official": "<table>\r\n<colgroup>\r\n<col />\r\n<col />\r\n</colgroup>\r\n\r\n<thead>\r\n<tr>\r\n\t<th> A </th>\r\n\t<th> B </th>\r\n</tr>\r\n</thead>\r\n\r\n<tbody>\r\n<tr>\r\n\t<td> # not heading </td>\r\n\t<td> - not list </td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"mmd\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><th style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></th><th style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></th></tr><tr><td style=\"\"><p># not heading</p></td><td style=\"\"><p>- not list</p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ol type=\"1\">\r\n<li>outer\r\n<ul>\r\n<li>middle\r\n<ol type=\"1\">\r\n<li>inner</li>\r\n</ol></li>\r\n</ul></li>\r\n<li>next</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer - middle 1. inner</p></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-definition_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<dl>\r\n<dt>Term</dt>\r\n<dd>\r\nFirst\r\n</dd>\r\n<dd>\r\nSecond\r\n</dd>\r\n<dt>Next</dt>\r\n<dd>\r\n<p>Loose paragraph</p>\r\n<p>Continued</p>\r\n</dd>\r\n</dl>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>First</p></dd><dd><p>Second</p></dd><dt>Next</dt><dd><p>Loose paragraph</p><p>Continued</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-definition_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "definition_lists": true
+      },
+      "official": "<dl>\r\n<dt>Term</dt>\r\n<dd>\r\nFirst\r\n</dd>\r\n<dd>\r\nSecond\r\n</dd>\r\n<dt>Next</dt>\r\n<dd>\r\n<p>Loose paragraph</p>\r\n<p>Continued</p>\r\n</dd>\r\n</dl>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>First</p></dd><dd><p>Second</p></dd><dt>Next</dt><dd><p>Loose paragraph</p><p>Continued</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-definition_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "definition_lists": false
+      },
+      "official": "<p>Term : First ~ Second</p>\r\n<p>Next</p>\r\n<p>: Loose paragraph</p>\r\n<pre><code>Continued</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p>Term :   First ~   Second</p><p>Next</p><p>:   Loose paragraph</p><pre data-language=\"\"><code>Continued</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-fancy_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ol type=\"a\">\r\n<li>alpha</li>\r\n<li>beta</li>\r\n</ol>\r\n<ol start=\"4\" type=\"i\">\r\n<li>four</li>\r\n<li>five</li>\r\n</ol>\r\n<ol type=\"A\">\r\n<li>capital</li>\r\n<li>next</li>\r\n</ol>\r\n<ol>\r\n<li>auto</li>\r\n<li>auto</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\" type=\"a\"><li data-list-item=\"numbered\"><p>alpha</p></li><li data-list-item=\"numbered\"><p>beta</p></li><li data-list-item=\"numbered\"><p>four</p></li><li data-list-item=\"numbered\"><p>five</p></li><li data-list-item=\"numbered\"><p>capital</p></li><li data-list-item=\"numbered\"><p>next</p></li><li data-list-item=\"numbered\"><p>auto</p></li><li data-list-item=\"numbered\"><p>auto</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-fancy_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fancy_lists": true
+      },
+      "official": "<ol type=\"a\">\r\n<li>alpha</li>\r\n<li>beta</li>\r\n</ol>\r\n<ol start=\"4\" type=\"i\">\r\n<li>four</li>\r\n<li>five</li>\r\n</ol>\r\n<ol type=\"A\">\r\n<li>capital</li>\r\n<li>next</li>\r\n</ol>\r\n<ol>\r\n<li>auto</li>\r\n<li>auto</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\" type=\"a\"><li data-list-item=\"numbered\"><p>alpha</p></li><li data-list-item=\"numbered\"><p>beta</p></li><li data-list-item=\"numbered\"><p>four</p></li><li data-list-item=\"numbered\"><p>five</p></li><li data-list-item=\"numbered\"><p>capital</p></li><li data-list-item=\"numbered\"><p>next</p></li><li data-list-item=\"numbered\"><p>auto</p></li><li data-list-item=\"numbered\"><p>auto</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-fancy_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fancy_lists": false
+      },
+      "official": "<p>(a) alpha (b) beta</p>\r\n<p>iv. four v. five</p>\r\n<p>A. capital B. next</p>\r\n<ol>\r\n<li>auto</li>\r\n<li>auto</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>(a) alpha (b) beta</p><p>iv. four v. five</p><p>A.  capital B.  next</p><p>#. auto #. auto</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-fenced_code_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "~~~ {#code .python .numberLines startFrom=\"3\"}\nprint(1)\n~~~\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<pre id=\"code\" class=\"python numberLines\" data-startFrom=\"3\"><code>print(1)</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<pre data-language=\"python\" id=\"md-code\" data-md-id=\"code\" class=\"md-user-python md-user-numberLines\" data-block-color=\"\" style=\"\"><code>print(1)</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-fenced_code_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "~~~ {#code .python .numberLines startFrom=\"3\"}\nprint(1)\n~~~\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fenced_code_attributes": true
+      },
+      "official": "<pre id=\"code\" class=\"python numberLines\" data-startFrom=\"3\"><code>print(1)</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<pre data-language=\"python\" id=\"md-code\" data-md-id=\"code\" class=\"md-user-python md-user-numberLines\" data-block-color=\"\" style=\"\"><code>print(1)</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-fenced_code_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "~~~ {#code .python .numberLines startFrom=\"3\"}\nprint(1)\n~~~\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fenced_code_attributes": false
+      },
+      "official": "<p><sub></sub>~ {#code .python .numberLines startFrom=“3”} print(1) <sub></sub>~</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre data-language=\" {#code .python .numberLines startFrom=&quot;3&quot;}\"><code>print(1)</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-header_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Title {#chosen .unnumbered .unlisted lang=en}\n\n[link](#chosen)\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<h1 class=\"unnumbered unlisted\" lang=\"en\" id=\"chosen\">Title</h1>\r\n<p><a href=\"#chosen\">link</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-chosen\" data-md-id=\"chosen\" class=\"md-user-unnumbered md-user-unlisted\" lang=\"en\" data-block-color=\"\" style=\"\">Title</h1><p><a href=\"#md-chosen\" title=\"#chosen · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-header_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Title {#chosen .unnumbered .unlisted lang=en}\n\n[link](#chosen)\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "header_attributes": true
+      },
+      "official": "<h1 class=\"unnumbered unlisted\" lang=\"en\" id=\"chosen\">Title</h1>\r\n<p><a href=\"#chosen\">link</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-chosen\" data-md-id=\"chosen\" class=\"md-user-unnumbered md-user-unlisted\" lang=\"en\" data-block-color=\"\" style=\"\">Title</h1><p><a href=\"#md-chosen\" title=\"#chosen · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-header_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Title {#chosen .unnumbered .unlisted lang=en}\n\n[link](#chosen)\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "header_attributes": false
+      },
+      "official": "<h1 id=\"title-chosen-.unnumbered-.unlisted-langen\">Title {#chosen .unnumbered .unlisted lang=en}</h1>\r\n<p><a href=\"#chosen\">link</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-title-chosen-unnumbered-unlisted-langen\" data-md-id=\"title-chosen-unnumbered-unlisted-langen\" data-block-color=\"\" style=\"\">Title {#chosen .unnumbered .unlisted lang=en}</h1><p><a href=\"#chosen\" title=\"#chosen · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-table_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "| A | B |\n|---|---|\n|x|y|\n\n: Caption {#table .wide}\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<table id=\"table\" class=\"wide\">\r\n<caption>Caption</caption>\r\n<thead>\r\n<tr>\r\n<th>A</th>\r\n<th>B</th>\r\n</tr>\r\n</thead>\r\n<tbody>\r\n<tr>\r\n<td>x</td>\r\n<td>y</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<table class=\"pm-table md-user-wide\" data-table-encoding=\"pipe\" style=\"caption-side:bottom\" data-header-row=\"true\" data-header-column=\"false\" id=\"md-table\" data-md-id=\"table\" data-block-color=\"\"><caption id=\"table\">Caption</caption><tr><td style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></td><td style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></td></tr><tr><td style=\"\"><p>x</p></td><td style=\"\"><p>y</p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-table_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "| A | B |\n|---|---|\n|x|y|\n\n: Caption {#table .wide}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "table_attributes": true
+      },
+      "official": "<table id=\"table\" class=\"wide\">\r\n<caption>Caption</caption>\r\n<thead>\r\n<tr>\r\n<th>A</th>\r\n<th>B</th>\r\n</tr>\r\n</thead>\r\n<tbody>\r\n<tr>\r\n<td>x</td>\r\n<td>y</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<table class=\"pm-table md-user-wide\" data-table-encoding=\"pipe\" style=\"caption-side:bottom\" data-header-row=\"true\" data-header-column=\"false\" id=\"md-table\" data-md-id=\"table\" data-block-color=\"\"><caption id=\"table\">Caption</caption><tr><td style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></td><td style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></td></tr><tr><td style=\"\"><p>x</p></td><td style=\"\"><p>y</p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-table_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "| A | B |\n|---|---|\n|x|y|\n\n: Caption {#table .wide}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "table_attributes": false
+      },
+      "official": "<table>\r\n<caption>Caption {#table .wide}</caption>\r\n<thead>\r\n<tr>\r\n<th>A</th>\r\n<th>B</th>\r\n</tr>\r\n</thead>\r\n<tbody>\r\n<tr>\r\n<td>x</td>\r\n<td>y</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"caption-side:bottom\" data-header-row=\"true\" data-header-column=\"false\"><caption id=\"Caption {#table .wide}\">Caption {#table .wide}</caption><tr><td style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></td><td style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></td></tr><tr><td style=\"\"><p>x</p></td><td style=\"\"><p>y</p></td></tr></table>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-implicit_figures",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<figure>\r\n<img src=\"/sample.png\" title=\"title\" alt=\"Caption\" />\r\n<figcaption aria-hidden=\"true\"><strong>Caption</strong></figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"**Caption**\" title=\"title\"><figcaption>**Caption**</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-implicit_figures",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_figures": true
+      },
+      "official": "<figure>\r\n<img src=\"/sample.png\" title=\"title\" alt=\"Caption\" />\r\n<figcaption aria-hidden=\"true\"><strong>Caption</strong></figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"**Caption**\" title=\"title\"><figcaption>**Caption**</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-implicit_figures",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_figures": false
+      },
+      "official": "<p><img src=\"/sample.png\" title=\"title\" alt=\"Caption\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><img src=\"/sample.png\" alt=\"Caption\" title=\"title\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-implicit_header_references",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p><a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">text</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p><a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">Target heading</a> <a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">Target heading</a> <a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">text</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-implicit_header_references",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_header_references": true
+      },
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p><a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">text</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p><a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">Target heading</a> <a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">Target heading</a> <a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">text</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-implicit_header_references",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_header_references": false
+      },
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p>[Target heading] [Target heading][] [text][target heading]</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p>[Target heading] [Target heading][] [text][target heading]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-inline_code_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "`x+1`{#code .python key=\"two words\"}\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><code id=\"code\" class=\"python\" data-key=\"two words\">x+1</code></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><code id=\"md-code\" data-md-id=\"code\" class=\"md-user-python\">x+1</code></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-inline_code_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "`x+1`{#code .python key=\"two words\"}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "inline_code_attributes": true
+      },
+      "official": "<p><code id=\"code\" class=\"python\" data-key=\"two words\">x+1</code></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><code id=\"md-code\" data-md-id=\"code\" class=\"md-user-python\">x+1</code></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-inline_code_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "`x+1`{#code .python key=\"two words\"}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "inline_code_attributes": false
+      },
+      "official": "<p><code>x+1</code>{#code .python key=“two words”}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><code>x+1</code>{#code .python key=“two words”}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-link_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "[link](/target){#link .external title=\"two words\"}\n\n![image](/sample.png){width=50% height=20px}\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><a href=\"/target\" id=\"link\" class=\"external\" title=\"two words\">link</a></p>\r\n<figure>\r\n<img src=\"/sample.png\" style=\"width:50.0%\" height=\"20\" alt=\"image\" />\r\n<figcaption aria-hidden=\"true\">image</figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><a href=\"/target\" title=\"two words\" rel=\"noopener noreferrer\" id=\"md-link\" data-md-id=\"link\" class=\"md-user-external\">link</a></p><figure><img alt=\"image\"><figcaption>image</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-link_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "[link](/target){#link .external title=\"two words\"}\n\n![image](/sample.png){width=50% height=20px}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "link_attributes": true
+      },
+      "official": "<p><a href=\"/target\" id=\"link\" class=\"external\" title=\"two words\">link</a></p>\r\n<figure>\r\n<img src=\"/sample.png\" style=\"width:50.0%\" height=\"20\" alt=\"image\" />\r\n<figcaption aria-hidden=\"true\">image</figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><a href=\"/target\" title=\"two words\" rel=\"noopener noreferrer\" id=\"md-link\" data-md-id=\"link\" class=\"md-user-external\">link</a></p><figure><img alt=\"image\"><figcaption>image</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-link_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "[link](/target){#link .external title=\"two words\"}\n\n![image](/sample.png){width=50% height=20px}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "link_attributes": false
+      },
+      "official": "<p><a href=\"/target\">link</a>{#link .external title=“two words”}</p>\r\n<p><img src=\"/sample.png\" alt=\"image\" />{width=50% height=20px}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"/target\" title=\"/target · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a>{#link .external title=“two words”}</p><p><img src=\"/sample.png\" alt=\"image\">{width=50% height=20px}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-mmd_link_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![image][ref]\n\n[ref]: /sample.png \"title\" width=80px height=40px\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>![image][ref]</p>\r\n<p>[ref]: /sample.png “title” width=80px height=40px</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"image\" title=\"title\"><figcaption>image</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-mmd_link_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![image][ref]\n\n[ref]: /sample.png \"title\" width=80px height=40px\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "mmd_link_attributes": true
+      },
+      "official": "<figure>\r\n<img src=\"/sample.png\" title=\"title\" width=\"80\" height=\"40\" alt=\"image\" />\r\n<figcaption aria-hidden=\"true\">image</figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"image\" title=\"title\"><figcaption>image</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-mmd_link_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![image][ref]\n\n[ref]: /sample.png \"title\" width=80px height=40px\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "mmd_link_attributes": false
+      },
+      "official": "<p>![image][ref]</p>\r\n<p>[ref]: /sample.png “title” width=80px height=40px</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"image\" title=\"title\"><figcaption>image</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-task_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ul class=\"task-list\">\r\n<li><label><input type=\"checkbox\" />open</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />closed</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />uppercase</label></li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"task\" data-checked=\"false\" class=\"task-list-item\"><input type=\"checkbox\" disabled><p>open</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>closed</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-task_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "task_lists": true
+      },
+      "official": "<ul class=\"task-list\">\r\n<li><label><input type=\"checkbox\" />open</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />closed</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />uppercase</label></li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"task\" data-checked=\"false\" class=\"task-list-item\"><input type=\"checkbox\" disabled><p>open</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>closed</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-task_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "task_lists": false
+      },
+      "official": "<ul>\r\n<li>[ ] open</li>\r\n<li>[x] closed</li>\r\n<li>[X] uppercase</li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"bullet\"><p>[ ] open</p></li><li data-list-item=\"bullet\"><p>[x] closed</p></li><li data-list-item=\"bullet\"><p>[X] uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown",
+      "id": "pandoc-boundary-definition-multi-terms",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term A\nTerm B\n:   Meaning\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>Term A Term B : Meaning</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p>Term A Term B :   Meaning</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://spec.commonmark.org/0.31.2/",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ol type=\"1\">\r\n<li>outer\r\n<ul>\r\n<li>middle\r\n<ol type=\"1\">\r\n<li>inner</li>\r\n</ol></li>\r\n</ul></li>\r\n<li>next</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer</p><ul><li data-list-item=\"bullet\"><p>middle</p><ol start=\"1\"><li data-list-item=\"numbered\"><p>inner</p></li></ol></li></ul></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://spec.commonmark.org/0.31.2/",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "*em*{.red}\n\n{#para}\nParagraph\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><span class=\"red\" data-wrapper=\"1\"><em>em</em></span></p>\r\n<p id=\"para\">Paragraph</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><em>em</em>{.red}</p><p>{#para} Paragraph</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "*em*{.red}\n\n{#para}\nParagraph\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "attributes": true
+      },
+      "official": "<p><span class=\"red\" data-wrapper=\"1\"><em>em</em></span></p>\r\n<p id=\"para\">Paragraph</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p><em>em</em>{.red}</p><p>{#para} Paragraph</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "*em*{.red}\n\n{#para}\nParagraph\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "attributes": false
+      },
+      "official": "<p><em>em</em>{.red}</p>\r\n<p>{#para} Paragraph</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><em>em</em>{.red}</p><p>{#para} Paragraph</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-definition_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<dl>\r\n<dt>Term</dt>\r\n<dd>\r\nFirst\r\n</dd>\r\n<dd>\r\nSecond\r\n</dd>\r\n<dt>Next</dt>\r\n<dd>\r\n<p>Loose paragraph</p>\r\n<p>Continued</p>\r\n</dd>\r\n</dl>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>First</p></dd><dd><p>Second</p></dd><dt>Next</dt><dd><p>Loose paragraph</p><p>Continued</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-definition_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "definition_lists": true
+      },
+      "official": "<dl>\r\n<dt>Term</dt>\r\n<dd>\r\nFirst\r\n</dd>\r\n<dd>\r\nSecond\r\n</dd>\r\n<dt>Next</dt>\r\n<dd>\r\n<p>Loose paragraph</p>\r\n<p>Continued</p>\r\n</dd>\r\n</dl>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>First</p></dd><dd><p>Second</p></dd><dt>Next</dt><dd><p>Loose paragraph</p><p>Continued</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-definition_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "definition_lists": false
+      },
+      "official": "<p>Term : First ~ Second</p>\r\n<p>Next</p>\r\n<p>: Loose paragraph</p>\r\n<pre><code>Continued</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p>Term :   First ~   Second</p><p>Next</p><p>:   Loose paragraph</p><pre data-language=\"\"><code>Continued</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-fancy_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ol type=\"a\">\r\n<li>alpha</li>\r\n<li>beta</li>\r\n</ol>\r\n<ol start=\"4\" type=\"i\">\r\n<li>four</li>\r\n<li>five</li>\r\n</ol>\r\n<ol type=\"A\">\r\n<li>capital</li>\r\n<li>next</li>\r\n</ol>\r\n<p>#. auto #. auto</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ol start=\"1\" type=\"a\"><li data-list-item=\"numbered\"><p>alpha</p></li><li data-list-item=\"numbered\"><p>beta</p></li><li data-list-item=\"numbered\"><p>four</p></li><li data-list-item=\"numbered\"><p>five</p></li><li data-list-item=\"numbered\"><p>capital</p></li><li data-list-item=\"numbered\"><p>next</p></li><li data-list-item=\"numbered\"><p>auto</p></li><li data-list-item=\"numbered\"><p>auto</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-fancy_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fancy_lists": true
+      },
+      "official": "<ol type=\"a\">\r\n<li>alpha</li>\r\n<li>beta</li>\r\n</ol>\r\n<ol start=\"4\" type=\"i\">\r\n<li>four</li>\r\n<li>five</li>\r\n</ol>\r\n<ol type=\"A\">\r\n<li>capital</li>\r\n<li>next</li>\r\n</ol>\r\n<p>#. auto #. auto</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ol start=\"1\" type=\"a\"><li data-list-item=\"numbered\"><p>alpha</p></li><li data-list-item=\"numbered\"><p>beta</p></li><li data-list-item=\"numbered\"><p>four</p></li><li data-list-item=\"numbered\"><p>five</p></li><li data-list-item=\"numbered\"><p>capital</p></li><li data-list-item=\"numbered\"><p>next</p></li><li data-list-item=\"numbered\"><p>auto</p></li><li data-list-item=\"numbered\"><p>auto</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-fancy_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fancy_lists": false
+      },
+      "official": "<p>(a) alpha (b) beta</p>\r\n<p>iv. four v. five</p>\r\n<p>A. capital B. next</p>\r\n<p>#. auto #. auto</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p>(a) alpha (b) beta</p><p>iv. four v. five</p><p>A.  capital B.  next</p><p>#. auto #. auto</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-implicit_figures",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><img src=\"/sample.png\" title=\"title\" alt=\"Caption\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><img src=\"/sample.png\" alt=\"Caption\" title=\"title\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-implicit_figures",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_figures": true
+      },
+      "official": "<figure>\r\n<img src=\"/sample.png\" title=\"title\" alt=\"Caption\" />\r\n<figcaption aria-hidden=\"true\"><strong>Caption</strong></figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"**Caption**\" title=\"title\"><figcaption>**Caption**</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-implicit_figures",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_figures": false
+      },
+      "official": "<p><img src=\"/sample.png\" title=\"title\" alt=\"Caption\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><img src=\"/sample.png\" alt=\"Caption\" title=\"title\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-implicit_header_references",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p><a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">text</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p>[Target heading] [Target heading][] [text][target heading]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-implicit_header_references",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_header_references": true
+      },
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p><a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">text</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p>[Target heading] [Target heading][] [text][target heading]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-implicit_header_references",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_header_references": false
+      },
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p>[Target heading] [Target heading][] [text][target heading]</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p>[Target heading] [Target heading][] [text][target heading]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-task_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ul>\r\n<li>[ ] open</li>\r\n<li>[x] closed</li>\r\n<li>[X] uppercase</li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ul><li data-list-item=\"task\" data-checked=\"false\" class=\"task-list-item\"><input type=\"checkbox\" disabled><p>open</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>closed</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-task_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "task_lists": true
+      },
+      "official": "<ul>\r\n<li>[ ] open</li>\r\n<li>[x] closed</li>\r\n<li>[X] uppercase</li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<ul><li data-list-item=\"task\" data-checked=\"false\" class=\"task-list-item\"><input type=\"checkbox\" disabled><p>open</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>closed</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-task_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "task_lists": false
+      },
+      "official": "<ul>\r\n<li>[ ] open</li>\r\n<li>[x] closed</li>\r\n<li>[X] uppercase</li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"bullet\"><p>[ ] open</p></li><li data-list-item=\"bullet\"><p>[x] closed</p></li><li data-list-item=\"bullet\"><p>[X] uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "commonmark_x",
+      "id": "pandoc-boundary-definition-multi-terms",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term A\nTerm B\n:   Meaning\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<dl>\r\n<dt>Term A Term B</dt>\r\n<dd>\r\nMeaning\r\n</dd>\r\n</dl>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>Term A Term B :   Meaning</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ol>\r\n<li>outer\r\n<ul>\r\n<li>middle\r\n<ol>\r\n<li>inner</li>\r\n</ol></li>\r\n</ul></li>\r\n<li>next</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer</p><ul><li data-list-item=\"bullet\"><p>middle</p><ol start=\"1\"><li data-list-item=\"numbered\"><p>inner</p></li></ol></li></ul></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><a href=\"https://example.com\" title=\"reference title\">full</a> <a href=\"https://example.com\" title=\"reference title\">ref</a> <a href=\"https://example.com\" title=\"reference title\">Ref</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-definition_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>Term</p>\r\n<p>: First</p>\r\n<p>~ Second</p>\r\n<p>Next</p>\r\n<p>: Loose paragraph</p>\r\n<pre><code>Continued</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p>Term</p><p>:   First</p><p>~   Second</p><p>Next</p><p>:   Loose paragraph</p><pre data-language=\"\"><code>Continued</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-definition_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "definition_lists": true
+      },
+      "official": "<dl>\r\n<dt>Term</dt>\r\n<dd>\r\nFirst\r\n</dd>\r\n<dd>\r\nSecond\r\n</dd>\r\n<dt>Next</dt>\r\n<dd>\r\n<p>Loose paragraph</p>\r\n<p>Continued</p>\r\n</dd>\r\n</dl>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<dl class=\"pm-definition-list\"><dt>Term</dt><dd><p>First</p></dd><dd><p>Second</p></dd><dt>Next</dt><dd><p>Loose paragraph</p><p>Continued</p></dd></dl>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-definition_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term\n:   First\n~   Second\n\nNext\n\n:   Loose paragraph\n\n    Continued\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "definition_lists": false
+      },
+      "official": "<p>Term</p>\r\n<p>: First</p>\r\n<p>~ Second</p>\r\n<p>Next</p>\r\n<p>: Loose paragraph</p>\r\n<pre><code>Continued</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p>Term</p><p>:   First</p><p>~   Second</p><p>Next</p><p>:   Loose paragraph</p><pre data-language=\"\"><code>Continued</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-fancy_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>(a) alpha</p>\r\n<p>(b) beta</p>\r\n<p>iv. four</p>\r\n<p>v. five</p>\r\n<p>A. capital</p>\r\n<p>B. next</p>\r\n<ol>\r\n<li>auto</li>\r\n<li>auto</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>(a) alpha (b) beta</p><p>iv. four v. five</p><p>A.  capital B.  next</p><p>#. auto #. auto</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-fancy_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fancy_lists": true
+      },
+      "official": "<ol type=\"a\">\r\n<li>alpha</li>\r\n<li>beta</li>\r\n</ol>\r\n<ol type=\"i\">\r\n<li>four</li>\r\n<li>five</li>\r\n</ol>\r\n<ol type=\"A\">\r\n<li>capital</li>\r\n<li>next</li>\r\n</ol>\r\n<ol>\r\n<li>auto</li>\r\n<li>auto</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ol start=\"1\" type=\"a\"><li data-list-item=\"numbered\"><p>alpha</p></li><li data-list-item=\"numbered\"><p>beta</p></li><li data-list-item=\"numbered\"><p>four</p></li><li data-list-item=\"numbered\"><p>five</p></li><li data-list-item=\"numbered\"><p>capital</p></li><li data-list-item=\"numbered\"><p>next</p></li><li data-list-item=\"numbered\"><p>auto</p></li><li data-list-item=\"numbered\"><p>auto</p></li></ol>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-fancy_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "(a) alpha\n(b) beta\n\niv. four\nv. five\n\nA.  capital\nB.  next\n\n#. auto\n#. auto\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fancy_lists": false
+      },
+      "official": "<p>(a) alpha</p>\r\n<p>(b) beta</p>\r\n<p>iv. four</p>\r\n<p>v. five</p>\r\n<p>A. capital</p>\r\n<p>B. next</p>\r\n<ol>\r\n<li>auto</li>\r\n<li>auto</li>\r\n</ol>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<p>(a) alpha (b) beta</p><p>iv. four v. five</p><p>A.  capital B.  next</p><p>#. auto #. auto</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-fenced_code_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "~~~ {#code .python .numberLines startFrom=\"3\"}\nprint(1)\n~~~\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>~~~ {#code .python .numberLines startFrom=\"3\"} print(1) ~~~</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre data-language=\" {#code .python .numberLines startFrom=&quot;3&quot;}\"><code>print(1)</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-fenced_code_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "~~~ {#code .python .numberLines startFrom=\"3\"}\nprint(1)\n~~~\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fenced_code_attributes": true
+      },
+      "official": "<pre id=\"code\" class=\"python numberLines\" data-startFrom=\"3\"><code>print(1)</code></pre>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<pre data-language=\"python\" id=\"md-code\" data-md-id=\"code\" class=\"md-user-python md-user-numberLines\" data-block-color=\"\" style=\"\"><code>print(1)</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-fenced_code_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "~~~ {#code .python .numberLines startFrom=\"3\"}\nprint(1)\n~~~\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "fenced_code_attributes": false
+      },
+      "official": "<p>~~~ {#code .python .numberLines startFrom=\"3\"} print(1) ~~~</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<pre data-language=\" {#code .python .numberLines startFrom=&quot;3&quot;}\"><code>print(1)</code></pre>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-header_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Title {#chosen .unnumbered .unlisted lang=en}\n\n[link](#chosen)\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<h1 id=\"title-chosen-unnumbered-unlisted-langen\">Title {#chosen .unnumbered .unlisted lang=en}</h1>\r\n<p><a href=\"#chosen\">link</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-title-chosen-unnumbered-unlisted-langen\" data-md-id=\"title-chosen-unnumbered-unlisted-langen\" data-block-color=\"\" style=\"\">Title {#chosen .unnumbered .unlisted lang=en}</h1><p><a href=\"#chosen\" title=\"#chosen · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-header_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Title {#chosen .unnumbered .unlisted lang=en}\n\n[link](#chosen)\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "header_attributes": true
+      },
+      "official": "<h1 class=\"unnumbered unlisted\" lang=\"en\" id=\"chosen\">Title</h1>\r\n<p><a href=\"#chosen\">link</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-chosen\" data-md-id=\"chosen\" class=\"md-user-unnumbered md-user-unlisted\" lang=\"en\" data-block-color=\"\" style=\"\">Title</h1><p><a href=\"#md-chosen\" title=\"#chosen · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-header_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Title {#chosen .unnumbered .unlisted lang=en}\n\n[link](#chosen)\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "header_attributes": false
+      },
+      "official": "<h1 id=\"title-chosen-unnumbered-unlisted-langen\">Title {#chosen .unnumbered .unlisted lang=en}</h1>\r\n<p><a href=\"#chosen\">link</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-title-chosen-unnumbered-unlisted-langen\" data-md-id=\"title-chosen-unnumbered-unlisted-langen\" data-block-color=\"\" style=\"\">Title {#chosen .unnumbered .unlisted lang=en}</h1><p><a href=\"#chosen\" title=\"#chosen · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-table_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "| A | B |\n|---|---|\n|x|y|\n\n: Caption {#table .wide}\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<table>\r\n<thead>\r\n<tr>\r\n<th>A</th>\r\n<th>B</th>\r\n</tr>\r\n</thead>\r\n<tbody>\r\n<tr>\r\n<td>x</td>\r\n<td>y</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p>: Caption {#table .wide}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></td><td style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></td></tr><tr><td style=\"\"><p>x</p></td><td style=\"\"><p>y</p></td></tr></table><p>: Caption {#table .wide}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-table_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "| A | B |\n|---|---|\n|x|y|\n\n: Caption {#table .wide}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "table_attributes": true
+      },
+      "official": "<table>\r\n<thead>\r\n<tr>\r\n<th>A</th>\r\n<th>B</th>\r\n</tr>\r\n</thead>\r\n<tbody>\r\n<tr>\r\n<td>x</td>\r\n<td>y</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p>: Caption {#table .wide}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></td><td style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></td></tr><tr><td style=\"\"><p>x</p></td><td style=\"\"><p>y</p></td></tr></table><p>: Caption {#table .wide}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-table_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "| A | B |\n|---|---|\n|x|y|\n\n: Caption {#table .wide}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "table_attributes": false
+      },
+      "official": "<table>\r\n<thead>\r\n<tr>\r\n<th>A</th>\r\n<th>B</th>\r\n</tr>\r\n</thead>\r\n<tbody>\r\n<tr>\r\n<td>x</td>\r\n<td>y</td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n<p>: Caption {#table .wide}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600\"><p>A</p></td><td style=\"background-color:#f7f7f5;font-weight:600\"><p>B</p></td></tr><tr><td style=\"\"><p>x</p></td><td style=\"\"><p>y</p></td></tr></table><p>: Caption {#table .wide}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-implicit_figures",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><img src=\"/sample.png\" title=\"title\" alt=\"Caption\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><img src=\"/sample.png\" alt=\"Caption\" title=\"title\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-implicit_figures",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_figures": true
+      },
+      "official": "<figure>\r\n<img src=\"/sample.png\" title=\"title\" alt=\"Caption\" />\r\n<figcaption aria-hidden=\"true\"><strong>Caption</strong></figcaption>\r\n</figure>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "notdown": "<figure><img alt=\"**Caption**\" title=\"title\"><figcaption>**Caption**</figcaption></figure>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-implicit_figures",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![**Caption**](/sample.png \"title\")\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_figures": false
+      },
+      "official": "<p><img src=\"/sample.png\" title=\"title\" alt=\"Caption\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><img src=\"/sample.png\" alt=\"Caption\" title=\"title\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-implicit_header_references",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p>[Target heading] [Target heading][] [text][target heading]</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p>[Target heading] [Target heading][] [text][target heading]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-implicit_header_references",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_header_references": true
+      },
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p><a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">Target heading</a> <a href=\"#target-heading\">text</a></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p><a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">Target heading</a> <a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">Target heading</a> <a href=\"#md-target-heading\" title=\"#target-heading · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">text</a></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-implicit_header_references",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "# Target heading\n\n[Target heading] [Target heading][] [text][target heading]\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "implicit_header_references": false
+      },
+      "official": "<h1 id=\"target-heading\">Target heading</h1>\r\n<p>[Target heading] [Target heading][] [text][target heading]</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<h1 id=\"md-target-heading\" data-md-id=\"target-heading\" data-block-color=\"\" style=\"\">Target heading</h1><p>[Target heading] [Target heading][] [text][target heading]</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-inline_code_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "`x+1`{#code .python key=\"two words\"}\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><code>x+1</code>{#code .python key=\"two words\"}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><code>x+1</code>{#code .python key=&quot;two words&quot;}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-inline_code_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "`x+1`{#code .python key=\"two words\"}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "inline_code_attributes": true
+      },
+      "official": "<p><code id=\"code\" class=\"python\" data-key=\"two words\">x+1</code></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><code id=\"md-code\" data-md-id=\"code\" class=\"md-user-python\">x+1</code></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-inline_code_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "`x+1`{#code .python key=\"two words\"}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "inline_code_attributes": false
+      },
+      "official": "<p><code>x+1</code>{#code .python key=\"two words\"}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p><code>x+1</code>{#code .python key=&quot;two words&quot;}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-link_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "[link](/target){#link .external title=\"two words\"}\n\n![image](/sample.png){width=50% height=20px}\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p><a href=\"/target\">link</a>{#link .external title=\"two words\"}</p>\r\n<p><img src=\"/sample.png\" alt=\"image\" />{width=50% height=20px}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"/target\" title=\"/target · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a>{#link .external title=&quot;two words&quot;}</p><p><img src=\"/sample.png\" alt=\"image\">{width=50% height=20px}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-link_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "[link](/target){#link .external title=\"two words\"}\n\n![image](/sample.png){width=50% height=20px}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "link_attributes": true
+      },
+      "official": "<p><a href=\"/target\" id=\"link\" class=\"external\" title=\"two words\">link</a></p>\r\n<p><img src=\"/sample.png\" style=\"width:50.0%\" height=\"20\" alt=\"image\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"/target\" title=\"two words\" rel=\"noopener noreferrer\" id=\"md-link\" data-md-id=\"link\" class=\"md-user-external\">link</a></p><p><img src=\"/sample.png\" alt=\"image\" style=\"width:50%;height:20px;\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-link_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "[link](/target){#link .external title=\"two words\"}\n\n![image](/sample.png){width=50% height=20px}\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "link_attributes": false
+      },
+      "official": "<p><a href=\"/target\">link</a>{#link .external title=\"two words\"}</p>\r\n<p><img src=\"/sample.png\" alt=\"image\" />{width=50% height=20px}</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><a href=\"/target\" title=\"/target · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">link</a>{#link .external title=&quot;two words&quot;}</p><p><img src=\"/sample.png\" alt=\"image\">{width=50% height=20px}</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-mmd_link_attributes",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![image][ref]\n\n[ref]: /sample.png \"title\" width=80px height=40px\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>![image][ref]</p>\r\n<p>[ref]: /sample.png \"title\" width=80px height=40px</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p>![image][ref]</p><p>[ref]: /sample.png &quot;title&quot; width=80px height=40px</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-mmd_link_attributes",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![image][ref]\n\n[ref]: /sample.png \"title\" width=80px height=40px\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "mmd_link_attributes": true
+      },
+      "official": "<p><img src=\"/sample.png\" title=\"title\" width=\"80\" height=\"40\" alt=\"image\" /></p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<p><img src=\"/sample.png\" alt=\"image\" title=\"title\" style=\"width:80px;height:40px;\"></p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-mmd_link_attributes",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "![image][ref]\n\n[ref]: /sample.png \"title\" width=80px height=40px\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "mmd_link_attributes": false
+      },
+      "official": "<p>![image][ref]</p>\r\n<p>[ref]: /sample.png \"title\" width=80px height=40px</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p>![image][ref]</p><p>[ref]: /sample.png &quot;title&quot; width=80px height=40px</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-task_lists",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<ul class=\"task-list\">\r\n<li><label><input type=\"checkbox\" />open</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />closed</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />uppercase</label></li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"task\" data-checked=\"false\" class=\"task-list-item\"><input type=\"checkbox\" disabled><p>open</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>closed</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-task_lists",
+      "profile": "documented",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "task_lists": true
+      },
+      "official": "<ul class=\"task-list\">\r\n<li><label><input type=\"checkbox\" />open</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />closed</label></li>\r\n<li><label><input type=\"checkbox\" checked=\"\" />uppercase</label></li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"task\" data-checked=\"false\" class=\"task-list-item\"><input type=\"checkbox\" disabled><p>open</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>closed</p></li><li data-list-item=\"task\" data-checked=\"true\" class=\"task-list-item\"><input type=\"checkbox\" disabled checked><p>uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-task_lists",
+      "profile": "disabled",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "- [ ] open\n- [x] closed\n- [X] uppercase\n",
+      "authority": "Pandoc",
+      "extensions": {
+        "task_lists": false
+      },
+      "official": "<ul>\r\n<li>[ ] open</li>\r\n<li>[x] closed</li>\r\n<li>[X] uppercase</li>\r\n</ul>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "notdown": "<ul><li data-list-item=\"bullet\"><p>[ ] open</p></li><li data-list-item=\"bullet\"><p>[x] closed</p></li><li data-list-item=\"bullet\"><p>[X] uppercase</p></li></ul>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "markdown_github",
+      "id": "pandoc-boundary-definition-multi-terms",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/jgm/pandoc/3.11/MANUAL.txt",
+      "source": "Term A\nTerm B\n:   Meaning\n",
+      "authority": "Pandoc",
+      "extensions": {},
+      "official": "<p>Term A Term B</p>\r\n<p>: Meaning</p>\r\n",
+      "previousComparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "notdown": "<p>Term A Term B</p><p>:   Meaning</p>",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": true,
+        "textEqual": true
+      },
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "typora",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer</p><ul><li data-list-item=\"bullet\"><p>middle</p><ol start=\"1\"><li data-list-item=\"numbered\"><p>inner</p></li></ol></li></ul></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "typora",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://daringfireball.net/projects/markdown/syntax",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "typora",
+      "id": "table-align",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "| left | center | right |\n| :--- | :---: | ---: |\n| *a* | **b** | `c` |\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600;text-align:left\"><p>left</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:center\"><p>center</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:right\"><p>right</p></td></tr><tr><td style=\"text-align:left\"><p><em>a</em></p></td><td style=\"text-align:center\"><p><strong>b</strong></p></td><td style=\"text-align:right\"><p><code>c</code></p></td></tr></table>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "typora",
+      "id": "autolink-boundary",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "abcwww.example.com <https://example.com> `https://example.com` https://example.com/a&amp;\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p><a href=\"http://abcwww.example.com\" title=\"http://abcwww.example.com · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">abcwww.example.com</a> <a href=\"https://example.com\" title=\"https://example.com · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">https://example.com</a> <code>https://example.com</code> <a href=\"https://example.com/a&amp;amp\" title=\"https://example.com/a&amp;amp · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">https://example.com/a&amp;amp</a>;</p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "obsidian",
+      "id": "list-nesting",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Editing%20and%20formatting/Basic%20formatting%20syntax.md",
+      "source": "1. outer\n    - middle\n        1. inner\n2. next\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<ol start=\"1\"><li data-list-item=\"numbered\"><p>outer</p><ul><li data-list-item=\"bullet\"><p>middle</p><ol start=\"1\"><li data-list-item=\"numbered\"><p>inner</p></li></ol></li></ul></li><li data-list-item=\"numbered\"><p>next</p></li></ol>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "obsidian",
+      "id": "reference-links",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Editing%20and%20formatting/Basic%20formatting%20syntax.md",
+      "source": "[full][Ref] [ref][] [Ref]\n\n[ref]: https://example.com \"reference title\"\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p><a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">full</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">ref</a> <a href=\"https://example.com\" title=\"reference title\" rel=\"noopener noreferrer\">Ref</a></p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "obsidian",
+      "id": "table-align",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "| left | center | right |\n| :--- | :---: | ---: |\n| *a* | **b** | `c` |\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<table class=\"pm-table\" data-table-encoding=\"pipe\" style=\"\" data-header-row=\"true\" data-header-column=\"false\"><tr><td style=\"background-color:#f7f7f5;font-weight:600;text-align:left\"><p>left</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:center\"><p>center</p></td><td style=\"background-color:#f7f7f5;font-weight:600;text-align:right\"><p>right</p></td></tr><tr><td style=\"text-align:left\"><p><em>a</em></p></td><td style=\"text-align:center\"><p><strong>b</strong></p></td><td style=\"text-align:right\"><p><code>c</code></p></td></tr></table>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "obsidian",
+      "id": "autolink-boundary",
+      "profile": "default",
+      "url": "https://github.github.com/gfm/",
+      "source": "abcwww.example.com <https://example.com> `https://example.com` https://example.com/a&amp;\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p><a href=\"http://abcwww.example.com\" title=\"http://abcwww.example.com · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">abcwww.example.com</a> <a href=\"https://example.com\" title=\"https://example.com · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">https://example.com</a> <code>https://example.com</code> <a href=\"https://example.com/a&amp;amp\" title=\"https://example.com/a&amp;amp · Ctrl/⌘ + click to open link\" rel=\"noopener noreferrer\">https://example.com/a&amp;amp</a>;</p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "obsidian",
+      "id": "obs-comments",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Editing%20and%20formatting/Basic%20formatting%20syntax.md",
+      "source": "visible %% hidden inline %% tail\n\n%%\nhidden block\n%%\n\nafter\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p>visible <span class=\"pm-comment\" hidden=\"\" aria-hidden=\"true\"></span> tail</p><p>after</p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": true
+    },
+    {
+      "variant": "obsidian",
+      "id": "obs-block-links",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Editing%20and%20formatting/Basic%20formatting%20syntax.md",
+      "source": "Paragraph ^block-id\n\n[[#^block-id]] [[Target#^block-id|label]]\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p>Paragraph ^block-id</p><p><a class=\"page-mention\" href=\"#^block-id\"><span aria-hidden=\"true\">▤</span> #^block-id</a> <a class=\"page-mention\" href=\"#page/Target%23%5Eblock-id\"><span aria-hidden=\"true\">▤</span> label</a></p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "obsidian",
+      "id": "obs-embed-note",
+      "profile": "default",
+      "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Editing%20and%20formatting/Basic%20formatting%20syntax.md",
+      "source": "![[Target]] ![[Target#Heading]] ![[Target#^block-id]]\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p>!<a class=\"page-mention\" href=\"#page/Target\"><span aria-hidden=\"true\">▤</span> Target</a> !<a class=\"page-mention\" href=\"#page/Target%23Heading\"><span aria-hidden=\"true\">▤</span> Target#Heading</a> !<a class=\"page-mention\" href=\"#page/Target%23%5Eblock-id\"><span aria-hidden=\"true\">▤</span> Target#^block-id</a></p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    },
+    {
+      "variant": "notion-markdown",
+      "id": "notion-mention-agent",
+      "profile": "default",
+      "url": "https://developers.notion.com/guides/data-apis/enhanced-markdown",
+      "source": "<mention-agent url=\"https://example.com/agent\">Name</mention-agent> <mention-agent url=\"https://example.com/agent\"/>\n",
+      "authority": null,
+      "extensions": {},
+      "official": null,
+      "previousComparison": null,
+      "notdown": "<p>&lt;mention-agent url=&quot;https://example.com/agent&quot;&gt;Name&lt;/mention-agent&gt; &lt;mention-agent url=&quot;https://example.com/agent&quot;/&gt;</p>",
+      "comparison": null,
+      "roundtripExact": true,
+      "nativeChanged": false
+    }
+  ]
+}

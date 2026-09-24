@@ -28,6 +28,7 @@ const obsidian = "https://help.obsidian.md/";
 const notion = "https://developers.notion.com/guides/data-apis/enhanced-markdown";
 type Rules = Record<string, SyntaxEvidence>;
 const rules: Record<Dialect, Rules> = {
+  rmarkdown: {},
   commonmark: {}, gfm: {}, typora: {}, obsidian: {}, "notion-markdown": {}, notdown: {},
   markdown: {}, commonmark_x: {}, markdown_strict: {}, markdown_phpextra: {}, markdown_mmd: {}, markdown_github: {},
 };
@@ -75,6 +76,7 @@ for (const variant of ["markdown", "commonmark_x", "markdown_github"] as const) 
     });
   }
 }
+Object.assign(rules.rmarkdown, rules.markdown);
 add("markdown_phpextra", "abbreviations", "PHP Extra Docs", php + "#abbr");
 add("markdown_phpextra", "definition_lists", "PHP Extra Docs", php + "#def-list");
 add("markdown_phpextra", "footnotes", "PHP Extra Docs", php + "#footnotes");
@@ -157,11 +159,15 @@ export const extensionGroupLabels = {
 };
 export type ExtensionGroupId = keyof typeof extensionGroupLabels;
 type Entry = { id: string; label: string; status?: string };
+// Local presentation scope is independent of parser registration and upstream syntax.
+export function isOutsideMarkdownScope(entry: Pick<Entry, "id" | "status">) {
+  return entry.id === "raw_tex" || entry.status === "out-of-scope";
+}
 export function groupExtensions<T extends Entry>(entries: readonly T[], variant: Dialect) {
   const groups: { id: ExtensionGroupId; label: string; entries: T[] }[] = Object.entries(extensionGroupLabels).map(([id, label]) => ({ id: id as ExtensionGroupId, label, entries: [] }));
   for (const entry of entries) {
     const evidence = extensionProvenance(variant, entry.id);
-    const id = entry.status === "out-of-scope" ? "outside" : evidence.builtIn ? "builtin" : evidence.syntax ? "specified" : "other";
+    const id = isOutsideMarkdownScope(entry) ? "outside" : evidence.builtIn ? "builtin" : evidence.syntax ? "specified" : "other";
     groups.find(group => group.id === id)!.entries.push(entry);
   }
   for (const group of groups) group.entries.sort((a, b) => {

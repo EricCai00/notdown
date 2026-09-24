@@ -1,0 +1,36 @@
+/* Focus styling distinguishes typing inside code from typing beside it.
+   Decorations are view-only; they never enter the Markdown document. */
+.pm-document:focus code:has(.pm-inline-code-active),
+.pm-document:focus code.pm-inline-code-active {
+  background: #e2e2df;
+}
+
+.pm-hide-native-caret,
+.pm-hide-native-caret * {
+  caret-color: transparent !important;
+}
+.pm-inline-boundary-caret {
+  position: fixed;
+  width: 1px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 20;
+  animation: pm-inline-caret-blink 1s step-end infinite;
+}
+.pm-inline-boundary-caret[hidden] {
+  display: none;
+}
+@keyframes pm-inline-caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-inline-boundary-caret {
+    animation: none;
+  }
+}

@@ -16,6 +16,34 @@ import { mapScroll } from "../../src/markdown-lab/scroll.js";
 import { variants } from "../../src/markdown-lab/model.js";
 import { dialects } from "../../src/markdown-engine/config.js";
 
+test("official direct parsers preserve their own syntax and reject Lab overrides", async (t) => {
+ const capabilities=await getMarkdownLabCapabilities();
+ assert.equal(capabilities.renderers?.['commonmark-js']?.available,true);
+ for(const [variant,source,pattern] of [
+  ['commonmark-js','# Official\n\n~plain~\n\n<script>literal</script>',/<p>~plain~<\/p>/],
+  ['cmark-gfm','~deleted~\n\n- [x] done',/<del>deleted<\/del>/],
+  ['php-markdown-extra','*[HTML]: Hypertext\n\nHTML\n\nTerm\n: Definition',/<abbr title="Hypertext">HTML<\/abbr>/],
+ ] as const){
+  await t.test(variant,async t=>{
+   if(!capabilities.renderers?.[variant]?.available){t.skip('Optional runtime is not installed');return;}
+   const result=await renderPreview({variant,source});
+   assert.match(result.html,pattern);
+   assert.doesNotMatch(result.html,/lab-source-block/);
+   assert.equal(result.mapping,'proportional');
+   if(variant==='commonmark-js')assert.match(result.html,/<script>literal<\/script>/);
+   await assert.rejects(renderPreview({variant,source,extensions:{smart:true}}),/Direct renderers/);
+   const controller=new AbortController();controller.abort();
+   await assert.rejects(renderPreview({variant,source},controller.signal),/cancelled/);
+  });
+ }
+});
+
+test('missing optional official runtimes stay unavailable without silently using Pandoc',async()=>{
+ const code="import {getMarkdownLabCapabilities,renderPreview} from './server/pandoc.ts'; const c=await getMarkdownLabCapabilities();let status;try{await renderPreview({variant:'php-markdown-extra',source:'# text'});}catch(e){status=e.status;}console.log(JSON.stringify({c:c.renderers['cmark-gfm'].available,p:c.renderers['php-markdown-extra'].available,status}));";
+ const {stdout}=await promisify(execFile)(process.execPath,['--import','tsx','--input-type=module','-e',code],{env:{...process.env,MARKDOWN_PYTHON_PATH:path.join(os.tmpdir(),'missing-audit-python'),PHP_PATH:path.join(os.tmpdir(),'missing-audit-php')},windowsHide:true});
+ assert.deepEqual(JSON.parse(stdout),{c:false,p:false,status:503});
+});
+
 test("Lab dialect names match the editor variants without a duplicate Pandoc CLI entry", () => {
   for (const variant of variants.filter((item) => item.engine === "pandoc" || item.engine === "notdown"))
     assert.equal(variant.label, dialects.find((dialect) => dialect.id === variant.id)?.label, variant.id);

@@ -122,6 +122,7 @@ function blockTypeRule(
 
 export function markdownRules(
   allow: (command: string) => boolean = () => true,
+  resolvePageTarget: (target: string) => string = target => target,
 ) {
   const { paragraph, blockquote, bullet_list, ordered_list, page_link } =
     schema.nodes;
@@ -142,7 +143,7 @@ export function markdownRules(
             start,
             end,
             page_link.create(
-              { target, label },
+              { target: allow("wiki_syntax") ? target : resolvePageTarget(target), label, syntaxForm: allow("wiki_syntax") ? "wiki" : "", labelMode: separator < 0 ? "auto" : "custom" },
               null,
               state.doc.resolve(start).marks(),
             ),

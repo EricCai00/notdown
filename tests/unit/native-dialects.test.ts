@@ -56,7 +56,7 @@ test("list interruption flags never swallow consecutive list items", () => {
 });
 
 test("only Pandoc presets use the captured Pandoc defaults for implemented extensions", () => {
-  assert.equal(dialects.length, 12);
+  assert.equal(dialects.length, 13);
   assert(dialects.every((d) => d.native));
   for (const variant of ["markdown", "commonmark_x", "markdown_github"] as Dialect[]) {
     const c = config(variant);

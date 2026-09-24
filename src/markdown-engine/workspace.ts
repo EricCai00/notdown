@@ -1,3 +1,4 @@
+import type { InternalReference } from "../document/internal-reference";
 import { Compartment, EditorState, Prec } from "@codemirror/state";
 import {
   EditorView,
@@ -9,15 +10,15 @@ import {
   scrollPastEnd,
 } from "@codemirror/view";
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
-import {
-  syntaxHighlighting,
-  defaultHighlightStyle,
-} from "@codemirror/language";
+import { foldGutter, foldKeymap } from "@codemirror/language";
+import { markdownSourceLanguage } from "./source-language";
 import { BlockEditor } from "../editor/prosemirror-editor.js";
+import { footnoteChoices, newFootnote, type FootnoteInput } from "../editor/footnotes";
+import { editorSchema } from "../document/editor-schema";
 import type { Page } from "../shared/types.js";
 import { escape as escapeHtml } from "../shared/types.js";
 import { DocumentSession } from "./session.js";
+import { renameDocumentPageSource } from "../features/metadata/pandoc-page-title";
 import { extensionCategoryHeading } from "../catalog/extension-categories";
 import {
   commandEnabled,
@@ -37,8 +38,10 @@ import "./workspace.css";
 import "./products.css";
 import { groupExtensions, extensionProvenanceHtml, pandocDefaultVersion, isBuiltInSyntax } from "../catalog/extension-provenance";
 import "../catalog/extension-provenance.css";
+import { RMarkdownRunner } from "./rmarkdown-runner";
 
 export type EditMode = "document" | "source" | "split";
+const projectionDelay = 500;
 interface Options {
   metadataHost?: HTMLElement;
   source: string;
@@ -50,7 +53,7 @@ interface Options {
   onMode(mode: EditMode): void;
   onInsert(): void;
   onError(error: unknown): void;
-  onOpenPage?: (id: string) => void;
+  onOpenPage?: (id: string, reference?: InternalReference) => void;
 }
 /** Both views share a source draft and a bounded history; mode changes only hide a projection. */
 export class MarkdownWorkspace {
@@ -60,8 +63,10 @@ export class MarkdownWorkspace {
   activePane: "source" | "document" = "document";
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pending = false;
+  private pendingSource = false;
   private projecting = false;
   private destroyed = false;
+  private rMarkdown: RMarkdownRunner;
   private abort = new AbortController();
   private resize: ResizeObserver;
   private readonly scrollExtension = new Compartment();
@@ -82,6 +87,7 @@ export class MarkdownWorkspace {
     this.mappingDoc = this.session.snapshot.doc;
     root.className = "markdown-workspace";
     root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view"><button type="button" data-mode="source">Source</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="document">Page</button></div><label class="dialect-label">Dialect <select aria-label="Markdown dialect">${dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</select></label><details class="syntax-options"><summary>Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling">Sync scrolling</label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane"><div class="pane-title">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane"><div class="pane-title">Page · Editable</div><div id="editor"></div></section></div>`;
+    root.querySelector(".syntax-options-panel")!.innerHTML = `<div class="extension-search"><input type="search" aria-label="Search extensions" placeholder="Search by name, ID, or description" autocomplete="off"><p class="extension-search-count" role="status"></p></div><div class="syntax-options-content"></div>`;
     this.pagePane = root.querySelector(".page-pane")!;
     const newline = options.source.match(/\r\n|\n|\r/)?.[0] ?? "\n";
     this.source = new EditorView({
@@ -93,8 +99,8 @@ export class MarkdownWorkspace {
           drawSelection(),
           highlightActiveLine(),
           highlightActiveLineGutter(),
-          markdown(),
-          syntaxHighlighting(defaultHighlightStyle),
+          markdownSourceLanguage(),
+          foldGutter(),
           EditorView.lineWrapping,
           this.scrollExtension.of([]),
           EditorState.lineSeparator.of(newline),
@@ -132,6 +138,7 @@ export class MarkdownWorkspace {
             },
             { key: "Mod-y", run: () => this.history("redo") },
             indentWithTab,
+            ...foldKeymap,
             ...defaultKeymap,
           ]),
           EditorView.updateListener.of((update) => {
@@ -147,18 +154,19 @@ export class MarkdownWorkspace {
               this.pagePane.setAttribute("aria-busy", "true");
               this.publish();
               clearTimeout(this.timer);
-              this.timer = setTimeout(() => this.flush(), 70);
+              this.timer = setTimeout(() => this.flush(), projectionDelay);
             } catch (error) {
               options.onError(error);
             }
           }),
           EditorView.domEventHandlers({
             focus: () => {
+              this.flush();
               this.activePane = "source";
             },
             compositionend: () => {
               clearTimeout(this.timer);
-              this.timer = setTimeout(() => this.flush(), 0);
+              this.timer = setTimeout(() => this.flush(), projectionDelay);
             },
           }),
         ],
@@ -181,7 +189,9 @@ export class MarkdownWorkspace {
           this.session.documentChanged(doc);
           this.scrollPane = "document";
           if (isolateHistory) this.session.breakHistory();
-          this.syncSource();
+          this.pendingSource = true;
+          clearTimeout(this.timer);
+          this.timer = setTimeout(() => this.flush(), projectionDelay);
           this.publish();
         } catch (error) {
           options.onError(error);
@@ -192,6 +202,7 @@ export class MarkdownWorkspace {
       onError: options.onError,
     });
     const { signal } = this.abort;
+    this.source.dom.addEventListener("pointerdown", () => this.flush(), { signal, capture: true });
     this.pagePane.addEventListener(
       "focusin",
       () => {
@@ -228,6 +239,11 @@ export class MarkdownWorkspace {
           extensions: resetExtensions(this.session.snapshot.config),
         });
       },
+      { signal },
+    );
+    root.querySelector(".extension-search input")!.addEventListener(
+      "input",
+      () => this.controls(),
       { signal },
     );
     root.querySelector(".syntax-options-panel")!.addEventListener(
@@ -274,10 +290,19 @@ export class MarkdownWorkspace {
     root.querySelector('[aria-label="Sync scrolling"]')!.addEventListener(
       "change", () => { this.expected = undefined; this.scheduleScroll(); }, { signal },
     );
-    this.resize = new ResizeObserver(() => this.scheduleScroll());
+    root.querySelector(".syntax-options")!.addEventListener(
+      "toggle", () => this.positionExtensions(), { signal },
+    );
+    this.resize = new ResizeObserver(() => {
+      this.scheduleScroll();
+      this.positionExtensions();
+    });
     this.resize.observe(this.pagePane);
     this.resize.observe(root.querySelector(".pm-document")!);
+    this.resize.observe(root.querySelector(".editing-toolbar")!);
+    this.resize.observe(root.querySelector(".dialect-label")!);
     window.addEventListener("resize", () => this.measureLayout(), { signal });
+    this.rMarkdown = new RMarkdownRunner(root, () => this.capture(), text => this.insert(text));
     this.controls();
     this.setMode(options.mode);
   }
@@ -292,12 +317,25 @@ export class MarkdownWorkspace {
   }
   private controls() {
     const config = this.session.snapshot.config;
+    this.rMarkdown?.update(this.session.snapshot);
     const panel = this.root.querySelector<HTMLElement>(".syntax-options-panel")!;
     const variantChanged = panel.dataset.variant !== config.variant;
+    const query = panel.querySelector<HTMLInputElement>('.extension-search input')!.value.trim().toLowerCase();
+    const terms = query.split(/\s+/).filter(Boolean);
+    const matches = (...values: string[]) => {
+      const text = values.join(" ").toLowerCase();
+      return terms.every(term => text.includes(term));
+    };
+    const available = extensions.filter(e => supportsOption(config, e.id) || isBuiltInSyntax(config.variant, e.id));
+    const filtered = available.filter(e => matches(e.id, e.label, e.description));
+    const pending = pendingExtensions(config);
+    const filteredPending = pending.filter(name => matches(name));
+    const count = filtered.length + filteredPending.length;
+    panel.querySelector(".extension-search-count")!.textContent = `${count} of ${available.length + pending.length} extensions`;
     (this.root.querySelector("select") as HTMLSelectElement).value =
       config.variant;
-    panel.innerHTML =
-      `<p>Changing rules reinterprets the source. Disabled custom blocks retain their original text and can be edited in source view.</p><p>${config.variant === "notdown" ? "Notdown includes Notion-flavored Markdown syntax and enables all Notdown blocks by default. You can turn individual blocks off below." : "Dialect defaults follow the linked upstream specification. Notdown blocks are optional; choose the Notdown dialect to enable them by default."} ${escapeHtml(pandocDefaultVersion)} badges are comparison data only, not the defaults for other products. Built-in syntax is listed separately without switches.</p>${groupExtensions(extensions.filter(e => supportsOption(config, e.id) || isBuiltInSyntax(config.variant, e.id)), config.variant)
+    panel.querySelector(".syntax-options-content")!.innerHTML =
+      `<p>Changing rules reinterprets the source. Disabled custom blocks retain their original text and can be edited in source view.</p><p>${config.variant === "notdown" ? "Notdown includes Notion-flavored Markdown syntax and enables all Notdown blocks by default. You can turn individual blocks off below." : "Dialect defaults follow the linked upstream specification. Notdown blocks are optional; choose the Notdown dialect to enable them by default."} ${escapeHtml(pandocDefaultVersion)} badges are comparison data only, not the defaults for other products. Built-in syntax is listed separately without switches.</p>${groupExtensions(filtered, config.variant)
         .map(
           (group) =>
             `<section class="extension-group" data-extension-group="${group.id}"><h3>${group.label} <small>${group.entries.length}</small></h3>${group.entries
@@ -311,14 +349,12 @@ export class MarkdownWorkspace {
         )
         .join(
           "",
-        )}<button type="button" data-reset-extensions>Reset dialect defaults</button>${
-        pendingExtensions(config).length
-          ? `<section class="pending-extensions"><h3>Extensions not yet implemented natively (${pendingExtensions(config).length})</h3><p>These extensions are not active. Their configuration and source are preserved. Compare full Pandoc parsing in Markdown Lab.</p>${pendingExtensions(
-              config,
-            )
+        )}${count ? "" : '<p class="extension-search-empty">No matching extensions. Try another search.</p>'}<button type="button" data-reset-extensions>Reset dialect defaults</button>${
+        filteredPending.length
+          ? `<section class="pending-extensions"><h3>Extensions not yet implemented natively (${filteredPending.length})</h3><p>These extensions are not active. Their configuration and source are preserved. Compare full Pandoc parsing in Markdown Lab.</p>${filteredPending
               .map(
                 (name) =>
-                  `<div><code>${name}</code> · ${(config.extensions[name] ?? pandocDefaults[config.variant][name]) ? "Enabled in config (not implemented)" : "Disabled in config"}</div>`,
+                  `<div><code>${escapeHtml(name)}</code> · ${(config.extensions[name] ?? pandocDefaults[config.variant][name]) ? "Enabled in config (not implemented)" : "Disabled in config"}</div>`,
               )
               .join("")}</section>`
           : ""
@@ -327,6 +363,7 @@ export class MarkdownWorkspace {
     if (variantChanged) panel.scrollTop = 0;
   }
   private publish() {
+    this.rMarkdown?.update(this.session.snapshot);
     this.scheduleScroll();
     this.root.querySelector(".editing-state")!.textContent = this.pending
       ? "Updating page…"
@@ -359,14 +396,20 @@ export class MarkdownWorkspace {
     }
   }
   flush() {
-    if (this.destroyed || !this.pending) return;
-    if (this.source.composing) {
+    if (this.destroyed || (!this.pending && !this.pendingSource)) return;
+    if (this.source.composing || this.blocks.isComposing()) {
       clearTimeout(this.timer);
-      this.timer = setTimeout(() => this.flush(), 70);
+      this.timer = setTimeout(() => this.flush(), projectionDelay);
       return;
     }
     clearTimeout(this.timer);
     try {
+      if (this.pendingSource) {
+        this.syncSource();
+        this.pendingSource = false;
+        this.scheduleScroll();
+        return;
+      }
       this.session.project();
       this.blocks.replaceDocument(this.session.snapshot.doc);
       this.pending = false;
@@ -383,6 +426,7 @@ export class MarkdownWorkspace {
     if (!this.pending) {
       this.blocks.getValue();
       this.session.documentChanged(this.blocks.getDocument());
+      this.flush();
     }
     return this.session.snapshot;
   }
@@ -397,6 +441,17 @@ export class MarkdownWorkspace {
       this.publish();
     }
     return true;
+  }
+  setPageTitle(title: string) {
+    this.capture();
+    if (this.pending || this.blocks.isComposing()) return;
+    const { source, config } = this.session.snapshot;
+    const renamed = renameDocumentPageSource(source, config, title);
+    if (renamed === source) return;
+    this.session.sourceChanged(renamed);
+    this.blocks.replaceDocument(this.session.snapshot.doc);
+    this.syncSource();
+    this.publish();
   }
   configure(config: SyntaxConfig) {
     this.capture();
@@ -507,7 +562,18 @@ export class MarkdownWorkspace {
     const offset = lines.slice(0, line).reduce((sum, value) => sum + value.length + 1, 0);
     return Math.min(this.source.state.doc.length, from + offset);
   }
+  private positionExtensions() {
+    const menu = this.root.querySelector<HTMLDetailsElement>(".syntax-options")!;
+    if (!menu.open) return;
+    const panel = menu.querySelector<HTMLElement>(".syntax-options-panel")!;
+    const anchor = menu.getBoundingClientRect();
+    const width = panel.getBoundingClientRect().width;
+    // CSS keeps the panel attached to the button; only shift it at viewport edges.
+    const right = Math.max(width + 8, Math.min(anchor.right, document.documentElement.clientWidth - 8));
+    panel.style.setProperty("--syntax-panel-right", `${anchor.right - right}px`);
+  }
   private measureLayout() {
+    this.positionExtensions();
     if (this.root.dataset.mode === "document") return;
     const top = this.root
       .querySelector(".editing-panes")!
@@ -518,14 +584,17 @@ export class MarkdownWorkspace {
     );
     this.scheduleScroll();
   }
-  insertFootnote() {
+  insertFootnote(input: FootnoteInput) {
     if (!commandEnabled(this.session.snapshot.config, "footnote")) return;
+    this.capture();
     if (this.activePane === "source") {
-      const state = this.source.state, source = state.sliceDoc();
-      let label = "note", number = 1;
-      while (source.includes("[^" + label + "]")) label = "note" + ++number;
+      const state = this.source.state, doc = this.session.snapshot.doc;
+      if ("text" in input && !input.text.trim()) return;
+      if ("label" in input && !footnoteChoices(doc).some(note => note.label === input.label)) return;
+      const note = "text" in input ? newFootnote(doc, input.text) : null;
+      const label = note?.attrs.label ?? (input as { label: string }).label;
       const reference = `[^${label}]`, newline = state.lineBreak;
-      const definition = `${newline}${newline}[^${label}]: Footnote text.${newline}`;
+      const definition = note ? newline + newline + serializeNative(editorSchema.nodes.doc.create(null, note), this.session.snapshot.config).replace(/\r\n|\r|\n/g, newline) + newline : "";
       const { from, to } = state.selection.main;
       this.source.dispatch({
         changes: to === state.doc.length
@@ -536,7 +605,24 @@ export class MarkdownWorkspace {
       this.source.focus();
     } else {
       this.flush();
-      this.blocks.insertFootnote();
+      this.blocks.insertFootnote(input);
+    }
+  }
+
+  insertInlineObject(value: import("../document/inline-objects").InlineInsertion) {
+    this.capture();
+    if (this.activePane === "source") {
+      const state = this.source.state, { from, to } = state.selection.main;
+      const definition = value.definition ? state.lineBreak + state.lineBreak + value.definition + state.lineBreak : "";
+      this.source.dispatch({
+        changes: to === state.doc.length ? { from, to, insert: value.inline + definition }
+          : [{ from, to, insert: value.inline }, ...(definition ? [{ from: state.doc.length, insert: definition }] : [])],
+        selection: { anchor: from + value.inline.length },
+      });
+      this.source.focus();
+    } else {
+      this.flush();
+      this.blocks.insertInlineObject(value);
     }
   }
 
@@ -629,13 +715,13 @@ export class MarkdownWorkspace {
     return this.mappingDoc;
   }
   private canSyncScroll() {
-    return !this.destroyed && !this.pending && this.root.dataset.mode === "split" &&
+    return !this.destroyed && !this.pending && !this.pendingSource && this.root.dataset.mode === "split" &&
       (this.root.querySelector('[aria-label="Sync scrolling"]') as HTMLInputElement).checked;
   }
   private scroll(pane: "source" | "document") {
     // Remember manual scrolling while sync is disabled, so re-enabling it
     // follows the pane the user just read instead of restoring an old offset.
-    if (this.destroyed || this.pending || this.root.dataset.mode !== "split") return;
+    if (this.destroyed || this.pending || this.pendingSource || this.root.dataset.mode !== "split") return;
     const from = pane === "source" ? this.source.scrollDOM : this.pagePane;
     if (
       this.expected?.pane === pane &&
@@ -689,6 +775,7 @@ export class MarkdownWorkspace {
   }
   destroy() {
     this.capture();
+    this.rMarkdown.destroy();
     this.destroyed = true;
     clearTimeout(this.timer);
     cancelAnimationFrame(this.syncFrame);

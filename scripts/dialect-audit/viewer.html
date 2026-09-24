@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src 'self' about:; img-src data:; connect-src 'none'; base-uri 'none'">
+<title>Notdown 方言 HTML 对照</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#253247;font:14px/1.6 system-ui,sans-serif}header{padding:24px 32px;background:#172c45;color:white}h1{font-size:25px;margin:0}header p{max-width:1100px;margin-bottom:0}nav{position:sticky;top:0;z-index:2;background:white;border-bottom:1px solid #dce1e7;padding:12px 32px;display:flex;gap:12px;flex-wrap:wrap}select,input,button{font:inherit;padding:7px;border:1px solid #9baabd;border-radius:5px}input{min-width:260px}main{padding:20px 32px}article{background:white;margin:0 0 22px;border:1px solid #dce1e7;border-radius:7px;overflow:hidden}article h2{font-size:17px;margin:0;padding:12px 16px;background:#e8edf3}article p{padding:0 16px;margin:10px 0}a{color:#17649b}.cols{display:grid;grid-template-columns:repeat(var(--columns),minmax(0,1fr));gap:1px;background:#dce1e7}.col{background:white;min-width:0}h3{font-size:14px;margin:0;padding:9px 12px;background:#edf2f8}pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:12px;font:12px/1.55 Consolas,monospace;max-height:300px;overflow:auto}details{border-top:1px solid #dce1e7;padding:6px 12px}summary{cursor:pointer}.badge{font-size:12px;font-weight:400;margin-left:15px}#count{align-self:center}footer{padding:10px 32px 25px}iframe{display:block;width:100%;height:260px;border:0;background:white}.view-label{font-size:12px;margin:0;padding:6px 12px;border-top:1px solid #dce1e7;color:#566779}.preview-note{font-size:12px;color:#617086}@media(max-width:900px){.cols{grid-template-columns:1fr}header,nav,main{padding:16px}input{min-width:0;width:100%}}
+</style>
+<header><h1>Notdown 方言 HTML 对照</h1><p>11 个方言 · __COUNT__ 个独立输入。相同的官方 / Pandoc 解析器合并展示；未取得输出的解析器不显示。Typora、Obsidian、Notion 暂无逐例官方基线，Typora 另有整篇导出。</p><p>每列同时显示 HTML 渲染结果和原始代码。预览隔离脚本、外部资源与表单，使用统一基础样式；不加载 GitHub / Notion 等网站的客户端组件。DOM 或文本相同都不代表交互兼容。</p></header>
+<nav><select id="dialect" aria-label="方言"><option value="">所有方言</option>__DIALECTS__</select><select id="profile" aria-label="配置"><option value="default">默认配置</option><option value="documented">文档扩展开启</option><option value="disabled">扩展关闭</option><option value="file-path">文件路径上下文</option></select><select id="kind" aria-label="差异类型"><option value="diff">HTML DOM 有差异</option><option value="text">文本有差异</option><option value="equal">DOM 相同</option><option value="unavailable">无官方对照</option><option value="all">全部</option></select><input id="search" aria-label="搜索用例" placeholder="搜索用例 ID、语法或源码"><span id="count"></span></nav>
+<main id="list"></main><footer><button id="prev">上一页</button> <button id="next">下一页</button> <span id="page"></span></footer>
+<script>
+const rows=__RESULTS__;
+let page=0;const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function draw(){
+ const profile=$('profile').value,kind=$('kind').value,search=$('search').value.toLowerCase();
+ const filtered=rows.filter(r=>{const p=r.profiles[profile];if(!p)return false;if($('dialect').value&&r.variant!==$('dialect').value)return false;if(search&&!(r.id+' '+r.source+' '+(r.note||'')).toLowerCase().includes(search))return false;return kind==='all'||kind==='unavailable'&&!p.comparison||kind==='diff'&&p.comparison&&!p.comparison.domEqual||kind==='equal'&&p.comparison?.domEqual||kind==='text'&&p.comparison&&!p.comparison.textEqual;});
+ const pages=Math.max(1,Math.ceil(filtered.length/30));page=Math.min(page,pages-1);$('count').textContent=filtered.length+' 个用例';$('page').textContent=(page+1)+' / '+pages;$('prev').disabled=page===0;$('next').disabled=page>=pages-1;
+ $('list').innerHTML=filtered.slice(page*30,(page+1)*30).map(r=>{
+  const p=r.profiles[profile];
+  const cols=p.outputs.map(o=>'<section class="col"><h3>'+esc(o.label)+'</h3><div class="view-label">渲染结果</div><iframe sandbox="" loading="lazy" referrerpolicy="no-referrer" title="'+esc(r.id+' · '+o.label+' 渲染结果')+'" srcdoc="'+esc(o.preview)+'"></iframe><div class="view-label">HTML 代码</div><pre class="html-code">'+esc(o.html)+'</pre></section>').join('');
+  return '<article><h2>'+esc(r.variant+' / '+r.id)+'<span class="badge">'+(!p.comparison?'无官方基线':p.comparison.domEqual?'DOM 相同':p.comparison.textEqual?'DOM 不同，文本相同':'DOM / 文本不同')+'</span></h2><p><a href="'+esc(r.url)+'" target="_blank" rel="noreferrer">官方依据</a> · fixture 第 '+r.startLine+' 行 · '+esc(p.authority||'仅有本地输出')+'</p>'+(r.note?'<p>'+esc(r.note)+'</p>':'')+'<details open><summary>Markdown 源码 · '+esc(JSON.stringify(p.extensions))+'</summary><pre>'+esc(r.source)+'</pre></details><div class="cols" style="--columns:'+Math.max(1,p.outputs.length)+'">'+cols+'</div>'+(p.error?'<p>'+esc(p.error)+'</p>':'')+(r.expected!==null?'<details><summary>规范公布的预期 HTML（与当前官方实现分开记录）</summary><pre>'+esc(r.expected)+'</pre></details>':'')+(r.cmarkCore?'<details><summary>cmark-gfm 核心输出（不包含 GitHub 服务附加处理）</summary><pre>'+esc(r.cmarkCore)+'</pre></details>':'')+'</article>';
+ }).join('');
+}
+for(const id of ['dialect','profile','kind','search'])$(id).addEventListener('input',()=>{page=0;draw();});
+$('prev').onclick=()=>{page--;draw();window.scrollTo(0,0)};$('next').onclick=()=>{page++;draw();window.scrollTo(0,0)};draw();
+</script></html>

@@ -3,6 +3,7 @@ import type { Node as PMNode } from "prosemirror-model";
 import { resolveContentObject } from "../document/content-objects";
 import { personId } from "../features/people/person";
 import { hasOfficialDateTime } from "../document/notdown-boundary";
+import { showEditorPanel } from "./editor-panel";
 
 const fields: Record<string, Record<string, string>> = {
   link_mention: { url: "URL", label: "Label" },
@@ -15,7 +16,7 @@ const fields: Record<string, Record<string, string>> = {
   citation: { url: "Source URL" },
 };
 /** Atom properties use document transactions and the active reader, like block fields. */
-export function objectProperties(parse: (source: string) => PMNode, supplemental: () => boolean = () => false) {
+export function objectProperties(parse: (source: string) => PMNode, supplemental: () => boolean = () => false, imageCaption: () => boolean = () => false) {
   let dialog: HTMLDialogElement | undefined;
   return new Plugin({
     props: { handleDoubleClickOn(view, _pos, node, pos, event, direct) {
@@ -26,6 +27,8 @@ export function objectProperties(parse: (source: string) => PMNode, supplemental
       const controls: Record<string, HTMLInputElement | HTMLTextAreaElement> = {};
       const visibleFields = node.type.name === "mention" && node.attrs.kind === "date" && (!supplemental() || hasOfficialDateTime(node))
         ? { "@start": "Start date", "@end": "End date", "@startTime": "Start time", "@timeZone": "Time zone" }
+        : node.type.name === "image" && imageCaption() && view.state.doc.resolve(pos).parent.childCount === 1
+          ? { src: "Image URL", alt: "Caption" }
         : fields[node.type.name];
       for (const [key, label] of Object.entries(visibleFields)) {
         if (key === "@reminder" && !supplemental()) continue;
@@ -37,9 +40,10 @@ export function objectProperties(parse: (source: string) => PMNode, supplemental
       const save = document.createElement("button"), cancel = document.createElement("button"); save.type = "submit"; save.textContent = "Save"; cancel.type = "button"; cancel.textContent = "Cancel"; cancel.onclick = () => element.close();
       form.append(output, save, cancel); element.append(heading, form); document.body.append(element);
       element.onclose = () => element.remove();
+      const original = view.state.doc;
       form.onsubmit = e => {
         e.preventDefault();
-        if (!view.state.doc.nodeAt(pos)?.eq(node)) { output.textContent = "Content changed. Close and reopen its properties."; return; }
+        if (!view.state.doc.eq(original)) { output.textContent = "Content changed. Close and reopen its properties."; return; }
         const attrs: Record<string, any> = { ...node.attrs, nfmAttrs: { ...node.attrs.nfmAttrs } };
         for (const [key, input] of Object.entries(controls)) { if (key.startsWith("@")) { if (input.value) attrs.nfmAttrs[key.slice(1)] = input.value; else delete attrs.nfmAttrs[key.slice(1)]; } else attrs[key] = input.value; }
         let replacement = node.type.create(attrs, node.content, node.marks);
@@ -50,7 +54,7 @@ export function objectProperties(parse: (source: string) => PMNode, supplemental
         }
         view.dispatch(view.state.tr.replaceWith(pos, pos + node.nodeSize, replacement)); element.close(); view.focus();
       };
-      element.showModal(); Object.values(controls)[0]?.focus(); event.preventDefault(); return true;
+      showEditorPanel(element, heading.textContent!, view.dom); Object.values(controls)[0]?.focus({ preventScroll: true }); event.preventDefault(); return true;
     } },
     view: () => ({ destroy() { dialog?.remove(); } }),
   });

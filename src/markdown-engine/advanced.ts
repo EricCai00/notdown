@@ -60,7 +60,7 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
     }
     if (!length && on("wikilinks_title_before_pipe") && rest.startsWith("[[")) {
       const m = /^\[\[([^\]\n]+)\]\]/.exec(rest);
-      if (m) { const [label, target = label] = m[1].split("|"); length = m[0].length; nodes = [schema.nodes.page_link.create({ target: target.trim(), label: label.trim() })]; }
+      if (m) { const [label, target = label] = m[1].split("|"); length = m[0].length; nodes = [schema.nodes.page_link.create({ target: target.trim(), label: label.trim(), syntaxForm: "wiki-title-first", labelMode: m[1].includes("|") ? "custom" : "auto" })]; }
     }
     if (!length && (on("bracketed_spans") || on("attributes")) && rest[0] === "[") {
       const end = md.helpers.parseLinkLabel(s, s.pos, true), attributes = end >= 0 ? /^\{([^{}]+)\}/.exec(s.src.slice(end + 1)) : null;
@@ -70,8 +70,21 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
       }
     }
     if (!length && on("native_spans") && rest.startsWith("<span")) {
-      const tag = openingTag(rest), end = rest.indexOf("</span>");
-      if (tag?.tag === "span" && end >= tag.length && !(config.variant === "notdown" && (tag.attrs.color || tag.attrs.underline))) {
+      const tag = openingTag(rest);
+      let end = rest.indexOf("</span>");
+      if (config.variant === "notdown" && tag?.tag === "span" && !tag.selfClosing) {
+        // A native span can wrap a color span emitted by the inline writer.
+        const nested = /<\/?span\b(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+        nested.lastIndex = tag.length;
+        let depth = 1, match: RegExpExecArray | null;
+        end = -1;
+        while ((match = nested.exec(rest))) {
+          if (match[0].startsWith("</")) depth--;
+          else if (!match[0].endsWith("/>")) depth++;
+          if (!depth) { end = match.index; break; }
+        }
+      }
+      if (tag?.tag === "span" && end >= tag.length && !(config.variant === "notdown" && (tag.attrs.color || Object.hasOwn(tag.attrs, "bg_color") || tag.attrs.underline))) {
         const mark = /(?:^|\s)smallcaps(?:\s|$)/.test(tag.attrs.class || "") ? schema.marks.small_caps.create({ attributes: tag.attrs, syntaxForm: "html" }) : schema.marks.native_span.create({ attributes: tag.attrs, syntaxForm: "html" });
         length = end + 7; nodes = inline(md, rest.slice(tag.length, end), s.env).map(n => n.mark(mark.addToSet(n.marks)));
       }

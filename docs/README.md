@@ -23,12 +23,34 @@
 
 ## 功能说明
 
+- [R Markdown 方言与本机 R 执行](features/R-MARKDOWN.md)
+
+- [Vault 级 JSON metadata 与文档覆盖](features/VAULT-METADATA.md)
+
+- [页面与位置链接（统一引用模型）](features/INTERNAL-REFERENCES.md)
+
+- [Windows 桌面版与 Markdown 文件夹导入](features/DESKTOP-AND-IMPORT.md)
+- [代码语言、Custom 分组与高亮来源](features/CODE-LANGUAGES.md)
+- [脚注交互与正文块类型](features/FOOTNOTES.md)
+- [引文、缩写、术语、修订、图片题注与表格编辑](features/INLINE-OBJECTS.md)
+
+- [符号自动替换](features/SYMBOL-REPLACEMENTS.md)
+
 - [Markdown Lab](features/MARKDOWN-LAB.md)
 - [链接预览](features/LINK-PREVIEWS.md)
 - [联系人](features/PEOPLE.md)
 
 ## 审计与验证记录
 
+- [GFM 677 例规范核查与编辑回归（2026-09-24）](audits/GFM-CONFORMANCE-2026-09-24.md)
+
+- [GitHub-style Alert 样式与插入验证（2026-09-24）](verification/GITHUB-ALERTS-2026-09-24.md)
+
+- [Notion 官方语法边界核查（2026-09-24）](audits/NOTION-BOUNDARY-2026-09-24.md)
+
+- [桌面版与 Markdown 导入验证（2026-09-23）](verification/DESKTOP-IMPORT-2026-09-23.md)
+- [Markdown 测试文档入口与新旧样本区别](fixtures/README.md)、[11 份官方方言测试文档](fixtures/dialect-audit/README.md)
+- [上游 Markdown 方言 HTML 对照（2026-09-23）](audits/DIALECT-HTML-AUDIT-2026-09-23.md)
 - [仓库目录整理验证（2026-09-23）](verification/REPOSITORY-REORGANIZATION-2026-09-23.md)
 - [自定义语法边界审计](audits/CUSTOM-SYNTAX-AUDIT-2026-09-23.md)
 - [扩展分类审计](audits/EXTENSION-CLASSIFICATION-AUDIT-2026-09-22.md)

@@ -1,5 +1,8 @@
 import {
   createIcons,
+  createElement,
+  CornerUpLeft,
+  Braces, Replace, Hash,
   Heading4, Heading5, Heading6, Lightbulb, Sigma, Workflow, MessageSquare, ExternalLink, Superscript, Subscript, AlignLeft, Square, ListOrdered, Copy, User, Calendar, Type, Minus, PanelsTopLeft, Bookmark, PanelTop, Navigation, MousePointer2, Mic, Image, Bold, Italic, Underline, Strikethrough, Palette, PaintBucket, Highlighter, Smile,
   Star,
   Trash2,
@@ -22,6 +25,8 @@ import {
   Library,
   FilePlus2,
   FolderTree,
+  FolderInput,
+  FolderOpen,
   Tags,
   PenLine,
   BookOpen,
@@ -29,6 +34,8 @@ import {
   Network,
   Grip,
   CodeXml,
+  FileCode2,
+  Globe,
   Sparkles,
   Files,
   ArrowUpRight,
@@ -64,6 +71,7 @@ const Footnote: typeof Superscript = [
 ];
 
 export const icons = {
+  Braces, Replace, Hash,
   Footnote,
   Heading4, Heading5, Heading6, Lightbulb, Sigma, Workflow, MessageSquare, ExternalLink, Superscript, Subscript, AlignLeft, Square, ListOrdered, Copy, User, Calendar, Type, Minus, PanelsTopLeft, Bookmark, PanelTop, Navigation, MousePointer2, Mic, Image, Bold, Italic, Underline, Strikethrough, Palette, PaintBucket, Highlighter, Smile,
   ArrowLeft,
@@ -92,6 +100,8 @@ export const icons = {
   Library,
   FilePlus2,
   FolderTree,
+  FolderInput,
+  FolderOpen,
   Tags,
   PenLine,
   BookOpen,
@@ -99,6 +109,8 @@ export const icons = {
   Network,
   Grip,
   CodeXml,
+  FileCode2,
+  Globe,
   Sparkles,
   Files,
   ArrowUpRight,
@@ -125,4 +137,15 @@ export const icons = {
 
 export function refreshIcons() {
   createIcons({ icons, attrs: { "stroke-width": 1.65 } });
+}
+
+export function createBacklinkIcon() {
+  return createElement(CornerUpLeft, {
+    class: "reference-backlink-icon",
+    width: 14,
+    height: 14,
+    "stroke-width": 1.65,
+    "aria-hidden": "true",
+    focusable: "false",
+  });
 }

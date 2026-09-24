@@ -1,18 +1,18 @@
 import { test, expect } from "@playwright/test";
 
 test("cleaned objects have direct catalog routes and no Existing content section", async ({ page }) => {
-  await page.goto("/block-catalog.html#tab=compatibility&id=inline.raw_source");
+  await page.goto("/block-catalog.html#tab=compatibility&id=inline.inline_html");
   await expect(page.getByRole("button", { name: "Existing content", exact: true })).toHaveCount(0);
   await expect(page.locator('[data-tab="blocks"]')).toHaveAttribute("aria-pressed", "true");
   const detail = page.locator(".catalog-detail");
-  await expect(detail.locator(":scope > h2")).toHaveText("Inline raw source");
-  await expect(detail.locator(".catalog-source")).toContainText("{=latex}");
-  await expect(detail.locator('.catalog-preview .pm-syntax-inline')).toBeVisible();
+  await expect(detail.locator(":scope > h2")).toHaveText("Inline HTML");
+  await expect(detail.locator(".catalog-source")).toContainText("{=html}");
+  await expect(detail.locator('.catalog-preview .pm-html-inline')).toBeVisible();
   await detail.locator('.catalog-links a[data-extension="raw_attribute"]').click();
-  await detail.locator('a[data-object="inline.raw_source"]').click();
-  await expect(detail.locator(":scope > h2")).toHaveText("Inline raw source");
+  await detail.locator('a[data-object="inline.inline_html"]').click();
+  await expect(detail.locator(":scope > h2")).toHaveText("Inline HTML");
   const search = page.getByRole("searchbox", { name: "Search catalog" });
-  for (const removed of ["Mention agent", "Inline media", "date ot reminder"]) {
+  for (const removed of ["Mention agent", "Inline media", "date ot reminder", "Inline raw source"]) {
     await search.fill(removed);
     await expect(page.locator("[data-entry]")).toHaveCount(0);
   }
@@ -36,7 +36,8 @@ test("Block Explorer browses registered blocks, previews, variants and extension
   await expect(
     page.getByRole("heading", { name: "Block Explorer" }),
   ).toBeVisible();
-  await expect(page.locator("[data-entry]")).toHaveCount(81);
+  await expect(page.locator("[data-entry]")).toHaveCount(78);
+  await expect(page.locator('[data-entry="block.raw_tex"]')).toHaveCount(0);
   await expect(page.locator(".catalog-preview .pm-document")).toContainText(
     "A paragraph",
   );
@@ -53,7 +54,7 @@ test("Block Explorer browses registered blocks, previews, variants and extension
   await page
     .getByRole("button", { name: "Markdown variants", exact: true })
     .click();
-  await expect(page.locator("[data-dialect]")).toHaveCount(12);
+  await expect(page.locator("[data-dialect]")).toHaveCount(13);
   await page.locator('[data-dialect="notion-markdown"]').click();
   await expect(
     page.getByRole("combobox", { name: "Catalog dialect" }),

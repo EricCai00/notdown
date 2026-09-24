@@ -8,6 +8,7 @@ const common = flags("raw_html backtick_code_blocks fenced_code_blocks all_symbo
 const gfm = { ...common, ...flags("pipe_tables task_lists strikeout autolink_bare_uris") };
 const original = flags("raw_html shortcut_reference_links spaced_reference_links");
 export const dialectDefaults: Record<string, Record<string, boolean>> = {
+  rmarkdown: { ...snapshot.variants.markdown, yaml_metadata_block: true },
   "notion-markdown": flags("strikeout task_lists tex_math_dollars notion_columns notion_callouts notion_toggles notion_tables notion_pages notion_mentions notion_media notion_databases notion_synced notion_toc notion_nesting notion_colors notion_underline"),
   commonmark: common,
   gfm,
@@ -50,4 +51,4 @@ export const notdownMarkdownDefaults = flags(`
   short_subsuperscripts mmd_title_block implicit_figures escaped_line_breaks typora_loose_lists
   backtick_code_blocks fenced_code_blocks shortcut_reference_links
 `);
-dialectDefaults.notdown = { ...dialectDefaults["notion-markdown"], ...notdownMarkdownDefaults, ...flags(Object.values(localObjectPlugins).join(" ")) };
+dialectDefaults.notdown = { ...dialectDefaults["notion-markdown"], ...notdownMarkdownDefaults, ...flags(Object.values(localObjectPlugins).join(" ")), symbol_replacements: true };

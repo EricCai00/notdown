@@ -103,8 +103,8 @@ test("local input during an external refresh keeps its original revision and pre
       name: "Two versions detected; both have been preserved",
     }),
   ).toBeVisible();
-  await expect(page.locator(".conflict-columns")).toContainText("Disk update");
-  await expect(page.locator(".conflict-columns")).toContainText(
+  await expect(page.locator("[data-conflict-diff]")).toContainText("Disk update");
+  await expect(page.locator("[data-conflict-diff]")).toContainText(
     "Original local pending",
   );
   expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(
@@ -176,8 +176,8 @@ test("two windows retain independent callout drafts and stale saves create a con
       name: "Two versions detected; both have been preserved",
     }),
   ).toBeVisible();
-  await expect(second.locator(".conflict-columns")).toContainText("Window A");
-  await expect(second.locator(".conflict-columns")).toContainText("Window B");
+  await expect(second.locator("[data-conflict-diff]")).toContainText("Window A");
+  await expect(second.locator("[data-conflict-diff]")).toContainText("Window B");
   const saved = await (await request.get(`/api/pages/${note.id}`)).json();
   expect(saved.body).toContain("Window A");
   expect(saved.body).not.toContain("Window B");

@@ -1,7 +1,11 @@
+import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
+import { findReferenceLocation } from "../document/reference-locations";
+import { showEditorPanel } from "./editor-panel";
 import { isListItem } from "../document/list-items";
 import { hasSupplementalAttributes, needsMarkdownTable, hasOfficialDateTime } from "../document/notdown-boundary";
 import { localObjectPlugins } from "../markdown-engine/presets";
-import { footnotePresentation, projectFootnotes, restoreFootnotes } from "./footnotes";
+import { footnotePresentation, projectFootnotes, restoreFootnotes, newFootnote, footnoteChoices, type FootnoteInput } from "./footnotes";
+import "./footnotes.css";
 import { PageMetadataView, protectPageMetadata } from "../features/metadata/page-metadata-view";
 import { replacePandocTitle } from "../features/metadata/pandoc-page-title";
 import { metadataSourceTransaction } from "../features/metadata/metadata-source";
@@ -24,11 +28,15 @@ import "../blocks/breadcrumb.css";
 import { contentCommand } from "../document/content-objects";
 import { latexMacroEditing } from "../markdown-engine/latex-macros";
 import { tableControls } from "./table-commands";
+import { tableSelections } from "./table-selection";
+import { imageView } from "./image-view";
+import { insertInlineObject, type InlineInsertion } from "../document/inline-objects";
 import { objectProperties } from "./object-properties";
 import { blockProperties, blockPropertyFields, openBlockProperties } from "./block-properties";
 import { definitionControls } from "./definition-commands";
 import { markProperties } from "./mark-properties";
 import { selectionMenu } from "./selection-menu";
+import { blockSource, openBlockSource } from "./block-source";
 import { exampleLists } from "./example-lists";
 import {
   Fragment,
@@ -66,8 +74,9 @@ import {
 import { history, undo, redo, closeHistory } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { undoInputRule } from "prosemirror-inputrules";
-import { HtmlBlockView, htmlInlineView } from "../markdown-engine/html-view.js";
+import { HtmlBlockView, htmlInlineView, isHtmlBlock } from "../markdown-engine/html-view.js";
 import { inTableCell, tableEditing, tableLineBreak } from "./editor-table.js";
+import { lineBlockEnter } from "./line-block.js";
 import {
   SyntaxBlockView,
   inlineTransclusionView,
@@ -111,6 +120,9 @@ import {
 } from "./editor-links";
 import { renderMarkdown } from "../document/markdown";
 import { markdownRules, itemAtSelection } from "./editor-input-rules";
+import { symbolReplacementPlugin } from "./symbol-replacements";
+import { emojiInput } from "./emoji-input";
+import "./emoji-input.css";
 import { convertListItem, convertTextblockToCode } from "./editor-convert";
 import {
   parseNotionMarkdown,
@@ -118,9 +130,12 @@ import {
 } from "../document/notion-markdown";
 import type { BodyFormat } from "../document/notion-syntax";
 import { notionNodeViews, refreshEmbeddedToc } from "./notion-nodeviews";
+import { refreshAlertViews } from "../blocks/alert-view";
 import { EmbedView } from "../blocks/embed-view";
 import { CodeBlockView } from "./code-block-view";
 import { codeHighlighting } from "./code-highlighting";
+import { inlineMarkNavigation } from "./inline-mark-navigation";
+import "./inline-mark-navigation.css";
 import "katex/dist/katex.min.css";
 import { moveTableCell, tableAppearance } from "./editor-table";
 
@@ -155,7 +170,7 @@ interface Options {
   onDocumentChange?: (doc: PMNode, isolateHistory?: boolean) => void;
   onHistory?: (direction: "undo" | "redo") => boolean;
   canCommand?: (name: string) => boolean;
-  onOpenPage?: (id: string) => void;
+  onOpenPage?: (id: string, reference?: InternalReference) => void;
 }
 
 class ListItemView implements NodeView {
@@ -239,6 +254,7 @@ export class BlockEditor {
     null;
   private menu?: HTMLElement;
   private linkDialog?: HTMLDialogElement;
+  private sourceDialog?: HTMLDialogElement;
   private destroyed = false;
   private folded = new Set<number>();
   private bodyFormat: BodyFormat;
@@ -350,6 +366,7 @@ export class BlockEditor {
       },
       Enter: chainCommands(
         tableLineBreak,
+        lineBlockEnter,
         (state, dispatch, view) => splitListItem(schema.nodes.example_list_item, { label: "", number: (state.selection.$from.node(-1)?.attrs.number || 0) + 1 })(state, dispatch, view),
         exitEmptyList,
         splitItem,
@@ -415,22 +432,25 @@ export class BlockEditor {
           ...(options.metadataHost ? [protectPageMetadata()] : []),
           history(),
           codeHighlighting(),
+          emojiInput(() => options.canCommand?.("emoji_shortcode") === true),
           dateMentionInput(() => options.canCommand?.("date_or_reminder") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("mention_person") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("notion_custom") === true),
           linkPaste(() => options.canCommand?.("link_preview") ?? false, () => options.canCommand?.("web_bookmark") ?? false),
           latexMacroEditing(),
           tableAppearance(),
+          tableSelections(),
           tableEditing(),
           tableControls(options.canCommand),
           definitionControls(),
           markProperties(),
           blockProperties(() => options.canCommand?.("notion_custom") === true),
           selectionMenu({
+            canCombineColors: () => options.canCommand?.("notion_custom") === true,
             canCommand: name => options.canCommand?.(name) ?? (name !== "color" && name !== "underline" || this.bodyFormat === "notion-markdown"),
             convert: type => { this.bookmark = undefined; this.insertBlockType(type); },
             link: () => this.showLinkEditor(),
           }),
           exampleLists(),
-          objectProperties(source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), () => options.canCommand?.("notion_custom") === true),
+          objectProperties(source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), () => options.canCommand?.("notion_custom") === true, () => options.canCommand?.("notion_image_caption") === true),
           createSlashPlugin((match) =>
             queueMicrotask(() => {
               if (this.destroyed) return;
@@ -445,7 +465,13 @@ export class BlockEditor {
               );
             }),
           ),
-          markdownRules(options.canCommand),
+          markdownRules(options.canCommand, target => {
+            const reference = internalReference(target, "wiki");
+            const page = reference && resolveReferencePage(reference, options.pages(), options.currentPage?.()?.id);
+            return page ? page.id + (reference?.fragment ? "#" + reference.fragment : "") : target;
+          }),
+          symbolReplacementPlugin(() => options.canCommand?.("symbol_replacements") === true),
+          inlineMarkNavigation(schema),
           keymap(keys),
           keymap(baseKeymap),
           placeholder,
@@ -459,11 +485,13 @@ export class BlockEditor {
         spellcheck: "false",
       },
       nodeViews: preserveSelectionDecorations({
+        image: (node, view, getPos) => imageView(node, view, getPos, () => options.canCommand?.("notion_image_caption") === true),
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
         ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true),
         syntax_block: (node, view, getPos) =>
           options.metadataHost && node.attrs.kind === "metadata"
             ? new PageMetadataView(node, view, getPos, options.metadataHost, source => this.options.codec!.parse(source))
+            : isHtmlBlock(node) ? new HtmlBlockView(node, view, getPos)
             : node.attrs.kind === "embed" ? new EmbedView(node, view, getPos) : new SyntaxBlockView(node, view, getPos),
         syntax_inline: (node) =>
           node.attrs.kind === "transclusion"
@@ -479,8 +507,8 @@ export class BlockEditor {
         html_block: (node, view, getPos) =>
           new HtmlBlockView(node, view, getPos),
         html_inline: htmlInlineView,
-        ...notionNodeViews(() => options.canCommand?.("notion_custom") === true),
-        ...createPageNodeViews(options.pages),
+        ...notionNodeViews(() => options.canCommand?.("notion_custom") === true, () => options.canCommand?.("alert_title") === true),
+        ...createPageNodeViews(options.pages, options.currentPage),
         link_preview: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
         link_mention: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
         mention: (node, view, getPos) => node.attrs.kind === "date" && options.canCommand?.("notion_custom") === true && !hasOfficialDateTime(node) ? new DateMentionView(node, view, getPos) : node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url) ? new PersonMentionView(node) : { dom: importSyntaxDOM(schema.nodes.mention.spec.toDOM!(node)) },
@@ -524,6 +552,7 @@ export class BlockEditor {
     this.view.dom.addEventListener(
       "click",
       (event) => {
+        if (event.defaultPrevented) return;
         const link = (event.target as Element).closest("a[href]");
         if (!link) return;
         const href = link.getAttribute("href") || "";
@@ -533,31 +562,20 @@ export class BlockEditor {
             window.open(href, "_blank", "noopener,noreferrer");
           return;
         }
-        if (href.startsWith("#") && !href.startsWith("#page/")) {
-          const id = decodeURIComponent(href.slice(1));
-          const target = [
-            ...(
-              this.view.dom.parentElement || this.view.dom
-            ).querySelectorAll<HTMLElement>("[data-md-id],[id]"),
-          ].find(
-            (el) =>
-              el.dataset.mdId === id || el.id === id || el.id === "md-" + id,
-          );
-          if (target) {
-            event.preventDefault();
-            target.scrollIntoView({ block: "center" });
-          }
-        } else if (/\.md(?:#.*)?$/i.test(href) && !/^\w+:/.test(href)) {
-          const title = decodeURIComponent(href.split("#")[0])
-            .replace(/^.*\//, "")
-            .replace(/\.md$/i, "");
-          const page = this.options
-            .pages()
-            .find((p) => p.title === title || p.id === title);
-          if (page) {
-            event.preventDefault();
-            this.options.onOpenPage?.(page.id);
-          }
+        const reference = internalReference(href, (link.getAttribute("data-reference-syntax") || "markdown") as ReferenceSyntax);
+        if (!reference) return;
+        const page = resolveReferencePage(reference, options.pages(), options.currentPage?.()?.id);
+        if (page || reference.addressing === "current") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (reference.addressing === "current" || page?.id === options.currentPage?.()?.id) {
+            if (reference.kind === "location" && !this.scrollToReference(reference))
+              options.onError(new Error("Linked location not found."));
+          } else if (page) options.onOpenPage?.(page.id, reference);
+        } else if (reference.addressing !== "url") {
+          event.preventDefault();
+          event.stopPropagation();
+          options.onError(new Error("Linked page not found or ambiguous."));
         }
       },
       { signal: this.abort.signal },
@@ -778,6 +796,24 @@ export class BlockEditor {
   getBodyFormat(): BodyFormat {
     return this.bodyFormat;
   }
+  scrollToReference(reference: InternalReference): boolean {
+    if (reference.locator === "anchor") {
+      const anchor = [...this.view.dom.querySelectorAll<HTMLElement>("[data-md-id]")].find(el => el.dataset.mdId === reference.fragment);
+      if (anchor) {
+        anchor.scrollIntoView({ block: "center" });
+        return true;
+      }
+    }
+    const location = findReferenceLocation(this.view.state.doc, reference);
+    if (!location) return false;
+    const dom = this.view.nodeDOM(location.pos);
+    const element = dom instanceof HTMLElement ? dom : dom?.parentElement;
+    if (!element) return false;
+    for (let parent = element.parentElement; parent && parent !== this.view.dom; parent = parent.parentElement)
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    element.scrollIntoView({ block: "center" });
+    return true;
+  }
   getDocument() {
     return restoreFootnotes(this.view.state.doc);
   }
@@ -790,6 +826,7 @@ export class BlockEditor {
   }
   setEditable(value: boolean) {
     this.view.setProps({ editable: () => value });
+    refreshAlertViews(this.view);
   }
   /** Pair fresh file ranges with the same projection used by the live view. */
   sourceBlocks(sourceDoc: PMNode): { node: PMNode; element: HTMLElement }[] {
@@ -822,6 +859,7 @@ export class BlockEditor {
   setCodec(codec: NonNullable<Options["codec"]>) {
     this.options.codec = codec;
     this.bodyFormat = codec.format;
+    refreshAlertViews(this.view);
   }
   replaceDocument(doc: PMNode) {
     doc = projectFootnotes(doc);
@@ -839,6 +877,10 @@ export class BlockEditor {
         ends.b += overlap;
       }
       tr = tr.replace(from, ends.a, doc.slice(from, ends.b));
+      // Fitting an open slice across a container boundary can keep a sibling
+      // inside the Div. History/external projections must match the snapshot.
+      if (!tr.doc.content.eq(doc.content))
+        tr = this.view.state.tr.replaceWith(0, previous.content.size, doc.content);
     }
     for (const [key, value] of Object.entries(doc.attrs))
       if (previous.attrs[key] !== value) tr.setDocAttribute(key, value);
@@ -910,23 +952,36 @@ export class BlockEditor {
     if (!this.destroyed) cancelSlash(this.view);
   }
 
-  insertFootnote() {
+  inFootnote() {
+    const { $from } = this.view.state.selection;
+    for (let depth = $from.depth; depth > 0; depth--)
+      if ($from.node(depth).type.name === "footnote") return true;
+    return false;
+  }
+
+  insertFootnote(input: FootnoteInput) {
     if (this.options.canCommand?.("footnote") === false) return;
     if (this.view.hasFocus()) this.bookmark = undefined;
     else this.restoreSelection();
     const state = this.view.state;
     if (!state.selection.$from.parent.inlineContent || state.selection.$from.parent.type.spec.code) return;
-    const used = new Set<string>();
-    state.doc.descendants(node => {
-      if (node.type === schema.nodes.footnote || node.type === schema.nodes.footnote_reference)
-        used.add(String(node.attrs.label));
-    });
-    let label = "note", number = 1;
-    while (used.has(label)) label = "note" + ++number;
+    if (this.inFootnote()) return;
+    if ("text" in input && !input.text.trim()) return;
+    if ("label" in input && !footnoteChoices(state.doc).some(note => note.label === input.label)) return;
+    const definition = "text" in input ? newFootnote(state.doc, input.text) : null;
+    const label = definition?.attrs.label ?? (input as { label: string }).label;
     const tr = state.tr.replaceSelectionWith(schema.nodes.footnote_reference.create({ label }));
-    tr.insert(tr.doc.content.size, schema.nodes.footnote.create({ label },
-      schema.nodes.paragraph.create(null, schema.text("Footnote text."))));
+    if (definition) tr.insert(tr.doc.content.size, definition);
     this.view.dispatch(tr.scrollIntoView());
+    this.bookmark = undefined;
+    this.view.focus();
+  }
+
+  insertInlineObject(value: InlineInsertion) {
+    this.getValue();
+    if (this.view.hasFocus()) this.bookmark = undefined;
+    else this.restoreSelection();
+    this.view.dispatch(insertInlineObject(this.view.state, value, source => this.options.codec?.parse(source) ?? parseNotionMarkdown(source)));
     this.bookmark = undefined;
     this.view.focus();
   }
@@ -936,9 +991,12 @@ export class BlockEditor {
     else this.restoreSelection();
     const doc =
       this.options.codec?.parse(markdown) ?? parseNotionMarkdown(markdown);
+    const mediaImage = this.options.canCommand?.("inline_image") === false &&
+      doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph &&
+      doc.firstChild.childCount === 1 && doc.firstChild.firstChild?.type === schema.nodes.image;
     if (
       inTableCell(this.view.state) &&
-      !(doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph)
+      (mediaImage || !(doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph))
     ) {
       const nodes: PMNode[] = [];
       markdown.split(/\r?\n/).forEach((line, index) => {
@@ -955,11 +1013,24 @@ export class BlockEditor {
       return;
     }
     const inline =
-      doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph;
+      !mediaImage && doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph;
     const slice = inline
       ? new Slice(doc.firstChild!.content, 0, 0)
       : new Slice(doc.content, 0, 0);
     const tr = this.view.state.tr.replaceSelection(slice).scrollIntoView();
+    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes.syntax_block && doc.firstChild.attrs.kind === "comment") {
+      // A hidden atom must never become the typing target: typing would replace
+      // the comment. Keep a visible text position immediately after it.
+      let end: number | undefined;
+      tr.doc.descendants((node, pos) => {
+        if (node === doc.firstChild) end = pos + node.nodeSize;
+      });
+      if (end !== undefined) {
+        if (!tr.doc.resolve(end).nodeAfter?.isTextblock)
+          tr.insert(end, schema.nodes.paragraph.create());
+        tr.setSelection(TextSelection.create(tr.doc, end + 1));
+      }
+    }
     this.view.dispatch(tr);
     this.bookmark = undefined;
     this.view.focus();
@@ -1129,39 +1200,55 @@ export class BlockEditor {
     this.root.classList.remove("pm-box-selecting");
   }
 
-  private addBlankBlock(atEnd = false) {
+  private addBlankBlock() {
     if (!this.view.editable) return;
     this.getValue(); // Flush pending DOM input before choosing a position.
     const doc = this.view.state.doc;
-    let pos = doc.content.size;
+    const block = this.hovered && blockAtPos(doc, this.hovered.pos);
+    let pos = block ? block.end : doc.content.size;
     const tr = this.view.state.tr;
-    if (
-      atEnd &&
-      doc.lastChild?.type === schema.nodes.paragraph &&
-      !doc.lastChild.content.size
-    ) {
-      pos -= doc.lastChild.nodeSize;
-    } else {
-      const block = this.hovered && blockAtPos(doc, this.hovered.pos);
-      pos = !atEnd && block ? block.end : pos;
-      const paragraph = schema.nodes.paragraph.create();
-      if (!atEnd && isListItem(block?.node)) {
-        tr.insert(
-          pos,
-          block!.node.type.create(
-            {
-              checked:
-                typeof block!.node.attrs.checked === "boolean" ? false : null,
-            },
-            paragraph,
-          ),
-        );
-        pos++;
-      } else tr.insert(pos, paragraph);
-    }
+    const paragraph = schema.nodes.paragraph.create();
+    if (isListItem(block?.node)) {
+      tr.insert(
+        pos,
+        block!.node.type.create(
+          {
+            checked:
+              typeof block!.node.attrs.checked === "boolean" ? false : null,
+          },
+          paragraph,
+        ),
+      );
+      pos++;
+    } else tr.insert(pos, paragraph);
     tr.setSelection(TextSelection.create(tr.doc, pos + 1));
     this.bookmark = undefined;
-    if (!atEnd) tr.setMeta(slashPluginKey, { type: "open", from: pos + 1 });
+    tr.setMeta(slashPluginKey, { type: "open", from: pos + 1 });
+    this.view.dispatch(closeHistory(tr).scrollIntoView());
+    this.view.focus();
+  }
+
+  private focusDocumentTail() {
+    this.getValue(); // Flush pending input before deciding whether the tail is empty.
+    const { doc } = this.view.state;
+    let index = doc.childCount - 1, end = doc.content.size;
+    // Footnotes are projected after the body; hidden source anchors and
+    // definitions must not hide an existing empty body paragraph from this check.
+    while (index >= 0) {
+      const node = doc.child(index);
+      const dom = this.view.nodeDOM(end - node.nodeSize);
+      if (node.type.name !== "footnote_section" &&
+          !(dom instanceof HTMLElement && dom.hidden)) break;
+      end -= node.nodeSize;
+      index--;
+    }
+    const last = index >= 0 ? doc.child(index) : null;
+    const tr = this.view.state.tr;
+    const empty = last?.type === schema.nodes.paragraph && !last.content.size;
+    const pos = empty ? end - last.nodeSize : end;
+    if (!empty) tr.insert(pos, schema.nodes.paragraph.create());
+    tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+    this.bookmark = undefined;
     this.view.dispatch(closeHistory(tr).scrollIntoView());
     this.view.focus();
   }
@@ -1181,17 +1268,18 @@ export class BlockEditor {
     )
       return;
     if (this.selectedBlocks.size) this.selectBlocks([]);
-    const last = this.view.dom.lastElementChild?.getBoundingClientRect();
     if (event.clientX >= bounds.left && event.clientX <= bounds.right) {
-      if (
-        last &&
-        event.clientY > last.bottom &&
-        event.clientY <=
-          Math.max(bounds.bottom, surface.getBoundingClientRect().bottom) &&
-        !target.closest(".pm-document > *")
-      ) {
+      const contentBottom = Array.from(this.root.querySelectorAll(
+        ".pm-document > *, .md-bibliography, .md-csl-bibliography",
+      )).reduce((bottom, element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.height ? Math.max(bottom, rect.bottom) : bottom;
+      }, bounds.top);
+      if (event.clientY > contentBottom &&
+          event.clientY <= Math.max(bounds.bottom, surface.getBoundingClientRect().bottom) &&
+          !target.closest(".pm-document > *, .md-bibliography, .md-csl-bibliography")) {
         event.preventDefault();
-        this.addBlankBlock(true);
+        this.focusDocumentTail();
       }
       return;
     }
@@ -1288,7 +1376,7 @@ export class BlockEditor {
     if (
       y < bounds.top - 3 ||
       y > bounds.bottom + 3 ||
-      x < bounds.left - 60 ||
+      x < bounds.left - 108 ||
       x > bounds.right + 24
     )
       return null;
@@ -1324,6 +1412,14 @@ export class BlockEditor {
       const candidate = blockAtPos(this.view.state.doc, pos);
       if (!candidate || candidate.pos !== pos) return;
       const rect = this.rowRect(candidate);
+      // Div controls occupy a second gutter outside the ordinary child
+      // controls. The container adds no padding to the rendered content.
+      if (node.type.name === "fenced_div" && rect && y >= rect.top && y <= rect.bottom) {
+        if (x >= rect.left - 108 && x < rect.left - 60) {
+          best = candidate;
+          return false;
+        }
+      }
       if (
         rect &&
         rect.height &&
@@ -1376,7 +1472,7 @@ export class BlockEditor {
       const grip = this.handle.getBoundingClientRect();
       const add = this.addButton.getBoundingClientRect();
       if (row && row.width && row.height &&
-        event.clientX >= add.left && event.clientX <= row.left &&
+        event.clientX >= add.left && event.clientX <= (this.hovered.node.type.name === "fenced_div" ? grip.right : row.left) &&
         event.clientY >= Math.min(row.top, grip.top) &&
         event.clientY <= Math.max(row.bottom, grip.bottom)) return;
     }
@@ -1388,7 +1484,7 @@ export class BlockEditor {
       event.clientY < rect.top ||
       event.clientY > rect.bottom ||
       event.clientX > rect.right + 4 ||
-      event.clientX < rect.left - 80
+      event.clientX < rect.left - (block.node.type.name === "fenced_div" ? 112 : 80)
     ) {
       this.handle.classList.remove("visible");
       this.addButton.classList.remove("visible");
@@ -1402,13 +1498,43 @@ export class BlockEditor {
     // A nested list has its own wrapper, so its gutter retains the indentation.
     const edge = (isListItem(block.node) ? dom.parentElement : dom)!
       .getBoundingClientRect().left;
-    this.handle.style.left = `${edge - rootRect.left - 36}px`;
+    const gutterOffset = block.node.type.name === "fenced_div" ? 84 : 36;
+    this.handle.style.left = `${edge - rootRect.left - gutterOffset}px`;
     this.handle.style.top = `${rect.top - rootRect.top + Math.max(0, (Math.min(rect.height, 32) - 24) / 2)}px`;
     this.addButton.style.left = parseFloat(this.handle.style.left) - 24 + "px";
     this.addButton.style.top = this.handle.style.top;
     this.addButton.classList.add("visible");
     this.handle.dataset.blockPos = String(block.pos);
     this.handle.classList.add("visible");
+  }
+
+  private siblingDropGap(position: number) {
+    const doc = this.view.state.doc;
+    let boundary = doc.resolve(position);
+    // List wrappers are not separate draggable rows. Their first/last item
+    // shares the outer gap with the neighboring block outside the list.
+    while (["bullet_list", "ordered_list"].includes(boundary.parent.type.name) &&
+      (boundary.parentOffset === 0 || boundary.parentOffset === boundary.parent.content.size)) {
+      position = boundary.parentOffset === 0 ? boundary.before() : boundary.after();
+      boundary = doc.resolve(position);
+    }
+    const before = boundary.nodeBefore;
+    const after = boundary.nodeAfter;
+    if (!before?.isBlock || !after?.isBlock) return null;
+    const beforeDOM = this.view.nodeDOM(position - before.nodeSize);
+    const afterDOM = this.view.nodeDOM(position);
+    if (!(beforeDOM instanceof HTMLElement) || !(afterDOM instanceof HTMLElement)) return null;
+    const upper = beforeDOM.getBoundingClientRect();
+    const lower = afterDOM.getBoundingClientRect();
+    // Hidden blocks and side-by-side columns do not define a vertical gap.
+    if (!upper.height || !lower.height || upper.bottom > lower.top) return null;
+    const edge = (node: PMNode, dom: HTMLElement, rect: DOMRect) =>
+      isListItem(node) ? dom.parentElement!.getBoundingClientRect().left : rect.left;
+    return {
+      top: (upper.bottom + lower.top) / 2,
+      left: Math.min(edge(before, beforeDOM, upper), edge(after, afterDOM, lower)),
+      right: Math.max(upper.right, lower.right),
+    };
   }
 
   private previewDrop(event: DragEvent) {
@@ -1457,10 +1583,23 @@ export class BlockEditor {
       return;
     }
     const rootRect = this.root.getBoundingClientRect();
-    const offset = placement === "inside" ? 24 : 0;
-    this.dropLine.style.left = `${rect.left - rootRect.left + offset}px`;
-    this.dropLine.style.top = `${(placement === "before" ? rect.top : rect.bottom) - rootRect.top}px`;
-    this.dropLine.style.width = `${rect.width - offset}px`;
+    const dom = this.view.nodeDOM(block.pos) as HTMLElement;
+    const bounds = dom.getBoundingClientRect();
+    // "After A" and "before B" name the same document boundary. Use its
+    // shared gap instead of alternating between A's bottom and B's top.
+    const gap = placement === "inside" ? null
+      : this.siblingDropGap(placement === "before" ? block.pos : block.end);
+    // Include this list level's marker gutter so siblings do not look indented.
+    const left = gap?.left ?? (isListItem(block.node)
+      ? dom.parentElement!.getBoundingClientRect().left
+      : rect.left);
+    const childLeft = isListItem(block.node) ? rect.left : left + 24;
+    this.dropLine.dataset.placement = placement;
+    this.dropLine.style.setProperty("--pm-drop-indent", `${childLeft - left}px`);
+    this.dropLine.style.left = `${left - rootRect.left}px`;
+    // Both after and inside append after existing descendants, not the head row.
+    this.dropLine.style.top = `${(gap?.top ?? (placement === "before" ? bounds.top : bounds.bottom)) - rootRect.top}px`;
+    this.dropLine.style.width = `${(gap?.right ?? rect.right) - left}px`;
     this.dropLine.classList.add("visible");
   }
 
@@ -1542,6 +1681,25 @@ export class BlockEditor {
     currentType.className = "pm-block-type";
     currentType.textContent = blockTypeLabel(block.node, block.listNode);
     menu.append(currentType);
+    add("View source", () => {
+      try {
+        // Collect pending DOM edits before reading the live block.
+        if (!this.isComposing())
+          (this.view as unknown as { domObserver: { flush(): void } }).domObserver.flush();
+        const source = blockSource(this.view.state.doc, block.pos, doc =>
+          this.options.codec?.serialize(doc) ??
+          (this.bodyFormat === "notion-markdown" ? serializeNotionMarkdown(doc) : serializeEditorMarkdown(doc)),
+        );
+        this.sourceDialog?.remove();
+        this.sourceDialog = openBlockSource(source, () => {
+          this.sourceDialog = undefined;
+          if (!this.destroyed) this.view.focus();
+        });
+      } catch (error) {
+        this.options.onError(error);
+        this.view.focus();
+      }
+    }, "", true);
     if (blockPropertyFields(block.node).length) {
       add("Properties…", () => openBlockProperties(this.view, block.pos), "", true);
       menu.append(document.createElement("hr"));
@@ -1615,6 +1773,7 @@ export class BlockEditor {
     this.captureSelection();
     this.linkDialog?.remove();
     const { selection } = this.view.state;
+    const original = this.view.state.doc, bookmark = selection.getBookmark();
     const linkRange = linkRangeAtSelection(this.view.state);
     const link = linkRange?.mark;
     const dialog = document.createElement("dialog");
@@ -1638,8 +1797,11 @@ export class BlockEditor {
     remove.textContent = "Remove link";
     remove.type = "button";
     form.append(remove);
+    const output = document.createElement("output");
+    form.append(output);
     const apply = (href: string) => {
-      this.restoreSelection();
+      if (!this.view.state.doc.eq(original)) { output.textContent = "Content changed. Reopen the link editor."; return; }
+      this.view.dispatch(this.view.state.tr.setSelection(bookmark.resolve(this.view.state.doc)));
       this.bookmark = undefined;
       const state = this.view.state;
       let { from, to } = state.selection;
@@ -1667,8 +1829,8 @@ export class BlockEditor {
     dialog.append(form);
     document.body.append(dialog);
     this.linkDialog = dialog;
-    dialog.showModal();
-    input.focus();
+    showEditorPanel(dialog, "Link", this.view.dom);
+    input.focus({ preventScroll: true });
   }
 
   destroy() {
@@ -1679,6 +1841,7 @@ export class BlockEditor {
     this.closeMenu();
     this.linkDialog?.remove();
     this.view.destroy();
+    this.sourceDialog?.remove();
     this.handle.remove();
     this.addButton.remove();
     this.marquee.remove();

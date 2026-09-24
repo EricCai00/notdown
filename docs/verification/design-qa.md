@@ -1,3 +1,31 @@
+# Page header spacing matched to Notion references — 2026-09-23
+
+Scope: icon, decoration action row and title on pages with an icon and no cover. This supersedes the previous beside-icon action placement. Existing page properties, editor toolbar and content width are outside this correction.
+
+- Source: `C:/Users/Eric/AppData/Local/Temp/codex-clipboard-5617e50c-1500-48d0-964f-f3318b465464.png` (630 × 391), supported by `codex-clipboard-464430e4-c532-4843-b63d-3af7142d9199.png` (713 × 433) and `codex-clipboard-bf71e1b0-8a2c-47f7-bcdb-af45a4a73486.png` (641 × 320) in the same temporary directory. These are cropped page regions; the full Notion viewport and content width cannot be inferred.
+- Implementation: `test-results/page-header-notion-hover.png` and `test-results/page-header-notion-idle.png` (450 × 200 crops), from independent Chrome at 1440 × 1000 CSS pixels, deviceScaleFactor 1, temporary vault. Additional 600px-wide captures exercise all three supported Emoji fonts.
+- Combined evidence: `test-results/page-header-notion-comparison.png` (900 × 200), reference left, implementation right. Source crop is x=95, y=23, width=450, height=200; neither image is rescaled. Icon sizes and 40px title glyphs support this 1:1 regional comparison. Both were opened together. The complete header region is already a focused comparison; a full-page match is not claimed.
+- Measurement: all three reference icons are approximately 78 × 78px; their dark-pixel bottom-to-title bands leave 46 blank pixel rows. The implementation retains the existing 72px Emoji font and natural font metrics, a 28px action row and 4px bottom margin. This brings visible icon-to-title spacing to approximately 46px for the reference fixture.
+
+## Findings and comparison history
+
+- [P2, fixed] Placing Add cover beside the icon contradicted the reference's vertical hierarchy. Restored the action row below the icon; opacity-only hiding retains its layout space.
+- [P2, fixed] The first stacked capture left about 42px between visible icon and title, and its icon was about 5px right of the title. Added 4px beneath the action row and shifted the button left 4px, then rebuilt, recaptured and compared the combined evidence above.
+- Fonts/typography: retained 40px/700 title, 1.2 line height and existing CJK fallback; reference and implementation title ink heights are both about 38px. Action text remains 14px.
+- Spacing/layout: icon, action row and title now form the reference's vertical sequence. Hover and idle states keep the title stationary. Natural glyph bounds remain inside the hover button; action buttons do not overlap the icon or title.
+- Colors/tokens: action text uses the product's existing #787774 neutral; existing title, white background and hover colors remain. Minor platform text rasterization differences are accepted.
+- Image quality/assets: real stored page Emoji and the existing Lucide action icon are retained. The bundled Noto floppy glyph differs in artwork from Notion's floppy glyph; replacing the application's user-selected Emoji system is outside this spacing task. No synthetic replacement assets were added.
+- Copy/content: fixture uses the reference's “同步数据” title. Only the existing Add cover action is shown; the reference's backlink/comment features are not introduced by this styling change.
+- No remaining actionable P0/P1/P2 differences in this scoped header-spacing comparison. Full-page width, body layout and Notion-specific extra controls are excluded.
+
+## Verification
+
+- `npm test`: 493 passed, 1 skipped, 0 failed.
+- Production build passed; 7 focused browser tests passed, covering reference hover/idle, three Emoji styles at desktop/narrow widths, icon changes, pending edits/undo, cover addition/removal and cover gallery positioning.
+- Documentation follows the repository's existing QA location rather than introducing a root-level run artifact.
+
+final result: passed
+
 # Page block styling correction — 2026-09-22
 
 This correction supersedes the earlier page-block approval below: the user identified icon occlusion, insufficient weight and insufficient icon/title spacing in that version.

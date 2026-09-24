@@ -1,10 +1,6 @@
 import { basicSetup } from "codemirror";
 import { EditorView, keymap } from "@codemirror/view";
-import { markdown } from "@codemirror/lang-markdown";
-import { javascriptLanguage } from "@codemirror/lang-javascript";
-import { jsonLanguage } from "@codemirror/lang-json";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { tags } from "@lezer/highlight";
+import { markdownSourceLanguage } from "../markdown-engine/source-language";
 import DOMPurify from "dompurify";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -134,25 +130,7 @@ const editor = new EditorView({
   parent: $("#editor"),
   extensions: [
     basicSetup,
-    markdown({
-      codeLanguages: (name) =>
-        /^(?:js|javascript|typescript|ts)$/.test(name)
-          ? javascriptLanguage
-          : /^json$/.test(name)
-            ? jsonLanguage
-            : null,
-    }),
-    syntaxHighlighting(
-      HighlightStyle.define([
-        { tag: tags.heading, color: "#7952a5", fontWeight: "600" },
-        { tag: tags.strong, color: "#3e5662", fontWeight: "700" },
-        { tag: tags.emphasis, color: "#ad7344", fontStyle: "italic" },
-        { tag: tags.link, color: "#367fa0" },
-        { tag: tags.url, color: "#70897b" },
-        { tag: tags.monospace, color: "#ae674a" },
-        { tag: tags.processingInstruction, color: "#b7a0bd" },
-      ]),
-    ),
+    markdownSourceLanguage(),
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({
       "aria-label": "Markdown source",

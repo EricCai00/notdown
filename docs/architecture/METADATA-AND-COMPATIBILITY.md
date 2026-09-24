@@ -1,5 +1,12 @@
 # 元数据与表外格式的依据
 
+# 当前存储规则（2026-09-24）
+
+页面应用属性现统一保存在 `vault/metadata.json`；文首 YAML / Pandoc title block 覆盖默认值，完整源文件直接作为正文。以下旧版外层 YAML 与隔离规则被 [Vault metadata 契约](../features/VAULT-METADATA.md) 替代。
+
+
+2026-09-23 修订：Raw Source 不再是独立对象。`{=html}` 合并到 HTML block / Inline HTML，其他格式和 raw TeX 归入 Unsupported；全部保留原编码和可恢复源码。当前目录共 78 项（41 block、2 metadata、31 inline、4 character），下文旧数量与归类以此为准。
+
 2026-09-21。对象身份与编码形式分开；官方语法依据不等于 Notdown 已接入相应服务。
 
 ## YAML front matter 与 MultiMarkdown metadata
@@ -29,7 +36,7 @@ Existing content 板块已移除。正式清单为 81 项；误拼别名 date ot
 | 条目 | 当前归属与实际边界 | 依据 |
 | --- | --- | --- |
 | Inline file transclusion | 支持行内位置，但不是另一种引入语义；现并入 File transclusion，保留块级和行内两个载体。上游在解析 Markdown 前直接查找并替换源字符串中的标记，没有要求行首或独占一行。Notdown 的本地文本预览仍有许可路径、循环和越界限制，不宣称完整上游预处理语义。 | [MMD File Transclusion](https://fletcher.github.io/MultiMarkdown-6/syntax/transclusion.html)、[官方实现的标记查找](https://github.com/fletcher/MultiMarkdown-6/blob/master/src/transclude.c#L122-L139) |
-| Inline raw source | 纳入 Content objects：inline.raw_source。Pandoc 行内代码跨度加 {=format} 表示目标格式原始内容；支持源码保留与源码编辑，HTML 使用过滤预览，其他格式不执行外部 writer 或 TeX。 | [Pandoc raw_attribute](https://pandoc.org/MANUAL.html#extension-raw_attribute) |
+| Raw Source | `{=html}` 归入 HTML block / Inline HTML；其他格式归入 Unsupported。保留原编码并支持源码编辑，HTML 使用过滤预览，不执行其他目标格式。 | [Pandoc raw_attribute](https://pandoc.org/MANUAL.html#extension-raw_attribute) |
 | Inline media | 已移除对象、节点及本地链接转播放器规则。普通音视频 Markdown 链接继续保留标签与路径；播放器使用 Audio / Video 的现有块级媒体标签。没有依据将原本“整段只有一个链接”的本地约定称为官方行内类型。 | [Notion Media blocks](https://developers.notion.com/guides/data-apis/enhanced-markdown#media-blocks) |
 | Mention agent | 按用户要求移除产品对象和提及解析；已有标签按字面文本或原始 HTML 保留，未修改内容保留原文。编辑文本后允许转义角括号，重新打开保留标签及未知属性，不再产生 Agent 提及对象。 | 用户决定；不提供 Agent 服务 |
 

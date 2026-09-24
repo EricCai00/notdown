@@ -1,0 +1,459 @@
+{
+  "info": {
+    "timestamp": "2026-09-23T11:22:01.923Z",
+    "gitHead": "2050463f191badc7baa7767d441232516e42a329\n",
+    "dirty": " M README.md\n M README.zh-CN.md\n M docs/FORMAT.md\n M docs/README.md\n M docs/architecture/CONTENT-OBJECT-ROADMAP.md\n M docs/architecture/METADATA-AND-COMPATIBILITY.md\n M docs/fixtures/manual-test-pages.ts\n M docs/verification/design-qa.md\n M package-lock.json\n M package.json\n M scripts/start.ps1\n M src/app/main.ts\n M src/app/style.css\n M src/blocks/breadcrumb-view.ts\n M src/blocks/callout-icon-picker.ts\n M src/catalog/block-catalog-data.ts\n M src/catalog/catalog-pandoc-syntax.ts\n M src/catalog/catalog-relations.ts\n M src/catalog/catalog-syntax.ts\n M src/catalog/extension-provenance.ts\n M src/document/content-objects.ts\n M src/document/document-format.ts\n M src/document/editor-schema.ts\n M src/editor/editor-links.ts\n M src/editor/insert-menu.ts\n M src/editor/notion-blocks.css\n M src/editor/prosemirror-editor.ts\n M src/features/pages/page-cover-picker.css\n M src/markdown-engine/advanced-definitions.ts\n M src/markdown-engine/config.ts\n M src/markdown-engine/html-view.ts\n M src/markdown-engine/presets.ts\n M src/markdown-engine/product-render.ts\n M src/markdown-engine/product-view.ts\n M src/markdown-engine/products.ts\n M src/markdown-engine/workspace.css\n M src/markdown-engine/workspace.ts\n M start.cmd\n M tests/e2e/block-catalog.spec.ts\n M tests/e2e/content-objects.spec.ts\n M tests/e2e/extension-provenance.spec.ts\n M tests/e2e/markdown-blocks.spec.ts\n M tests/e2e/page-metadata.spec.ts\n M tests/e2e/sidebar-drag.spec.ts\n M tests/e2e/sidebar-layout.spec.ts\n M tests/unit/catalog-cleanup.test.ts\n M tests/unit/catalog-relations.test.ts\n M tests/unit/content-objects.test.ts\n M tests/unit/editor-input-rules.test.ts\n M tests/unit/extension-provenance.test.ts\n M tests/unit/manual-test-pages.test.ts\n M tests/unit/notdown-dialect.test.ts\n?? docs/features/SYMBOL-REPLACEMENTS.md\n?? docs/fixtures/dialect-audit/\n?? scripts/dialect-audit/\n?? src/assets/cursors/col-resize.svg\n?? src/editor/inline-mark-caret.ts\n?? src/editor/inline-mark-navigation.css\n?? src/editor/inline-mark-navigation.ts\n?? src/editor/symbol-replacements.ts\n?? src/features/pages/conflict-diff.css\n?? src/features/pages/conflict-diff.ts\n?? src/features/pages/graph-model.ts\n?? src/features/pages/graph-view.css\n?? src/features/pages/graph-view.ts\n?? src/shared/page-icons.ts\n?? tests/e2e/conflict-diff.spec.ts\n?? tests/e2e/graph.spec.ts\n?? tests/e2e/inline-mark-navigation.spec.ts\n?? tests/e2e/page-icons.spec.ts\n?? tests/e2e/page-tree.spec.ts\n?? tests/e2e/symbol-replacements.spec.ts\n?? tests/unit/conflict-diff.test.ts\n?? tests/unit/dialect-audit.test.ts\n?? tests/unit/graph-model.test.ts\n?? tests/unit/inline-mark-navigation.test.ts\n?? tests/unit/page-icons.test.ts\n?? tests/unit/symbol-replacements.test.ts\n",
+    "node": "v24.19.0",
+    "commonmark": "0.31.2",
+    "cmarkgfm": "2025.10.22",
+    "php": "PHP 8.4.26 (cli) (built: Sep 22 2026 15:11:32) (NTS Visual C++ 2022 x64) Copyright (c) The PHP Group Built by The PHP Group",
+    "phpMarkdownExtra": "2.0.0",
+    "markdownPl": "1.0.1",
+    "mmd": "MultiMarkdown 6 v6.7.0 Copyright © 2016 - 2023 Fletcher T. Penney. ",
+    "pandoc": "pandoc 3.11 Features: +server +lua Scripting engine: Lua 5.4",
+    "paths": {
+      "python": "C:/Users/Eric/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe",
+      "perl": "C:/Program Files/Git/usr/bin/perl.exe",
+      "markdownPl": "D:\\Portable Software\\markdown.pl\\Markdown.pl",
+      "php": "D:\\Workspace\\note-app\\notdown\\.run\\dialect-audit\\tools\\php\\php.exe",
+      "mmd": "C:/Program Files/libMultiMarkdown 6.7.0/bin/multimarkdown.exe",
+      "pandoc": "pandoc"
+    },
+    "scope": "parseNative(source, {version:1, variant, extensions}) → renderNotionMarkdown(document). No Lab/Pandoc fallback. Static exporter, not live ProseMirror DOM.",
+    "engineAtStart": {
+      "src/document/block-document.ts": "cc303a1fec000e816483bd68bc309e81e773ea0bbed5b2403ae5aeb9df7c545f",
+      "src/document/code-caption.ts": "64654e150210039b068f89db23a6e74306ab410a978b103230f0efea1a012e87",
+      "src/document/content-objects.ts": "e3da51850f8e9918f169d05033e0143006bc0b7eac6ee84305554d93b6b639b8",
+      "src/document/document-format.ts": "72bf3b8322c60c39cafb70aa9a0181d6c5d0f29bac748ef2d3ca4473c536db7e",
+      "src/document/editor-markdown.ts": "ee8779dbeb6ba27b5bd27ac492f24b132a8a3d9d554f773b45e3b80fd59a4f8b",
+      "src/document/editor-schema.ts": "0b7712a503a18b693bed67fac632941daab2d6e89ccc63e06145e3ccc4e6bbe2",
+      "src/document/list-items.ts": "37ccbd453e1e03a309961a82565a8943bc6aa33519417595c26088a3d4e25341",
+      "src/document/markdown.ts": "d1f7f866957f555c4ce31314dad5e14dd7d70b74721f4275c3a8cb40017fc7d8",
+      "src/document/notdown-boundary.ts": "48185875a89e440c827876bc890053e3e871de256a79bcc1a1be36822df45910",
+      "src/document/notion-markdown.ts": "62c07813143fda938265be9e03b6bc3496bfc616d6530541f553fc5f041ed42e",
+      "src/document/notion-syntax.ts": "bce52f1e140ce89950754894c4e843cb6a075d0d70fd7b26e6d44a7a964eabd3",
+      "src/document/object-codec.ts": "ed4d3e784e0cc442426a8b15efb36ec2ff937333794aedd61d56df7f41fb6521",
+      "src/document/object-model.ts": "eaf02c7391ec80686138e267cf008d6a18056b31a18a20b0b759f2d9df8114c4",
+      "src/document/table-markdown.ts": "1c172387ed1f893e99163f937fd6f3336cbe01afd533f3544d9e91a9c5c59243",
+      "src/markdown-engine/advanced-definitions.ts": "a6c04119213a529bc19d696559c0f4e8e931a8cfbb0f132d07024f402fb53700",
+      "src/markdown-engine/advanced.ts": "4305ca256408bd0c90796a008d6e8f0e8cbb1bba90f91def421098588e642bed",
+      "src/markdown-engine/attributes.ts": "89f8f273b37f441220748b371c39a1d998726cea19be662b164ad0375f410fd7",
+      "src/markdown-engine/bibliography.ts": "4303c6546731e02156faf42e231e6836060a64890126ac81a26845ebaa8071bd",
+      "src/markdown-engine/blocks.ts": "11d8b7b008b8e0bb29399b4b55ec4d4f4d76485cc05a061c7561b11956afb34e",
+      "src/markdown-engine/citation-view.ts": "a602bf1dfdf12c27bf9c0ab300a7dc922c8ecd814cf7283073db456ed7ab8d31",
+      "src/markdown-engine/codec.ts": "0000063b01ec2ae3f401226c4bb48312d76b1b80f15aba0bd450ab059708dbee",
+      "src/markdown-engine/config.ts": "5bdb9e84d114167dcec2faeebad5d1748baa5fa86de15f312d6054440debf786",
+      "src/markdown-engine/dialects.ts": "55fcb6bb5035db025caca513638e24a41a8d84ea9f68a5505f9e10646583c7d0",
+      "src/markdown-engine/document-options.ts": "74b978101e6320ba7be12ddda2f862181143831569bab918d600d13c7cd94d05",
+      "src/markdown-engine/html-view.ts": "119ef883b49de7f25b4086bb4569ca5fbf458d10af050617802b30ba3312ce3e",
+      "src/markdown-engine/html.ts": "4eaf5c4fbf138ac2ec14055f472f6b7183914794a2966a1e37adc68b3f8973b8",
+      "src/markdown-engine/latex-macros.ts": "4adf24d7dd2795bfa6bd697ebff76afb0c8866a16c2f1fe522f1f89eb14d4190",
+      "src/markdown-engine/metadata-editing.ts": "f959dc67cc7829c12aba5a909e985f809dbc8f94ed7dbf0ab15cbda0a4f5291f",
+      "src/markdown-engine/mmd-metadata.ts": "09c8aa8fa3f17d0eaf5242df9e9f3347d16dcd2947f32a1cad8a101b1f9a843f",
+      "src/markdown-engine/pandoc-tables.ts": "9ffd3f3d5335c4a4281c1b045ffe971bf0e28b485fb11077d274cef8134248b9",
+      "src/markdown-engine/presets.ts": "a7dd383e4546f8df60efe5e011a85d05ef0ecaacadb9dc94706fbc21fd766477",
+      "src/markdown-engine/product-render.ts": "c8951d046c1dbb53ed7a44eb0a179996b8172367d489d88d7a1be4f625616acf",
+      "src/markdown-engine/product-view.ts": "821f7765227edab656548b0258a3ce0bd1abfca8325d8906688b96dc556b7f34",
+      "src/markdown-engine/products.ts": "c65788f841179f9167602bb486a8cf1618fdf61c22bd802a31e63746c801cc7f",
+      "src/markdown-engine/reference-options.ts": "333b07cd401fc25add6296410584b699d24a96de1ef317d9eb51aca7488cabd9",
+      "src/markdown-engine/session.ts": "3365eefc4c5d6c83fe473ee805e79001e37d59842dc507d9f43903896fc21c42",
+      "src/markdown-engine/spacing.ts": "4165df1cf36a0f59a9151e1d0baa6d893eb532f026bae7ccab30b959ea9ac6c7",
+      "src/markdown-engine/vendor.d.ts": "bf45073e565c0323909cf7d7c2a563f7a0c65ca80c61cce44c1c502bebcb2cd4",
+      "src/markdown-engine/workspace.ts": "df6ee3f3d28120384ccd7fe6e52f8f166591ca023773093f048de8af284f62bb"
+    },
+    "engineAtEnd": {
+      "src/document/block-document.ts": "cc303a1fec000e816483bd68bc309e81e773ea0bbed5b2403ae5aeb9df7c545f",
+      "src/document/code-caption.ts": "64654e150210039b068f89db23a6e74306ab410a978b103230f0efea1a012e87",
+      "src/document/content-objects.ts": "e3da51850f8e9918f169d05033e0143006bc0b7eac6ee84305554d93b6b639b8",
+      "src/document/document-format.ts": "72bf3b8322c60c39cafb70aa9a0181d6c5d0f29bac748ef2d3ca4473c536db7e",
+      "src/document/editor-markdown.ts": "ee8779dbeb6ba27b5bd27ac492f24b132a8a3d9d554f773b45e3b80fd59a4f8b",
+      "src/document/editor-schema.ts": "0b7712a503a18b693bed67fac632941daab2d6e89ccc63e06145e3ccc4e6bbe2",
+      "src/document/list-items.ts": "37ccbd453e1e03a309961a82565a8943bc6aa33519417595c26088a3d4e25341",
+      "src/document/markdown.ts": "d1f7f866957f555c4ce31314dad5e14dd7d70b74721f4275c3a8cb40017fc7d8",
+      "src/document/notdown-boundary.ts": "48185875a89e440c827876bc890053e3e871de256a79bcc1a1be36822df45910",
+      "src/document/notion-markdown.ts": "62c07813143fda938265be9e03b6bc3496bfc616d6530541f553fc5f041ed42e",
+      "src/document/notion-syntax.ts": "bce52f1e140ce89950754894c4e843cb6a075d0d70fd7b26e6d44a7a964eabd3",
+      "src/document/object-codec.ts": "ed4d3e784e0cc442426a8b15efb36ec2ff937333794aedd61d56df7f41fb6521",
+      "src/document/object-model.ts": "eaf02c7391ec80686138e267cf008d6a18056b31a18a20b0b759f2d9df8114c4",
+      "src/document/table-markdown.ts": "1c172387ed1f893e99163f937fd6f3336cbe01afd533f3544d9e91a9c5c59243",
+      "src/markdown-engine/advanced-definitions.ts": "a6c04119213a529bc19d696559c0f4e8e931a8cfbb0f132d07024f402fb53700",
+      "src/markdown-engine/advanced.ts": "4305ca256408bd0c90796a008d6e8f0e8cbb1bba90f91def421098588e642bed",
+      "src/markdown-engine/attributes.ts": "89f8f273b37f441220748b371c39a1d998726cea19be662b164ad0375f410fd7",
+      "src/markdown-engine/bibliography.ts": "4303c6546731e02156faf42e231e6836060a64890126ac81a26845ebaa8071bd",
+      "src/markdown-engine/blocks.ts": "11d8b7b008b8e0bb29399b4b55ec4d4f4d76485cc05a061c7561b11956afb34e",
+      "src/markdown-engine/citation-view.ts": "a602bf1dfdf12c27bf9c0ab300a7dc922c8ecd814cf7283073db456ed7ab8d31",
+      "src/markdown-engine/codec.ts": "0000063b01ec2ae3f401226c4bb48312d76b1b80f15aba0bd450ab059708dbee",
+      "src/markdown-engine/config.ts": "5bdb9e84d114167dcec2faeebad5d1748baa5fa86de15f312d6054440debf786",
+      "src/markdown-engine/dialects.ts": "55fcb6bb5035db025caca513638e24a41a8d84ea9f68a5505f9e10646583c7d0",
+      "src/markdown-engine/document-options.ts": "74b978101e6320ba7be12ddda2f862181143831569bab918d600d13c7cd94d05",
+      "src/markdown-engine/html-view.ts": "119ef883b49de7f25b4086bb4569ca5fbf458d10af050617802b30ba3312ce3e",
+      "src/markdown-engine/html.ts": "4eaf5c4fbf138ac2ec14055f472f6b7183914794a2966a1e37adc68b3f8973b8",
+      "src/markdown-engine/latex-macros.ts": "4adf24d7dd2795bfa6bd697ebff76afb0c8866a16c2f1fe522f1f89eb14d4190",
+      "src/markdown-engine/metadata-editing.ts": "f959dc67cc7829c12aba5a909e985f809dbc8f94ed7dbf0ab15cbda0a4f5291f",
+      "src/markdown-engine/mmd-metadata.ts": "09c8aa8fa3f17d0eaf5242df9e9f3347d16dcd2947f32a1cad8a101b1f9a843f",
+      "src/markdown-engine/pandoc-tables.ts": "9ffd3f3d5335c4a4281c1b045ffe971bf0e28b485fb11077d274cef8134248b9",
+      "src/markdown-engine/presets.ts": "a7dd383e4546f8df60efe5e011a85d05ef0ecaacadb9dc94706fbc21fd766477",
+      "src/markdown-engine/product-render.ts": "c8951d046c1dbb53ed7a44eb0a179996b8172367d489d88d7a1be4f625616acf",
+      "src/markdown-engine/product-view.ts": "821f7765227edab656548b0258a3ce0bd1abfca8325d8906688b96dc556b7f34",
+      "src/markdown-engine/products.ts": "c65788f841179f9167602bb486a8cf1618fdf61c22bd802a31e63746c801cc7f",
+      "src/markdown-engine/reference-options.ts": "333b07cd401fc25add6296410584b699d24a96de1ef317d9eb51aca7488cabd9",
+      "src/markdown-engine/session.ts": "3365eefc4c5d6c83fe473ee805e79001e37d59842dc507d9f43903896fc21c42",
+      "src/markdown-engine/spacing.ts": "4165df1cf36a0f59a9151e1d0baa6d893eb532f026bae7ccab30b959ea9ac6c7",
+      "src/markdown-engine/vendor.d.ts": "bf45073e565c0323909cf7d7c2a563f7a0c65ca80c61cce44c1c502bebcb2cd4",
+      "src/markdown-engine/workspace.ts": "df6ee3f3d28120384ccd7fe6e52f8f166591ca023773093f048de8af284f62bb"
+    },
+    "engineChangedDuringRun": false,
+    "github": {
+      "renderer": "GitHub REST POST /markdown",
+      "mode": "gfm",
+      "context": "github/docs",
+      "successful": 29
+    },
+    "obsidianUnavailable": "Installed Obsidian 1.13.7: isolated profile/vault plugin did not return HTML within two 90-second attempts. Error: ENOENT: no such file or directory, open 'D:\\Workspace\\note-app\\notdown\\.run\\dialect-audit\\obsidian-isolated\\official.json'",
+    "typoraWhole": {
+      "sourceSha256": "d11402fd5f96e7b92a067705922e9a5a4f7a101ec997fae6084672ea187206f8",
+      "version": "0.9.58",
+      "executable": "C:/Program Files/Typora/Typora.exe",
+      "capturedAt": "2026-09-23T11:41:11.4562301Z",
+      "renderer": "Typora native HTML (without styles) export",
+      "sha256": "1b5c311b2e7fbc84b6639a37bf8f392fba435c6fad893d4d92b863125c9a7b46",
+      "scope": "Whole application-saved anthology only; Typora added whitespace to blank code lines. Original fixture restored. Existing preferences were not changed or exhaustively recorded. Not an independent-case oracle.",
+      "comparison": {
+        "rawEqual": false,
+        "domEqual": false,
+        "textEqual": false
+      }
+    }
+  },
+  "summaries": [
+    {
+      "variant": "commonmark",
+      "cases": 686,
+      "profiles": {
+        "default": {
+          "runs": 686,
+          "compared": 686,
+          "rawEqual": 0,
+          "domEqual": 255,
+          "textEqual": 684,
+          "roundtripExact": 686,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "gfm",
+      "cases": 750,
+      "profiles": {
+        "default": {
+          "runs": 750,
+          "compared": 750,
+          "rawEqual": 0,
+          "domEqual": 257,
+          "textEqual": 723,
+          "roundtripExact": 750,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "documented": {
+          "runs": 11,
+          "compared": 11,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 2,
+          "roundtripExact": 11,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "markdown_strict",
+      "cases": 34,
+      "profiles": {
+        "default": {
+          "runs": 34,
+          "compared": 34,
+          "rawEqual": 0,
+          "domEqual": 8,
+          "textEqual": 28,
+          "roundtripExact": 34,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "markdown_phpextra",
+      "cases": 62,
+      "profiles": {
+        "default": {
+          "runs": 62,
+          "compared": 62,
+          "rawEqual": 0,
+          "domEqual": 12,
+          "textEqual": 54,
+          "roundtripExact": 62,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "markdown_mmd",
+      "cases": 103,
+      "profiles": {
+        "default": {
+          "runs": 103,
+          "compared": 103,
+          "rawEqual": 0,
+          "domEqual": 11,
+          "textEqual": 43,
+          "roundtripExact": 103,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "markdown",
+      "cases": 121,
+      "profiles": {
+        "default": {
+          "runs": 121,
+          "compared": 121,
+          "rawEqual": 0,
+          "domEqual": 34,
+          "textEqual": 99,
+          "roundtripExact": 121,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "documented": {
+          "runs": 74,
+          "compared": 74,
+          "rawEqual": 0,
+          "domEqual": 11,
+          "textEqual": 55,
+          "roundtripExact": 74,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "disabled": {
+          "runs": 74,
+          "compared": 74,
+          "rawEqual": 0,
+          "domEqual": 30,
+          "textEqual": 58,
+          "roundtripExact": 74,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "file-path": {
+          "runs": 1,
+          "compared": 1,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 1,
+          "roundtripExact": 1,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "commonmark_x",
+      "cases": 77,
+      "profiles": {
+        "default": {
+          "runs": 77,
+          "compared": 77,
+          "rawEqual": 0,
+          "domEqual": 23,
+          "textEqual": 61,
+          "roundtripExact": 77,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "documented": {
+          "runs": 30,
+          "compared": 30,
+          "rawEqual": 0,
+          "domEqual": 2,
+          "textEqual": 15,
+          "roundtripExact": 30,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "disabled": {
+          "runs": 30,
+          "compared": 30,
+          "rawEqual": 0,
+          "domEqual": 15,
+          "textEqual": 24,
+          "roundtripExact": 30,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "file-path": {
+          "runs": 1,
+          "compared": 1,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 1,
+          "roundtripExact": 1,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "markdown_github",
+      "cases": 121,
+      "profiles": {
+        "default": {
+          "runs": 121,
+          "compared": 121,
+          "rawEqual": 0,
+          "domEqual": 47,
+          "textEqual": 107,
+          "roundtripExact": 121,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "documented": {
+          "runs": 74,
+          "compared": 74,
+          "rawEqual": 0,
+          "domEqual": 12,
+          "textEqual": 59,
+          "roundtripExact": 74,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "disabled": {
+          "runs": 74,
+          "compared": 74,
+          "rawEqual": 0,
+          "domEqual": 39,
+          "textEqual": 64,
+          "roundtripExact": 74,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "file-path": {
+          "runs": 1,
+          "compared": 1,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 1,
+          "roundtripExact": 1,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "typora",
+      "cases": 70,
+      "profiles": {
+        "default": {
+          "runs": 70,
+          "compared": 0,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 0,
+          "roundtripExact": 70,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        },
+        "documented": {
+          "runs": 12,
+          "compared": 0,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 0,
+          "roundtripExact": 12,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "obsidian",
+      "cases": 103,
+      "profiles": {
+        "default": {
+          "runs": 103,
+          "compared": 0,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 0,
+          "roundtripExact": 103,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    },
+    {
+      "variant": "notion-markdown",
+      "cases": 52,
+      "profiles": {
+        "default": {
+          "runs": 52,
+          "compared": 0,
+          "rawEqual": 0,
+          "domEqual": 0,
+          "textEqual": 0,
+          "roundtripExact": 52,
+          "nativeErrors": 0,
+          "pandocErrors": 0
+        }
+      }
+    }
+  ],
+  "specChecks": [
+    {
+      "variant": "commonmark",
+      "cases": 652,
+      "officialVsSpecDomDifferences": []
+    },
+    {
+      "variant": "gfm",
+      "cases": 677,
+      "officialVsSpecDomDifferences": [
+        "gfm-example-112",
+        "gfm-example-113",
+        "gfm-example-114",
+        "gfm-example-116",
+        "gfm-example-140",
+        "gfm-example-141",
+        "gfm-example-142",
+        "gfm-example-145",
+        "gfm-example-147",
+        "gfm-example-320",
+        "gfm-example-324",
+        "gfm-example-330",
+        "gfm-example-398",
+        "gfm-example-426",
+        "gfm-example-434",
+        "gfm-example-435",
+        "gfm-example-436",
+        "gfm-example-473",
+        "gfm-example-474",
+        "gfm-example-475",
+        "gfm-example-477",
+        "gfm-example-611",
+        "gfm-example-615",
+        "gfm-example-617",
+        "gfm-example-620",
+        "gfm-example-621",
+        "gfm-example-634",
+        "gfm-example-635",
+        "gfm-example-649",
+        "gfm-example-650"
+      ]
+    }
+  ]
+}

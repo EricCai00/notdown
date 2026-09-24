@@ -52,7 +52,7 @@ function objectSources(r: Resources, syntax: SyntaxConfig): Record<string, strin
     "block.example_list_item": '(@first-case) First example\n(@second-case) Second example\n\nReference: @second-case.',
     "block.raw_tex": '\\begin{center}\nRaw TeX source\n\\end{center}',
     "inline.code_span": 'Text with `**literal**` code.', "inline.emphasis": '*Italic text*', "inline.strong_emphasis": '**Bold text**',
-    "inline.strikethrough": '~~Deleted text~~', "inline.link": `[Local fixture](#page/${r.target})`,
+    "inline.strikethrough": '~~Deleted text~~', "inline.link": '[External link](https://example.com)',
     "inline.image": `Inline ![sample](${r.image}) between words.`, "inline.autolink": '<https://example.com>',
     "inline.internal_link": `[[${r.target}|Fixture target]]`, "inline.emoji": 'Unicode 😀 and shortcode :smile:',
     "inline.inline_math": 'Inline $x^2+y^2$ formula.', "inline.subscript": 'H~2~O', "inline.superscript": 'x^2^',
@@ -65,7 +65,7 @@ function objectSources(r: Resources, syntax: SyntaxConfig): Record<string, strin
     "inline.underline": '<span underline="true">Underlined text</span>', "inline.small_caps": '[Small capitals]{.smallcaps data-extra="keep"}',
     "inline.native_span": '[Span text]{#sample-span .custom lang="en" data-extra="keep"}',
     "inline.mention_person": '<mention-user url="local:fixture-person">Example person</mention-user>',
-    "inline.mention_page_or_data_source": `<mention-page url="#page/${r.target}">Fixture target</mention-page>`,
+    "inline.mention_page_or_data_source": '<mention-data-source url="https://example.com/data">Example data source</mention-data-source>',
     "inline.date_or_reminder": '<mention-date start="2030-01-01" end="2030-01-02">Example date range (no reminder scheduled)</mention-date>',
     "inline.text_color": '<span color="red">Red text</span>', "inline.background_color": '<span color="yellow_bg">Yellow background</span>',
     "character.line_break": 'First line  \nSecond line', "character.HTML_entity": '&amp; &lt; &#169;',
@@ -204,6 +204,7 @@ export function buildManualPages(r: Resources): Specimen[] {
   }
   // Mutually exclusive readers and leading metadata must be tested separately.
   const isolated: [string, string, string, string, string[]][] = [
+    ['symbol_replacements','Literal -> <- <-> => <=> <= >= != +/- ... (c) (r) (tm)','加载与源码编辑保留 ASCII。在正文新输入这些组合应变为 Unicode；立即退格撤回上一步。代码和链接内不替换，关闭开关后不替换。','notdown',[]],
     ['display_math','$\nx^2\n$','块公式独立开启；行内公式保持关闭。','typora',['tex_math_dollars']],
     ['hard_line_breaks','First\nSecond','换行成为显式换行。','typora',['ignore_line_breaks','east_asian_line_breaks']],
     ['ignore_line_breaks','First\nSecond','换行被忽略；和 hard_line_breaks 分开比较。','markdown',['hard_line_breaks','east_asian_line_breaks']],

@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import imageRule from "markdown-it/lib/rules_inline/image.mjs";
 import { readObjectBlock, writeObjectBlock } from "./object-codec";
 import { multiMarkdownTable } from "./table-markdown";
 import type Token from "markdown-it/lib/token.mjs";
@@ -24,6 +25,21 @@ import {
 } from "./notion-syntax.js";
 
 const md = new MarkdownIt({ html: false, linkify: false });
+// Enhanced Markdown documents links explicitly, and images as media blocks.
+// Consume inline image syntax as a whole so it cannot fall through to a link.
+md.disable("autolink");
+md.inline.ruler.at("image", (state, silent) => {
+  const start = state.pos;
+  if (!imageRule(state, silent)) return false;
+  if (!silent && !state.env.mediaImage) {
+    const token = state.tokens[state.tokens.length - 1];
+    token.type = "text";
+    token.content = state.src.slice(start, state.pos);
+    token.children = null;
+    token.attrs = null;
+  }
+  return true;
+});
 md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
   const rest = state.src.slice(state.pos);
   const br = /^<br\s*\/?\s*>/i.exec(rest);
@@ -71,7 +87,7 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
     token.content = decodeXml(content);
     if (tag.tag === "span") {
       token.meta = tag.attrs;
-      token.children = md.parseInline(content, state.env)[0]?.children ?? [];
+      token.children = md.parseInline(content, { ...state.env, mediaImage: false })[0]?.children ?? [];
     } else token.meta = { kind: tag.tag.slice(8), attrs: tag.attrs };
   }
   state.pos += finish;
@@ -79,7 +95,7 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
 });
 md.inline.ruler.before("escape", "notion_math_citation", (state, silent) => {
   const rest = state.src.slice(state.pos);
-  const citation = /^\[\^([^\]\r\n]+)\]/.exec(rest);
+  const citation = /^\[\^([a-z][a-z\d+.-]*:[^\]\s<>]+)\]/i.exec(rest);
   const equation = /^\$([^$\r\n]+)\$/.exec(rest);
   const match = citation || equation;
   if (!match) return false;
@@ -97,7 +113,7 @@ md.inline.ruler.before("link", "legacy_page_mention", (state, silent) => {
   if (!match || silent) return false;
   const [target, ...label] = match[1].split("|");
   const token = state.push("wiki_link", "", 0);
-  token.meta = { target: target.trim() };
+  token.meta = { target: target.trim(), explicitLabel: label.length > 0 };
   token.content = label.join("|") || target.trim();
   state.pos += match[0].length;
   return true;
@@ -252,6 +268,8 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         )
         .join("\n");
       if (close === end) return { node: opaque(from, end), next: end };
+      if (!extensions && fence[1][0] === "~")
+        return { node: opaque(from, close + 1), next: close + 1 };
       const info = lineAttributes(fence[2].trim());
       return {
         node: schema.nodes.code_block.create(
@@ -391,7 +409,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       ) {
         if (close < 0) return { node: opaque(from, end), next: end };
         if (tag.tag === "table") {
-          const table = parseTable(body, attrs, notionInline);
+          const table = parseTable(body, attrs, notionInline, !extensions);
           return { node: table || opaque(from, next), next };
         }
         let content = single
@@ -493,9 +511,18 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     }
     const parsed = lineAttributes(text);
     const line = parsed.text;
+    if (!extensions && line.trimStart().startsWith("![")) {
+      const tokens = md.parseInline(line.trim(), { mediaImage: true })[0]?.children ?? [];
+      if (tokens.length === 1 && tokens[0].type === "image") {
+        if (tokens[0].attrGet("title")) return { node: opaque(from, from + 1), next: from + 1 };
+        return { node: schema.nodes.paragraph.create(parsed.attrs, parseInline(tokens)), next: from + 1 };
+      }
+    }
     const list = /^\s*(?:([-+*]) |(\d+)\. )(.*)$/.exec(line);
     if (list) {
       const checkbox = /^\[([ xX])\](?: |$)/.exec(list[3]);
+      if (!extensions && checkbox && list[2])
+        return { node: opaque(from, from + 1), next: from + 1 };
       return {
         node: schema.nodes[checkbox ? "task_list_item" : list[2] ? "numbered_list_item" : "bullet_list_item"].create(
           {
@@ -564,6 +591,12 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
           (!lines[finish].trim() || depthAt(finish) > level)
         )
           finish++;
+        // Ordinary headings cannot acquire children or silently become toggles.
+        if (!extensions && node.type.name === "heading" && !node.attrs.toggle) {
+          result.push(withSource(opaque(start, finish), start, finish));
+          cursor = finish;
+          continue;
+        }
         const nested = sequence(nextContent, finish, level + 1);
         if (["paragraph", "heading"].includes(node.type.name)) {
           if (node.type === schema.nodes.heading)
@@ -666,6 +699,7 @@ function parseTable(
   body: string,
   attrs: Record<string, unknown>,
   inline = notionInline,
+  strict = true,
 ): PMNode | null {
   const widths: string[] = [],
     columnAttrs: TagAttributes[] = [],
@@ -697,6 +731,7 @@ function parseTable(
     while (content) {
       const cell = openingTag(content);
       if (!cell || !["td", "th"].includes(cell.tag)) return null;
+      if (strict && cell.tag !== "td") return null;
       const finish = content.indexOf(`</${cell.tag}>`, cell.length);
       if (finish < 0) return null;
       cells.push(
@@ -853,6 +888,7 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
 /** Original enhanced source is retained until its subtree changes. Legacy input
  * is converted as a whole once, so mixed newline semantics cannot enter a file. */
 export function serializeNotionMarkdown(doc: PMNode): string {
+  assertOfficialNotionStructure(doc);
   const enhanced = doc.attrs.sourceFormat === "notion-markdown";
   if (enhanced) return serializeEditorMarkdown(doc, notionBlockMarkdown);
   const newline = doc.attrs.sourceNewline || "\n";
@@ -864,4 +900,25 @@ export function serializeNotionMarkdown(doc: PMNode): string {
   if (doc.attrs.sourceSuffix?.trim())
     output.push(doc.attrs.sourceSuffix.trim());
   return output.join("\n\n").replace(/\r\n|\n|\r/g, newline);
+}
+
+/** Pasted/programmatically created nodes must obey the same boundary as source.
+ * Never flatten an unsupported inline into a different block or silently drop it. */
+function assertOfficialNotionStructure(doc: PMNode): void {
+  const marks = new Set(["em", "strong", "strike", "code", "link", "underline", "color"]);
+  const visit = (node: PMNode, parent?: PMNode, grandparent?: PMNode, index = 0, parentIndex = 0) => {
+    const image = node.type.name === "image";
+    const inlineImage = image && (parent?.type.name !== "paragraph" || parent.childCount !== 1 ||
+      grandparent?.type.name === "table_cell" || parentIndex === 0 &&
+      ["bullet_list_item", "numbered_list_item", "task_list_item", "blockquote", "toggle_block"].includes(grandparent?.type.name || ""));
+    const plainHeadingChildren = node.type.name === "nested_block" &&
+      node.firstChild?.type.name === "heading" && !node.firstChild.attrs.toggle;
+    const orderedTask = node.type.name === "ordered_list" && kids(node).some(child => child.attrs.checked !== null);
+    if (inlineImage || image && (node.marks.length || node.attrs.title || Object.keys(node.attrs.markdownAttrs || {}).length) ||
+      plainHeadingChildren || orderedTask || node.marks.some(mark => !marks.has(mark.type.name) ||
+        mark.type.name === "color" && (mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color"))))
+      throw new Error("This structure is not documented in Notion-flavored Markdown. Preserve its source or use Notdown.");
+    node.forEach((child, _offset, childIndex) => visit(child, node, parent, childIndex, index));
+  };
+  visit(doc);
 }

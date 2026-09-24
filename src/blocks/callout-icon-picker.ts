@@ -1,5 +1,6 @@
 import { emojiStyle, emojiStyleOptions, setEmojiStyle, type EmojiStyle } from "./emoji-style";
 import type { EmojiEntry } from "./emoji-catalog";
+import { lucidePageIcon, lucidePageIcons, pageIconElement } from "../shared/page-icons";
 
 // Keep the shortcut search terms separate from the official English names
 // shown on hover. The complete catalog is loaded only when a picker opens.
@@ -24,10 +25,11 @@ const featured: readonly (readonly [icon: string, name: string, searchTerms: str
 const featuredEntries: EmojiEntry[] = featured.map(([icon, name]) => [icon, name]);
 const featuredNames = new Map(featuredEntries);
 const recentKey = "notdown-callout-recent-icons";
+const lucideRecentKey = "notdown-page-recent-lucide-icons";
 const pageSize = 160;
 
-/** Text-only icons: neither pasted markup nor URLs are interpreted as HTML. */
-export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string) => void, label = "Callout icon") {
+/** Custom symbols stay text; page pickers can also select bundled Lucide SVGs. */
+export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string) => void, label = "Callout icon", options: { lucide?: boolean; current?: string } = {}) {
   const dialog = document.createElement("dialog");
   dialog.className = "pm-callout-icon-picker";
   dialog.setAttribute("aria-label", "Choose " + label.toLowerCase());
@@ -38,6 +40,28 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
   remove.textContent = "Remove";
   const header = document.createElement("header");
   header.append(heading, remove);
+
+  let mode: "emoji" | "lucide" = options.lucide && options.current !== "file-text" && lucidePageIcon(options.current) ? "lucide" : "emoji";
+  const modes = document.createElement("nav");
+  modes.className = "pm-icon-modes";
+  modes.setAttribute("aria-label", "Icon library");
+  if (options.lucide) {
+    for (const [value, title] of [["emoji", "Emoji"], ["lucide", "Lucide"]] as const) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = title;
+      button.dataset.iconMode = value;
+      button.addEventListener("click", () => {
+        mode = value;
+        search.value = "";
+        visibleCount = pageSize;
+        render();
+        results.scrollTop = 0;
+        search.focus();
+      });
+      modes.append(button);
+    }
+  }
 
   const search = document.createElement("input");
   search.type = "search";
@@ -76,13 +100,17 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
   const apply = document.createElement("button");
   apply.textContent = "Use icon";
   custom.append(input, apply);
-  dialog.append(header, search, appearance, categories, results, status, custom);
+  dialog.append(header, modes, search, appearance, categories, results, status, custom);
 
-  let recent: string[] = [];
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(recentKey) || "[]");
-    if (Array.isArray(stored)) recent = stored.filter((s): s is string => typeof s === "string" && s.length > 0 && s.length <= 32).slice(0, 12);
-  } catch { /* Storage may be unavailable; choosing an icon still works. */ }
+  const readRecent = (key: string): string[] => {
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(stored)) return stored.filter((s): s is string => typeof s === "string" && s.length > 0 && s.length <= 100).slice(0, 12);
+    } catch { /* Storage may be unavailable; choosing an icon still works. */ }
+    return [];
+  };
+  const recent = readRecent(recentKey);
+  const recentLucide = readRecent(lucideRecentKey).filter(icon => !!lucidePageIcon(icon));
 
   let catalog: typeof import("./emoji-catalog") | undefined;
   let category = "Popular";
@@ -92,7 +120,9 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
   const select = (icon: string) => {
     chosen = true;
     if (icon) {
-      try { localStorage.setItem(recentKey, JSON.stringify([icon, ...recent.filter(s => s !== icon)].slice(0, 12))); } catch { /* Optional history. */ }
+      const key = mode === "lucide" ? lucideRecentKey : recentKey;
+      const history = mode === "lucide" ? recentLucide : recent;
+      try { localStorage.setItem(key, JSON.stringify([icon, ...history.filter(s => s !== icon)].slice(0, 12))); } catch { /* Optional history. */ }
     }
     close();
     choose(icon);
@@ -112,9 +142,10 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
     grid.className = "pm-callout-icon-grid";
     for (const [icon, name] of entries) {
       const button = document.createElement("button");
-      const displayName = catalog?.emojiName(icon) ?? name;
+      const displayName = mode === "lucide" ? name : catalog?.emojiName(icon) ?? name;
       button.type = "button";
-      button.textContent = icon;
+      if (mode === "lucide") button.append(pageIconElement(icon));
+      else button.textContent = icon;
       button.title = displayName;
       button.setAttribute("aria-label", displayName);
       button.addEventListener("click", () => select(icon));
@@ -144,8 +175,14 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
 
   const render = () => {
     results.replaceChildren();
+    const isLucide = mode === "lucide";
+    appearance.hidden = categories.hidden = custom.hidden = isLucide;
+    search.placeholder = isLucide ? "Search Lucide icons…" : "Search emoji…";
+    for (const button of modes.querySelectorAll("button")) {
+      button.setAttribute("aria-pressed", String(button.dataset.iconMode === mode));
+    }
     const query = search.value.trim().toLocaleLowerCase();
-    if (!query && category === "Popular") {
+    if (!isLucide && !query && category === "Popular") {
       group("Recent", recent.flatMap(icon => {
         const name = catalog?.emojiName(icon) ?? featuredNames.get(icon) ?? (catalog ? `Custom icon: ${icon}` : undefined);
         return name ? [[icon, name] as const] : [];
@@ -156,7 +193,12 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
     }
 
     let entries: EmojiEntry[];
-    if (query) {
+    if (isLucide) {
+      const words = query.split(/[\s-]+/).filter(Boolean);
+      entries = lucidePageIcons.filter(({ name }) => words.every(word => name.replaceAll("-", "").includes(word.replaceAll("-", ""))))
+        .map(({ name }) => [name, name]);
+      if (!query) group("Recent", recentLucide.map(icon => [icon, icon]));
+    } else if (query) {
       const matches: EmojiEntry[] = featured
         .filter(([icon, name, searchTerms]) => `${icon} ${name} ${searchTerms}`.toLocaleLowerCase().includes(query))
         .map(([icon, name]) => [icon, name]);
@@ -165,10 +207,10 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
     } else {
       entries = catalog?.emojiGroups.find(group => group.name === category)?.entries ?? [];
     }
-    group(query ? "Search results" : category, entries.slice(0, visibleCount));
-    if (!entries.length && catalog) {
+    group(query ? "Search results" : isLucide ? "Lucide icons" : category, entries.slice(0, visibleCount));
+    if (!entries.length && (isLucide || catalog)) {
       const empty = document.createElement("p");
-      empty.textContent = "No matching emoji. Paste a custom symbol below.";
+      empty.textContent = isLucide ? "No matching icons. Try another name." : "No matching emoji. Paste a custom symbol below.";
       results.append(empty);
     }
     if (entries.length > visibleCount) {
@@ -185,8 +227,8 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
       results.append(more);
     }
     status.textContent = entries.length
-      ? `${Math.min(entries.length, visibleCount)} of ${entries.length} emoji`
-      : catalog ? "" : "Loading emoji catalog…";
+      ? `${Math.min(entries.length, visibleCount)} of ${entries.length} ${isLucide ? "Lucide icons" : "emoji"}`
+      : isLucide || catalog ? "" : "Loading emoji catalog…";
   };
 
   search.addEventListener("input", () => { visibleCount = pageSize; render(); results.scrollTop = 0; });
@@ -213,6 +255,6 @@ export function openCalloutIconPicker(anchor: HTMLElement, choose: (icon: string
     catalog = module;
     renderCategories();
     render();
-  }).catch(() => { if (dialog.isConnected) status.textContent = "Emoji catalog could not load. You can still paste a symbol."; });
+  }).catch(() => { if (dialog.isConnected && mode === "emoji") status.textContent = "Emoji catalog could not load. You can still paste a symbol."; });
   return close;
 }

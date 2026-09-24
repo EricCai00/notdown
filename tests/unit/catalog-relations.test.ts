@@ -16,11 +16,11 @@ import {
 import { dialects, extensions, enabled } from "../../src/markdown-engine/config";
 
 test("extension sources cover the workbook and current registry without treating reference entries as implemented", () => {
-  assert.equal(catalogExtensions.length, 126);
-  assert.equal(new Set(catalogExtensions.map((e) => e.id)).size, 126);
+  assert.equal(catalogExtensions.length, 127);
+  assert.equal(new Set(catalogExtensions.map((e) => e.id)).size, 127);
   for (const [category, count] of [
     ["pandoc", 89],
-    ["product", 15],
+    ["product", 16],
     ["notion", 22],
   ] as const)
     assert.equal(
@@ -28,7 +28,7 @@ test("extension sources cover the workbook and current registry without treating
       count,
     );
   for (const [status, count] of [
-    ["registered", 114],
+    ["registered", 115],
     ["pending", 0],
     ["out-of-scope", 12],
   ] as const)

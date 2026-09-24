@@ -1,3 +1,4 @@
+import { nodeReference, referenceHref } from "./internal-reference";
 import { notionBlockMarkdown } from "./notion-markdown";
 import { type Mark, type Node as EditorNode } from "prosemirror-model";
 import type Token from "markdown-it/lib/token.mjs";
@@ -52,6 +53,7 @@ function offsetsFor(source: string): number[] {
 export function parseInline(tokens: Token[]): EditorNode[] {
   const result: EditorNode[] = [];
   let marks: readonly Mark[] = [];
+  const markStack: (readonly Mark[])[] = [];
   const markNames: Record<string, string> = {
     em: "em",
     strong: "strong",
@@ -72,6 +74,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
     }
     const markName = markNames[token.type.replace(/_(open|close)$/, "")];
     if (markName && token.nesting === 1) {
+      markStack.push(marks);
       const attrs =
         markName === "link"
           ? {
@@ -86,7 +89,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
               : undefined;
       marks = schema.marks[markName].create(attrs).addToSet(marks);
     } else if (markName && token.nesting === -1) {
-      marks = schema.marks[markName].removeFromSet(marks);
+      marks = markStack.pop() ?? schema.marks[markName].removeFromSet(marks);
     } else if (token.type === "footnote_reference") {
       result.push(
         schema.nodes.footnote_reference.create(
@@ -98,13 +101,19 @@ export function parseInline(tokens: Token[]): EditorNode[] {
     } else if (token.type === "nfm_span") {
       const attrs = token.meta;
       let extra = marks;
-      if (/(?:^|\s)smallcaps(?:\s|$)/.test(attrs.class || "")) extra = schema.marks.small_caps.create({ attributes: attrs, syntaxForm: "html" }).addToSet(extra);
-      else if (attrs.class || attrs.id || attrs.lang) extra = schema.marks.native_span.create({ attributes: attrs, syntaxForm: "html" }).addToSet(extra);
+      // Style channels live in their own marks. Duplicating them on a native
+      // span would restore stale colors/underline after a menu edit or clear.
+      const nativeAttrs = { ...attrs };
+      delete nativeAttrs.color;
+      delete nativeAttrs.bg_color;
+      delete nativeAttrs.underline;
+      if (/(?:^|\s)smallcaps(?:\s|$)/.test(attrs.class || "")) extra = schema.marks.small_caps.create({ attributes: nativeAttrs, syntaxForm: "html" }).addToSet(extra);
+      else if (attrs.class || attrs.id || attrs.lang) extra = schema.marks.native_span.create({ attributes: nativeAttrs, syntaxForm: "html" }).addToSet(extra);
       if (attrs.underline === "true")
         extra = schema.marks.underline.create().addToSet(extra);
-      if (attrs.color || !extra.some(m => ["native_span", "small_caps"].includes(m.type.name)) && Object.keys(attrs).some((key) => key !== "underline"))
+      if (attrs.color || attrs.bg_color || !extra.some(m => ["native_span", "small_caps"].includes(m.type.name)) && Object.keys(attrs).some((key) => key !== "underline"))
         extra = schema.marks.color
-          .create({ color: attrs.color || "", nfmAttrs: attrs })
+          .create({ color: attrs.color || "", bg_color: attrs.bg_color || "", nfmAttrs: attrs })
           .addToSet(extra);
       for (const child of parseInline(token.children ?? [])) {
         let combined = child.marks;
@@ -122,6 +131,8 @@ export function parseInline(tokens: Token[]): EditorNode[] {
                   localPageTarget(token.meta.attrs.url || "") ??
                   token.meta.attrs.url ??
                   "",
+                syntaxForm: "mention",
+                labelMode: "auto",
                 label: token.content,
                 url: token.meta.attrs.url || "",
                 nfmAttrs: token.meta.attrs,
@@ -167,7 +178,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
     } else if (token.type === "wiki_link") {
       result.push(
         schema.nodes.page_link.create(
-          { target: token.meta.target, label: token.content },
+          { target: token.meta.target, label: token.content, syntaxForm: token.meta.syntaxForm || "wiki", labelMode: token.meta.explicitLabel ? "custom" : "auto" },
           null,
           marks,
         ),
@@ -256,6 +267,7 @@ function blockParser(source: string): BlockParser {
       ) {
         if (
           token.type === "paragraph_open" &&
+          !token.meta?.gfm &&
           !tokens
             .slice(index + 1, close)
             .some((t) =>
@@ -284,12 +296,14 @@ function blockParser(source: string): BlockParser {
         token.type === "bullet_list_open" ||
         token.type === "ordered_list_open"
       ) {
+        const tight = !tokens.slice(index + 1, close).some(item =>
+          item.type === "paragraph_open" && item.level === token.level + 2 && !item.hidden);
         node = schema.nodes[
           token.type === "bullet_list_open" ? "bullet_list" : "ordered_list"
         ].create(
           token.type === "ordered_list_open"
-            ? { order: Number(token.attrGet("start")) || 1 }
-            : null,
+            ? { order: Number(token.attrGet("start") ?? 1), ...(token.meta?.gfm ? { tight } : {}) }
+            : token.meta?.gfm ? { tight } : null,
           parse(tokens, index + 1, close, token.type === "ordered_list_open"),
         );
       } else if (token.type === "list_item_open") {
@@ -304,9 +318,10 @@ function blockParser(source: string): BlockParser {
           content,
         );
       } else if (token.type === "blockquote_open") {
+        const content = parse(tokens, index + 1, close);
         node = schema.nodes.blockquote.create(
           null,
-          parse(tokens, index + 1, close),
+          content.length ? content : [schema.nodes.paragraph.create()],
         );
       } else if (token.type === "fence" || token.type === "code_block") {
         const text = token.content.replace(/\n$/, "");
@@ -598,7 +613,7 @@ export function inlineMarkdown(
         : mark.type.name === "underline"
           ? '<span underline="true">'
           : mark.type.name === "color"
-            ? `<span${attributesXml({ ...mark.attrs.nfmAttrs, ...(mark.attrs.color ? { color: mark.attrs.color } : {}) })}>`
+            ? `<span${attributesXml({ ...mark.attrs.nfmAttrs, color: mark.attrs.color, bg_color: mark.attrs.bg_color })}>`
             : ({
                 em: "*",
                 strong: "**",
@@ -661,15 +676,15 @@ export function inlineMarkdown(
               .replace(/\r\n|\n|\r/g, "<br>")
           : escapeText(child.text ?? "", legacyEscapes)
               .replace(
-                options.literalExtensions ? /[{}=%]/g : /$^/g,
+                options.literalExtensions ? /[{}=%]/g : /(?!)/g,
                 (char) => "&#" + char.charCodeAt(0) + ";",
               )
               .replace(
-                escapeMath ? /\$/g : /$^/g,
+                escapeMath ? /\$/g : /(?!)/g,
                 legacyEscapes ? "&#36;" : "\\$&",
               )
               .replace(
-                escapeSuperscript ? /\^/g : /$^/g,
+                escapeSuperscript ? /\^/g : /(?!)/g,
                 legacyEscapes ? "&#94;" : "\\$&",
               )
               .replace(
@@ -677,7 +692,7 @@ export function inlineMarkdown(
                   ["subscript", "superscript"].includes(mark.type.name),
                 )
                   ? / /g
-                  : /$^/g,
+                  : /(?!)/g,
                 "\\ ",
               );
     else if (["html_inline", "syntax_inline"].includes(child.type.name))
@@ -692,12 +707,18 @@ export function inlineMarkdown(
         /[\[\]\r\n]/g,
         "",
       );
+      const reference = nodeReference(child);
+      const mention = notion || child.attrs.syntaxForm === "mention" || pageMentions && child.attrs.syntaxForm !== "wiki" && child.attrs.syntaxForm !== "wiki-title-first";
+      if (reference?.kind === "location" && (notion && child.attrs.syntaxForm !== "mention" || pageMentions && !child.attrs.syntaxForm)) {
+        result += `[${label.replace(/([\\\[\]])/g, "\\$1")}](${referenceHref(reference).replace(/ /g, "%20")})`;
+        continue;
+      }
       result +=
-        notion || pageMentions
+        mention
           ? `<mention-page${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url || pageUrl(String(child.attrs.target)) })}>${escapeXml(child.attrs.label || child.attrs.target)}</mention-page>`
-          : label === target
+          : child.attrs.labelMode !== "custom" && label === target
             ? `[[${target}]]`
-            : `[[${target}|${label}]]`;
+            : child.attrs.syntaxForm === "wiki-title-first" ? `[[${label}|${target}]]` : `[[${target}|${label}]]`;
     } else if (child.type.name === "image") {
       const attrs = child.attrs.markdownAttrs || {};
       const title =

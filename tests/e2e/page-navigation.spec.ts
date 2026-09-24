@@ -23,7 +23,7 @@ async function append(page: Page, text: string) {
 test('browser and toolbar share page and vault history, including reload and branch truncation', async ({ page, request }) => {
   const a = await create(request, 'History A');
   const c = await create(request, 'History C');
-  const b = await create(request, 'History B', `[[${c.id}|History C]]`);
+  const b = await create(request, 'History B', `<mention-page url="#page/${c.id}">History C</mention-page>`);
   await open(page, a.id);
   const initialLength = await page.evaluate(() => history.length);
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeDisabled();

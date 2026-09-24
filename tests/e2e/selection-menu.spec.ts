@@ -17,7 +17,7 @@ async function open(
       title: "Selection menu",
       body,
       bodyFormat:
-        variant === "notion-markdown" ? "notion-markdown" : "markdown",
+        ["notion-markdown", "notdown"].includes(variant) ? "notion-markdown" : "markdown",
       syntax: { version: 1, variant, extensions },
     },
   });
@@ -40,6 +40,42 @@ async function select(page: Page, selector = ".pm-document > p", length = 14) {
 }
 const toolbar = (page: Page) =>
   page.getByRole("toolbar", { name: "Text formatting" });
+
+test("Notdown text and background colors coexist, clear independently and survive undo and reload", async ({ page, request }) => {
+  const note = await open(page, request, '<span color="yellow_bg" class="example" custom="keep">Selected words</span> remain here.', "notdown");
+  const choose = async (name: string) => {
+    await select(page);
+    await toolbar(page).getByRole("button", { name: "Text and background color" }).click();
+    await toolbar(page).getByRole("button", { name, exact: true }).last().click();
+  };
+  await choose("Red text");
+  const both = page.locator('.pm-document [data-text-color="red"][data-bg-color="yellow"]');
+  await expect(both).toHaveText("Selected words");
+  await expect(both).toHaveCSS("color", "rgb(212, 76, 71)");
+  await expect(both).toHaveCSS("background-color", "rgb(251, 243, 219)");
+  await saved(page, request, note.id, 'bg_color="yellow"');
+  await saved(page, request, note.id, 'custom="keep"');
+  await page.reload();
+  await expect(both).toHaveText("Selected words");
+  await choose("Default text");
+  await expect(page.locator('.pm-document [data-text-color=""][data-bg-color="yellow"]')).toHaveText("Selected words");
+  await page.keyboard.press("Control+z");
+  await expect(both).toHaveText("Selected words");
+  await choose("Default background");
+  await expect(page.locator('.pm-document [data-text-color="red"]')).toHaveText("Selected words");
+  await expect(page.locator('.pm-document [data-bg-color]')).toHaveCount(0);
+  await choose("Blue background");
+  await expect(page.locator('.pm-document [data-text-color="red"][data-bg-color="blue"]')).toHaveText("Selected words");
+  await select(page);
+  await toolbar(page).getByRole("button", { name: "Clear formatting" }).click();
+  await saved(page, request, note.id, 'custom="keep"');
+  await page.reload();
+  await expect(page.locator('.pm-document [data-bg-color], .pm-document [data-text-color="red"]')).toHaveCount(0);
+  const body = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(body).not.toContain('bg_color=');
+  expect(body).not.toContain('color=');
+  expect(body).toContain('class="example"');
+});
 async function saved(
   page: Page,
   request: APIRequestContext,

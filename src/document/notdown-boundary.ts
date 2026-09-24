@@ -17,6 +17,8 @@ export const supplementalAttributes: Record<string, readonly string[]> = {
 };
 
 export function hasSupplementalAttributes(node: PMNode): boolean {
+  if (node.marks.some(mark => mark.type.name === "color" &&
+      (mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color")))) return true;
   if (node.type.name === "table" && node.attrs.syntaxForm === "notion" &&
       ((node.attrs.widths || []).some(Boolean) || (node.attrs.columnAttrs || []).some((attrs: Record<string, unknown>) => Object.keys(attrs).some(key => key !== "color")))) return true;
   if (node.type.name === "mention" && node.attrs.kind === "date" &&

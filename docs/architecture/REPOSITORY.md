@@ -11,6 +11,7 @@
 | `markdown-lab.html` | [src/markdown-lab/main.ts](../../src/markdown-lab/main.ts) | 渲染器与 HTML 输出对照 |
 | `npm run dev` / `npm start` | [server/index.ts](../../server/index.ts) | 本地知识库与 HTTP API |
 | `npm run mcp` | [server/mcp.ts](../../server/mcp.ts) | MCP 桥接 |
+| `npm run desktop` | [src/desktop/main.ts](../../src/desktop/main.ts) | Electron 主进程、知识库选择与本地服务生命周期 |
 
 三个 HTML 入口留在仓库根目录，保持现有 URL。构建、测试和启动配置也留在根目录，维护脚本放 `scripts/`。
 
@@ -19,6 +20,7 @@
 | 目录 | 放什么 |
 | --- | --- |
 | `src/app/` | 页面装配、应用生命周期、侧栏与全局样式 |
+| `src/desktop/` | Electron 主进程、受限 preload 桥接及欢迎页；构建脚本为 `scripts/build-desktop.mjs`，安装配置为根目录 `electron-builder.yml` |
 | `src/document/` | 文档 schema、内容对象与 Markdown / Notion 编解码 |
 | `src/editor/` | ProseMirror 编辑器、命令、选区、菜单与通用节点视图 |
 | `src/blocks/` | 分栏、Tabs、按钮、嵌入等具体块的视图和操作 |
@@ -38,6 +40,7 @@
 
 - `tests/unit/`：Node 测试，包含纯模型测试与使用临时知识库的服务集成测试。运行 `npm test`。
 - `tests/e2e/`：Playwright 测试及独立测试服务器。运行 `npm run test:e2e`；使用独立 Chrome，不连接用户浏览器。
+- `npm run test:desktop`：同目录的独立 Electron 测试配置，使用临时知识库和独立用户配置；`desktop-dist/` 为桌面入口构建，`.run/desktop-release/` 为安装包及解包产物。
 - `docs/fixtures/`：共享 Markdown 语料、附件和手工验收页面生成器。
 - `docs/data/`：进入版本管理的语法来源快照和审计数据。
 - `.run/logs/`：本地运行日志；`.run/` 也可存放临时分析和工具文件。

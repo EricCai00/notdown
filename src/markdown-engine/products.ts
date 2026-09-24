@@ -79,7 +79,8 @@ export function installProductRules(
       return true;
     });
   }
-  if (enabled(config, "mmd_tables"))
+  if (enabled(config, "mmd_tables")) {
+    const existingRules = new Set(md.block.ruler.getRules(""));
     md.use(multiTable, {
       multiline: true,
       rowspan: true,
@@ -87,6 +88,23 @@ export function installProductRules(
       multibody: true,
       autolabel: true,
     });
+    const tableRule = md.block.ruler.getRules("").find(rule => !existingRules.has(rule));
+    if (tableRule) md.block.ruler.at("table", (state, start, end, silent) => {
+      // markdown-it-multimd-table accepts a lone pipe as a separator with zero
+      // columns, swallowing preceding line-block rows as a multi-row header.
+      // Bound only this rule's lookahead; a real table before that line still
+      // parses, and the untouched pipe is left for the normal block rules.
+      // A header cannot cross a blank line, so there is no need to scan beyond it.
+      for (let line = start; line < end && !state.isEmpty(line); line++) {
+        const text = state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line]);
+        if (text.trim() === "|") {
+          end = line;
+          break;
+        }
+      }
+      return tableRule(state, start, end, silent);
+    }, { alt: ["paragraph", "reference"] });
+  }
   md.block.ruler.before(
     "reference",
     "product_definitions",
@@ -238,7 +256,9 @@ export function installProductRules(
           path: include[1] || include[2],
         });
       const alert = /^>\s*\[!([\w-]+)\]([+-]?)(?:\s+(.*))?$/.exec(line);
-      if (alert && enabled(config, "alerts") && (!["gfm", "typora", "commonmark_x", "markdown_github"].includes(config.variant) || (/^(NOTE|TIP|IMPORTANT|WARNING|CAUTION)$/.test(alert[1]) && !alert[2] && !alert[3]))) {
+      const obsidianCallout = config.variant === "obsidian" || config.variant === "notdown";
+      if (alert && enabled(config, "alerts")
+        && (obsidianCallout || (!alert[2] && !alert[3] && /^(NOTE|TIP|IMPORTANT|WARNING|CAUTION)$/.test(alert[1])))) {
         const body: string[] = [];
         while (last < end) {
           const next = s.getLines(last, last + 1, s.blkIndent, false);
@@ -248,7 +268,7 @@ export function installProductRules(
         }
         const inner = parse(body.join("\n"), s.env);
         node = schema.nodes.callout.create(
-          { syntaxForm: "alert", icon: "", kind: alert[1], title: alert[3] || "", fold: alert[2] },
+          { syntaxForm: "alert", icon: "", kind: alert[1], title: alert[3] || "", fold: alert[2], alertStyle: config.variant === "obsidian" ? "obsidian" : "github" },
           inner.content,
         );
       }
@@ -341,6 +361,9 @@ export function installProductRules(
         }
       }
       if (t.type === "fence" && (enabled(config, "fenced_code_attributes") || enabled(config, "attributes"))) {
+        // Unknown knitr engines/options remain complete info strings. Do not
+        // reinterpret them as Pandoc attributes when an Rmd code block is edited.
+        if (config.variant === "rmarkdown" && /^\{[a-zA-Z][\w.-]*(?:[\s,][^\r\n]*|)\}$/.test(t.info.trim())) continue;
         const attr = /\{([^}]+)\}\s*$/.exec(t.info);
         if (attr && !attr[1].startsWith("=")) {
           const markdownAttrs = readAttributes(attr[0]);
@@ -531,7 +554,7 @@ export function installProductRules(
     }
     if (
       enabled(config, "raw_attribute") &&
-      (match = /^(`+)([\s\S]*?)\1\{=([\w-]+)\}/.exec(rest))
+      (match = /^(`+)([\s\S]*?)\1\{=([\w*-]+)\}/.exec(rest))
     ) {
       if (!silent) {
         const t = s.push("source_inline", "", 0);
@@ -605,7 +628,7 @@ export function installProductRules(
             language,
             code: t.content,
           });
-        const format = /^\{=([\w-]+)\}$/.exec(t.info.trim());
+        const format = /^\{=([\w*-]+)\}$/.exec(t.info.trim());
         if (format && enabled(config, "raw_attribute"))
           node = sourceBlock(
             "raw",

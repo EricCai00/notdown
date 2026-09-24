@@ -1,4 +1,5 @@
 import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
+import { showEditorPanel } from "./editor-panel";
 import { tocIncludes } from "../blocks/content-toc";
 import { Selection } from "prosemirror-state";
 import type {
@@ -12,6 +13,7 @@ import { closeHistory } from "prosemirror-history";
 import { openCalloutIconPicker } from "../blocks/callout-icon-picker";
 import { ColumnsView } from "../blocks/columns-view";
 import { EquationView } from "../blocks/equation-view";
+import { AlertView } from "../blocks/alert-view";
 
 class CalloutView implements NodeView {
   dom = document.createElement("aside");
@@ -144,6 +146,7 @@ class MathView implements NodeView {
       input = document.createElement("textarea"),
       submit = document.createElement("button");
     dialog.className = "pm-link-dialog";
+    const original = this.node, output = document.createElement("output");
     label.textContent = "LaTeX equation";
     input.value = this.node.isInline
       ? this.node.attrs.value
@@ -153,10 +156,11 @@ class MathView implements NodeView {
     label.append(input);
     submit.type = "submit";
     submit.textContent = "Done";
-    form.append(label, submit);
+    form.append(label, output, submit);
     dialog.append(form);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!this.node.eq(original)) { output.textContent = "Equation changed. Reopen its editor."; return; }
       const pos = this.getPos();
       if (pos !== undefined) {
         const node = this.node.isInline
@@ -184,8 +188,8 @@ class MathView implements NodeView {
     });
     document.body.append(dialog);
     this.dialog = dialog;
-    dialog.showModal();
-    input.focus();
+    showEditorPanel(dialog, "Equation", this.view.dom);
+    input.focus({ preventScroll: true });
   }
   update(node: PMNode) {
     if (node.type !== this.node.type) return false;
@@ -204,25 +208,12 @@ class MathView implements NodeView {
   }
 }
 
-export function notionNodeViews(supplemental: () => boolean = () => false): Record<string, NodeViewConstructor> {
+export function notionNodeViews(supplemental: () => boolean = () => false, alertTitles: () => boolean = () => false): Record<string, NodeViewConstructor> {
   return {
     columns: (node, view, getPos) => new ColumnsView(node, view, getPos, supplemental),
     callout: (node, view, getPos) => {
       if (node.attrs.syntaxForm !== "alert") return new CalloutView(node, view, getPos);
-      const { dom, contentDOM } = DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node));
-      let disposed = false;
-      if (dom instanceof HTMLDetailsElement) dom.addEventListener("toggle", () => {
-        if (disposed || !view.editable) return;
-        const pos = getPos();
-        const current = pos === undefined ? null : view.state.doc.nodeAt(pos);
-        const fold = dom.open ? "+" : "-";
-        if (current?.type === node.type && current.attrs.fold !== fold)
-          view.dispatch(view.state.tr.setNodeMarkup(pos!, undefined, { ...current.attrs, fold }));
-      });
-      return { dom, contentDOM,
-        ignoreMutation: (mutation) => mutation.type !== "selection" && !contentDOM?.contains(mutation.target),
-        destroy: () => { disposed = true; },
-      };
+      return new AlertView(node, view, getPos, alertTitles);
     },
     toggle_block: (node, view, pos) => new ToggleView(node, view, pos, supplemental),
     nested_block: (node, view, pos) => {

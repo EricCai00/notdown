@@ -84,7 +84,8 @@ test("all variants partition every extension once and retain required/spec/optio
     assert.equal(all.length, catalogExtensions.length);
     assert.equal(new Set(all).size, catalogExtensions.length);
     assert.equal(groups.at(-1)!.id, "outside");
-    assert(groups.at(-1)!.entries.every(e => e.status === "out-of-scope"));
+    assert(groups.at(-1)!.entries.every(e => e.status === "out-of-scope" || e.id === "raw_tex"));
+    assert(groups.at(-1)!.entries.some(e => e.id === "raw_tex"));
     const others = groups.find(g => g.id === "other")!.entries;
     const categoryRanks = others.map(entry => Object.keys(extensionCategories).indexOf(extensionCategory(entry.id)));
     assert.deepEqual(categoryRanks, [...categoryRanks].sort((a, b) => a - b), variant);

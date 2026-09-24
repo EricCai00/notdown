@@ -1,17 +1,4 @@
-.pm-document .pm-alert {
-  border-left: 4px solid #7b9dd0;
-  border-radius: 6px;
-  background: #eff4fa;
-  padding: 12px 16px;
-  margin: 12px 0;
-}
-.pm-alert > strong,
-.pm-alert > summary {
-  display: block;
-  color: #41638d;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
+@import "../blocks/alert.css";
 .pm-syntax-block {
   position: relative;
   margin: 14px 0;
@@ -95,14 +82,9 @@
   margin: 0;
   white-space: pre-wrap;
 }
-.pm-comment {
-  display: none;
-}
+.pm-comment,
 .pm-syntax-block[data-syntax-kind="comment"] {
-  border: 0;
-  padding: 0;
-  min-height: 22px;
-  opacity: 0.45;
+  display: none;
 }
 .pm-critic {
   text-decoration-color: #af4c4c;
@@ -122,3 +104,10 @@ del.pm-critic {
   border-top: 1px solid #ddd;
   font-size: 13px;
 }
+.md-bibliography li { margin: 8px 0; }
+.pm-editor:has(> .md-bibliography) > .pm-document { min-height: 0; padding-bottom: 0 !important; }
+.pm-editor > .md-bibliography { padding-bottom: 100px; }
+.md-bibliography button { margin-left: 12px; font-size: 12px; }
+.md-bibliography [aria-invalid="true"] { color: #a34831; }
+.pm-document .pm-selected-cell { background: #dceaf8 !important; outline: 1px solid #80add6; outline-offset: -1px; }
+.pm-syntax-block[hidden] { display: none; }

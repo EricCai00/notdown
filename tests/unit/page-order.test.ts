@@ -34,10 +34,10 @@ async function fixture(t: test.TestContext) {
 test("sidebar moves persist order and parent without rewriting siblings or Markdown", async (t) => {
   const { root, vault } = await fixture(t);
   const a = await vault.create({ title: "A", body: "a\r\n" }, { id: "a" });
-  const b = await vault.create({ title: "B", body: "```odd\r\nraw\r\n```\r\n", properties: { extra: true } }, { id: "b" });
+  const b = await vault.create({ title: "B", body: "---\nunknown: keep\n---\n```odd\r\nraw\r\n```\r\n", properties: { extra: true } }, { id: "b" });
   const child = await vault.create({ title: "Child", parent: b.id, body: "child" }, { id: "child" });
   const file = path.join(root, "pages", "b.md");
-  await fs.writeFile(file, (await fs.readFile(file, "utf8")).replace("---\n", "---\nunknown: keep\n"));
+  await fs.writeFile(file, (await fs.readFile(file, "utf8")));
   let pages = await vault.list(), source = await vault.get(b.id);
   let moved = await vault.move(b.id, planPageMove(pages, b.id, a.id, "before")!, source.revision);
   assert.deepEqual((await vault.list()).filter((page) => !page.parent).map((page) => page.id), ["b", "a"]);

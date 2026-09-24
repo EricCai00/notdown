@@ -1,10 +1,29 @@
 # Markdown vault API
 
+## Local R Markdown execution
+
+`GET /api/rmarkdown/capabilities` probes Rscript, knitr/rmarkdown and Pandoc and returns `{ available, version, help, error? }`. Set `NOTDOWN_RSCRIPT` server-side to select the executable; requests cannot choose an executable or command arguments.
+
+`POST /api/rmarkdown/run` accepts only `{ source: string }` and returns `{ html, log }`. This explicitly executes trusted R Markdown with the local account's permissions, using a fresh R process and temporary working directory. It does not write vault content or revisions. Limits: 128,000 source characters, two concurrent runs, 60 seconds, 8 MB console output and 8 MB HTML. Disconnecting aborts execution; errors return 400 (input), 408 (timeout), 413 (output limit), 422 (R error), 429 (busy), or 503 (Rscript unavailable). HTML must be displayed in a sandboxed frame; the application blocks scripts and network resources. See [R Markdown](../features/R-MARKDOWN.md).
+
+# 页面存储修订（2026-09-24）
+
+页面 `body` 现为完整 Markdown 文件（包括用户或旧文件已有的 YAML / Pandoc title block），不再剥离或生成应用 YAML。通用 metadata 保存在 `vault/metadata.json`；返回的页面字段包含文档覆盖后的有效值。`baseRevision` 同时校验正文及该页 JSON metadata。详见 [Vault metadata](../features/VAULT-METADATA.md)。
+
+
 The backend listens on `127.0.0.1:4318` by default. Set `PORT` and `VAULT_PATH` to change the port and vault location. Requests from browsers are limited to the configured local origins; `ALLOWED_ORIGINS` accepts a comma-separated list. Write requests require JSON. This local service is not an authenticated public sync server.
 
 `createApp({ vaultPath, frontendDir?, allowedOrigins? })` returns an Express app. `createVault(vaultPath)` exposes the storage API. A built `dist/index.html` is served automatically when the entry point is started from the project root. The frontend development server should proxy `/api` and `/assets` to port 4318.
 
 On the first launch only, when `VAULT_PATH` is unset and the default `vault` directory does not exist, the entry point creates five Chinese example pages. Existing default vaults, including empty ones, and all explicitly selected vault paths are left unseeded. Internal initialization can call `vault.create(input, {id})` for stable sample IDs; REST clients cannot supply IDs, and existing IDs or filenames are never replaced by creation.
+
+## Markdown folder import
+
+`POST /api/import/preview` accepts `{ name, dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown", files: [{ path, data }] }`, where `path` is a relative POSIX path and `data` is base64. It returns `{ id, name, pages, attachments, files, errors, warnings }` without writing vault files. Limits: 500 files, 20 MiB total decoded bytes and 10 MiB per Markdown page. Preview snapshots expire after 30 minutes; at most three are held per service.
+
+`POST /api/import/commit` accepts `{ id, skipInvalid?: true }` and returns `{ id, pageIds, alreadyImported }`. Invalid files require an explicit `skipInvalid`; expired or unknown previews return 410. Commits go through `createVault.importBatch`, create new identities and never overwrite existing differing content. Identical completed imports are idempotent. Originals and path mappings are archived under `.history/imports/`. Partial writes can be resumed with the same selection; there is no batch rollback or force-overwrite option. See [import and recovery boundaries](../features/DESKTOP-AND-IMPORT.md).
+
+The desktop shell supplies `createApp({ accessToken, allowedOrigins: [] })`. Its local HTTP service requires `X-Notdown-Desktop` on every request, including static files; the isolated Electron session supplies the token. This does not add authentication to the standalone browser service or provide remote sync.
 
 ## Local People address book
 
@@ -32,6 +51,8 @@ type Page = {
 Page files are UTF-8 Markdown in `vault/pages/<uuid>.md`. The YAML fields are `id`, `title`, `parent`, `icon`, `properties`, and `updated`. Other YAML fields and comments survive metadata updates. A metadata-only update preserves body bytes as decoded UTF-8, including CRLF and trailing blank lines. Unknown body syntax is left untouched. Files are re-read on every call, so edits made by an external editor become visible. Invalid YAML and duplicate page IDs produce 422 and block mutations instead of overwriting ambiguous data. Symlink pages are ignored.
 
 ## Routes
+
+Source-file actions resolve the existing filename from the page ID (including renamed `.md` files); clients cannot supply filesystem paths. `GET /api/pages/:id/source-file` returns `{path}` with the absolute path. `GET /api/pages/:id/source` serves the complete file as inline UTF-8 plain text, with `no-store`, `nosniff`, and a sandbox CSP. `POST /api/pages/:id/source-file/open` accepts only `{}` and opens the file with the local default application, returning `{opened:true}` or 503 if the OS launcher fails. These endpoints do not write the page; the UI saves through the existing revision-checked update before opening.
 
 Markdown Lab uses `GET /api/markdown/capabilities` to report installed Pandoc readers and the availability of the direct `multimarkdown-cli` and `markdown-pl` renderers. Pandoc reader variants use the local Pandoc executable through a JSON AST and HTML writer; there is no separate `pandoc-cli` variant. `POST /api/markdown/preview` accepts `{source, variant, extensions?, plugins?}` and returns `{html, engine, blocks, mapping, warnings}`. Direct renderers accept no Lab extensions or plugins and return their program's HTML stdout; `mapping` is `proportional` because those tools do not report source positions. The browser displays the raw HTML as text or sanitizes it for the page preview. Requests cannot select executable paths or arguments; server startup environment variables configure trusted installations. Neither endpoint writes to the vault.
 

@@ -12,7 +12,8 @@ test("syntax examples retain workbook text and navigate between extensions and o
   await expect(page.locator('[data-syntax-id="workbook-extended-36"] pre')).toContainText("[#Doe2006]:");
   await page.reload();
   await expect(page.locator('[data-syntax-id="workbook-extended-36"]')).toHaveCount(1);
-  // Heading has a working preview; Citation intentionally has no stock sample.
+  await expect(page.locator('.catalog-detail > .catalog-source')).toContainText("[#paper]");
+  // Both citation and heading now have working examples.
   await page.goto("/block-catalog.html#tab=blocks&id=block.heading&variant=commonmark");
   await expect(page.locator('.catalog-detail > .catalog-source')).not.toBeEmpty();
   await expect(page.locator('[data-syntax-id="workbook-markdown-6"] pre')).toHaveText("# header 1");

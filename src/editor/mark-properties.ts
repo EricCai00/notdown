@@ -1,5 +1,6 @@
 import { Plugin } from "prosemirror-state";
 import type { Mark, Node as PMNode } from "prosemirror-model";
+import { showEditorPanel } from "./editor-panel";
 
 export function markProperties() {
   let dialog: HTMLDialogElement | undefined;
@@ -25,6 +26,23 @@ export function markProperties() {
     const save = document.createElement("button"), cancel = document.createElement("button"), output = document.createElement("output"); save.type = "submit"; save.textContent = "Save"; cancel.type = "button"; cancel.textContent = "Cancel"; cancel.onclick = () => element.close();
     form.append(output, save, cancel); element.append(header, form); document.body.append(element); element.onclose = () => element.remove();
     const original = view.state.doc;
+    if (mark.type.name === "critic" && ["addition", "deletion", "substitution"].includes(mark.attrs.kind)) {
+      for (const accept of [true, false]) {
+        const button = document.createElement("button"); button.type = "button"; button.textContent = accept ? "Accept revision" : "Reject revision";
+        button.onclick = () => {
+          if (!view.state.doc.eq(original)) { output.textContent = "Content changed. Reopen its properties."; return; }
+          let tr = view.state.tr;
+          if (accept && mark.attrs.kind === "deletion" || !accept && mark.attrs.kind === "addition") tr = tr.delete(from, to);
+          else if (!accept && mark.attrs.kind === "substitution") {
+            const old = String(mark.attrs.old || "");
+            tr = old ? tr.replaceWith(from, to, view.state.schema.text(old, node.marks.filter(m => m.type !== mark.type))) : tr.delete(from, to);
+          } else tr = tr.removeMark(from, to, mark);
+          view.dispatch(tr); element.close(); view.focus();
+        };
+        form.append(button);
+      }
+      if (mark.attrs.kind !== "substitution") controls.get("old")!.parentElement!.hidden = true;
+    }
     form.onsubmit = e => {
       e.preventDefault(); if (!view.state.doc.eq(original)) { output.textContent = "Content changed. Reopen its properties."; return; }
       const values = Object.fromEntries([...controls].map(([k,v]) => [k, v.value]));
@@ -37,6 +55,6 @@ export function markProperties() {
       }
       view.dispatch(tr); element.close(); view.focus();
     };
-    element.showModal(); controls.values().next().value?.focus(); event.preventDefault(); return true;
+    showEditorPanel(element, header.textContent!, view.dom); controls.values().next().value?.focus({ preventScroll: true }); event.preventDefault(); return true;
   } }, view: () => ({ destroy() { dialog?.remove(); } }) });
 }
