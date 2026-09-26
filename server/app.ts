@@ -12,6 +12,7 @@ import { z } from "zod";
 import {syntaxFiles} from './syntax-files.js';
 import {bibliographyEntries} from '../src/markdown-engine/bibliography.js';
 import { prepareMarkdownImport, importSummary, type ImportPlan } from "./markdown-import.js";
+import { prepareNotionImport } from "./notion-import.js";
 import { executeRMarkdown, rMarkdownCapabilities } from "./rmarkdown.js";
 import { RNotebook } from "./r-notebook";
 import { QuartoNotebook } from "./quarto-notebook";
@@ -24,6 +25,7 @@ export function createApp(options: {
   recycleFile?: (filename: string) => Promise<void>;
   openFile?: (filename: string) => Promise<void>;
   accessToken?: string;
+  notionImportTransport?: Parameters<typeof prepareNotionImport>[1];
 }) {
   const app = express();
   const vault = createVault(options.vaultPath, { recycleFile: options.recycleFile });
@@ -151,9 +153,32 @@ export function createApp(options: {
   }));
   app.post("/api/import/commit", route(async (req, res) => {
     const entry = imports.get(req.body?.id);
-    if (!entry || entry.expires < Date.now()) throw new VaultError(410, "Import preview expired. Select the folder again.");
+    if (!entry || entry.expires < Date.now()) throw new VaultError(410, "Import preview expired. Prepare a new preview.");
     if (entry.plan.errors.length && req.body.skipInvalid !== true) throw new VaultError(400, "Review and explicitly skip invalid files before importing");
     return res.json(await vault.importBatch(entry.plan));
+  }));
+  let readingNotion = false;
+  app.post("/api/notion/import/preview", route(async (req, res) => {
+    if (readingNotion) throw new VaultError(429, "A Notion preview is already being prepared. Please wait.");
+    readingNotion = true;
+    const controller = new AbortController();
+    const cancel = () => { if (!res.writableEnded) controller.abort(); };
+    res.on("close", cancel); res.setHeader("Cache-Control", "no-store");
+    try {
+      const plan = await prepareNotionImport(req.body, { ...options.notionImportTransport, signal: controller.signal });
+      for (const [key, value] of imports) if (value.expires < Date.now()) imports.delete(key);
+      if (imports.size >= 3) imports.delete(imports.keys().next().value!);
+      imports.set(plan.id, { plan, expires: Date.now() + 30 * 60_000 });
+      return res.json({ ...importSummary(plan), documents: plan.pages.map(p => ({ id: p.id, title: p.metadata.title, source: p.source })) });
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      if (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))
+        throw new VaultError(504, "Notion preview timed out. Select a smaller page tree and retry.");
+      throw error;
+    } finally {
+      if (req.body && typeof req.body === "object") delete req.body.token;
+      readingNotion = false; res.off("close", cancel);
+    }
   }));
   app.get('/api/people', route(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');

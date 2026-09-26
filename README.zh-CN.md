@@ -1,5 +1,7 @@
 # Notdown
 
+导入的 `<page>` 在归档 Block API 有 child_page 证据且本地归属匹配时，加载为真正的 `block.child_page` PM 节点；其他入口保持 `block.link_to_page`。图标和菜单直接跟随节点类型，不向官方 Markdown 添加 `role="child"`。证据缺失或存在歧义时保留链接；正文底部的 Child page 列表仍是独立的层级视图。
+
 以本地 Markdown 文件为基础，结合块编辑与页面组织的笔记应用。
 
 [English](README.md) · **简体中文**
@@ -250,6 +252,7 @@ Notdown 和 MultiMarkdown 的 CriticMarkup 替换修订并排显示带删除线�
 
 - **尚无协作或跨端同步。** 本地版本校验和冲突副本不是同步服务；本地同步块不连接 Notion 云端同步。
 - **尚无 Notion 数据库、工作区成员、权限或完整云端自动化。** People 是本地联系人，不是用户账号；提及不发送通知。
+- **Notion API Enhanced Markdown 单向导入：** 侧栏 **Import from Notion API** 输入 integration token 和已共享的页面链接/ID（支持应用 Copy link 的 `app.notion.com/p/...` 链接），预览官方 API Markdown 后导入，可包含后代页面。正文按 `notion-markdown` 原样保存，API 响应及原文归档；截断或无权限的内容会阻止导入。附件和页面链接保留远程地址，签名 URL 可能过期；不导入数据库记录/视图、评论或权限，不同步、不写回。详见[使用与边界](docs/features/NOTION-IMPORT.md)。
 - **格式兼容仍有边界。** 未实现所有上游规则及扩展组合；表格矩阵粘贴要求匹配选区尺寸，合并受目标编码约束；任意块嵌套、跨页面拖动仍不完善。
 - **提醒依赖应用运行。** 不提供关闭应用后的系统调度、邮件提醒或重复提醒。
 - **导入导出范围有限。** HTML 仅导出单页，附件保留相对链接，不打包整个知识库。文件夹导入创建具有新页面身份的副本，不直接编辑原文件夹，也不代表完整迁移 Obsidian/Notion 工作区；尚无历史回滚界面。
@@ -318,3 +321,5 @@ npx playwright test --output test-results/e2e-isolated --reporter=list
 本地存储设计参考思源，块交互参考 AFFiNE 和 AppFlowy。Notdown 是独立实现，不是这些应用的完整 fork。
 
 项目使用 ProseMirror、CodeMirror、markdown-it、Lucide、KaTeX、Mermaid 等依赖，遵循各自许可。可选的 Pandoc 渲染调用单独安装的可执行文件。内置 emoji 字体保留许可说明：[Noto — SIL OFL 1.1](src/assets/fonts/LICENSE-Noto.txt) 与 [OpenMoji — CC BY-SA 4.0](src/assets/fonts/LICENSE-OpenMoji.txt)。
+
+Notion API 导入在原页面没有图标时使用原生 `file-text` 默认图标；明确设置的 emoji 保留，旧导入图标不批量迁移。

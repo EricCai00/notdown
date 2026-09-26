@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { documentMetadata } from "../src/features/metadata/document-metadata.js";
+import { notionPageEvidence } from "./notion-page-evidence";
 import { replaceFile } from "./file-replace.js";
 import { trashedPageIds } from "../src/features/pages/page-hierarchy.js";
 import { recycleFile } from "./recycle-file.js";
@@ -18,6 +19,7 @@ import {
 } from "../src/markdown-engine/config.js";
 
 export type Page = {
+  pageEntryEvidence?: import("../src/document/page-entry-projection").PageEntryEvidence;
   id: string;
   title: string;
   parent: string | null;
@@ -256,6 +258,7 @@ export function createVault(vaultPath: string, options: { recycleFile?: (filenam
   const root = path.resolve(vaultPath);
   const pagesPath = path.join(root, "pages");
   const historyPath = path.join(root, ".history");
+  const enrichPageEntries = notionPageEvidence(historyPath);
   const conflictsPath = path.join(historyPath, "conflicts");
   const assetsPath = path.join(root, "assets");
   const metadataPath = path.join(root, "metadata.json");
@@ -421,6 +424,7 @@ export function createVault(vaultPath: string, options: { recycleFile?: (filenam
         throw new VaultError(422, `Duplicate page ID: ${stored.page.id}`);
       result.set(stored.page.id, stored);
     }
+    await enrichPageEntries([...result.values()].map(item => item.page));
     return result;
   }
   async function atomicWrite(filePath: string, data: string | Buffer, expected?: string | null) {

@@ -11,6 +11,11 @@ export interface LinkedPage {
   id: string;
   title: string;
   icon?: string;
+  parent?: string | null;
+}
+
+export function isOwnedPageEntry(node: ProseMirrorNode): boolean {
+  return node.type.name === "block.child_page";
 }
 
 /** The complete normal-link label, including adjacent differently styled spans. */
@@ -83,6 +88,7 @@ class PageLinkView implements NodeView {
       safeReference(reference ? referenceHref(reference, page?.id) : this.node.attrs.url || pageUrl(target)),
     );
     this.dom.setAttribute("data-page-target", target);
+    this.dom.dataset.pmNodeType = this.node.type.name;
     this.dom.setAttribute("data-page-id", page?.id ?? target);
     this.dom.dataset.referenceKind = reference?.kind || "page";
     this.dom.dataset.referenceSyntax = reference?.syntax || "mention";
@@ -100,9 +106,9 @@ class PageLinkView implements NodeView {
       iconSlot.className = "page-link-icon-slot";
       iconSlot.setAttribute("aria-hidden", "true");
       iconSlot.append(icon);
-      // Untyped legacy page blocks are references, just like Link to page.
-      // Only an explicit child role denotes the child-page presentation.
-      if (this.node.attrs.nfmAttrs?.role !== "child") {
+      // UI identity must follow the actual PM type, never inferred ownership.
+      this.dom.dataset.pageRelation = isOwnedPageEntry(this.node) ? "child" : "reference";
+      if (this.dom.dataset.pageRelation !== "child") {
         iconSlot.append(createElement(ArrowUpRight, {
           class: "page-link-reference-arrow",
           width: 18,

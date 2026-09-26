@@ -16,12 +16,15 @@ export class DocumentSession {
   private lastOrigin = "";
   private lastTime = 0;
   private lastEdit: { from: number; to: number; kind: string } | undefined;
-  constructor(source: string, config: SyntaxConfig) {
+  constructor(source: string, config: SyntaxConfig, private readonly projectDocument: (doc: PMNode) => PMNode = doc => doc) {
     this.snapshot = {
       source,
       config: structuredClone(normalizeSyntax(config)),
-      doc: parseNative(source, config),
+      doc: this.parse(source, config),
     };
+  }
+  parse(source: string, config = this.snapshot.config) {
+    return this.projectDocument(parseNative(source, config));
   }
   breakHistory() {
     this.lastTime = 0;
@@ -80,7 +83,7 @@ export class DocumentSession {
         config: this.snapshot.config,
         doc: deferProjection
           ? this.snapshot.doc
-          : parseNative(source, this.snapshot.config),
+          : this.parse(source, this.snapshot.config),
         projectionPending: deferProjection,
       },
       "source",
@@ -89,7 +92,7 @@ export class DocumentSession {
   project() {
     this.snapshot = {
       ...this.snapshot,
-      doc: parseNative(this.snapshot.source, this.snapshot.config),
+      doc: this.parse(this.snapshot.source, this.snapshot.config),
       projectionPending: false,
     };
   }
@@ -108,7 +111,7 @@ export class DocumentSession {
       {
         source: this.snapshot.source,
         config: structuredClone(normalizeSyntax(config)),
-        doc: parseNative(this.snapshot.source, config),
+        doc: this.parse(this.snapshot.source, config),
       },
       "config",
     );

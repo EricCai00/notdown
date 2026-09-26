@@ -4,6 +4,7 @@ import { internalReference, resolveReferencePage, type InternalReference, type R
 import { mountReferencePicker } from "../features/links/reference-picker";
 import { graphHTML, mountGraph } from "../features/pages/graph-view";
 import { openImportDialog } from "../features/vault/import-dialog";
+import { openNotionImportDialog } from "../features/vault/notion-import-dialog";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
 import { mountConflictDiff } from "../features/pages/conflict-diff";
@@ -20,8 +21,8 @@ import { documentPageTitle, renameDocumentPageSource } from "../features/metadat
 import { openCalloutIconPicker } from "../blocks/callout-icon-picker";
 import { pageIconElement } from "../shared/page-icons";
 import { emojiStyle, emojiStyleOptions, initializeEmojiStyle, setEmojiStyle, type EmojiStyle } from "../blocks/emoji-style";
-import { objectSamples } from "../document/object-model";
 import { nextExampleLabel } from "../document/example-numbering";
+import { objectSamples } from "../document/object-model";
 import { mountServiceSettings } from "./service-settings";
 import { mountRuntimeSettings } from "./runtime-settings";
 import { openPeople } from "../features/people/people-view";
@@ -310,7 +311,7 @@ function shell() {
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
-    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
+    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button><button class="new-page" data-action="import-notion">${icon("globe")}Import from Notion API</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
     <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
   </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   const resizer = document.createElement("div");
@@ -1811,6 +1812,15 @@ async function handleInsert(id: string) {
     editor.consumeSlash();
     editor.captureSelection();
   }
+  if (id === "html_embed" || id === "embed") {
+    const localWeb = !workspace || enabled(workspace.session.snapshot.config, "notion_web_embed");
+    insertMarkdown("\n\n" + (id === "html_embed" ? '<html-embed/>' : localWeb ? '<web-embed/>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
+    return;
+  }
+  if (objectSamples[id]) {
+    insertMarkdown("\n\n" + (id === "button" ? '<button label="Button" actions="[]"/>' : id === "web_bookmark" ? '<bookmark/>' : objectSamples[id]) + "\n\n");
+    return;
+  }
   if (id === "executable_chunk" || id === "executable_inline") {
     captureEditor();
     workspace?.capture();
@@ -1857,6 +1867,14 @@ async function handleInsert(id: string) {
       },
       close() { if (current === owner) editor?.focus(); },
     });
+    return;
+  }
+  const blockTypes = ["text", "heading1", "heading2", "heading3", "heading4", "heading5", "heading6", "list", "number", "task", "quote", "code", "divider"] as const;
+  const blockType = blockTypes.find(type => type === id);
+  if (blockType && (view === "document" || (view === "split" && workspace?.activePane === "document")) && editor) {
+    closeModal();
+    editor.insertBlockType(blockType);
+    captureEditor();
     return;
   }
   const snippets: Record<string, string> = {
@@ -2205,6 +2223,16 @@ document.addEventListener("click", (event) => {
           if (first) await loadPage(first);
           else await showLibrary();
           toast("Markdown import complete. Source files were preserved.");
+        } });
+        break;
+      case "import-notion":
+        openNotionImportDialog({ save, complete: async ids => {
+          pages = await api<Page[]>("/pages");
+          renderSidebar();
+          const first = ids.find(id => pages.some(page => page.id === id));
+          if (first) await loadPage(first);
+          else await showLibrary();
+          toast("Notion Enhanced Markdown import complete. Source API content was preserved.");
         } });
         break;
       case "open-vault":

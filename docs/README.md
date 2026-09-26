@@ -34,6 +34,7 @@
 - [页面与位置链接（统一引用模型）](features/INTERNAL-REFERENCES.md)
 
 - [Windows 桌面版与 Markdown 文件夹导入](features/DESKTOP-AND-IMPORT.md)
+- [Notion API Enhanced Markdown 单向导入](features/NOTION-IMPORT.md)
 - [代码语言、Custom 分组与高亮来源](features/CODE-LANGUAGES.md)
 - [脚注交互与正文块类型](features/FOOTNOTES.md)
 - [引文、缩写、术语、修订、图片工具栏与表格编辑](features/INLINE-OBJECTS.md)
@@ -56,6 +57,7 @@
 - [Notion 官方语法边界核查（2026-09-24）](audits/NOTION-BOUNDARY-2026-09-24.md)
 
 - [桌面版与 Markdown 导入验证（2026-09-23）](verification/DESKTOP-IMPORT-2026-09-23.md)
+- [Notion API 导入验证（2026-09-26）](verification/NOTION-IMPORT-2026-09-26.md)
 - [Markdown 测试文档入口与新旧样本区别](fixtures/README.md)、[11 份官方方言测试文档](fixtures/dialect-audit/README.md)
 - [上游 Markdown 方言 HTML 对照（2026-09-23）](audits/DIALECT-HTML-AUDIT-2026-09-23.md)
 - [仓库目录整理验证（2026-09-23）](verification/REPOSITORY-REORGANIZATION-2026-09-23.md)

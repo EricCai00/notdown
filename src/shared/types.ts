@@ -1,4 +1,5 @@
 export interface Page {
+  pageEntryEvidence?: import("../document/page-entry-projection").PageEntryEvidence;
   id: string;
   title: string;
   parent: string | null;

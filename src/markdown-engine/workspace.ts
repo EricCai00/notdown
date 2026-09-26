@@ -1,4 +1,5 @@
 import type { InternalReference } from "../document/internal-reference";
+import { projectPageEntries } from "../document/page-entry-projection";
 import { Compartment, EditorState, Prec } from "@codemirror/state";
 import {
   EditorView,
@@ -86,7 +87,7 @@ export class MarkdownWorkspace {
     readonly root: HTMLElement,
     private options: Options,
   ) {
-    this.session = new DocumentSession(options.source, options.config);
+    this.session = new DocumentSession(options.source, options.config, doc => projectPageEntries(doc, options.currentPage?.()?.pageEntryEvidence));
     this.mappingDoc = this.session.snapshot.doc;
     root.className = "markdown-workspace";
     root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view"><button type="button" data-mode="source">Source</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="document">Page</button></div><label class="dialect-label">Dialect <select aria-label="Markdown dialect">${dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</select></label><details class="syntax-options"><summary>Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling">Sync scrolling</label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane"><div class="pane-title">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane"><div class="pane-title">Page · Editable</div><div id="editor"></div></section></div>`;
@@ -314,7 +315,7 @@ export class MarkdownWorkspace {
   private codec() {
     const config = this.session.snapshot.config;
     return {
-      parse: (text: string) => parseNative(text, config),
+      parse: (text: string) => this.session.parse(text, config),
       serialize: (doc: ReturnType<typeof parseNative>) =>
         serializeNative(doc, config),
       format: syntaxFormat(config),

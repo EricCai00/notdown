@@ -1,0 +1,46 @@
+import { test, expect } from "@playwright/test";
+import { notionRoot, notionChild } from "../unit/notion-import-fixture";
+
+test("official page tags use local ownership for child presentation and navigate without rewriting source", async ({ page, request }) => {
+  const create = async (data: object) => (await request.post("/api/pages", { data })).json();
+  const preview = await (await request.post("/api/notion/import/preview", { data: { token: "test-token-example", pageId: notionRoot, includeChildren: true } })).json();
+  const commit = await request.post("/api/import/commit", { data: { id: preview.id } });
+  expect(commit.ok()).toBeTruthy();
+  const imported = await (await request.get("/api/pages")).json();
+  const parent = imported.find((p: any) => p.id.endsWith(notionRoot));
+  const child = imported.find((p: any) => p.id.endsWith(notionChild));
+  const other = await create({ title: "Linked page", body: "Link destination" });
+  const body = `<columns>\n\t<column>\n\t\t<page url="#page/${child.id}">Owned child</page>\n\t\t<page url="#page/${other.id}">Linked page</page>\n\t</column>\n\t<column>\n\t\tSecond column\n\t</column>\n</columns>\n`;
+  const current = await (await request.get(`/api/pages/${parent.id}`)).json();
+  const saved = await request.put(`/api/pages/${parent.id}`, { data: { body, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notion-markdown", extensions: {} }, baseRevision: current.revision } });
+  expect(saved.ok(), await saved.text()).toBeTruthy();
+  await page.goto(`/#page/${parent.id}`);
+  const owned = page.locator(`.ProseMirror a[data-page-id="${child.id}"]`);
+  const linked = page.locator(`.ProseMirror a[data-page-id="${other.id}"]`);
+  await expect(owned).toHaveAttribute("data-page-relation", "child");
+  await expect(owned).toHaveAttribute("data-pm-node-type", "block.child_page");
+  await expect(linked).toHaveAttribute("data-pm-node-type", "block.link_to_page");
+  await page.reload();
+  await expect(owned).toHaveAttribute("data-pm-node-type", "block.child_page");
+  await page.getByRole("button", { name: "Source", exact: true }).click();
+  await page.getByRole("button", { name: "Page", exact: true }).click();
+  await expect(owned).toHaveAttribute("data-pm-node-type", "block.child_page");
+  await expect(owned.locator(".page-link-reference-arrow")).toHaveCount(0);
+  await expect(linked).toHaveAttribute("data-page-relation", "reference");
+  await expect(linked.locator(".page-link-reference-arrow")).toHaveCount(1);
+  await owned.hover();
+  await page.locator(".pm-block-handle").click();
+  await expect(page.locator(".pm-block-type")).toHaveText("Child page");
+  await page.keyboard.press("Escape");
+  await linked.hover();
+  await page.locator(".pm-block-handle").click();
+  await expect(page.locator(".pm-block-type")).toHaveText("Link to page");
+  await page.keyboard.press("Escape");
+  await owned.click();
+  await expect(page.locator("#page-title")).toHaveValue(child.title);
+  expect((await (await request.get(`/api/pages/${parent.id}`)).json()).body).toBe(body);
+  // The mock API snapshot is shared by other import specs; restore our local edit.
+  const latest = await (await request.get(`/api/pages/${parent.id}`)).json();
+  const restored = await request.put(`/api/pages/${parent.id}`, { data: { body: parent.body, baseRevision: latest.revision } });
+  expect(restored.ok()).toBeTruthy();
+});

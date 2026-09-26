@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
+import { projectPageEntries } from "../../src/document/page-entry-projection";
+import { DocumentSession } from "../../src/markdown-engine/session";
+import { blockTypeLabel } from "../../src/catalog/block-catalog-data";
+const config = { version: 1 as const, variant: "notion-markdown" as const, extensions: {} };
+const source = '<page url="#page/child">Child</page>\r\n\r\n<page url="#page/link">Link</page>\r\n';
+const evidence = { childTargets: ["child"], referenceTargets: ["link"] };
+test("proven page entry is a real child PM type, preserves official source through edits and reload", () => {
+  const project = (doc: ReturnType<typeof parseNative>) => projectPageEntries(doc, evidence);
+  const session = new DocumentSession(source, config, project);
+  assert.equal(session.snapshot.doc.child(0).type.name, "block.child_page");
+  assert.equal(session.snapshot.doc.child(1).type.name, "block.link_to_page");
+  assert.equal(blockTypeLabel(session.snapshot.doc.child(0)), "Child page");
+  assert.deepEqual({ ...session.snapshot.doc.child(0).attrs.nfmAttrs }, { url: "#page/child" });
+  assert.equal(serializeNative(session.snapshot.doc, config), source);
+  session.sourceChanged(source + "\r\nExtra");
+  assert.equal(session.snapshot.doc.child(0).type.name, "block.child_page");
+  session.undo(); session.redo(); session.project();
+  assert.equal(session.snapshot.doc.child(0).type.name, "block.child_page");
+  assert.ok(!serializeNative(session.snapshot.doc, config).includes('role="child"'));
+});
+test("ownership alone, ambiguous destinations and code do not acquire child semantics", () => {
+  assert.equal(projectPageEntries(parseNative(source, config)).child(0).type.name, "block.link_to_page");
+  assert.equal(projectPageEntries(parseNative(source, config), { childTargets: ["child"], referenceTargets: ["child"] }).child(0).type.name, "block.link_to_page");
+  const duplicated = projectPageEntries(parseNative(source + source, config), evidence);
+  assert.equal(duplicated.child(0).type.name, "block.link_to_page");
+  const code = '```xml\n<page url="#page/child">Literal</page>\n```';
+  assert.equal(serializeNative(projectPageEntries(parseNative(code, config), evidence), config), code);
+});

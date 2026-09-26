@@ -6,6 +6,8 @@ A local Markdown note-taking app with block editing and page-based organization.
 
 Notdown combines transparent Markdown files with a structured editing experience. The editor uses a single ProseMirror document and a custom Markdown codec; common page metadata lives in one vault-level `metadata.json`, and notes remain local Markdown files. Document YAML and Pandoc title blocks override JSON defaults; Source shows the complete file without a hidden application header.
 
+Imported `<page>` entries with archived Block API child-page evidence and matching local ownership load as real `block.child_page` ProseMirror nodes. Other entries remain `block.link_to_page`; icons and menus follow the actual node type. Official Markdown is preserved without adding `role="child"`. Missing or ambiguous evidence remains a link; the child-page list below the document is a separate hierarchy view.
+
 **Status:** an actively developed prototype for local use. Revision checks and recoverable conflict copies are implemented; collaboration and cross-device sync are not. The application UI is currently English only.
 
 [Quick start](#quick-start) · [Features](#features) · [Format and storage](#format-and-storage) · [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
@@ -250,6 +252,7 @@ CriticMarkup substitutions in Notdown and MultiMarkdown show the retained origin
 
 - **No collaboration or cross-device sync.** Local revision checks and conflict copies are not a synchronization service. Local synced blocks do not connect to Notion cloud sync.
 - **No Notion databases, workspace membership, permissions, or full cloud automation.** People entries are local contacts, not user accounts; mentions do not send notifications.
+- **Notion API Enhanced Markdown import:** **Import from Notion API** accepts an integration token and shared page URL/ID (including app Copy links at `app.notion.com/p/...`), previews the official Markdown response, and imports a local copy with optional descendant pages. Source and API responses are archived; the dialect is `notion-markdown`. Truncated/inaccessible content blocks import. Attachments and page links remain remote (signed file URLs can expire); database records/views, comments, permissions and sync are not imported. See [setup and boundaries](docs/features/NOTION-IMPORT.md).
 - **Partial format compatibility.** Not all upstream rules or extension combinations are implemented. Table matrix pastes must match the selection size and merges require a compatible encoding; arbitrary block nesting and cross-page dragging remain incomplete.
 - **Local execution only for reminders.** No closed-app system scheduling, email reminders, or recurring reminders.
 - **Export and import are limited.** HTML export is for one page and keeps relative attachment links; it does not package the vault. Folder import creates copies with new page identities; it does not edit arbitrary folders in place or fully migrate Obsidian/Notion workspaces. A history rollback UI is not implemented.
@@ -320,3 +323,5 @@ SiYuan informed the local storage design; AFFiNE and AppFlowy informed block int
 The project uses ProseMirror, CodeMirror, markdown-it, Lucide, KaTeX, Mermaid, and other dependencies under their respective licenses. Optional Pandoc rendering uses a separately installed executable. Bundled emoji fonts retain their license notices: [Noto — SIL OFL 1.1](src/assets/fonts/LICENSE-Noto.txt) and [OpenMoji — CC BY-SA 4.0](src/assets/fonts/LICENSE-OpenMoji.txt).
 
 Page metadata precedence, explicit legacy-header migration and interrupted-save recovery: [Vault metadata](docs/features/VAULT-METADATA.md). Cross-device synchronization is not implemented.
+
+Notion API imports use the native `file-text` page icon when Notion has no icon; explicit emoji are preserved. Existing imported icons are not migrated.
