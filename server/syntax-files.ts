@@ -91,7 +91,7 @@ export function syntaxFiles(vault: ReturnType<typeof createVault>) {
         nodes: import("prosemirror-model").Node[] = [];
       doc.descendants((n) => {
         if (
-          ["syntax_block", "syntax_inline"].includes(n.type.name) &&
+          ["syntax_block", "syntax_inline"].includes(n.attrs.editorRepresentation || n.type.spec.editorKind) &&
           n.attrs.kind === "transclusion"
         )
           nodes.push(n);

@@ -182,14 +182,31 @@
 }
 .pm-document .pm-media-block :is(audio, video) {
   display: block;
+  width: 100%;
   max-width: 100%;
 }
-.pm-document .pm-media-block a {
+.pm-document .pm-media-block .media-download {
   display: block;
   padding: 5px 0;
   color: #787774;
   font-size: 14px;
 }
+.pm-document .pm-file-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+.pm-document .pm-file-card:hover { background: #f1f1ef; }
+.pm-file-icon { flex: 0 0 20px; }
+.pm-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-file-size { flex-shrink: 0; color: #787774; font-size: 12px; }
+.pm-file-size:empty { display: none; }
+.pm-document .pm-pdf-block object { display: block; border: 1px solid #e3e2e0; border-radius: 4px; }
 .pm-document .pm-database,
 .pm-document .pm-unknown {
   display: block;
@@ -298,6 +315,28 @@
 .pm-equation-editor button:focus-visible { outline: 2px solid #2383e2; outline-offset: 2px; }
 .pm-document .pm-inline-math {
   cursor: pointer;
+}
+.pm-inline-equation-editor {
+  inset: auto;
+  margin: 0;
+  padding: 8px 10px;
+  flex-direction: column;
+  gap: 0;
+}
+.pm-inline-equation-editor form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+}
+.pm-inline-equation-editor textarea { margin: 0; font-family: inherit; }
+.pm-inline-equation-editor output { color: #b44736; font-size: 12px; }
+.pm-inline-equation-editor output:empty { display: none; }
+.pm-document .pm-inline-math-editing,
+.pm-document .pm-inline-math-editing:hover {
+  background: #dff2ff;
+  border-radius: 3px;
 }
 .pm-image-caption { display: block; text-align: center; color: #777; font-size: 13px; }
 .pm-equation:hover,

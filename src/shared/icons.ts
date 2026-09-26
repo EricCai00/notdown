@@ -2,6 +2,7 @@ import {
   createIcons,
   createElement,
   CornerUpLeft,
+  Video, Music,
   Braces, Replace, Hash,
   Heading4, Heading5, Heading6, Lightbulb, Sigma, Workflow, MessageSquare, ExternalLink, Superscript, Subscript, AlignLeft, Square, ListOrdered, Copy, User, Calendar, Type, Minus, PanelsTopLeft, Bookmark, PanelTop, Navigation, MousePointer2, Mic, Image, Bold, Italic, Underline, Strikethrough, Palette, PaintBucket, Highlighter, Smile,
   Star,
@@ -71,6 +72,7 @@ const Footnote: typeof Superscript = [
 ];
 
 export const icons = {
+  Video, Music,
   Braces, Replace, Hash,
   Footnote,
   Heading4, Heading5, Heading6, Lightbulb, Sigma, Workflow, MessageSquare, ExternalLink, Superscript, Subscript, AlignLeft, Square, ListOrdered, Copy, User, Calendar, Type, Minus, PanelsTopLeft, Bookmark, PanelTop, Navigation, MousePointer2, Mic, Image, Bold, Italic, Underline, Strikethrough, Palette, PaintBucket, Highlighter, Smile,

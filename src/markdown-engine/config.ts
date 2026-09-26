@@ -9,7 +9,7 @@ export const pandocDefaults = pandocSnapshot.variants as Record<
   Record<string, boolean>
 >;
 export const markdownFamily = (config: SyntaxConfig) =>
-  config.variant.startsWith("markdown") || config.variant === "typora" || config.variant === "rmarkdown";
+  config.variant.startsWith("markdown") || config.variant === "typora" || ["rmarkdown", "quarto"].includes(config.variant);
 
 const productExtensions = new Set([
   "highlight",
@@ -31,6 +31,7 @@ export const productDefaults = dialectDefaults;
 
 export const dialects = [
   { id: "rmarkdown", label: "R Markdown", native: true },
+  { id: "quarto", label: "Quarto", native: true },
   { id: "typora", label: "Typora", native: true },
   { id: "obsidian", label: "Obsidian", native: true },
   { id: "notion-markdown", label: "Notion-flavored Markdown", native: true },
@@ -393,7 +394,7 @@ export function validSyntax(value: unknown): value is SyntaxConfig {
   );
 }
 export function supportsOption(config: SyntaxConfig, name: string) {
-  if (config.variant === "rmarkdown") return supportsOption({ ...config, variant: "markdown" }, name);
+  if (["rmarkdown", "quarto"].includes(config.variant)) return supportsOption({ ...config, variant: "markdown" }, name);
   name = canonicalExtensionId(name);
   const registered = extensions.some((e) => e.id === name);
   if (!registered) return false;
@@ -453,19 +454,27 @@ export function resetExtensions(config: SyntaxConfig): Record<string, boolean> {
   );
 }
 export function commandEnabled(config: SyntaxConfig, command: string) {
+  if (command === "input_pipe_quote") return !enabled(config, "line_blocks");
+  if (command === "input_single_strike") return enabled(config, "strikeout") && !enabled(config, "subscript") && !enabled(config, "short_subsuperscripts");
+  if (command === "input_fancy_list") return enabled(config, "fancy_lists");
   if (command === "emoji_shortcode") return enabled(config, "emoji");
   if (command === "alert_title") return ["obsidian", "notdown"].includes(config.variant) && enabled(config, "alerts");
   if (command === "notion_image_caption") return usesNotionSyntax(config);
   if (command === "citation") return (["notdown", "notion-markdown"].includes(config.variant) && enabled(config, "notion_mentions")) || enabled(config, "mmd_citations") || enabled(config, "citations");
   if (command === "abbreviation") return enabled(config, "abbreviations") || enabled(config, "mmd_abbreviations");
   if (command === "image_caption") return enabled(config, "implicit_figures");
+  if (command === "image_layout") return config.variant === "notdown" && enabled(config, "link_attributes");
   if (command === "symbol_replacements") return enabled(config, command);
+  if (["executable_chunk", "executable_inline"].includes(command)) return ["rmarkdown", "quarto", "notdown"].includes(config.variant);
+  if (["quarto_python", "quarto_julia", "quarto_ojs", "quarto_r"].includes(command)) return ["quarto", "notdown"].includes(config.variant);
+  if (command === "r_chunk" || command === "r_inline") return ["rmarkdown", "quarto"].includes(config.variant) || config.variant === "notdown";
   if (command === "inline_image") return config.variant !== "notion-markdown";
   if (command === "wiki_syntax") return enabled(config, "wikilinks_title_after_pipe");
   if (["page_link", "location_link"].includes(command)) return true;
   if (command === "notion_custom") return config.variant === "notdown";
   if (command === "code_caption") return config.variant !== "notion-markdown" && enabled(config, "fenced_code_attributes");
   if (command === "image_block") return false;
+  if (["audio", "video", "pdf"].includes(command)) return enabled(config, "notion_media");
   if (command === "embed") return enabled(config, "notion_web_embed") || (!usesNotionSyntax(config) && enabled(config, "html_embed"));
   if (/^heading[1-6]$/.test(command)) return config.variant !== "notion-markdown" || Number(command.slice(-1)) <= 4;
   if (command === "backtick_code") return !markdownFamily(config) || enabled(config, "backtick_code_blocks");
@@ -481,11 +490,12 @@ export function commandEnabled(config: SyntaxConfig, command: string) {
   if (command === "toc")
     return enabled(config, "notion_toc") || enabled(config, "toc_directives");
   const requirement: Record<string, string> = {
+    critic: "critic_markup", inline_note: "inline_notes",
     glossary: "glossary", metadata_variable: "metadata_variables", addition: "critic_markup", deletion: "critic_markup", substitution: "critic_markup",
     inline_equation: "tex_math_dollars", background: "notion_colors",
     subscript: "subscript", superscript: "superscript", highlight: "highlight",
     synced_block: "notion_synced", mention_person: "notion_mentions", date_or_reminder: "notion_mentions",
-    native_span: "bracketed_spans", small_caps: "bracketed_spans", inline_note: "inline_notes",
+    native_span: "bracketed_spans", small_caps: "bracketed_spans",
     table_grid: "grid_tables", table_notion: "notion_tables", table_mmd: "mmd_tables",
     example_list_item: "example_lists",
     diagram: "diagrams",

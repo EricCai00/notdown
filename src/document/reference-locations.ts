@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "./node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import { parseFragment, type DefaultTreeAdapterMap } from "parse5";
 import type { InternalReference } from "./internal-reference";
@@ -18,19 +19,24 @@ export function referenceLocations(doc: PMNode): ReferenceLocation[] {
     let previous: { node: PMNode; pos: number } | undefined;
     parent.forEach((node, offset) => {
       const pos = base + offset;
-      if (node.type.name === "heading") {
+      if (isEditorKind(node, "heading")) {
         while (headings.length && headings.at(-1)!.level >= node.attrs.level) headings.pop();
         headings.push({ level: node.attrs.level, title: node.textContent });
         result.push({ kind: "heading", fragment: node.attrs.markdownAttrs?.id || node.textContent,
           label: node.textContent, pos, headingPath: headings.map(h => h.title) });
       }
       const id = node.attrs.markdownAttrs?.id || node.attrs.attributes?.id;
-      if (id && node.type.name !== "heading") result.push({ kind: "anchor", fragment: id, label: id, pos });
+      if (id && !isEditorKind(node, "heading")) result.push({ kind: "anchor", fragment: id, label: id, pos });
+      // Example references use generated anchors owned by the first label occurrence.
+      // Index them alongside explicit anchors so clicks use the same navigation path.
+      if (isEditorKind(node, "example_list_item") && node.attrs.referenceId)
+        result.push({ kind: "anchor", fragment: node.attrs.referenceId,
+          label: `${node.attrs.number}. ${node.firstChild?.textContent || node.attrs.label}`, pos });
       for (const mark of node.marks) {
         const anchor = mark.attrs.attributes?.id;
         if (anchor) result.push({ kind: "anchor", fragment: anchor, label: anchor, pos });
       }
-      if (["html_inline", "html_block"].includes(node.type.name)) {
+      if (["html_inline", "html_block"].includes(editorKind(node))) {
         const visit = (element: DefaultTreeAdapterMap["childNode"]) => {
           if (!("tagName" in element) || ["script", "style", "iframe", "template"].includes(element.tagName)) return;
           for (const attr of element.attrs) if (attr.name === "id" || element.tagName === "a" && attr.name === "name")
@@ -41,7 +47,7 @@ export function referenceLocations(doc: PMNode): ReferenceLocation[] {
       }
       if (node.isTextblock && !blocked && !node.type.spec.code) {
         let marker: PMNode | undefined;
-        node.forEach(child => { if (child.type.name === "syntax_inline" && child.attrs.kind === "block-anchor") marker = child; });
+        node.forEach(child => { if (isEditorKind(child, "syntax_inline") && child.attrs.kind === "block-anchor") marker = child; });
         if (marker) {
           const standalone = !node.textContent.trim();
           const target = standalone ? previous : { node, pos };
@@ -51,7 +57,7 @@ export function referenceLocations(doc: PMNode): ReferenceLocation[] {
       }
       // Obsidian does not address individual parts of quotes, callouts or tables.
       if (!node.isLeaf && !node.type.spec.code) walk(node, pos + 1,
-        blocked || ["blockquote", "callout", "table"].includes(node.type.name));
+        blocked || ["blockquote", "callout", "table"].includes(editorKind(node)));
       previous = { node, pos };
     });
   };

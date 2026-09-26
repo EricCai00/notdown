@@ -1,4 +1,5 @@
 import type { NodeViewConstructor } from "prosemirror-view";
+import { namedNodeViews } from "../document/node-identity";
 
 /** NodeViews own their content classes; ProseMirror owns decoration classes.
  * A render that replaces className must not erase an unchanged decoration:
@@ -6,7 +7,7 @@ import type { NodeViewConstructor } from "prosemirror-view";
 export function preserveSelectionDecorations(
   constructors: Record<string, NodeViewConstructor>,
 ): Record<string, NodeViewConstructor> {
-  return Object.fromEntries(Object.entries(constructors).map(([name, create]) => [name,
+  return Object.fromEntries(Object.entries(namedNodeViews(constructors)).map(([name, create]) => [name,
     ((...args) => {
       const nodeView = create(...args);
       const update = nodeView.update;

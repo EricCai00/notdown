@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind, isEditorKind } from "./node-identity";
 import { nodeReference, referenceHref } from "./internal-reference";
 import { notionBlockMarkdown } from "./notion-markdown";
 import { type Mark, type Node as EditorNode } from "prosemirror-model";
@@ -12,6 +13,8 @@ import {
 } from "./notion-syntax.js";
 import { writeAttributes } from "../markdown-engine/attributes.js";
 import { originalLink } from "../markdown-engine/document-options";
+import { rChunkMarkdown } from "../markdown-engine/rmarkdown";
+import { rExpressionSource } from "./r-expression";
 
 /** Formatting metadata must not make an otherwise unchanged node look edited. */
 const fingerprints = new WeakMap<EditorNode, string>();
@@ -21,7 +24,10 @@ export function editorFingerprint(node: EditorNode): string {
   const metadata = JSON.stringify({
     type: node.type.name,
     attrs: Object.fromEntries(
-      Object.entries(node.attrs).filter(([key]) => !key.startsWith("source")),
+      Object.entries(node.attrs).filter(([key]) => !key.startsWith("source")
+        && !(isEditorKind(node, "example_list_item") && ["number", "referenceId"].includes(key))
+        && !(isEditorKind(node, "example_list") && key === "start")
+        && !(node.attrs.kind === "example-reference" && key === "label")),
     ),
     marks: node.marks.map((mark) => mark.toJSON()),
     ...(node.isText ? { text: node.text } : {}),
@@ -92,11 +98,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
       marks = markStack.pop() ?? schema.marks[markName].removeFromSet(marks);
     } else if (token.type === "footnote_reference") {
       result.push(
-        schema.nodes.footnote_reference.create(
-          { label: token.meta.label },
-          null,
-          marks,
-        ),
+        schema.nodes["inline.footnote"].create({ label: token.meta.label }, null, marks),
       );
     } else if (token.type === "nfm_span") {
       const attrs = token.meta;
@@ -111,7 +113,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
       else if (attrs.class || attrs.id || attrs.lang) extra = schema.marks.native_span.create({ attributes: nativeAttrs, syntaxForm: "html" }).addToSet(extra);
       if (attrs.underline === "true")
         extra = schema.marks.underline.create().addToSet(extra);
-      if (attrs.color || attrs.bg_color || !extra.some(m => ["native_span", "small_caps"].includes(m.type.name)) && Object.keys(attrs).some((key) => key !== "underline"))
+      if (attrs.color || attrs.bg_color || !extra.some(m => ["native_span", "small_caps"].includes(editorKind(m))) && Object.keys(attrs).some((key) => key !== "underline"))
         extra = schema.marks.color
           .create({ color: attrs.color || "", bg_color: attrs.bg_color || "", nfmAttrs: attrs })
           .addToSet(extra);
@@ -123,10 +125,9 @@ export function parseInline(tokens: Token[]): EditorNode[] {
     } else if (token.type === "nfm_mention") {
       result.push(
         token.meta.kind === "link"
-          ? schema.nodes.link_mention.create({ url: token.meta.attrs.url || "", label: token.content, nfmAttrs: token.meta.attrs }, null, marks)
+          ? schema.nodes["inline.link"].create({ url: token.meta.attrs.url || "", label: token.content, nfmAttrs: token.meta.attrs }, null, marks)
           : token.meta.kind === "page"
-          ? schema.nodes.page_link.create(
-              {
+          ? schema.nodes["inline.internal_link"].create({
                 target:
                   localPageTarget(token.meta.attrs.url || "") ??
                   token.meta.attrs.url ??
@@ -136,27 +137,20 @@ export function parseInline(tokens: Token[]): EditorNode[] {
                 label: token.content,
                 url: token.meta.attrs.url || "",
                 nfmAttrs: token.meta.attrs,
-              },
-              null,
-              marks,
-            )
-          : schema.nodes.mention.create(
-              {
+              }, null, marks)
+          : createEditorNode(schema, "mention", {
                 kind: token.meta.kind,
                 label: token.content,
                 nfmAttrs: token.meta.attrs,
-              },
-              null,
-              marks,
-            ),
+              }, null, marks),
       );
     } else if (token.type === "nfm_math") {
       result.push(
-        schema.nodes.inline_math.create({ value: token.content }, null, marks),
+        schema.nodes["inline.inline_math"].create({ value: token.content }, null, marks),
       );
     } else if (token.type === "nfm_citation") {
       result.push(
-        schema.nodes.citation.create({ url: token.content }, null, marks),
+        schema.nodes["inline.citation"].create({ url: token.content }, null, marks),
       );
     } else if (
       (token.type === "text" || token.type === "emoji") &&
@@ -174,14 +168,10 @@ export function parseInline(tokens: Token[]): EditorNode[] {
     } else if (token.type === "softbreak") {
       result.push(schema.text("\n", marks));
     } else if (token.type === "hardbreak") {
-      result.push(schema.nodes.hard_break.create(null, null, marks));
+      result.push(schema.nodes["character.line_break"].create(null, null, marks));
     } else if (token.type === "wiki_link") {
       result.push(
-        schema.nodes.page_link.create(
-          { target: token.meta.target, label: token.content, syntaxForm: token.meta.syntaxForm || "wiki", labelMode: token.meta.explicitLabel ? "custom" : "auto" },
-          null,
-          marks,
-        ),
+        schema.nodes["inline.internal_link"].create({ target: token.meta.target, label: token.content, syntaxForm: token.meta.syntaxForm || "wiki", labelMode: token.meta.explicitLabel ? "custom" : "auto" }, null, marks),
       );
     } else if (token.type === "image") {
       const altText = (items: Token[]): string =>
@@ -197,16 +187,13 @@ export function parseInline(tokens: Token[]): EditorNode[] {
           )
           .join("");
       result.push(
-        schema.nodes.image.create(
-          {
+        schema.nodes["inline.image"].create({
             src: token.attrGet("src") ?? "",
             alt: token.children ? altText(token.children) : token.content,
             title: token.attrGet("title"),
+            layoutEnabled: token.meta?.notdownImageLayout === true,
             markdownAttrs: token.meta?.markdownAttrs || {},
-          },
-          null,
-          marks,
-        ),
+          }, null, marks),
       );
     } else if (
       token.type !== "task_checkbox" &&
@@ -277,7 +264,7 @@ function blockParser(source: string): BlockParser {
             ) &&
           /^ {0,3}(?:<\/?[a-zA-Z!]|<\?|:::)/.test(raw)
         ) {
-          node = schema.nodes.opaque_block.create({ raw });
+          node = createEditorNode(schema, "opaque_block", { raw });
         } else {
           const inline = tokens
             .slice(index + 1, close)
@@ -286,11 +273,8 @@ function blockParser(source: string): BlockParser {
             );
           node =
             token.type === "heading_open"
-              ? schema.nodes.heading.create(
-                  { level: Number(token.tag.slice(1)) },
-                  inline,
-                )
-              : schema.nodes.paragraph.create(null, inline);
+              ? createEditorNode(schema, "heading", { level: Number(token.tag.slice(1)) }, inline)
+              : schema.nodes["block.paragraph"].create(null, inline);
         }
       } else if (
         token.type === "bullet_list_open" ||
@@ -298,62 +282,48 @@ function blockParser(source: string): BlockParser {
       ) {
         const tight = !tokens.slice(index + 1, close).some(item =>
           item.type === "paragraph_open" && item.level === token.level + 2 && !item.hidden);
-        node = schema.nodes[
-          token.type === "bullet_list_open" ? "bullet_list" : "ordered_list"
-        ].create(
-          token.type === "ordered_list_open"
+        node = createEditorNode(schema, token.type === "bullet_list_open" ? "bullet_list" : "ordered_list", token.type === "ordered_list_open"
             ? { order: Number(token.attrGet("start") ?? 1), ...(token.meta?.gfm ? { tight } : {}) }
-            : token.meta?.gfm ? { tight } : null,
-          parse(tokens, index + 1, close, token.type === "ordered_list_open"),
-        );
+            : token.meta?.gfm ? { tight } : null, parse(tokens, index + 1, close, token.type === "ordered_list_open"));
       } else if (token.type === "list_item_open") {
         const checkbox = tokens[index + 2]?.children?.find(
           (item) => item.type === "task_checkbox",
         );
         const content = parse(tokens, index + 1, close);
-        if (content[0]?.type !== schema.nodes.paragraph)
-          content.unshift(schema.nodes.paragraph.create());
-        node = schema.nodes[checkbox ? "task_list_item" : ordered ? "numbered_list_item" : "bullet_list_item"].create(
-          { checked: checkbox ? Boolean(checkbox.meta.checked) : null },
-          content,
-        );
+        if (content[0]?.type !== schema.nodes["block.paragraph"])
+          content.unshift(schema.nodes["block.paragraph"].create());
+        node = createEditorNode(schema, checkbox ? "task_list_item" : ordered ? "numbered_list_item" : "bullet_list_item", { checked: checkbox ? Boolean(checkbox.meta.checked) : null }, content);
       } else if (token.type === "blockquote_open") {
         const content = parse(tokens, index + 1, close);
-        node = schema.nodes.blockquote.create(
-          null,
-          content.length ? content : [schema.nodes.paragraph.create()],
-        );
+        node = schema.nodes["block.quote"].create(null, content.length ? content : [schema.nodes["block.paragraph"].create()]);
       } else if (token.type === "fence" || token.type === "code_block") {
         const text = token.content.replace(/\n$/, "");
-        node = schema.nodes.code_block.create(
-          { params: token.info ?? "" },
-          text ? schema.text(text) : undefined,
-        );
+        node = schema.nodes["block.code_block"].create({ params: token.info ?? "" }, text ? schema.text(text) : undefined);
       } else if (token.type === "hr") {
-        node = schema.nodes.horizontal_rule.create();
+        node = schema.nodes["block.divider"].create();
       } else if (token.type === "child_page") {
-        node = schema.nodes.child_page.create({ target: token.meta.target });
+        node = createEditorNode(schema, "child_page", { target: token.meta.target });
       } else if (token.type === "nested_block") {
         const nested = parse(token.meta.blocks);
         const head = token.meta.head ? parse(token.meta.head) : null;
         const content = head
           ? [
-              ...(head.length ? head : [schema.nodes.paragraph.create()]),
-              ...(nested.length ? nested : [schema.nodes.paragraph.create()]),
+              ...(head.length ? head : [schema.nodes["block.paragraph"].create()]),
+              ...(nested.length ? nested : [schema.nodes["block.paragraph"].create()]),
             ]
           : nested;
         node =
           content.length &&
-          ["paragraph", "heading"].includes(content[0].type.name)
-            ? schema.nodes.nested_block.create(null, content)
-            : schema.nodes.opaque_block.create({ raw });
+          ["paragraph", "heading"].includes(editorKind(content[0]))
+            ? schema.nodes["structure.nested_block"].create(null, content)
+            : createEditorNode(schema, "opaque_block", { raw });
       } else if (["dl_open", "dd_open", "dt_open"].includes(token.type)) {
         const type = {
           dl_open: "definition_list",
           dd_open: "definition_description",
           dt_open: "definition_term",
         }[token.type]!;
-        const content =
+        let content =
           token.type === "dt_open"
             ? tokens
                 .slice(index + 1, close)
@@ -361,28 +331,34 @@ function blockParser(source: string): BlockParser {
                   t.type === "inline" ? parseInline(t.children ?? []) : [],
                 )
             : parse(tokens, index + 1, close);
-        node = schema.nodes[type].create(
-          null,
-          content.length
+        if (token.type === "dl_open") {
+          const groups: EditorNode[][] = [];
+          for (const child of content) {
+            if (isEditorKind(child, "definition_term")) groups.push([]);
+            groups.at(-1)!.push(child);
+          }
+          content = groups.map(children => createEditorNode(schema, "definition_list_item", null, children));
+        }
+        const attrs = token.type === "dd_open" ? {
+          tight: token.meta?.definitionTight ?? null,
+          marker: token.meta?.definitionMarker ?? ":",
+        } : null;
+        node = createEditorNode(schema, type, attrs, content.length
             ? content
             : token.type === "dt_open"
               ? []
-              : [schema.nodes.paragraph.create()],
-        );
+              : [schema.nodes["block.paragraph"].create()]);
       } else if (token.type === "columns") {
         const column = (items: Token[]) => {
           const content = parse(items);
-          return schema.nodes.column.create(
-            null,
-            content.length ? content : [schema.nodes.paragraph.create()],
-          );
+          return schema.nodes["structure.column"].create(null, content.length ? content : [schema.nodes["block.paragraph"].create()]);
         };
-        node = schema.nodes.columns.create(null, [
+        node = schema.nodes["block.columns"].create(null, [
           column(token.meta.left),
           column(token.meta.right),
         ]);
       } else {
-        node = schema.nodes.opaque_block.create({
+        node = createEditorNode(schema, "opaque_block", {
           raw:
             token.type === "extension_literal"
               ? token.content.replace(/[\r\n]+$/, "")
@@ -435,17 +411,14 @@ export function parseEditorMarkdown(
       node.marks,
     );
   });
-  if (!nodes.length) nodes.push(schema.nodes.paragraph.create());
-  const doc = schema.nodes.doc.create(
-    {
+  if (!nodes.length) nodes.push(schema.nodes["block.paragraph"].create());
+  const doc = schema.nodes["doc"].create({
       source,
       sourceGaps: gaps,
       sourceHidden: hiddenDefinitions(source, tokens),
       sourceSuffix: source.slice(previousEnd),
       sourceNewline: source.match(/\r\n|\n|\r/)?.[0] ?? "\n",
-    },
-    nodes,
-  );
+    }, nodes);
   return doc.type.create(
     { ...doc.attrs, sourceFingerprint: editorFingerprint(doc) },
     doc.content,
@@ -598,9 +571,9 @@ export function inlineMarkdown(
       .map(([key, value]) => ` ${key}="${value.replace(/"/g, "&quot;")}"`)
       .join("");
   const open = (mark: Mark) =>
-    mark.type.name === "native_span" || mark.type.name === "small_caps"
+    isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? `<span${attributesXml(mark.attrs.attributes)}>` : "[")
-      : mark.type.name === "critic"
+      : isEditorKind(mark, "critic")
       ? {
           addition: "{++",
           deletion: "{--",
@@ -608,11 +581,11 @@ export function inlineMarkdown(
           comment: "{>>",
           substitution: "{~~" + mark.attrs.old + "~>",
         }[mark.attrs.kind as string] || ""
-      : mark.type.name === "highlight"
+      : isEditorKind(mark, "highlight")
         ? "=="
-        : mark.type.name === "underline"
+        : isEditorKind(mark, "underline")
           ? '<span underline="true">'
-          : mark.type.name === "color"
+          : isEditorKind(mark, "color")
             ? `<span${attributesXml({ ...mark.attrs.nfmAttrs, color: mark.attrs.color, bg_color: mark.attrs.bg_color })}>`
             : ({
                 em: "*",
@@ -621,11 +594,11 @@ export function inlineMarkdown(
                 subscript: "~",
                 superscript: "^",
                 link: "[",
-              }[mark.type.name] ?? "");
+              }[editorKind(mark)] ?? "");
   const close = (mark: Mark) =>
-    mark.type.name === "native_span" || mark.type.name === "small_caps"
+    isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? "</span>" : "]" + writeAttributes(mark.attrs.attributes).trimStart())
-      : mark.type.name === "critic"
+      : isEditorKind(mark, "critic")
       ? {
           addition: "++}",
           deletion: "--}",
@@ -633,7 +606,7 @@ export function inlineMarkdown(
           comment: "<<}",
           substitution: "~~}",
         }[mark.attrs.kind as string] || ""
-      : mark.type.name === "link"
+      : isEditorKind(mark, "link")
         ? `](${destination(originalLink(mark.attrs.href, mark.attrs.markdownAttrs))}${
             mark.attrs.title ||
             (options.mmdAttributes &&
@@ -643,15 +616,15 @@ export function inlineMarkdown(
                   .replace(/"/g, '\\"')}"`
               : ""
           }${options.mmdAttributes ? mmdAttrs(mark.attrs.markdownAttrs) : ""})${options.mmdAttributes ? "" : writeAttributes(mark.attrs.markdownAttrs)}`
-        : ["underline", "color"].includes(mark.type.name)
+        : ["underline", "color"].includes(editorKind(mark))
           ? "</span>"
           : open(mark);
   for (const child of children(node)) {
-    const code = child.marks.some((mark) => mark.type.name === "code");
-    const marks = child.marks.filter((mark) => mark.type.name !== "code");
+    const code = child.marks.some((mark) => isEditorKind(mark, "code"));
+    const marks = child.marks.filter((mark) => !isEditorKind(mark, "code"));
     // Keep XML wrappers outside delimiters; spaces inside tags invalidate ~sub~.
     if (options.htmlMarksFirst) {
-      const wrapper = (mark: Mark) => ["color", "underline", "native_span", "small_caps"].includes(mark.type.name) ? 0 : 1;
+      const wrapper = (mark: Mark) => ["color", "underline", "native_span", "small_caps"].includes(editorKind(mark)) ? 0 : 1;
       marks.sort((a, b) => wrapper(a) - wrapper(b));
     }
     let common = 0;
@@ -668,7 +641,7 @@ export function inlineMarkdown(
     active = [...marks];
     if (child.isText)
       result += code
-        ? codeSpan(child.text ?? "") + writeAttributes(child.marks.find(m => m.type.name === "code")?.attrs.markdownAttrs).trimStart()
+        ? codeSpan(child.text ?? "") + writeAttributes(child.marks.find(m => isEditorKind(m, "code"))?.attrs.markdownAttrs).trimStart()
         : notion
           ? escapeText(child.text ?? "")
               .replace(/&/g, "&amp;")
@@ -689,19 +662,23 @@ export function inlineMarkdown(
               )
               .replace(
                 marks.some((mark) =>
-                  ["subscript", "superscript"].includes(mark.type.name),
+                  ["subscript", "superscript"].includes(editorKind(mark)),
                 )
                   ? / /g
                   : /(?!)/g,
                 "\\ ",
               );
-    else if (["html_inline", "syntax_inline"].includes(child.type.name))
+    else if ((isEditorKind(child, "executable_inline"))) result += rExpressionSource(child);
+    else if (["html_inline", "syntax_inline"].includes(editorKind(child))) {
+      // A paragraph-leading reference must not reopen as an example definition.
+      if (child.attrs.kind === "example-reference") result = result.replace(/(^|\n)( {0,3})\($/, "$1$2\\(");
       result += child.attrs.raw;
-    else if (child.type.name === "footnote_reference")
+    }
+    else if (isEditorKind(child, "footnote_reference"))
       result += "[^" + child.attrs.label + "]";
-    else if (child.type.name === "hard_break")
+    else if (isEditorKind(child, "hard_break"))
       result += notion || options.notionBreaks ? "<br>" : "  \n";
-    else if (child.type.name === "page_link") {
+    else if (isEditorKind(child, "page_link")) {
       const target = String(child.attrs.target).replace(/[\[\]\r\n]/g, "");
       const label = String(child.attrs.label || target).replace(
         /[\[\]\r\n]/g,
@@ -719,7 +696,7 @@ export function inlineMarkdown(
           : child.attrs.labelMode !== "custom" && label === target
             ? `[[${target}]]`
             : child.attrs.syntaxForm === "wiki-title-first" ? `[[${label}|${target}]]` : `[[${target}|${label}]]`;
-    } else if (child.type.name === "image") {
+    } else if (isEditorKind(child, "image")) {
       const attrs = child.attrs.markdownAttrs || {};
       const title =
         child.attrs.title ||
@@ -729,18 +706,18 @@ export function inlineMarkdown(
               .replace(/"/g, '\\"')}"`
           : "";
       result += `![${escapeText(child.attrs.alt || "")}](${destination(originalLink(child.attrs.src, attrs))}${title}${options.mmdAttributes ? mmdAttrs(attrs) : ""})${options.mmdAttributes ? "" : writeAttributes(attrs)}`;
-    } else if (child.type.name === "inline_note") {
+    } else if (isEditorKind(child, "inline_note")) {
       result += "^[" + inlineMarkdown(child, notion, escapeMath, pageMentions, escapeSuperscript, legacyEscapes, options) + "]";
-    } else if (child.type.name === "link_mention") {
+    } else if (isEditorKind(child, "link_mention")) {
       result += `<mention-link${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url })}>${escapeXml(child.attrs.label)}</mention-link>`;
-    } else if (child.type.name === "mention") {
+    } else if (isEditorKind(child, "mention")) {
       const tag = `mention-${child.attrs.kind}`;
       result += child.attrs.label
         ? `<${tag}${attributesXml(child.attrs.nfmAttrs)}>${escapeXml(child.attrs.label)}</${tag}>`
         : `<${tag}${attributesXml(child.attrs.nfmAttrs)}/>`;
-    } else if (child.type.name === "inline_math") {
+    } else if (isEditorKind(child, "inline_math")) {
       result += child.attrs.delimiter === "single" ? `\\(${child.attrs.value}\\)` : child.attrs.delimiter === "gfm" ? "$`" + child.attrs.value + "`$" : `$${child.attrs.value}$`;
-    } else if (child.type.name === "citation") {
+    } else if (isEditorKind(child, "citation")) {
       result += `[^${child.attrs.url}]`;
     }
   }
@@ -754,7 +731,7 @@ function blocksMarkdown(nodes: EditorNode[]): string {
 }
 
 export function blockMarkdown(node: EditorNode): string {
-  switch (node.type.name) {
+  switch (editorKind(node)) {
     case "paragraph":
       return inlineMarkdown(node);
     case "nested_block":
@@ -773,6 +750,8 @@ export function blockMarkdown(node: EditorNode): string {
       );
       return `${fence}${params}\n${text}\n${fence}`;
     }
+    case "executable_chunk":
+      return rChunkMarkdown(node);
     case "blockquote":
       return blocksMarkdown(children(node))
         .split("\n")
@@ -783,7 +762,7 @@ export function blockMarkdown(node: EditorNode): string {
       return children(node)
         .map((item, index) => {
           const marker =
-            node.type.name === "ordered_list"
+            isEditorKind(node, "ordered_list")
               ? `${Number(node.attrs.order) + index}. `
               : "- ";
           const checkbox =
@@ -795,7 +774,7 @@ export function blockMarkdown(node: EditorNode): string {
           const itemChildren = children(item);
           let content = inlineMarkdown(itemChildren[0]);
           for (const child of itemChildren.slice(1)) {
-            content += `${child.type.name === "bullet_list" || child.type.name === "ordered_list" ? "\n" : "\n\n"}${blockMarkdown(child)}`;
+            content += `${isEditorKind(child, "bullet_list") || isEditorKind(child, "ordered_list") ? "\n" : "\n\n"}${blockMarkdown(child)}`;
           }
           return (checkbox + content)
             .split("\n")

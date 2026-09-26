@@ -35,7 +35,7 @@ test("Notion new block boundaries use blank lines while list rows stay compact; 
   const inserted = EditorState.create({ doc: parseNotionMarkdown("First") });
   const changed = inserted.tr.insert(
     inserted.doc.content.size,
-    schema.nodes.paragraph.create(null, schema.text("New")),
+    schema.nodes["block.paragraph"].create(null, schema.text("New")),
   ).doc;
   assert.equal(serializeNotionMarkdown(changed), "First\n\nNew");
   const moved = moveEditorBlock(

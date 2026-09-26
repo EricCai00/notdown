@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState, TextSelection } from "prosemirror-state";
@@ -33,9 +34,9 @@ test("Notion uses one line per block, tabs for descendants, br for internal brea
   const doc = parseNotionMarkdown(body);
   doc.check();
   assert.equal(doc.childCount, 3);
-  assert.equal(doc.firstChild?.type.name, "nested_block");
-  assert.equal(doc.firstChild?.child(0).child(1).type.name, "hard_break");
-  assert.equal(doc.firstChild?.child(1).type.name, "nested_block");
+  assert.equal(editorKind(doc.firstChild), "nested_block");
+  assert.equal(editorKind(doc.firstChild?.child(0).child(1)), "hard_break");
+  assert.equal(editorKind(doc.firstChild?.child(1)), "nested_block");
   assert.equal(doc.firstChild?.lastChild?.textContent, "");
   assert.equal(serializeNotionMarkdown(doc), body);
   assert.equal(
@@ -64,9 +65,9 @@ test("official columns can contain blocks, more than two columns and nested colu
     '<columns>\n\t<column>\n\t\t# Left\n\t\tText\n\t</column>\n\t<column>\n\t\t<callout icon="💡" color="blue_bg">\n\t\t\tA thought\n\t\t</callout>\n\t</column>\n\t<column>\n\t\tRight\n\t</column>\n</columns>';
   const doc = parseNotionMarkdown(body);
   doc.check();
-  assert.equal(doc.firstChild?.type.name, "columns");
+  assert.equal(editorKind(doc.firstChild), "columns");
   assert.equal(doc.firstChild?.childCount, 3);
-  assert.equal(doc.firstChild?.child(1).firstChild?.type.name, "callout");
+  assert.equal(editorKind(doc.firstChild?.child(1).firstChild), "callout");
   assert.equal(
     canonical(body),
     body
@@ -78,7 +79,7 @@ test("official columns can contain blocks, more than two columns and nested colu
   const nestedDoc = parseNotionMarkdown(nested);
   nestedDoc.check();
   assert.equal(
-    nestedDoc.firstChild?.firstChild?.firstChild?.type.name,
+    editorKind(nestedDoc.firstChild?.firstChild?.firstChild),
     "columns",
   );
   assert.equal(
@@ -96,7 +97,7 @@ test("code fence contents never interpret tabs, closing tags, nests, mentions or
     '<callout icon="💡">\n\t```html\n\t</callout>\n\t\t<columns>\n\t:::nest\n\t<mention-page url="#page/a">a</mention-page><br>\n\t```\n</callout>\nAfter';
   const doc = parseNotionMarkdown(body);
   doc.check();
-  assert.equal(doc.firstChild?.firstChild?.type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild?.firstChild), "code_block");
   assert.equal(doc.childCount, 2);
   assert.equal(
     canonical(body),
@@ -111,7 +112,7 @@ test("rich text preserves nested spans, page/user/date mentions, citations and i
   doc.check();
   const names: string[] = [];
   doc.descendants((node) => {
-    names.push(node.type.name);
+    names.push(editorKind(node));
   });
   assert.ok(names.includes("page_link"));
   assert.ok(names.includes("mention"));
@@ -121,7 +122,7 @@ test("rich text preserves nested spans, page/user/date mentions, citations and i
     (node) => node.text === "red underlined",
   );
   assert.deepEqual(
-    text?.marks.map((mark) => mark.type.name),
+    text?.marks.map((mark) => editorKind(mark)),
     ["underline", "color"],
   );
   assert.deepEqual(extractLinks(body, "notion-markdown"), ["target"]);
@@ -138,7 +139,7 @@ test("page, preserved database source, media, toc and unknown blocks retain offi
   const doc = parseNotionMarkdown(body);
   doc.check();
   assert.deepEqual(
-    doc.content.content.map((node) => node.type.name),
+    doc.content.content.map((node) => editorKind(node)),
     [
       "child_page",
       "opaque_block",
@@ -173,13 +174,12 @@ test("XML tables preserve widths and header attributes and cells are editable pa
     '<table fit-page-width="true" header-row="true">\n\t<colgroup>\n\t\t<col width="120"/>\n\t\t<col width="240"/>\n\t</colgroup>\n\t<tr>\n\t\t<td>**Name**</td>\n\t\t<td>Value<br>continued</td>\n\t</tr>\n</table>';
   const doc = parseNotionMarkdown(body);
   doc.check();
-  assert.equal(doc.firstChild?.type.name, "table");
+  assert.equal(editorKind(doc.firstChild), "table");
   assert.equal(doc.firstChild?.firstChild?.childCount, 2);
   assert.deepEqual(doc.firstChild?.attrs.widths, ["120", "240"]);
   assert.equal(canonical(body), body);
   assert.equal(
-    parseNotionMarkdown("| Name | Value |\n| --- | --- |\n| A | B |").firstChild
-      ?.type.name,
+    editorKind(parseNotionMarkdown("| Name | Value |\n| --- | --- |\n| A | B |").firstChild),
     "table",
   );
 });
@@ -222,8 +222,8 @@ test("old text nesting and wiki/page/columns directives convert without private 
   assert.match(body, /^Parent\n\tChild<br>second line/);
   const doc = parseNotionMarkdown(body);
   doc.check();
-  assert.equal(doc.firstChild?.type.name, "nested_block");
-  assert.equal(doc.lastChild?.type.name, "columns");
+  assert.equal(editorKind(doc.firstChild), "nested_block");
+  assert.equal(editorKind(doc.lastChild), "columns");
 });
 test("ordinary CommonMark soft lines stay one block when a legacy page migrates", () => {
   const body = serializeNotionMarkdown(
@@ -246,7 +246,7 @@ test("unknown and malformed markup remains intact next to edited content; render
   assert.doesNotMatch(html, /href="javascript:|<img src=x|<future/);
   const malformed = "<columns>\n\t<column>\n\t\tText\n\t</column>";
   assert.equal(
-    parseNotionMarkdown(malformed).firstChild?.type.name,
+    editorKind(parseNotionMarkdown(malformed).firstChild),
     "opaque_block",
   );
   assert.equal(canonical(malformed), malformed);
@@ -304,13 +304,10 @@ test("Chinese page names and explicit external page URLs survive migration and g
   assert.match(renderNotionMarkdown(body), /href="\.\/Other%20page.md"/);
 });
 test("literal entities, empty equations and colored empty blocks are not corrupted", () => {
-  const p = schema.nodes.paragraph.create(
-    null,
-    schema.text("Literal &copy; and $x$ and <br>"),
-  );
-  const serialized = serializeNotionMarkdown(schema.nodes.doc.create(null, p));
+  const p = schema.nodes["block.paragraph"].create(null, schema.text("Literal &copy; and $x$ and <br>"));
+  const serialized = serializeNotionMarkdown(schema.nodes["doc"].create(null, p));
   assert.equal(parseNotionMarkdown(serialized).textContent, p.textContent);
-  assert.equal(parseNotionMarkdown("$$$$").firstChild?.type.name, "equation");
+  assert.equal(editorKind(parseNotionMarkdown("$$$$").firstChild), "equation");
   assert.equal(
     canonical('<empty-block color="blue_bg"/>'),
     '<empty-block color="blue_bg"/>',

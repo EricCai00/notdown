@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import { localObjectPlugins } from "../../src/markdown-engine/presets";
 /** User-visible acceptance specimens. Pure builder: importing never opens a vault. */
 import { dialects, enabled, extensions, usesNotionSyntax, type SyntaxConfig, type Dialect } from "../../src/markdown-engine/config";
@@ -243,7 +244,7 @@ export function auditManualPages(pages: Specimen[]) {
     // Round-tripping alone also passes when an opaque block swallowed the rest
     // of the page. Every acceptance case must survive as a top-level section.
     const headings = new Set<string>();
-    doc.forEach(node => { if (node.type.name === 'heading' && node.attrs.level === 2) headings.add(node.textContent); });
+    doc.forEach(node => { if (editorKind(node) === 'heading' && node.attrs.level === 2) headings.add(node.textContent); });
     for (const [, title] of page.body.matchAll(/^## ([DEILRU]\d+ — .+)$/gm)) {
       if (!headings.has(title)) throw new Error('Missing acceptance section: ' + page.key + ': ' + title);
     }

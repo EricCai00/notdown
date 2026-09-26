@@ -4,13 +4,16 @@ import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 import { VaultError } from "./vault.js";
+import { runtimeEnvironment } from "./runtime-settings";
+import type { RuntimeOptions } from "../src/shared/runtime-settings";
 
 const setupHelp = 'Install R, run install.packages("rmarkdown") in R, and install Pandoc. Set NOTDOWN_RSCRIPT to the Rscript executable if it is not on PATH.';
 const requestSchema = z.object({ source: z.string().max(128_000) }).strict();
 const outputLimit = 8 * 1024 * 1024;
 let running = 0;
 
-export async function rscriptPath() {
+export async function rscriptPath(override?: string) {
+  if (override) return override;
   if (process.env.NOTDOWN_RSCRIPT) return process.env.NOTDOWN_RSCRIPT;
   if (process.platform === "win32") {
     const root = path.join(process.env.ProgramFiles || "C:/Program Files", "R");
@@ -23,13 +26,13 @@ export async function rscriptPath() {
   return "Rscript";
 }
 
-function run(executable: string, args: string[], cwd: string, signal?: AbortSignal, timeout = 60_000): Promise<string> {
+function run(executable: string, args: string[], cwd: string, signal?: AbortSignal, timeout = 60_000, settings: RuntimeOptions = {}): Promise<string> {
   if (signal?.aborted) return Promise.reject(new VaultError(499, "R execution cancelled"));
   return new Promise((resolve, reject) => {
     const child = spawn(executable, ["--vanilla", ...args], {
       cwd, windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"],
       detached: process.platform !== "win32",
-      env: { ...process.env, ...(process.env.PANDOC_PATH ? { RSTUDIO_PANDOC: path.dirname(process.env.PANDOC_PATH) } : {}) },
+      env: runtimeEnvironment(settings),
     });
     let size = 0, log = "", failure: Error | undefined;
     const stop = (error: Error) => {
@@ -65,10 +68,10 @@ function run(executable: string, args: string[], cwd: string, signal?: AbortSign
   });
 }
 
-export async function rMarkdownCapabilities(signal?: AbortSignal) {
-  const executable = await rscriptPath();
+export async function rMarkdownCapabilities(signal?: AbortSignal, settings: RuntimeOptions = {}) {
+  const executable = await rscriptPath(settings.rscript);
   try {
-    const log = await run(executable, ["-e", 'if (!requireNamespace("rmarkdown", quietly=TRUE) || !requireNamespace("knitr", quietly=TRUE)) stop("Missing rmarkdown/knitr"); if (!rmarkdown::pandoc_available()) stop("Missing Pandoc"); cat("NOTDOWN_R_READY:", R.version.string, "\\n", sep="")'], os.tmpdir(), signal, 15_000);
+    const log = await run(executable, ["-e", 'if (!requireNamespace("rmarkdown", quietly=TRUE) || !requireNamespace("knitr", quietly=TRUE) || !requireNamespace("jsonlite", quietly=TRUE)) stop("Missing rmarkdown/knitr/jsonlite"); if (!rmarkdown::pandoc_available()) stop("Missing Pandoc"); cat("NOTDOWN_R_READY:", R.version.string, "\\n", sep="")'], os.tmpdir(), signal, 15_000, settings);
     const version = /NOTDOWN_R_READY:([^\r\n]+)/.exec(log)?.[1];
     return { available: Boolean(version), version: version || "", help: setupHelp };
   } catch (error) {
@@ -92,7 +95,7 @@ rmarkdown::render("document.Rmd",
   encoding = "UTF-8", quiet = TRUE)
 `;
 
-export async function executeRMarkdown(input: unknown, signal?: AbortSignal) {
+export async function executeRMarkdown(input: unknown, signal?: AbortSignal, settings: RuntimeOptions = {}) {
   const parsed = requestSchema.safeParse(input);
   if (!parsed.success) throw new VaultError(400, "Expected R Markdown source (maximum 128,000 characters)");
   if (running >= 2) throw new VaultError(429, "R is busy. Stop a running document or try again later.");
@@ -102,7 +105,7 @@ export async function executeRMarkdown(input: unknown, signal?: AbortSignal) {
     directory = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-rmarkdown-"));
     await fs.writeFile(path.join(directory, "document.Rmd"), parsed.data.source, "utf8");
     await fs.writeFile(path.join(directory, "run.R"), driver, "utf8");
-    const log = await run(await rscriptPath(), ["run.R"], directory, signal);
+    const log = await run(await rscriptPath(settings.rscript), ["run.R"], directory, signal, 60_000, settings);
     const filename = path.join(directory, "result.html");
     if ((await fs.stat(filename)).size > outputLimit) throw new VaultError(413, "Rendered R Markdown exceeds 8 MB");
     return { html: await fs.readFile(filename, "utf8"), log: log.slice(-16_000) };

@@ -1,9 +1,13 @@
-import { Schema, type DOMOutputSpec, type NodeSpec } from "prosemirror-model";
+import { Fragment, Schema, type DOMOutputSpec, type NodeSpec } from "prosemirror-model";
+import { rExpressionSource } from "./r-expression";
+import { namedNodeSpecs } from "./node-identity";
 import { objectNodeSpecs, objectMarkSpecs } from "./object-model";
 import { colorStyle, inlineColorStyle, pageUrl, safeReference } from "./notion-syntax.js";
 import { domAttributes } from "../markdown-engine/attributes.js";
 import { columnTracks, columnWidths } from "../blocks/column-widths.js";
 import { alertDOM } from "./alert-presentation";
+import { mediaDOM } from "./media";
+import { imageLayoutDOM } from "./image-layout";
 
 /** Source bookkeeping is carried by document transactions, never rendered. */
 const sourceAttrs = {
@@ -113,7 +117,7 @@ function listItemSpec(kind: "bullet" | "numbered" | "task"): NodeSpec {
 }
 
 export const editorSchema = new Schema({
-  nodes: {
+  nodes: namedNodeSpecs({
     doc: {
       content: "block+",
       attrs: {
@@ -225,14 +229,41 @@ export const editorSchema = new Schema({
       group: "block",
       code: true,
       defining: true,
-      attrs: { params: { default: "" }, rChunk: { default: false } },
-      parseDOM: [{ tag: "pre", preserveWhitespace: "full" }],
+      attrs: { params: { default: "" } },
+      parseDOM: [{ tag: "pre", preserveWhitespace: "full", getAttrs: dom => (dom.hasAttribute("data-r-chunk") || dom.hasAttribute("data-quarto-chunk")) ? false : null }],
       toDOM: (node) => [
         "pre",
         { "data-language": node.attrs.params },
         ["code", 0],
       ],
     }),
+    executable_chunk: block({
+      content: "text*", marks: "", group: "block", code: true, defining: true,
+      attrs: { header: { default: "{python}" }, language: { default: "python" } },
+      parseDOM: [{ tag: "pre[data-r-chunk]", preserveWhitespace: "full", getAttrs: dom => ({ header: dom.getAttribute("data-r-chunk"), language: "r" }) }, { tag: "pre[data-quarto-chunk]", preserveWhitespace: "full", getAttrs: dom => ({ header: dom.getAttribute("data-quarto-chunk"), language: dom.getAttribute("data-language") }) }],
+      toDOM: node => ["pre", { "data-quarto-chunk": node.attrs.header, "data-language": node.attrs.language }, ["code", 0]],
+    }),
+    executable_inline: {
+      inline: true, group: "inline", content: "text*", marks: "", code: true,
+      attrs: { raw: { default: "`{python} 1 + 1`" }, expression: { default: "1 + 1" }, language: { default: "python" } },
+      parseDOM: [{ tag: "code[data-r-source]", preserveWhitespace: "full", getAttrs: dom => {
+        const raw = dom.getAttribute("data-r-source") || "";
+        const match = /^`r[ \t]+([^`]+)`$/.exec(raw);
+        return match && match[1].trim() ? { raw, language: "r", expression: match[1] } : false;
+      }, getContent: (dom, schema) => {
+        const element = dom as HTMLElement;
+        const expression = element.querySelector(".pm-r-inline-code")?.textContent ?? /^`r[ \t]+([^`]+)`$/.exec(element.getAttribute("data-r-source") || "")?.[1] ?? "";
+        return expression ? Fragment.from(schema.text(expression)) : Fragment.empty;
+      } }, { tag: "code[data-quarto-source]", preserveWhitespace: "full", getAttrs: dom => {
+        const raw = dom.getAttribute("data-quarto-source") || "", match = /^`\{(r|python|julia|ojs)\}[ \t]+([^`]+)`$/.exec(raw);
+        return match && match[2].trim() ? { raw, language: match[1], expression: match[2] } : false;
+      }, getContent: (dom, schema) => {
+        const element = dom as HTMLElement;
+        const expression = element.querySelector(".pm-r-inline-code")?.textContent ?? /^`\{(?:r|python|julia|ojs)\}[ \t]+([^`]+)`$/.exec(element.getAttribute("data-quarto-source") || "")?.[1] ?? "";
+        return expression ? Fragment.from(schema.text(expression)) : Fragment.empty;
+      } }],
+      toDOM: node => ["code", { [/^`r[ \t]/.test(rExpressionSource(node)) ? "data-r-source" : "data-quarto-source"]: rExpressionSource(node) }, ["span", { class: "pm-r-inline-code" }, 0]],
+    },
     bullet_list: block({
       attrs: { tight: { default: true } },
       content: "(bullet_list_item | task_list_item)+",
@@ -348,20 +379,29 @@ export const editorSchema = new Schema({
     },
     definition_list: block({
       group: "block",
-      content: "(definition_term definition_description+)+",
+      content: "definition_list_item+",
       defining: true,
-      isolating: true,
       toDOM: () => ["dl", { class: "pm-definition-list" }, 0],
+      parseDOM: [{ tag: "dl.pm-definition-list" }],
+    }),
+    definition_list_item: block({
+      content: "definition_term definition_description+",
+      defining: true,
+      toDOM: () => ["div", { class: "pm-definition-item" }, 0],
+      parseDOM: [{ tag: "div.pm-definition-item" }],
     }),
     definition_term: block({
       content: "inline*",
       defining: true,
       toDOM: () => ["dt", 0],
+      parseDOM: [{ tag: "dt" }],
     }),
     definition_description: block({
       content: "block+",
       defining: true,
-      toDOM: () => ["dd", 0],
+      attrs: { tight: { default: null }, marker: { default: ":" } },
+      toDOM: node => ["dd", { "data-definition-tight": node.attrs.tight === true ? "true" : null }, 0],
+      parseDOM: [{ tag: "dd", getAttrs: dom => ({ tight: dom.getAttribute("data-definition-tight") === "true" }) }],
     }),
     footnote_anchor: {
       group: "block", atom: true, selectable: false,
@@ -379,13 +419,14 @@ export const editorSchema = new Schema({
       draggable: false,
       defining: true,
       isolating: true,
-      attrs: { label: { default: "note" }, footnoteKey: { default: null } },
+      attrs: { label: { default: "note" }, footnoteKey: { default: null }, inlineNote: { default: false } },
       toDOM: (node) => [
         "aside",
         {
           class: "pm-footnote",
           id: "md-note-" + encodeURIComponent(node.attrs.label),
           "data-footnote-label": node.attrs.label,
+          "data-inline-note": node.attrs.inlineNote ? "true" : null,
         },
         0,
       ],
@@ -394,7 +435,7 @@ export const editorSchema = new Schema({
       group: "inline",
       inline: true,
       atom: true,
-      attrs: { label: { default: "note" } },
+      attrs: { label: { default: "note" }, inlineNote: { default: null } },
       toDOM: (node) => [
         "sup",
         { class: "pm-footnote-ref" },
@@ -524,29 +565,7 @@ export const editorSchema = new Schema({
         src: { default: "" },
         caption: { default: "" },
       },
-      toDOM: (node) => {
-        const src = safeReference(node.attrs.src);
-        const label = node.attrs.caption || node.attrs.src || "Attachment";
-        const link: DOMOutputSpec = [
-          "a",
-          { href: src, class: "media-download" },
-          label,
-        ];
-        return [
-          "figure",
-          { class: "pm-media-block", contenteditable: "false" },
-          ...(["audio", "video"].includes(node.attrs.type) && src
-            ? [
-                [
-                  node.attrs.type,
-                  { src, controls: "", preload: "none", "aria-label": label },
-                ] as DOMOutputSpec,
-              ]
-            : []),
-          ...(node.attrs.type === "pdf" && localMediaSource(src) ? [["object", { data: src, type: "application/pdf", width: "100%", height: "480", "aria-label": label }, ["a", { href: src }, "Open PDF"]] as DOMOutputSpec] : []),
-          link,
-        ];
-      },
+      toDOM: node => mediaDOM(node, !!localMediaSource(safeReference(node.attrs.src))),
     }),
     equation: block({
       attrs: { latexPrefix: { default: "" } },
@@ -623,6 +642,7 @@ export const editorSchema = new Schema({
         src: {},
         alt: { default: "" },
         title: { default: null },
+        layoutEnabled: { default: false },
         markdownAttrs: { default: {} },
       },
       parseDOM: [
@@ -635,7 +655,7 @@ export const editorSchema = new Schema({
           }),
         },
       ],
-      toDOM: (node) => [
+      toDOM: (node) => node.attrs.layoutEnabled && ["width", "align", "crop"].some(key => node.attrs.markdownAttrs[key]) ? imageLayoutDOM(node) : [
         "img",
         {
           src: safeUrl(node.attrs.src),
@@ -657,7 +677,7 @@ export const editorSchema = new Schema({
       group: "inline",
       atom: true,
       attrs: {
-        kind: { default: "user" },
+        kind: { default: "database" },
         label: { default: "" },
         nfmAttrs: { default: {} },
       },
@@ -747,24 +767,33 @@ export const editorSchema = new Schema({
       ],
     },
     ...objectNodeSpecs(block),
-  },
+  }),
   marks: {
     ...objectMarkSpecs,
-    highlight: { toDOM: () => ["mark", 0], parseDOM: [{ tag: "mark" }] },
+    highlight: { toDOM: () => ["mark", { class: "pm-highlight" }, 0], parseDOM: [{ tag: "mark" }] },
     critic: {
       attrs: { kind: { default: "addition" }, old: { default: "" } },
-      toDOM: (mark) => [
+      parseDOM: [{
+        tag: 'span.pm-critic[data-critic-kind="substitution"]',
+        getAttrs: (dom) => dom.querySelector(".pm-critic-new")
+          ? { kind: "substitution", old: dom.getAttribute("data-critic-old") || "" } : false,
+        contentElement: ".pm-critic-new",
+      }],
+      toDOM: (mark) => mark.attrs.kind === "substitution" ? [
+        "span",
+        { class: "pm-critic pm-critic-substitution", "data-critic-kind": "substitution", "data-critic-old": mark.attrs.old, title: "Original: " + mark.attrs.old },
+        // Original text is presentation only; the mark's content is the editable replacement.
+        ["del", { class: "pm-critic-old", contenteditable: "false" }, String(mark.attrs.old)],
+        ["ins", { class: "pm-critic-new" }, 0],
+      ] : [
         mark.attrs.kind === "deletion"
           ? "del"
           : mark.attrs.kind === "addition"
             ? "ins"
             : "mark",
         {
-          class: mark.attrs.kind === "comment" ? "pm-critic pm-comment" : "pm-critic",
-          title:
-            mark.attrs.kind === "substitution"
-              ? "Original: " + mark.attrs.old
-              : mark.attrs.kind,
+          class: mark.attrs.kind === "comment" ? "pm-critic pm-comment" : mark.attrs.kind === "highlight" ? "pm-critic pm-highlight" : "pm-critic",
+          title: mark.attrs.kind === "highlight" ? null : mark.attrs.kind,
         },
         0,
       ],

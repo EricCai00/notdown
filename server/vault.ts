@@ -7,6 +7,7 @@ import { replaceFile } from "./file-replace.js";
 import { trashedPageIds } from "../src/features/pages/page-hierarchy.js";
 import { recycleFile } from "./recycle-file.js";
 import { createPeople } from "./people.js";
+import { createRuntimeSettings } from "./runtime-settings";
 import type { ImportPlan } from "./markdown-import.js";
 import { comparePageOrder, orderBetween, pageOrderKey, type PageMoveInput } from "../src/features/pages/page-order.js";
 import type { BodyFormat } from "../src/document/notion-syntax.js";
@@ -618,6 +619,7 @@ export function createVault(vaultPath: string, options: { recycleFile?: (filenam
     vaultPath: root,
     assetsPath,
     people: createPeople({ root, init, safeDirectory, atomicWrite, serialize }),
+    runtimeSettings: createRuntimeSettings({ root, atomicWrite, serialize }),
     init,
     planLegacyMetadataMigration(): Promise<LegacyMetadataMigrationPlan> {
       return serialize(async () => ({ pages: legacyMetadataPlan(await scan()).map(({ current }) => ({

@@ -26,9 +26,9 @@ test('audit comparison ignores serialization trivia but preserves semantic diffe
 test('2026-09-23 upstream dialect fixtures are indexed with exact independent source slices',()=>{
  const dir=new URL('../../docs/fixtures/dialect-audit/',import.meta.url);
  const corpus=JSON.parse(readFileSync(new URL('cases.json',dir),'utf8'));
- // R Markdown was added after this immutable dated audit; its execution and
+ // R Markdown and Quarto were added after this immutable dated audit; its execution and
  // source-preservation coverage lives in rmarkdown.test.ts and rmarkdown.Rmd.
- assert.deepEqual(Object.keys(corpus.suites).sort(),dialects.map(d=>d.id).filter(id=>id!=='notdown' && id!=='rmarkdown').sort());
+ assert.deepEqual(Object.keys(corpus.suites).sort(),dialects.map(d=>d.id).filter(id=>id!=='notdown' && id!=='rmarkdown' && id!=='quarto').sort());
  for(const [variant,suite]of Object.entries<any>(corpus.suites)){
   const source=readFileSync(new URL(suite.file,dir),'utf8');
   const hash=(s:string)=>createHash('sha256').update(s).digest('hex');

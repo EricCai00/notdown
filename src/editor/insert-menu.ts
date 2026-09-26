@@ -8,20 +8,27 @@ const objectIcons: Record<string, string> = {
   button: "mouse-pointer-2", meeting_notes: "mic", ai_block: "sparkles", html_embed: "code-xml", image_block: "image",
 };
 function insertGroup(id: string): string {
+  if (id === "r_inline" || id === "executable_inline") return "Markdown inline";
   if (["text", "child", "task", "heading1", "heading2", "heading3", "heading4", "list", "number", "quote", "divider", "link", "callout", "toggle", "table"].includes(id)) return "Notion basic";
   if (["columns", "toc", "equation", "toggle_heading", "synced_block", "button", "breadcrumb", "meeting_notes", "ai_block", "tabs"].includes(id)) return "Notion advanced";
-  if (["code", "file", "web_bookmark", "link_preview", "image_block"].includes(id)) return "Notion media";
+  if (["code", "image", "video", "audio", "pdf", "file", "web_bookmark", "link_preview", "image_block"].includes(id)) return "Notion media";
   if (["embed", "html_embed"].includes(id)) return "Notion embeds";
   if (["inline", "page_link", "location_link", "mention", "mention_person", "date_or_reminder", "inline_equation", "emoji"].includes(id)) return "Notion inline";
   if (["bold", "italic", "underline", "strike", "color", "background"].includes(id)) return "Notion style";
-  if (["citation", "abbreviation", "glossary", "metadata_variable", "addition", "deletion", "substitution", "footnote", "native_span", "small_caps", "inline_note", "inline_comment", "subscript", "superscript", "highlight"].includes(id)) return "Markdown inline";
+  if (["citation", "abbreviation", "glossary", "metadata_variable", "addition", "deletion", "substitution", "footnote", "native_span", "small_caps", "inline_comment", "subscript", "superscript", "highlight"].includes(id)) return "Markdown inline";
   return "Markdown blocks";
 }
 // The footer offers portable Markdown blocks. Existing extension content is
 // still preserved by the codec; product containers are not offered here.
-const footnoteCommands = new Set("text task heading1 heading2 heading3 heading4 heading5 heading6 list number quote divider code inline table equation diagram html definitions lines div file image_block inline_equation bold italic underline strike color background subscript superscript highlight emoji native_span small_caps".split(" "));
+const footnoteCommands = new Set("text task heading1 heading2 heading3 heading4 heading5 heading6 list number quote divider code inline table equation diagram html definitions lines div file image image_block inline_equation bold italic underline strike color background subscript superscript highlight emoji native_span small_caps".split(" "));
+const typingAliases: Record<string, string> = {
+  text: "plain", number: "num", heading1: "#", heading2: "##", heading3: "###",
+  equation: "latex", web_bookmark: "book", date_or_reminder: "reminder", task: "to-do",
+};
 export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
   return [
+    ["executable_chunk", "code", "Executable Chunk", "Choose a language for an executable code block.", "quarto r python julia ojs javascript knitr executable chunk 可执行代码块"],
+    ["executable_inline", "code-xml", "Executable Expression", "Choose a language for an inline expression.", "quarto r python julia ojs javascript inline expression 行内表达式"],
     ["citation", "quote", "Citation", "Insert or reuse a source reference.", "citation 引文 文献"],
     ["abbreviation", "type", "Abbreviation", "Define or reuse an abbreviation.", "abbreviation acronym 缩写"],
     ["glossary", "book-open", "Glossary", "Define or reuse a glossary term.", "glossary 术语"],
@@ -129,13 +136,11 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
       "A Markdown container with attributes.",
       "fenced div container",
     ],
-    [
-      "file",
-      "paperclip",
-      "Image, video, audio, file",
-      "Upload or embed a file.",
-      "image video audio file",
-    ],
+    ["image", "image", "Image", "Upload an image to display on the page.", "image picture photo 图片 图像"],
+    ["video", "video", "Video", "Upload a video with playback controls.", "video movie 视频"],
+    ["audio", "music", "Audio", "Upload audio with playback controls.", "audio music sound 音频 音乐"],
+    ["pdf", "file-text", "PDF", "Upload a PDF to preview on the page.", "pdf document 文档"],
+    ["file", "paperclip", "File", "Upload a file card with its name and size.", "file attachment download 文件 附件"],
     ...Object.keys(objectSamples).filter(id => id !== "embed_web_contents").map(id => [id, (objectIcons[id] || "square"), contentCommand(id).label || id, id === "html_embed" ? "Upload an HTML file or enter HTML code." : "Insert an editable " + (contentCommand(id).label || id) + ".", id.replace(/_/g, " ")]),
     ["toggle_heading", "chevron-right", "Toggle heading", "A heading with collapsible child blocks.", "collapsible heading"],
     ["example_list_item", "list-ordered", "Example list item", "A numbered example with a stable label.", "example list"],
@@ -144,7 +149,6 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
     ["date_or_reminder", "calendar", "Date or reminder", "An editable date with an optional local reminder.", "date reminder"],
     ["native_span", "type", "Native span", "Inline text with editable attributes.", "span attributes"],
     ["small_caps", "type", "Small caps", "Text displayed in small capitals.", "small caps"],
-    ["inline_note", "message-square", "Inline note", "Write the note directly at the current text position.", "inline note 内联注释"],
     ["inline_equation", "sigma", "Inline equation", "Write a formula within text.", "inline math 公式"],
     ["bold", "bold", "Bold", "Insert bold text.", "strong 粗体"],
     ["italic", "italic", "Italic", "Insert italic text.", "emphasis 斜体"],
@@ -159,6 +163,6 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
   ].filter(([id]) => contentCommand(id, config).enabled && (id !== "alert" || config?.variant === "notdown") && (!inFootnote || footnoteCommands.has(id)))
     .map(([id, icon, title, description, aliases]) => {
       const entry = contentCommand(id);
-      return [id, icon, ["inline_note", "footnote", "alert", "page_link", "location_link"].includes(id) ? title : entry.label || title, description, [aliases, ...entry.aliases].join(" "), insertGroup(id)];
+      return [id, icon, ["image", "footnote", "alert", "page_link", "location_link"].includes(id) ? title : entry.label || title, description, [aliases, typingAliases[id] || "", ...entry.aliases].join(" "), insertGroup(id)];
     }).sort((a, b) => insertGroups.indexOf(a[5]) - insertGroups.indexOf(b[5]));
 }

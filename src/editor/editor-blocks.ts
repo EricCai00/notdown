@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { isListItem } from "../document/list-items";
 import { Fragment, type Node as PMNode } from "prosemirror-model";
 import {
@@ -24,12 +25,12 @@ export interface EditorBlock {
 export type BlockPlacement = "before" | "after" | "inside";
 
 const isList = (node: PMNode) =>
-  node.type.name === "bullet_list" || node.type.name === "ordered_list";
-const isItem = (node: PMNode) => isListItem(node);
-const isGroup = (node: PMNode) => node.type.name === "nested_block";
+  isEditorKind(node, "bullet_list") || isEditorKind(node, "ordered_list") || isEditorKind(node, "example_list") || isEditorKind(node, "definition_list");
+const isItem = (node: PMNode) => isListItem(node) || isEditorKind(node, "definition_list_item");
+const isGroup = (node: PMNode) => isEditorKind(node, "nested_block");
 const hasBlockHead = (node: PMNode) =>
   ["toggle_block", "callout", "synced_block", "blockquote"].includes(
-    node.type.name,
+    editorKind(node),
   );
 
 function atPath(doc: PMNode, path: readonly number[]) {
@@ -52,7 +53,7 @@ function describe(doc: PMNode, path: number[]): EditorBlock | null {
   const { node, pos, parent, parentPos } = atPath(doc, path);
   if (!node.isBlock) return null;
   for (let i = 1; i <= path.length; i++)
-    if (["footnote", "footnote_section", "footnote_anchor"].includes(atPath(doc, path.slice(0, i)).node.type.name)) return null;
+    if (["footnote", "footnote_section", "footnote_anchor"].includes(editorKind(atPath(doc, path.slice(0, i)).node))) return null;
   return {
     node,
     pos,
@@ -73,13 +74,13 @@ export function blockAtPos(doc: PMNode, position: number): EditorBlock | null {
   const exact = $pos.nodeAfter;
 
   // Definitions belong to the document's notes area, never to block drag/menu controls.
-  const note = (node: PMNode | null) => node && ["footnote", "footnote_section", "footnote_anchor"].includes(node.type.name);
+  const note = (node: PMNode | null) => node && ["footnote", "footnote_section", "footnote_anchor"].includes(editorKind(node));
   if (note(exact)) return null;
   for (let depth = $pos.depth; depth > 0; depth--) if (note($pos.node(depth))) return null;
 
   // Table cells are editing positions, not independently movable page blocks.
   for (let depth = $pos.depth; depth > 0; depth--)
-    if ($pos.node(depth).type.name === "table")
+    if (isEditorKind($pos.node(depth), "table"))
       return describe(doc, path.slice(0, depth));
 
   if (exact && isList(exact)) {
@@ -87,20 +88,19 @@ export function blockAtPos(doc: PMNode, position: number): EditorBlock | null {
     return null;
   }
   if (exact && isItem(exact)) return describe(doc, path);
-  if (exact?.type.name === "fenced_div") return describe(doc, path);
+  if (isEditorKind(exact, "definition_description")) return blockAtPos(doc, pos + 1);
+  if (isEditorKind(exact, "fenced_div")) return describe(doc, path);
 
   // An item's first paragraph is its own editable row. Nested list items have
   // their own nearer list_item ancestor and therefore their own drag handle.
   for (let depth = $pos.depth; depth > 0; depth--) {
     // A Div has no heading row: every child is independently movable. Its
     // exact boundary still resolves to the container for whole-group actions.
-    if ($pos.node(depth).type.name === "fenced_div") break;
-    if (
-      ["definition_list", "line_block"].includes(
-        $pos.node(depth).type.name,
-      )
-    )
+    if (isEditorKind($pos.node(depth), "fenced_div")) break;
+    if (isEditorKind($pos.node(depth), "line_block"))
       return describe(doc, path.slice(0, depth));
+    // A definition body is a container, not a row: expose every child block.
+    if (isEditorKind($pos.node(depth), "definition_description")) break;
     if (
       (isGroup($pos.node(depth)) || hasBlockHead($pos.node(depth))) &&
       $pos.index(depth) === 0
@@ -115,7 +115,7 @@ export function blockAtPos(doc: PMNode, position: number): EditorBlock | null {
   if (exact?.isBlock) return describe(doc, path);
   for (let depth = $pos.depth; depth > 0; depth--) {
     const node = $pos.node(depth);
-    if (node.isBlock && !isList(node) && node.type.name !== "column")
+    if (node.isBlock && !isList(node) && !isEditorKind(node, "column") && !isEditorKind(node, "definition_description"))
       return describe(doc, path.slice(0, depth));
   }
   if (pos === doc.content.size && doc.lastChild) {
@@ -164,7 +164,7 @@ function materialize(tree: Branch): PMNode {
   if (tree.node.isLeaf || tree.node.isText) return tree.node;
   let children = tree.children.map(materialize);
   if (!children.length && !tree.node.type.validContent(Fragment.empty)) {
-    const paragraph = tree.node.type.schema.nodes.paragraph?.createAndFill();
+    const paragraph = tree.node.type.schema.nodes["block.paragraph"]?.createAndFill();
     if (paragraph) children = [paragraph];
   }
   if (
@@ -319,21 +319,24 @@ function moveBranch(
     moving.parent && isList(moving.parent.node) ? moving.parent.node : null;
 
   if (placement === "inside") {
+    // A term owns one or more definition bodies; append into its last body.
+    if (isEditorKind(target.node, "definition_list_item")) target = target.children.at(-1)!;
     if (
       !isItem(target.node) &&
+      !isEditorKind(target.node, "definition_description") &&
       !isGroup(target.node) &&
       !hasBlockHead(target.node)
     ) {
-      if (!state.schema.nodes.nested_block) return null;
+      if (!state.schema.nodes["structure.nested_block"]) return null;
       if (
-        !["paragraph", "heading"].includes(target.node.type.name) ||
+        !["paragraph", "heading"].includes(editorKind(target.node)) ||
         !target.parent
       )
         return null;
       if (isItem(target.parent.node) && target.parent.children[0] === target)
         return null;
       const head = branch(target.node, target);
-      target.node = state.schema.nodes.nested_block.create(null, target.node);
+      target.node = state.schema.nodes["structure.nested_block"].create(null, target.node);
       target.children = [head];
     }
     detach(moving);
@@ -384,8 +387,8 @@ function moveBranch(
       }
       attach(container, insertion++, isItem(moving.node) && sourceList ? listAround(moving, sourceList) : moving);
       if (after.length) {
-        let node = parent.node;
-        if (node.type.name === "ordered_list") {
+        let node: PMNode = parent.node;
+        if (isEditorKind(node, "ordered_list")) {
           node = node.type.create(
             { ...node.attrs, order: (node.attrs.order ?? 1) + index },
             node.content,
@@ -519,10 +522,10 @@ export const outdentEditorBlock: Command = (state, dispatch, view) => {
     const following = owner.children.splice(owner.children.indexOf(moving) + 1);
     if (following.length) {
       if (!isGroup(moving.node)) {
-        if (!["paragraph", "heading"].includes(moving.node.type.name))
+        if (!["paragraph", "heading"].includes(editorKind(moving.node)))
           return false;
         const head = branch(moving.node, moving);
-        moving.node = state.schema.nodes.nested_block.create(null, moving.node);
+        moving.node = state.schema.nodes["structure.nested_block"].create(null, moving.node);
         moving.children = [head];
       }
       for (const child of following)
@@ -578,7 +581,7 @@ export const backspaceEditorBlock: Command = (state, dispatch, view) => {
   if ((isGroup(parent) || isItem(parent)) && block.path.at(-1)! > 0)
     return outdentEditorBlock(state, dispatch, view);
   const previous = state.doc.resolve(block.pos).nodeBefore;
-  if (block.node.type.name !== "paragraph" || !previous || !isList(previous))
+  if (!isEditorKind(block.node, "paragraph") || !previous || !isList(previous))
     return false;
   let end = block.pos - 1;
   const before = block.pos - previous.nodeSize;

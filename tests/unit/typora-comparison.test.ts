@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import { isListItem } from "../../src/document/list-items";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +36,7 @@ test("Typora blank paragraphs can be filled, deleted, inserted and round-tripped
     assert.equal(parseNative(written, typora).childCount, 3);
     const deleted = doc.copy(Fragment.fromArray([doc.child(0), doc.child(2)]));
     assert.equal(serializeNative(deleted, typora), ['first', '', 'last'].join(newline));
-    const inserted = doc.copy(Fragment.fromArray([doc.child(0), schema.nodes.paragraph.create(), doc.child(1), doc.child(2)]));
+    const inserted = doc.copy(Fragment.fromArray([doc.child(0), schema.nodes["block.paragraph"].create(), doc.child(1), doc.child(2)]));
     assert.equal(serializeNative(inserted, typora), ['first', '', '', '', '', '', 'last'].join(newline));
     assert.equal(parseNative(serializeNative(inserted, typora), typora).childCount, 4);
     const duplicated = doc.copy(Fragment.fromArray([doc.child(0), doc.child(1), doc.child(1), doc.child(2)]));
@@ -61,10 +62,10 @@ test("Obsidian displays soft breaks by default with strict opt-out", () => {
   for (const source of ['first\nsecond', '- first\n  second', '> first\n> second']) {
     let breaks = 0;
     const doc = parseNative(source, config);
-    doc.descendants(node => { if (node.type.name === 'hard_break') breaks++; });
+    doc.descendants(node => { if (editorKind(node) === 'hard_break') breaks++; });
     assert.equal(breaks, 1);
     assert.equal(serializeNative(doc, config), source);
-    parseNative(source, { ...config, extensions: { hard_line_breaks: false } }).descendants(node => assert.notEqual(node.type.name, 'hard_break'));
+    parseNative(source, { ...config, extensions: { hard_line_breaks: false } }).descendants(node => assert.notEqual(editorKind(node), 'hard_break'));
   }
 });
 
@@ -75,8 +76,8 @@ test("HTML line breaks leave table cell text editable and preserve source", () =
     const doc = parseNative(source, config);
     const paragraph = doc.firstChild!.lastChild!.firstChild!.firstChild!;
     assert.equal(paragraph.child(0).text, '第一行');
-    assert.equal(paragraph.child(0).marks[0].type.name, 'strong');
-    assert.equal(paragraph.child(1).type.name, 'hard_break');
+    assert.equal(editorKind(paragraph.child(0).marks[0]), 'strong');
+    assert.equal(editorKind(paragraph.child(1)), 'hard_break');
     assert.equal(paragraph.child(2).text, '第二行');
     assert.equal(serializeNative(doc, config), source);
   }
@@ -88,9 +89,9 @@ test("Typora unresolved references preserve source without inventing targets", (
   assert.equal(doc.firstChild?.firstChild?.attrs.kind, "unresolved_reference");
   assert.equal(doc.firstChild?.firstChild?.attrs.label, "undefined reference");
   assert.equal(doc.firstChild?.firstChild?.attrs.target, "");
-  assert.equal(doc.child(1).firstChild?.marks[0].type.name, "link");
+  assert.equal(editorKind(doc.child(1).firstChild?.marks[0]), "link");
   assert.equal(doc.child(2).textContent, "text[^absent]");
-  assert.equal(doc.child(3).lastChild?.type.name, "footnote_reference");
+  assert.equal(editorKind(doc.child(3).lastChild), "footnote_reference");
   assert.equal(serializeNative(doc, typora), source);
   assert.equal(parseNative("[undefined reference][missing]", { ...typora, variant: "gfm" }).textContent, "[undefined reference][missing]");
 });
@@ -105,8 +106,8 @@ test("textarea displays content and dimensions without actions; inline tags are 
   for (const tag of ['xmp', 'noembed']) {
     const source = `<${tag}>PROBE</${tag}>`;
     const doc = parseNative(source, typora);
-    assert.equal(doc.firstChild?.type.name, 'paragraph');
-    assert.equal(doc.firstChild?.firstChild?.type.name, 'html_inline');
+    assert.equal(editorKind(doc.firstChild), 'paragraph');
+    assert.equal(editorKind(doc.firstChild?.firstChild), 'html_inline');
     assert.equal(doc.firstChild?.firstChild?.attrs.html, 'PROBE');
     assert.equal(serializeNative(doc, typora), source);
     assert.equal(renderRawHtml(source), 'PROBE');
@@ -119,7 +120,7 @@ test("Typora escape range matches the supplied application screenshot and surviv
     const doc = parseNative(source, typora);
     assert.equal(doc.textContent, source, char);
     assert.equal(serializeNative(doc, typora), source);
-    const edited = schema.nodes.doc.create(null, [schema.nodes.paragraph.create(null, schema.text(source + " edited"))]);
+    const edited = schema.nodes["doc"].create(null, [schema.nodes["block.paragraph"].create(null, schema.text(source + " edited"))]);
     assert.equal(parseNative(serializeNative(edited, typora), typora).textContent, source + " edited");
     assert.equal(parseNative(source, { ...typora, extensions: { all_symbols_escapable: true, smart: false } }).textContent, `L ${char} R`);
     assert.equal(parseNative(source, { ...typora, variant: "gfm" }).textContent, `L ${char} R`);
@@ -174,7 +175,7 @@ test("loose Typora nesting preserves parent tasks, child tasks and disabled task
   const changed = doc.copy(
     doc.content.append(
       Fragment.from(
-        schema.nodes.paragraph.create(null, schema.text("Neighbor")),
+        schema.nodes["block.paragraph"].create(null, schema.text("Neighbor")),
       ),
     ),
   );
@@ -207,9 +208,9 @@ test("Typora links survive projection and unrelated edits, including angle autol
   const doc = parseNative(source, typora);
   const links: string[] = [];
   doc.descendants((node) => {
-    assert.notEqual(node.type.name, "opaque_block");
+    assert.notEqual(editorKind(node), "opaque_block");
     node.marks.forEach((mark) => {
-      if (mark.type.name === "link") links.push(mark.attrs.href);
+      if (editorKind(mark) === "link") links.push(mark.attrs.href);
     });
   });
   assert.deepEqual(links, [
@@ -226,7 +227,7 @@ test("Typora links survive projection and unrelated edits, including angle autol
   const changed = doc.copy(
     doc.content.append(
       Fragment.from(
-        schema.nodes.paragraph.create(null, schema.text("Neighbor")),
+        schema.nodes["block.paragraph"].create(null, schema.text("Neighbor")),
       ),
     ),
   );
@@ -236,16 +237,16 @@ test("Typora links survive projection and unrelated edits, including angle autol
     ...typora,
     extensions: { raw_html: false },
   });
-  assert.equal(unknown.firstChild?.type.name, "opaque_block");
+  assert.equal(editorKind(unknown.firstChild), "opaque_block");
   assert.equal(
-    parseNative("`<https://example.com/>`", typora).firstChild?.firstChild
-      ?.marks[0].type.name,
+    editorKind(parseNative("`<https://example.com/>`", typora).firstChild?.firstChild
+      ?.marks[0]),
     "code",
   );
   const disabled = { ...typora, extensions: { autolink_bare_uris: false } };
   assert.equal(
-    parseNative("<https://example.com/>", disabled).firstChild?.firstChild
-      ?.marks[0].type.name,
+    editorKind(parseNative("<https://example.com/>", disabled).firstChild?.firstChild
+      ?.marks[0]),
     "link",
   );
   assert.equal(
@@ -258,7 +259,7 @@ test("Typora links survive projection and unrelated edits, including angle autol
     ...typora,
     extensions: { raw_html: false },
   });
-  assert.equal(raw.firstChild?.type.name, "opaque_block");
+  assert.equal(editorKind(raw.firstChild), "opaque_block");
   assert.equal(serializeNative(raw, typora), mixed);
 });
 
@@ -269,16 +270,15 @@ test("Typora restricts ordered markers, including nested lists; GFM retains pare
     "> 1) quoted\n> 2) quoted",
   ]) {
     const doc = parseNative(source, typora);
-    doc.descendants((n) => assert.notEqual(n.type.name, "ordered_list"));
+    doc.descendants((n) => assert.notEqual(editorKind(n), "ordered_list"));
     assert.equal(serializeNative(doc, typora), source);
   }
   assert.equal(
-    parseNative("1. first\n2. second", typora).firstChild?.type.name,
+    editorKind(parseNative("1. first\n2. second", typora).firstChild),
     "ordered_list",
   );
   assert.equal(
-    parseNative("1) first\n2) second", { ...typora, variant: "gfm" }).firstChild
-      ?.type.name,
+    editorKind(parseNative("1) first\n2) second", { ...typora, variant: "gfm" }).firstChild),
     "ordered_list",
   );
 });
@@ -292,13 +292,13 @@ test("Typora preserves visual line breaks with an explicit opt-out and intact so
     const doc = parseNative(source, typora);
     let breaks = 0;
     doc.descendants((n) => {
-      if (n.type.name === "hard_break") breaks++;
+      if (editorKind(n) === "hard_break") breaks++;
     });
     assert.equal(breaks, 1);
     assert.equal(serializeNative(doc, typora), source);
     parseNative(source, {
       ...typora,
       extensions: { hard_line_breaks: false },
-    }).descendants((n) => assert.notEqual(n.type.name, "hard_break"));
+    }).descendants((n) => assert.notEqual(editorKind(n), "hard_break"));
   }
 });

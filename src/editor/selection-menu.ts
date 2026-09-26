@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { Plugin, TextSelection, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { toggleMark } from "prosemirror-commands";
@@ -64,10 +65,10 @@ const colors = [
 
 function currentBlock(state: EditorState): SelectionBlockType {
   const { $from } = state.selection;
-  if ($from.parent.type.name === "heading")
+  if (isEditorKind($from.parent, "heading"))
     return `heading${$from.parent.attrs.level}` as SelectionBlockType;
   for (let depth = $from.depth; depth > 0; depth--) {
-    const name = $from.node(depth).type.name;
+    const name = editorKind($from.node(depth));
     if (name === "task_list_item") return "task";
     if (name === "numbered_list_item") return "number";
     if (name === "bullet_list_item") return "list";
@@ -171,7 +172,7 @@ export function selectionMenu(options: Options) {
           if (
             !node.marks.some(
               (mark) =>
-                mark.type.name === name &&
+                editorKind(mark) === name &&
                 (value === undefined || (name === "color" && options.canCombineColors()
                   ? value.endsWith("_bg") ? inlineColors(mark.attrs).bg_color === value.slice(0, -3) : inlineColors(mark.attrs).color === value
                   : mark.attrs.color === value)),
@@ -283,7 +284,7 @@ export function selectionMenu(options: Options) {
                       (node, pos) => {
                         const color = node.marks.find(
                           (m) =>
-                            m.type.name === "color" &&
+                            isEditorKind(m, "color") &&
                             m.attrs.nfmAttrs.underline,
                         );
                         if (!node.isText || !color) return;
@@ -335,6 +336,11 @@ export function selectionMenu(options: Options) {
               "superscript",
             ])
               tr = tr.removeMark(from, to, state.schema.marks[name]);
+            state.doc.nodesBetween(from, to, node => {
+              for (const mark of node.marks)
+                if (mark.type === state.schema.marks.critic && mark.attrs.kind === "highlight")
+                  tr = tr.removeMark(from, to, mark);
+            });
             if (options.canCommand("color")) tr = colorTransaction("", tr);
             view.dispatch(closeHistory(tr));
             finish();
@@ -373,7 +379,7 @@ export function selectionMenu(options: Options) {
                 view.dispatch(
                   closeHistory(
                     state.tr.replaceSelectionWith(
-                      state.schema.nodes.inline_math.create({ value }),
+                      state.schema.nodes["inline.inline_math"].create({ value }),
                       false,
                     ),
                   ),
@@ -436,7 +442,7 @@ export function selectionMenu(options: Options) {
                       ? (() => {
                         let clear = true;
                         state.doc.nodesBetween(from, to, node => {
-                          if (node.isText && node.marks.some(mark => mark.type.name === "color" && inlineColors(mark.attrs)[bg ? "bg_color" : "color"])) clear = false;
+                          if (node.isText && node.marks.some(mark => isEditorKind(mark, "color") && inlineColors(mark.attrs)[bg ? "bg_color" : "color"])) clear = false;
                         });
                         return clear;
                       })()

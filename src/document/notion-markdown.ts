@@ -1,4 +1,6 @@
+import { createEditorNode, editorKind, isEditorKind } from "./node-identity";
 import MarkdownIt from "markdown-it";
+import { rChunkMarkdown } from "../markdown-engine/rmarkdown";
 import imageRule from "markdown-it/lib/rules_inline/image.mjs";
 import { readObjectBlock, writeObjectBlock } from "./object-codec";
 import { multiMarkdownTable } from "./table-markdown";
@@ -127,7 +129,7 @@ const kids = (node: PMNode): PMNode[] => {
   return result;
 };
 const paragraph = (text = "", attrs: Record<string, unknown> = {}) =>
-  schema.nodes.paragraph.create(attrs, notionInline(text));
+  schema.nodes["block.paragraph"].create(attrs, notionInline(text));
 const nonempty = (nodes: PMNode[]) => (nodes.length ? nodes : [paragraph()]);
 const indent = (source: string) =>
   source
@@ -161,7 +163,7 @@ export interface NotionExtensions {
 }
 export function parseNotionMarkdown(source: string, allowObject: (name: string) => boolean = () => false, extensions?: NotionExtensions): PMNode {
   const notionInline = extensions?.inline ?? ((text: string) => parseInline(md.parseInline(text, {})[0]?.children ?? []));
-  const paragraph = (text = "", attrs: Record<string, unknown> = {}) => schema.nodes.paragraph.create(attrs, notionInline(text));
+  const paragraph = (text = "", attrs: Record<string, unknown> = {}) => schema.nodes["block.paragraph"].create(attrs, notionInline(text));
   const lines = source.split(/\r\n|\n|\r/);
   const offsets = [0];
   for (const match of source.matchAll(/\r\n|\n|\r/g))
@@ -185,7 +187,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       node.marks,
     );
   const opaque = (from: number, to: number) =>
-    schema.nodes.opaque_block.create({
+    createEditorNode(schema, "opaque_block", {
       raw: raw(from, to)
         .split(/\r\n|\n|\r/)
         .map((line) =>
@@ -249,8 +251,8 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     if (extra) return { node: extra.node, next: from + extra.lines };
     const object = /^<(?:tabs|bookmark|link-preview|breadcrumb|button|meeting-notes|ai-block|html-embed|web-embed|figure)(?:\s|\/?>)/.test(text)
       ? readObjectBlock(lines.map(line => line.slice(level)), from, end, raw => parseNotionMarkdown(raw, allowObject, extensions)) : undefined;
-    if (object) return (object.node.type.name === "opaque_block" || allowObject(object.node.type.name)) ? object : {
-      node: schema.nodes.opaque_block.create({ raw: lines.slice(from, object.next).map(line => line.slice(level)).join("\n") }), next: object.next,
+    if (object) return (isEditorKind(object.node, "opaque_block") || allowObject(editorKind(object.node))) ? object : {
+      node: createEditorNode(schema, "opaque_block", { raw: lines.slice(from, object.next).map(line => line.slice(level)).join("\n") }), next: object.next,
     };
     const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(text);
     if (fence) {
@@ -272,22 +274,16 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         return { node: opaque(from, close + 1), next: close + 1 };
       const info = lineAttributes(fence[2].trim());
       return {
-        node: schema.nodes.code_block.create(
-          { ...info.attrs, params: info.text },
-          value ? schema.text(value) : undefined,
-        ),
+        node: schema.nodes["block.code_block"].create({ ...info.attrs, params: info.text }, value ? schema.text(value) : undefined),
         next: close + 1,
       };
     }
     if (text.startsWith("$$")) {
       if (text.length > 3 && text.endsWith("$$"))
         return {
-          node: schema.nodes.equation.create(
-            null,
-            text.slice(2, -2).trim()
+          node: schema.nodes["block.math_block"].create(null, text.slice(2, -2).trim()
               ? schema.text(text.slice(2, -2).trim())
-              : undefined,
-          ),
+              : undefined),
           next: from + 1,
         };
       if (text.trim() === "$$") {
@@ -303,10 +299,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
           .map((line) => line.slice(level))
           .join("\n");
         return {
-          node: schema.nodes.equation.create(
-            null,
-            value ? schema.text(value) : undefined,
-          ),
+          node: schema.nodes["block.math_block"].create(null, value ? schema.text(value) : undefined),
           next: close + 1,
         };
       }
@@ -323,7 +316,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       const count = String(legacy.attrs.source || text).split(
         /\r\n|\n|\r/,
       ).length;
-      return { node: schema.nodes.opaque_block.create({ raw: lines.slice(from, Math.min(end, from + count)).map(line => line.slice(level)).join("\n") }), next: Math.min(end, from + count) };
+      return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(from, Math.min(end, from + count)).map(line => line.slice(level)).join("\n") }), next: Math.min(end, from + count) };
     }
     const tag = openingTag(text.trimStart());
     if (tag) {
@@ -361,7 +354,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       ) {
         if (tag.tag === "page")
           return {
-            node: schema.nodes.child_page.create({
+            node: createEditorNode(schema, "child_page", {
               ...attrs,
               target:
                 localPageTarget(tag.attrs.url || "") ?? tag.attrs.url ?? "",
@@ -376,10 +369,10 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
             next,
           };
         if (tag.tag === "table_of_contents")
-          return { node: schema.nodes.table_of_contents.create(attrs), next };
+          return { node: schema.nodes["block.table_of_contents"].create(attrs), next };
         if (tag.tag === "unknown")
           return {
-            node: schema.nodes.unknown_block.create({
+            node: schema.nodes["block.unsupported"].create({
               ...attrs,
               url: tag.attrs.url || "",
               alt: tag.attrs.alt || "",
@@ -387,7 +380,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
             next,
           };
         return {
-          node: schema.nodes.media_block.create({
+          node: createEditorNode(schema, "media_block", {
             ...attrs,
             type: tag.tag,
             src: tag.attrs.src || "",
@@ -418,34 +411,28 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         if (tag.tag === "columns") {
           if (
             content.length < 2 ||
-            content.some((child) => child.type !== schema.nodes.column)
+            content.some((child) => child.type !== schema.nodes["structure.column"])
           )
             return { node: opaque(from, next), next };
-          return { node: schema.nodes.columns.create(attrs, content), next };
+          return { node: schema.nodes["block.columns"].create(attrs, content), next };
         }
         if (tag.tag === "column")
           return {
-            node: schema.nodes.column.create(attrs, nonempty(content)),
+            node: schema.nodes["structure.column"].create(attrs, nonempty(content)),
             next,
           };
         if (tag.tag === "callout")
           return {
-            node: schema.nodes.callout.create(
-              { ...attrs, icon: tag.attrs.icon ?? "💡" },
-              nonempty(content),
-            ),
+            node: schema.nodes["block.callout"].create({ ...attrs, icon: tag.attrs.icon ?? "💡" }, nonempty(content)),
             next,
           };
         if (tag.tag.startsWith("synced_block"))
           return {
-            node: schema.nodes.synced_block.create(
-              {
+            node: schema.nodes["block.synced_block"].create({
                 ...attrs,
                 url: tag.attrs.url || "",
                 reference: tag.tag.endsWith("reference"),
-              },
-              nonempty(content),
-            ),
+              }, nonempty(content)),
             next,
           };
         const summary = single
@@ -456,7 +443,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
           ? kids(parseNotionMarkdown(body.slice(summary[0].length), allowObject, extensions))
           : inside(from + 2, close, level + 1);
         return {
-          node: schema.nodes.toggle_block.create(attrs, [
+          node: schema.nodes["block.toggle"].create(attrs, [
             paragraph(summary[1]),
             ...content,
           ]),
@@ -492,20 +479,14 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         if (tokens[i].type === "tr_open") cells = [];
         if (["th_open", "td_open"].includes(tokens[i].type))
           cells.push(
-            schema.nodes.table_cell.create(
-              null,
-              paragraph(tokens[i + 1]?.content || ""),
-            ),
+            schema.nodes["structure.table_cell"].create(null, paragraph(tokens[i + 1]?.content || "")),
           );
         if (tokens[i].type === "tr_close" && cells.length)
-          rows.push(schema.nodes.table_row.create(null, cells));
+          rows.push(schema.nodes["structure.table_row"].create(null, cells));
       }
       if (rows.length)
         return {
-          node: schema.nodes.table.create(
-            { nfmAttrs: { "header-row": "true" } },
-            rows,
-          ),
+          node: schema.nodes["block.table"].create({ nfmAttrs: { "header-row": "true" } }, rows),
           next: finish,
         };
     }
@@ -515,7 +496,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       const tokens = md.parseInline(line.trim(), { mediaImage: true })[0]?.children ?? [];
       if (tokens.length === 1 && tokens[0].type === "image") {
         if (tokens[0].attrGet("title")) return { node: opaque(from, from + 1), next: from + 1 };
-        return { node: schema.nodes.paragraph.create(parsed.attrs, parseInline(tokens)), next: from + 1 };
+        return { node: schema.nodes["block.paragraph"].create(parsed.attrs, parseInline(tokens)), next: from + 1 };
       }
     }
     const list = /^\s*(?:([-+*]) |(\d+)\. )(.*)$/.exec(line);
@@ -524,13 +505,10 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       if (!extensions && checkbox && list[2])
         return { node: opaque(from, from + 1), next: from + 1 };
       return {
-        node: schema.nodes[checkbox ? "task_list_item" : list[2] ? "numbered_list_item" : "bullet_list_item"].create(
-          {
+        node: createEditorNode(schema, checkbox ? "task_list_item" : list[2] ? "numbered_list_item" : "bullet_list_item", {
             ...parsed.attrs,
             checked: checkbox ? checkbox[1].toLowerCase() === "x" : null,
-          },
-          paragraph(checkbox ? list[3].slice(checkbox[0].length) : list[3]),
-        ),
+          }, paragraph(checkbox ? list[3].slice(checkbox[0].length) : list[3])),
         next: from + 1,
         list: list[2] ? "ordered_list" : "bullet_list",
         order: Number(list[2]) || 1,
@@ -538,24 +516,18 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     }
     if (/^\s*---\s*$/.test(line))
       return {
-        node: schema.nodes.horizontal_rule.create(parsed.attrs),
+        node: schema.nodes["block.divider"].create(parsed.attrs),
         next: from + 1,
       };
     const heading = /^(#{1,6})(?:[ \t]+|$)(.*)$/.exec(line);
     if (heading)
       return {
-        node: schema.nodes.heading.create(
-          { ...parsed.attrs, level: Math.min(extensions?.headingLimit ?? 4, heading[1].length) },
-          notionInline(heading[2]),
-        ),
+        node: createEditorNode(schema, "heading", { ...parsed.attrs, level: Math.min(extensions?.headingLimit ?? 4, heading[1].length) }, notionInline(heading[2])),
         next: from + 1,
       };
     if (/^> ?/.test(line))
       return {
-        node: schema.nodes.blockquote.create(
-          parsed.attrs,
-          paragraph(line.replace(/^> ?/, "")),
-        ),
+        node: schema.nodes["block.quote"].create(parsed.attrs, paragraph(line.replace(/^> ?/, ""))),
         next: from + 1,
       };
     return { node: paragraph(line, parsed.attrs), next: from + 1 };
@@ -592,46 +564,50 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         )
           finish++;
         // Ordinary headings cannot acquire children or silently become toggles.
-        if (!extensions && node.type.name === "heading" && !node.attrs.toggle) {
+        if (!extensions && isEditorKind(node, "heading") && !node.attrs.toggle) {
           result.push(withSource(opaque(start, finish), start, finish));
           cursor = finish;
           continue;
         }
         const nested = sequence(nextContent, finish, level + 1);
-        if (["paragraph", "heading"].includes(node.type.name)) {
-          if (node.type === schema.nodes.heading)
-            node = node.type.create(
+        if (["paragraph", "heading"].includes(editorKind(node))) {
+          if (isEditorKind(node, "heading"))
+            node = createEditorNode(schema, "heading",
               { ...node.attrs, toggle: true },
               node.content,
             );
-          node = schema.nodes.nested_block.create(null, [
+          node = schema.nodes["structure.nested_block"].create(null, [
             withSource(node, start, item.next),
             ...nested,
           ]);
         } else if (
           ["bullet_list_item", "numbered_list_item", "task_list_item", "blockquote", "callout", "toggle_block"].includes(
-            node.type.name,
+            editorKind(node),
           )
         )
           node = node.copy(
             node.content.append(
-              schema.nodes.doc.create(null, nonempty(nested)).content,
+              schema.nodes["doc"].create(null, nonempty(nested)).content,
             ),
           );
         else node = opaque(start, finish);
         cursor = finish;
       }
+      // A toggle keeps its interactive container even before its first child is
+      // added, including after saving and reopening a newly typed heading.
+      if (isEditorKind(node, "heading") && node.attrs.toggle)
+        node = schema.nodes["structure.nested_block"].create(null, node);
       node = withSource(node, start, cursor);
       if (item.list) {
         const previous = result.at(-1);
         const consecutive =
-          previous?.type.name === item.list &&
+          isEditorKind(previous, item.list) &&
           (item.list !== "ordered_list" ||
             Number(previous.attrs.order) + previous.childCount === item.order);
         if (consecutive) {
           const combined = previous!.copy(
             previous!.content.append(
-              schema.nodes[item.list].create(null, node).content,
+              createEditorNode(schema, item.list, null, node).content,
             ),
           );
           result[result.length - 1] = combined.type.create(
@@ -649,10 +625,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         } else
           result.push(
             withSource(
-              schema.nodes[item.list].create(
-                item.list === "ordered_list" ? { order: item.order } : null,
-                node,
-              ),
+              createEditorNode(schema, item.list, item.list === "ordered_list" ? { order: item.order } : null, node),
               start,
               cursor,
             ),
@@ -666,7 +639,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
   nodes = nodes.map((node) =>
     node.type.isInGroup("block")
       ? node
-      : schema.nodes.opaque_block.create({ raw: node.attrs.source || source }),
+      : createEditorNode(schema, "opaque_block", { raw: node.attrs.source || source }),
   );
   const gaps: string[] = [];
   let previousEnd = 0;
@@ -679,16 +652,13 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       node.marks,
     );
   });
-  const doc = schema.nodes.doc.create(
-    {
+  const doc = schema.nodes["doc"].create({
       source,
       sourceGaps: gaps,
       sourceSuffix: source.slice(previousEnd),
       sourceFormat: "notion-markdown",
       sourceNewline: source.match(/\r\n|\n|\r/)?.[0] || "\n",
-    },
-    nonempty(nodes),
-  );
+    }, nonempty(nodes));
   return doc.type.create(
     { ...doc.attrs, sourceFingerprint: editorFingerprint(doc) },
     doc.content,
@@ -735,19 +705,16 @@ function parseTable(
       const finish = content.indexOf(`</${cell.tag}>`, cell.length);
       if (finish < 0) return null;
       cells.push(
-        schema.nodes.table_cell.create(
-          { nfmAttrs: cell.attrs },
-          schema.nodes.paragraph.create(null, inline(content.slice(cell.length, finish).trim())),
-        ),
+        schema.nodes["structure.table_cell"].create({ nfmAttrs: cell.attrs }, schema.nodes["block.paragraph"].create(null, inline(content.slice(cell.length, finish).trim()))),
       );
       content = content.slice(finish + cell.tag.length + 3).trim();
     }
     if (!cells.length) return null;
-    rows.push(schema.nodes.table_row.create({ nfmAttrs: row.attrs }, cells));
+    rows.push(schema.nodes["structure.table_row"].create({ nfmAttrs: row.attrs }, cells));
     rest = rest.slice(end + 5).trim();
   }
   return rows.length
-    ? schema.nodes.table.create({ ...attrs, widths, columnAttrs }, rows)
+    ? schema.nodes["block.table"].create({ ...attrs, widths, columnAttrs }, rows)
     : null;
 }
 
@@ -759,7 +726,7 @@ function attrsFor(node: PMNode): TagAttributes {
 }
 function suffix(node: PMNode): string {
   const attrs = attrsFor(node);
-  if (node.type === schema.nodes.heading && node.attrs.toggle)
+  if (isEditorKind(node, "heading") && node.attrs.toggle)
     attrs.toggle = "true";
   return Object.keys(attrs).length ? ` {${attributesXml(attrs).trim()}}` : "";
 }
@@ -777,7 +744,7 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
     extra: TagAttributes = {},
   ) =>
     `<${name}${attributesXml({ ...attrs, ...extra })}>\n${indent(blocks(content))}\n</${name}>`;
-  switch (node.type.name) {
+  switch (editorKind(node)) {
     case "paragraph":
       return node.content.size
         ? inline(node) + suffix(node)
@@ -786,8 +753,8 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
       return `${"#".repeat(Math.min(4, node.attrs.level))} ${inline(node)}${suffix(node)}`;
     case "nested_block": {
       let head = node.firstChild!;
-      if (head.type === schema.nodes.heading)
-        head = head.type.create({ ...head.attrs, toggle: true }, head.content);
+      if (isEditorKind(head, "heading"))
+        head = createEditorNode(schema, "heading", { ...head.attrs, toggle: true }, head.content);
       return `${write(head)}${node.childCount > 1 ? `\n${indent(blocks(kids(node).slice(1)))}` : ""}`;
     }
     case "bullet_list":
@@ -795,7 +762,7 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
       return kids(node)
         .map((item, index) => {
           const marker =
-            node.type.name === "ordered_list"
+            isEditorKind(node, "ordered_list")
               ? `${Number(node.attrs.order) + index}. `
               : "- ";
           const check =
@@ -809,7 +776,7 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
         .join("\n");
     case "blockquote": {
       const head =
-        node.firstChild?.type === schema.nodes.paragraph
+        node.firstChild?.type === schema.nodes["block.paragraph"]
           ? node.firstChild
           : null;
       const children = kids(node).slice(head ? 1 : 0);
@@ -828,6 +795,8 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
       );
       return `${fence}${params}${suffix(node)}\n${node.textContent}\n${fence}`;
     }
+    case "executable_chunk":
+      return rChunkMarkdown(node);
     case "horizontal_rule":
       return "---" + suffix(node);
     case "columns":
@@ -907,16 +876,16 @@ export function serializeNotionMarkdown(doc: PMNode): string {
 function assertOfficialNotionStructure(doc: PMNode): void {
   const marks = new Set(["em", "strong", "strike", "code", "link", "underline", "color"]);
   const visit = (node: PMNode, parent?: PMNode, grandparent?: PMNode, index = 0, parentIndex = 0) => {
-    const image = node.type.name === "image";
-    const inlineImage = image && (parent?.type.name !== "paragraph" || parent.childCount !== 1 ||
-      grandparent?.type.name === "table_cell" || parentIndex === 0 &&
-      ["bullet_list_item", "numbered_list_item", "task_list_item", "blockquote", "toggle_block"].includes(grandparent?.type.name || ""));
-    const plainHeadingChildren = node.type.name === "nested_block" &&
-      node.firstChild?.type.name === "heading" && !node.firstChild.attrs.toggle;
-    const orderedTask = node.type.name === "ordered_list" && kids(node).some(child => child.attrs.checked !== null);
+    const image = isEditorKind(node, "image");
+    const inlineImage = image && (!isEditorKind(parent, "paragraph") || parent.childCount !== 1 ||
+      isEditorKind(grandparent, "table_cell") || parentIndex === 0 &&
+      ["bullet_list_item", "numbered_list_item", "task_list_item", "blockquote", "toggle_block"].includes(editorKind(grandparent) || ""));
+    const plainHeadingChildren = isEditorKind(node, "nested_block") &&
+      isEditorKind(node.firstChild, "heading") && !node.firstChild.attrs.toggle;
+    const orderedTask = isEditorKind(node, "ordered_list") && kids(node).some(child => child.attrs.checked !== null);
     if (inlineImage || image && (node.marks.length || node.attrs.title || Object.keys(node.attrs.markdownAttrs || {}).length) ||
-      plainHeadingChildren || orderedTask || node.marks.some(mark => !marks.has(mark.type.name) ||
-        mark.type.name === "color" && (mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color"))))
+      plainHeadingChildren || orderedTask || node.marks.some(mark => !marks.has(editorKind(mark)) ||
+        isEditorKind(mark, "color") && (mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color"))))
       throw new Error("This structure is not documented in Notion-flavored Markdown. Preserve its source or use Notdown.");
     node.forEach((child, _offset, childIndex) => visit(child, node, parent, childIndex, index));
   };

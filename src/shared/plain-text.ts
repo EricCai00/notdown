@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import { parseNative } from "../markdown-engine/codec";
 import { enabled, type SyntaxConfig } from "../markdown-engine/config";
@@ -8,13 +9,13 @@ export function plainText(source: string, config: SyntaxConfig): string {
   const render = (node: PMNode): string => {
     if (node.isText) {
       let text = node.text || "";
-      if (gutenberg && node.marks.some(m => m.type.name === "strong")) text = text.toUpperCase();
-      if (gutenberg && node.marks.some(m => m.type.name === "em")) text = "_" + text + "_";
+      if (gutenberg && node.marks.some(m => isEditorKind(m, "strong"))) text = text.toUpperCase();
+      if (gutenberg && node.marks.some(m => isEditorKind(m, "em"))) text = "_" + text + "_";
       return text;
     }
     const children: string[] = []; node.forEach(n => children.push(render(n)));
     const text = children.join(node.inlineContent ? "" : "\n\n");
-    switch (node.type.name) {
+    switch (editorKind(node)) {
       case "heading": return gutenberg ? "\n\n" + text + "\n" : text;
       case "hard_break": return "\n";
       case "horizontal_rule": return "* * *";

@@ -1,3 +1,5 @@
+import { commentDialog } from "../editor/comment-dialog";
+import { lastExecutableLanguage, rememberExecutableLanguage } from "../editor/executable-language";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
 import { mountReferencePicker } from "../features/links/reference-picker";
 import { graphHTML, mountGraph } from "../features/pages/graph-view";
@@ -7,6 +9,9 @@ import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file"
 import { mountConflictDiff } from "../features/pages/conflict-diff";
 import "../features/pages/conflict-diff.css";
 import { insertMenuItems } from "../editor/insert-menu";
+import { isMediaInsertKind, mediaAccept, mediaFileMatches, mediaInsertMarkdown } from "../blocks/media-insert";
+import { codeInputMode, setCodeInputMode, lastCodeLanguage, type CodeInputMode } from "../editor/code-input-preferences";
+import { numberedListDisplay, setNumberedListDisplay, type NumberedListDisplay } from "../editor/numbered-list-display";
 import { inlineObjectDialog } from "../editor/inline-object-dialog";
 import { inlineObjectCommands, type InlineObjectCommand } from "../document/inline-objects";
 import { footnoteChoices, type FootnoteInput } from "../editor/footnotes";
@@ -16,7 +21,9 @@ import { openCalloutIconPicker } from "../blocks/callout-icon-picker";
 import { pageIconElement } from "../shared/page-icons";
 import { emojiStyle, emojiStyleOptions, initializeEmojiStyle, setEmojiStyle, type EmojiStyle } from "../blocks/emoji-style";
 import { objectSamples } from "../document/object-model";
+import { nextExampleLabel } from "../document/example-numbering";
 import { mountServiceSettings } from "./service-settings";
+import { mountRuntimeSettings } from "./runtime-settings";
 import { openPeople } from "../features/people/people-view";
 import { openPeopleEvent, refreshPeople } from "../features/people/people-client";
 import { personMention } from "../features/people/person";
@@ -555,6 +562,16 @@ function renderContent() {
         mode: view as EditMode,
         pages: () => pages,
         currentPage: () => current?.id === pageId ? current : undefined,
+        onCreatePage: async (title, parent) => {
+          if (generation !== editorGeneration || current?.id !== pageId) return null;
+          const created = await api<Page>("/pages", {
+            method: "POST",
+            body: JSON.stringify({ title, parent, icon: "file-text", body: "", properties: {} }),
+          });
+          pages = [...pages.filter(page => page.id !== created.id), created];
+          renderSidebar();
+          return created;
+        },
         onChange: (source, config) => {
           if (generation !== editorGeneration || current?.id !== pageId) return;
           editorChanged = false;
@@ -1287,6 +1304,34 @@ function showSettings() {
     "Workspace settings",
     `<div class="settings-section"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies are available. Background sync across devices is not yet implemented.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
   );
+  const typingSection = document.createElement("div");
+  typingSection.className = "settings-section";
+  const typingHeading = document.createElement("h3");
+  typingHeading.textContent = "Editing";
+  const codeRow = document.createElement("label");
+  codeRow.className = "switch-row";
+  codeRow.textContent = "Code block input";
+  const codeSelect = document.createElement("select");
+  codeSelect.setAttribute("aria-label", "Code block input");
+  for (const [value, label] of [["notion", "Notion"], ["markdown", "Markdown"]]) {
+    const option = document.createElement("option");
+    option.value = value; option.textContent = label; codeSelect.append(option);
+  }
+  codeSelect.value = codeInputMode();
+  const codeHint = document.createElement("p");
+  const describeCodeInput = () => {
+    codeHint.textContent = codeSelect.value === "notion"
+      ? "Type three backticks to enter a code block immediately."
+      : "Type three backticks, optionally enter a language with suggestions, then press Enter. Three backticks followed by a space also creates a code block.";
+  };
+  codeSelect.addEventListener("change", () => {
+    setCodeInputMode(codeSelect.value as CodeInputMode); describeCodeInput();
+  });
+  describeCodeInput(); codeRow.append(codeSelect);
+  const languageHint = document.createElement("p");
+  languageHint.textContent = "New code blocks reuse your last selected language unless you specify another one. Your input preference is saved on this device.";
+  typingSection.append(typingHeading, codeRow, codeHint, languageHint);
+  settingsDialog.querySelectorAll(".settings-section")[2]?.before(typingSection);
   const emojiRow = document.createElement("label");
   emojiRow.className = "switch-row";
   emojiRow.textContent = "Emoji style";
@@ -1302,6 +1347,22 @@ function showSettings() {
   emojiSelect.addEventListener("change", () => setEmojiStyle(emojiSelect.value as EmojiStyle));
   emojiRow.append(emojiSelect);
   settingsDialog.querySelectorAll(".settings-section")[1]?.append(emojiRow);
+  const listRow = document.createElement("label");
+  listRow.className = "switch-row";
+  listRow.textContent = "Numbered list display";
+  const listSelect = document.createElement("select");
+  listSelect.setAttribute("aria-label", "Numbered list display");
+  for (const [value, label] of [["markdown", "Markdown · 1 → 1 → 1"], ["notion", "Notion · 1 → a → i → 1"]]) {
+    const option = document.createElement("option");
+    option.value = value; option.textContent = label; listSelect.append(option);
+  }
+  listSelect.value = numberedListDisplay();
+  listSelect.addEventListener("change", () => setNumberedListDisplay(listSelect.value as NumberedListDisplay));
+  listRow.append(listSelect);
+  const listHint = document.createElement("p");
+  listHint.textContent = "Changes nested numbering for lists starting with numbers. Explicit letter and Roman numeral styles are preserved. Display only; Markdown source stays unchanged. Saved on this device.";
+  settingsDialog.querySelectorAll(".settings-section")[1]?.append(listRow, listHint);
+  void mountRuntimeSettings(settingsDialog);
   void mountServiceSettings(settingsDialog);
 }
 function showConflict() {
@@ -1564,7 +1625,7 @@ function showInsert() {
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-label", "Choose block type");
     dialog.innerHTML =
-      '<div class="dialog-heading"><h2>Insert content</h2></div><div class="insert-grid" role="listbox" aria-label="Block types"></div>';
+      '<div class="dialog-heading"><h2>Insert content</h2></div><div class="insert-grid" role="listbox" aria-label="Block types"></div><div class="insert-footer"><button type="button" class="insert-close"><span>Close menu</span><kbd>esc</kbd></button></div>';
     document.body.append(dialog);
   } else {
     dialog = modal(
@@ -1587,18 +1648,43 @@ function showInsert() {
   let filtered = items;
   const input = dialog.querySelector<HTMLInputElement>("input");
   const list = dialog.querySelector<HTMLElement>(".insert-grid")!;
+  const positionInline = () => {
+    if (!inline || !dialog.isConnected) return;
+    const rect = editor?.getSlashAnchor();
+    if (!rect) return;
+    const viewport = window.visualViewport;
+    const edge = 12;
+    const gap = 8;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const viewportLeft = viewport?.offsetLeft ?? 0;
+    const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+    const viewportRight = viewportLeft + (viewport?.width ?? window.innerWidth);
+    const below = Math.max(0, viewportBottom - edge - rect.bottom - gap);
+    const above = Math.max(0, rect.top - gap - viewportTop - edge);
+    const desired = Math.min(380, list.scrollHeight + 78);
+    const opensBelow = below >= Math.min(240, desired) || below >= above;
+    const available = opensBelow ? below : above;
+    dialog.style.maxHeight = `${Math.min(380, available)}px`;
+    dialog.style.maxWidth = `${Math.max(0, viewportRight - viewportLeft - edge * 2)}px`;
+    const size = dialog.getBoundingClientRect();
+    dialog.style.left = `${Math.max(viewportLeft + edge, Math.min(rect.left, viewportRight - edge - size.width))}px`;
+    dialog.style.top = `${opensBelow ? rect.bottom + gap : rect.top - gap - size.height}px`;
+    dialog.dataset.placement = opensBelow ? "below" : "above";
+  };
+  dialog.querySelector(".insert-close")?.addEventListener("click", () => closeModal());
   const paint = () => {
     let previousGroup = "";
     list.innerHTML = filtered.map(([id, i, title, desc, , group], index) => {
       const heading = group !== previousGroup ? '<div class="insert-group-heading" role="presentation">' + e(group) + '</div>' : "";
       previousGroup = group;
-      return heading + `<button id="insert-option-${id}" role="option" aria-selected="${index === selected}" data-insert="${id}" class="${index === selected ? "selected" : ""}">${icon(i)}<span><strong>${e(title)}</strong><small>${e(desc)}</small></span></button>`;
+      return heading + `<button id="insert-option-${id}" role="option" aria-selected="${index === selected}" data-insert="${id}" title="${e(desc)}" class="${index === selected ? "selected" : ""}">${icon(i)}<span><strong>${e(title)}</strong><small>${e(desc)}</small></span></button>`;
     }).join("") || '<p class="muted">No matching blocks</p>';
     refreshIcons();
     (input || dialog).setAttribute(
       "aria-activedescendant",
       filtered[selected] ? `insert-option-${filtered[selected][0]}` : "",
     );
+    positionInline();
   };
   input?.setAttribute("role", "combobox");
   input?.setAttribute("aria-expanded", "true");
@@ -1611,7 +1697,9 @@ function showInsert() {
       item.join(" ").toLowerCase().includes(query),
     );
     selected = 0;
+    if (inline) dialog.querySelector("h2")!.textContent = query ? "Filtered results" : "Insert content";
     paint();
+    list.scrollTop = 0;
   };
   input?.addEventListener("input", () => filter(input.value));
   const keydown = (event: KeyboardEvent) => {
@@ -1658,7 +1746,15 @@ function showInsert() {
   if (inline) {
     const controller = new AbortController();
     const signal = controller.signal;
-    slashCleanup = () => controller.abort();
+    let positionFrame = 0;
+    const schedulePosition = () => {
+      cancelAnimationFrame(positionFrame);
+      positionFrame = requestAnimationFrame(positionInline);
+    };
+    slashCleanup = () => {
+      controller.abort();
+      cancelAnimationFrame(positionFrame);
+    };
     document.addEventListener("keydown", keydown, { signal, capture: true });
     const updateQuery = (event: Event) => {
       if (!(event.target as Element).closest("#editor")) return;
@@ -1666,7 +1762,10 @@ function showInsert() {
         if (signal.aborted || editor?.isComposing()) return;
         const query = editor?.getSlashQuery();
         if (query == null) closeModal();
-        else filter(query);
+        else {
+          filter(query);
+          schedulePosition();
+        }
       });
     };
     document.addEventListener("input", updateQuery, { signal });
@@ -1677,6 +1776,7 @@ function showInsert() {
       () => {
         if (!editor?.isComposing() && editor?.getSlashQuery() == null)
           closeModal();
+        else schedulePosition();
       },
       { signal },
     );
@@ -1688,10 +1788,14 @@ function showInsert() {
       },
       { signal },
     );
-    document
-      .querySelector("#main")
-      ?.addEventListener("scroll", () => closeModal(), { signal, once: true });
+    document.addEventListener("scroll", (event) => {
+      if (!dialog.contains(event.target as Node)) schedulePosition();
+    }, { signal, capture: true });
+    window.addEventListener("resize", schedulePosition, { signal });
+    window.visualViewport?.addEventListener("resize", schedulePosition, { signal });
+    window.visualViewport?.addEventListener("scroll", schedulePosition, { signal });
     filter(initialQuery!);
+    schedulePosition();
   } else {
     dialog.addEventListener("keydown", keydown);
     paint();
@@ -1706,6 +1810,20 @@ async function handleInsert(id: string) {
     }
     editor.consumeSlash();
     editor.captureSelection();
+  }
+  if (id === "executable_chunk" || id === "executable_inline") {
+    captureEditor();
+    workspace?.capture();
+    const config = workspace?.session.snapshot.config ?? current!.syntax;
+    if (!config || !commandEnabled(config, id)) return;
+    const language = lastExecutableLanguage(commandEnabled(config, "quarto_python"));
+    rememberExecutableLanguage(language);
+    if (id === "executable_chunk") {
+      insertMarkdown("\n```{" + language + "}\n\n```\n");
+      return;
+    }
+    insertMarkdown("`" + (language === "r" ? "r" : "{" + language + "}") + " 1 + 1`");
+    return;
   }
   if (inlineObjectCommands.includes(id as InlineObjectCommand)) {
     captureEditor();
@@ -1728,109 +1846,17 @@ async function handleInsert(id: string) {
   if (id === "comment" || id === "inline_comment") {
     const owner = current;
     const ownerWorkspace = workspace;
-    const inline = id === "inline_comment";
-    const dialog = modal(inline ? "Inline comment" : "Block comment", `
-      <form class="comment-form">
-        <label>Comment<textarea aria-label="Comment" rows="${inline ? 3 : 6}" placeholder="Write a comment…" required></textarea></label>
-        <p class="muted">Hidden on the page. You can edit it later in Source view.</p>
-        <div class="dialog-actions"><button type="button" data-action="close-dialog">Cancel</button><button type="submit" class="primary-button">Insert comment</button></div>
-      </form>`);
-    dialog.setAttribute("aria-label", inline ? "Inline comment" : "Block comment");
-    const input = dialog.querySelector("textarea")!;
-    input.oninput = () => input.setCustomValidity("");
-    dialog.querySelector("form")!.onsubmit = event => {
-      event.preventDefault();
-      if (current !== owner || workspace !== ownerWorkspace) { closeModal(); return; }
-      const value = input.value;
-      const error = !value.trim() ? "Enter a comment."
-        : value.includes("%%") ? "Comments cannot contain a closing delimiter (%%)."
-        : inline && /[\r\n]/.test(value) ? "Use a block comment for multiple lines."
-        : "";
-      input.setCustomValidity(error);
-      if (!input.reportValidity()) return;
-      insertMarkdown(inline ? `%%${value}%%` : `\n\n%%\n${value}\n%%\n\n`);
-    };
-    dialog.addEventListener("cancel", event => { event.preventDefault(); closeModal(); editor?.focus(); });
-    input.focus();
-    return;
-  }
-  if (id === "mention_person") {
-    const ownerId = current?.id;
-    captureEditor();
+    const ownerEditor = editor;
     closeModal();
-    openPeople({ onSelect: person => {
-      if (current?.id === ownerId) insertMarkdown(personMention(person));
-    } });
-    return;
-  }
-  if (id === "footnote" && (workspace || (view === "document" && editor))) {
-    const owner = current, ownerWorkspace = workspace, ownerEditor = editor;
-    workspace?.capture();
-    const notes = footnoteChoices(workspace?.session.snapshot.doc ?? editor!.getDocument());
-    const dialog = modal("Insert footnote", `<form class="footnote-form">
-      <label>Footnote<select aria-label="Footnote"><option value="">New footnote</option>${notes.map(note => `<option value="${e(note.label)}">[${e(note.label)}] ${e(note.text.slice(0, 100))}</option>`).join("")}</select></label>
-      <label data-footnote-text>Footnote text<textarea aria-label="Footnote text" rows="4" required placeholder="Write the footnote…"></textarea></label>
-      <p class="muted">You can edit the footnote at the bottom of the page.</p>
-      <div class="dialog-actions"><button type="button" data-action="close-dialog">Cancel</button><button type="submit" class="primary-button">Insert reference</button></div>
-    </form>`);
-    dialog.setAttribute("aria-label", "Insert footnote");
-    const select = dialog.querySelector("select")!, input = dialog.querySelector("textarea")!;
-    select.onchange = () => {
-      input.required = !select.value;
-      input.disabled = !!select.value;
-      dialog.querySelector<HTMLElement>("[data-footnote-text]")!.hidden = !!select.value;
-      input.setCustomValidity("");
-    };
-    input.oninput = () => input.setCustomValidity("");
-    dialog.querySelector("form")!.onsubmit = event => {
-      event.preventDefault();
-      if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor) { closeModal(); return; }
-      if (!select.value && !input.value.trim()) { input.setCustomValidity("Enter footnote text."); input.reportValidity(); return; }
-      const value: FootnoteInput = select.value ? { label: select.value } : { text: input.value };
-      closeModal();
-      if (workspace) workspace.insertFootnote(value);
-      else { editor!.insertFootnote(value); captureEditor(); }
-      sourceSelection = null;
-    };
-    dialog.addEventListener("cancel", event => { event.preventDefault(); closeModal(); editor?.focus(); });
-    input.focus();
-    return;
-  }
-  if (id === "html_embed" || id === "embed") {
-    const localWeb = !workspace || enabled(workspace.session.snapshot.config, "notion_web_embed");
-    insertMarkdown("\n\n" + (id === "html_embed" ? '<html-embed/>' : localWeb ? '<web-embed/>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
-    return;
-  }
-  if (objectSamples[id]) {
-    closeModal();
-    insertMarkdown("\n\n" + (id === "button" ? '<button label="Button" actions="[]"/>' : id === "web_bookmark" ? '<bookmark/>' : objectSamples[id]) + "\n\n");
-    return;
-  }
-  const blockTypes = [
-    "text",
-    "heading1",
-    "heading2",
-    "heading3",
-    "heading4",
-    "heading5",
-    "heading6",
-    "list",
-    "number",
-    "task",
-    "quote",
-    "code",
-    "divider",
-  ] as const;
-  const blockType = blockTypes.find((type) => type === id);
-  if (
-    blockType &&
-    (view === "document" ||
-      (view === "split" && workspace?.activePane === "document")) &&
-    editor
-  ) {
-    closeModal();
-    editor.insertBlockType(blockType);
-    captureEditor();
+    commentDialog({
+      inline: id === "inline_comment",
+      submit(value, inline) {
+        if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor)
+          throw new Error("The page changed. Reopen the comment input.");
+        insertMarkdown(inline ? `%%${value}%%` : `\n\n%%\n${value}\n%%\n\n`);
+      },
+      close() { if (current === owner) editor?.focus(); },
+    });
     return;
   }
   const snippets: Record<string, string> = {
@@ -1841,7 +1867,6 @@ async function handleInsert(id: string) {
     synced_block: '\n<synced_block>\nShared content\n</synced_block>\n',
     date_or_reminder: workspace?.session.snapshot.config.variant === "notdown" ? '<mention-date/>' : `<mention-date start="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}"/>`,
     native_span: '[Text]{.custom}', small_caps: '[Small capitals]{.smallcaps}',
-    inline_note: '^[Note text]',
     diagram: "\n\n```mermaid\nflowchart LR\nA[Start] --> B[Done]\n```\n\n",
     alert: "\n\n> [!NOTE]\n> Note content\n\n",
     transclusion: "\n\n{{file.txt}}\n\n",
@@ -1854,7 +1879,6 @@ async function handleInsert(id: string) {
     div: "\n\n::: {.container}\nContainer content\n:::\n\n",
     text: "\n\n",
     toggle_heading: '\n## Toggle heading {toggle="true"}\n\tChild content\n',
-    example_list_item: "\n\n(@example) Example text\n\n",
     heading1: "\n# ",
     heading2: "\n## ",
     heading3: "\n### ",
@@ -1865,9 +1889,16 @@ async function handleInsert(id: string) {
     number: "\n1. ",
     task: "\n- [ ] ",
     quote: "\n> ",
-    code: "\n```text\n\n```\n",
+    code: "\n```" + lastCodeLanguage() + "\n\n```\n",
     divider: "\n---\n",
     inline: "`Inline code`",
+    quarto_python: "\n```{python}\n1 + 1\n```\n",
+    quarto_julia: "\n```{julia}\n1 + 1\n```\n",
+    quarto_ojs: "\n```{ojs}\nanswer = 1 + 1\n```\n",
+    quarto_r: "\n```{r}\n1 + 1\n```\n",
+    executable_inline: "`{python} 1 + 1`",
+    r_chunk: "\n```{r}\nsummary(cars)\n```\n",
+    r_inline: "`r 1 + 1`",
     columns:
       "\n<columns>\n\t<column>\n\t\tLeft column content\n\t</column>\n\t<column>\n\t\tRight column content\n\t</column>\n</columns>\n",
     callout:
@@ -1938,17 +1969,40 @@ async function handleInsert(id: string) {
     );
     return;
   }
-  if (id === "file") {
+  if (isMediaInsertKind(id)) {
+    captureEditor();
+    workspace?.capture();
+    const config = workspace?.session.snapshot.config || current!.syntax || defaultSyntax(current!.bodyFormat);
+    if (!commandEnabled(config, id)) return;
     closeModal();
     const ownerId = current!.id;
+    const ownerWorkspace = workspace, ownerEditor = editor;
+    const originalConfig = JSON.stringify(config);
     const input = document.createElement("input");
     input.type = "file";
+    input.accept = mediaAccept[id];
+    input.tabIndex = -1;
+    input.setAttribute("aria-label", "Choose media file");
+    // Hand focus to a connected, non-editable control before opening native UI.
+    // A detached input.click() leaves the slash editor in its typing state.
+    input.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
+    const previousFocus = document.activeElement;
+    const pickerEvents = new AbortController();
+    const finishPicker = () => {
+      const restoreFocus = document.activeElement === input;
+      pickerEvents.abort();
+      input.remove();
+      if (restoreFocus && current?.id === ownerId && workspace === ownerWorkspace && editor === ownerEditor &&
+          previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+    input.addEventListener("cancel", finishPicker, { once: true, signal: pickerEvents.signal });
     input.addEventListener(
       "change",
       () =>
         void (async () => {
           const file = input.files?.[0];
           if (!file) return;
+          if (!mediaFileMatches(id, file)) throw new Error(`Choose ${id === "image" || id === "audio" ? "an" : "a"} ${id} file.`);
           if (file.size > 15 * 1024 * 1024)
             throw new Error("Attachments can be up to 15 MB.");
           const data = await new Promise<string>((resolve, reject) => {
@@ -1965,29 +2019,19 @@ async function handleInsert(id: string) {
               data,
             }),
           });
-          const alt = file.name.replace(/[\[\]\\]/g, "_");
-          if (current?.id !== ownerId) {
+          if (current?.id !== ownerId || workspace !== ownerWorkspace || editor !== ownerEditor ||
+              JSON.stringify(workspace?.session.snapshot.config || current!.syntax || defaultSyntax(current!.bodyFormat)) !== originalConfig) {
             toast("File uploaded. Return to the original page to insert it.");
             return;
           }
-          const mediaType = file.type.startsWith("audio/")
-            ? "audio"
-            : file.type.startsWith("video/")
-              ? "video"
-              : file.type === "application/pdf"
-                ? "pdf"
-                : "file";
-          insertMarkdown(
-            file.type.startsWith("image/")
-              ? `![${alt}](${result.path})`
-              : workspace &&
-                  !enabled(workspace.session.snapshot.config, "notion_media")
-                ? `[${alt}](${result.path})`
-                : `<${mediaType} src="${escapeXml(result.path)}">${escapeXml(file.name)}</${mediaType}>`,
-          );
-        })().catch(report),
+          insertMarkdown(mediaInsertMarkdown(id, file.name, result.path, config));
+        })().catch(report).finally(finishPicker),
+      { once: true, signal: pickerEvents.signal },
     );
-    input.click();
+    document.body.append(input);
+    input.focus({ preventScroll: true });
+    try { input.click(); }
+    catch (error) { finishPicker(); throw error; }
   }
 }
 function download(name: string, content: string, type: string) {

@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import { createElement, ArrowUpRight } from "lucide";
 import { pageIconElement } from "../shared/page-icons";
 import type { Mark, Node as ProseMirrorNode } from "prosemirror-model";
@@ -74,7 +75,7 @@ class PageLinkView implements NodeView {
     const page = reference ? resolveReferencePage(reference, pages, this.currentPage?.()?.id) : undefined;
     const label = reference ? referenceLabel(this.node, reference, page) : String(this.node.attrs.label || target);
     this.dom.className =
-      this.node.type.name === "child_page"
+      isEditorKind(this.node, "child_page")
         ? "child-page-node child-page"
         : "page-mention wiki-link";
     this.dom.setAttribute(
@@ -94,7 +95,7 @@ class PageLinkView implements NodeView {
     text.className = "page-link-label";
     text.textContent = label;
     const icon = reference?.kind === "location" ? createElement(ArrowUpRight, { width: 16, height: 16 }) : pageIconElement(page?.icon);
-    if (this.node.type.name === "child_page") {
+    if (isEditorKind(this.node, "child_page")) {
       const iconSlot = document.createElement("span");
       iconSlot.className = "page-link-icon-slot";
       iconSlot.setAttribute("aria-hidden", "true");

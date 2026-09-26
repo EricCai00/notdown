@@ -1,10 +1,11 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { Plugin, TextSelection, type Command, type EditorState } from "prosemirror-state";
 import { Fragment, Slice, type Node as PMNode } from "prosemirror-model";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { colorStyle } from "../document/notion-syntax.js";
 
 export function tableCaptionId(table: PMNode): string {
-  if (table.firstChild?.type.name !== "table_caption") return "";
+  if (!isEditorKind(table.firstChild, "table_caption")) return "";
   const label = String(table.attrs.captionId || table.firstChild.textContent);
   return table.attrs.syntaxForm === "mmd" ? label.toLowerCase().replace(/\W+/g, "") : label;
 }
@@ -13,7 +14,7 @@ export function inTableCell(state: EditorState): boolean {
   const { $from, $to } = state.selection;
   return [$from, $to].some(pos => {
     for (let depth = pos.depth; depth > 0; depth--)
-      if (["table_cell", "table_caption"].includes(pos.node(depth).type.name)) return true;
+      if (["table_cell", "table_caption"].includes(editorKind(pos.node(depth)))) return true;
     return false;
   });
 }
@@ -24,7 +25,7 @@ export const tableLineBreak: Command = (state, dispatch) => {
     dispatch?.(state.tr.insertText("\n").scrollIntoView());
     return true;
   }
-  dispatch?.(state.tr.replaceSelectionWith(state.schema.nodes.hard_break.create()).scrollIntoView());
+  dispatch?.(state.tr.replaceSelectionWith(state.schema.nodes["character.line_break"].create()).scrollIntoView());
   return true;
 };
 
@@ -39,9 +40,9 @@ export function tableEditing(): Plugin {
         slice.content.descendants(node => {
           if (node.isInline) { nodes.push(node); return false; }
           if (node.isTextblock) {
-            if (blocks++) nodes.push(view.state.schema.nodes.hard_break.create());
+            if (blocks++) nodes.push(view.state.schema.nodes["character.line_break"].create());
           } else if (node.isLeaf && node.attrs.raw) {
-            if (blocks++) nodes.push(view.state.schema.nodes.hard_break.create());
+            if (blocks++) nodes.push(view.state.schema.nodes["character.line_break"].create());
             nodes.push(view.state.schema.text(node.attrs.raw));
           }
           return true;
@@ -69,7 +70,7 @@ export function tableCellStyle(
     .find(Boolean);
   const header =
     row.attrs.header ||
-    (rowIndex === (table.firstChild?.type.name === "table_caption" ? 1 : 0) && table.attrs.nfmAttrs["header-row"] === "true") ||
+    (rowIndex === (isEditorKind(table.firstChild, "table_caption") ? 1 : 0) && table.attrs.nfmAttrs["header-row"] === "true") ||
     (columnIndex === 0 && table.attrs.nfmAttrs["header-column"] === "true");
   const alignment = cell.attrs.nfmAttrs?.align;
   const width = String(table.attrs.widths?.[columnIndex] || "");
@@ -89,13 +90,13 @@ export function tableAppearance(): Plugin {
   const decorate = (doc: PMNode) => {
     const decorations: Decoration[] = [];
     doc.descendants((table, tablePos) => {
-      if (table.type.name !== "table") return;
+      if (!isEditorKind(table, "table")) return;
       table.forEach((row, rowOffset, rowIndex) => {
-        if (row.type.name === "table_caption") {
+        if (isEditorKind(row, "table_caption")) {
           const id = tableCaptionId(table);
           if (id) decorations.push(Decoration.node(tablePos + rowOffset + 1, tablePos + rowOffset + 1 + row.nodeSize, { id }));
         }
-        if (row.type.name !== "table_row") return;
+        if (!isEditorKind(row, "table_row")) return;
         row.forEach((cell, cellOffset, columnIndex) => {
           const pos = tablePos + rowOffset + cellOffset + 2;
           const style = tableCellStyle(table, rowIndex, columnIndex);
@@ -127,16 +128,16 @@ export function moveTableCell(direction: 1 | -1): Command {
   return (state, dispatch) => {
     const { $from } = state.selection;
     let cellDepth = $from.depth;
-    while (cellDepth > 0 && $from.node(cellDepth).type.name !== "table_cell")
+    while (cellDepth > 0 && !isEditorKind($from.node(cellDepth), "table_cell"))
       cellDepth--;
     if (!cellDepth) return false;
     const tableDepth = cellDepth - 2,
       table = $from.node(tableDepth);
-    if (table.type.name !== "table") return false;
+    if (!isEditorKind(table, "table")) return false;
     const start = $from.before(tableDepth),
       cells: number[] = [];
     table.descendants((node, pos) => {
-      if (node.type.name === "table_cell") cells.push(start + 1 + pos);
+      if (isEditorKind(node, "table_cell")) cells.push(start + 1 + pos);
     });
     const index = cells.indexOf($from.before(cellDepth)),
       target = cells[index + direction];
@@ -149,20 +150,14 @@ export function moveTableCell(direction: 1 | -1): Command {
     else if (direction === 1) {
       let width = 1;
       table.forEach(row => {
-        if (row.type.name !== "table_row") return;
+        if (!isEditorKind(row, "table_row")) return;
         let count = 0;
         row.forEach(cell => count += Number(cell.attrs.colspan) || 1);
         width = Math.max(width, count);
       });
-      const row = state.schema.nodes.table_row.create(
-        { section: table.lastChild?.attrs.section || 0 },
-        Array.from({ length: width }, () =>
-          state.schema.nodes.table_cell.create(
-            null,
-            state.schema.nodes.paragraph.create(),
-          ),
-        ),
-      );
+      const row = state.schema.nodes["structure.table_row"].create({ section: table.lastChild?.attrs.section || 0 }, Array.from({ length: width }, () =>
+          state.schema.nodes["structure.table_cell"].create(null, state.schema.nodes["block.paragraph"].create()),
+        ));
       const end = start + 1 + table.content.size;
       const tr = state.tr.insert(end, row);
       dispatch?.(

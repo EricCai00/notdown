@@ -36,7 +36,7 @@ test("Block Explorer browses registered blocks, previews, variants and extension
   await expect(
     page.getByRole("heading", { name: "Block Explorer" }),
   ).toBeVisible();
-  await expect(page.locator("[data-entry]")).toHaveCount(78);
+  await expect(page.locator("[data-entry]")).toHaveCount(80);
   await expect(page.locator('[data-entry="block.raw_tex"]')).toHaveCount(0);
   await expect(page.locator(".catalog-preview .pm-document")).toContainText(
     "A paragraph",
@@ -54,7 +54,7 @@ test("Block Explorer browses registered blocks, previews, variants and extension
   await page
     .getByRole("button", { name: "Markdown variants", exact: true })
     .click();
-  await expect(page.locator("[data-dialect]")).toHaveCount(13);
+  await expect(page.locator("[data-dialect]")).toHaveCount(14);
   await page.locator('[data-dialect="notion-markdown"]').click();
   await expect(
     page.getByRole("combobox", { name: "Catalog dialect" }),

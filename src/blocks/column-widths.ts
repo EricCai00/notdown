@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import { closeHistory } from "prosemirror-history";
@@ -44,7 +45,7 @@ export function columnWidthTransaction(
 ) {
   const node = state.doc.nodeAt(pos);
   if (
-    node?.type.name !== "columns" ||
+    !isEditorKind(node, "columns") ||
     node.childCount !== widths.length ||
     widths.some((value) => !Number.isFinite(value) || value <= 0 || value >= 1)
   )

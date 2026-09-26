@@ -95,6 +95,16 @@ test("inline equation panels save and cancel without making the page modal", asy
   const panel = page.getByRole("dialog", { name: "Equation", exact: true });
   const input = panel.getByRole("textbox", { name: "Equation content" });
   expect(await panel.evaluate(el => el.matches(":modal"))).toBe(false);
+  await expect(input).toBeFocused();
+  const anchor = (await equation.boundingBox())!, popup = (await panel.boundingBox())!;
+  expect(Math.abs(popup.x - anchor.x)).toBeLessThan(2);
+  expect(Math.abs(popup.y - anchor.y - anchor.height - 5)).toBeLessThan(2);
+  expect(popup.height).toBeLessThan(50);
+  const button = (await panel.getByRole("button", { name: "Done", exact: true }).boundingBox())!;
+  const field = (await input.boundingBox())!;
+  expect(button.x).toBeGreaterThan(field.x + field.width);
+  expect(Math.abs(button.y + button.height / 2 - field.y - field.height / 2)).toBeLessThan(2);
+  await page.screenshot({ path: "test-results/inline-equation-editor.png" });
   await input.fill("y^3");
   await panel.getByRole("button", { name: "Done", exact: true }).click();
   await expect(panel).toHaveCount(0);
@@ -104,4 +114,40 @@ test("inline equation panels save and cancel without making the page modal", asy
   await input.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(equation.locator("annotation")).toHaveText("y^3");
+  await equation.click();
+  await input.fill("E=mc^2");
+  await input.press("Enter");
+  await expect(panel).toHaveCount(0);
+  await expect(equation.locator("annotation")).toHaveText("E=mc^2");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("$E=mc^2$");
+  await page.reload();
+  await expect(equation.locator("annotation")).toHaveText("E=mc^2");
+});
+
+test("inline equation editor stays anchored while scrolling and fits narrow screens", async ({ page, request }) => {
+  await page.setViewportSize({ width: 420, height: 700 });
+  const response = await request.post("/api/pages", { data: {
+    title: "Inline equation placement", body: "Formula $x^2$ and text\n\n" + "Following paragraph.\n\n".repeat(30),
+    bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: {} },
+  } });
+  const note = await response.json();
+  await page.goto(`/#page/${note.id}`);
+  const equation = page.locator(".pm-inline-math");
+  await equation.click();
+  const panel = page.getByRole("dialog", { name: "Equation", exact: true });
+  const input = panel.getByRole("textbox", { name: "Equation content" });
+  const bounds = (await panel.boundingBox())!;
+  expect(bounds.x).toBeGreaterThanOrEqual(8);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(412);
+  await page.mouse.move(400, 550);
+  await page.mouse.wheel(0, 60);
+  await expect.poll(async () => {
+    const anchor = (await equation.boundingBox())!, popup = (await panel.boundingBox())!;
+    return Math.abs(popup.y - anchor.y - anchor.height - 5);
+  }).toBeLessThan(2);
+  await input.fill("discarded");
+  await page.locator(".pm-document > p").filter({ hasText: "Following paragraph." }).nth(3).click();
+  await expect(panel).toHaveCount(0);
+  await expect(equation.locator("annotation")).toHaveText("x^2");
 });

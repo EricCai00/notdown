@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorState, TextSelection, NodeSelection } from "prosemirror-state";
@@ -134,21 +135,18 @@ test("modified arrows, composition, selections and read-only views pass through"
 test("exiting code preserves marks that continue past its boundary", () => {
   const code = schema.marks.code.create();
   const strong = schema.marks.strong.create();
-  const doc = schema.nodes.doc.create(
-    null,
-    schema.nodes.paragraph.create(null, [
+  const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [
       schema.text("a", [code]),
       schema.text("b", [code, strong]),
       schema.text("c", [strong]),
-    ]),
-  );
+    ]));
   let state = EditorState.create({ doc });
   state = state.apply(state.tr.setSelection(TextSelection.create(doc, 2)));
   moveAcrossInlineMarks(1)(state, (tr) => {
     state = state.apply(tr);
   });
   assert.deepEqual(
-    state.storedMarks?.map((mark) => mark.type.name),
+    state.storedMarks?.map((mark) => editorKind(mark)),
     ["strong", "code"],
   );
   state = state.apply(state.tr.setSelection(TextSelection.create(doc, 3)));
@@ -156,7 +154,7 @@ test("exiting code preserves marks that continue past its boundary", () => {
     state = state.apply(tr);
   });
   assert.deepEqual(
-    state.storedMarks?.map((mark) => mark.type.name),
+    state.storedMarks?.map((mark) => editorKind(mark)),
     ["strong"],
   );
 });
@@ -166,14 +164,11 @@ for (const type of Object.values(schema.marks)) {
     const mark = type.create(
       type.name === "link" ? { href: "https://example.com" } : undefined,
     );
-    const doc = schema.nodes.doc.create(
-      null,
-      schema.nodes.paragraph.create(null, [
+    const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [
         schema.text("a"),
         schema.text("xy", [mark]),
         schema.text("b"),
-      ]),
-    );
+      ]));
     for (const [pos, direction] of [
       [2, -1],
       [4, 1],
@@ -197,14 +192,11 @@ for (const type of Object.values(schema.marks)) {
 test("nested colors exit independently; co-ending styles exit together", () => {
   const strong = schema.marks.strong.create();
   const color = schema.marks.color.create({ color: "red" });
-  const doc = schema.nodes.doc.create(
-    null,
-    schema.nodes.paragraph.create(null, [
+  const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [
       schema.text("a", [strong]),
       schema.text("b", [strong, color]),
       schema.text("c", [strong]),
-    ]),
-  );
+    ]));
   const editor = harness(doc, 3);
   editor.move(1);
   assert.deepEqual(editor.state.storedMarks, [strong]);
@@ -216,10 +208,7 @@ test("nested colors exit independently; co-ending styles exit together", () => {
   editor.move(-1);
   assert.deepEqual(editor.state.storedMarks, [strong]);
   const combined = harness(
-    schema.nodes.doc.create(
-      null,
-      schema.nodes.paragraph.create(null, schema.text("xy", [strong, color])),
-    ),
+    schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, schema.text("xy", [strong, color]))),
     3,
   );
   combined.move(1);
@@ -232,13 +221,10 @@ test("adjacent colors have a neutral slot and retain exact attributes on reentry
     nfmAttrs: { future: "keep" },
   });
   const blue = schema.marks.color.create({ color: "blue" });
-  const doc = schema.nodes.doc.create(
-    null,
-    schema.nodes.paragraph.create(null, [
+  const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [
       schema.text("a", [red]),
       schema.text("b", [blue]),
-    ]),
-  );
+    ]));
   const editor = harness(doc, 2);
   editor.move(1);
   assert.deepEqual(editor.state.storedMarks, []);

@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind, editorNodeType, isEditorKind } from "./node-identity";
 import { inlineMarkdown } from "./editor-markdown";
 import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "./editor-schema";
@@ -11,7 +12,7 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
   const name = tag && objectTags[tag.tag];
   if (!tag || !name || name === "tab") return;
   if (tag.selfClosing && first.slice(tag.length).trim())
-    return { node: schema.nodes.opaque_block.create({ raw: lines[start] }), next: start + 1 };
+    return { node: createEditorNode(schema, "opaque_block", { raw: lines[start] }), next: start + 1 };
   const close = `</${tag.tag}>`;
   let next = start + 1, body = "";
   if (!tag.selfClosing) {
@@ -32,12 +33,12 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
         }
         next++;
       }
-      if (next === end) return { node: schema.nodes.opaque_block.create({ raw: lines.slice(start, end).join("\n") }), next: end };
+      if (next === end) return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(start, end).join("\n") }), next: end };
       body = [after, ...lines.slice(start + 1, next)].filter((v, i) => i || v).join("\n");
       next++;
     }
   }
-  const type = schema.nodes[name];
+  const type = editorNodeType(schema, name);
   const parseChildren = (source: string) => {
     const lines = source.split("\n");
     // Accept one structural indentation level, without changing relative code indentation.
@@ -53,7 +54,7 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
     for (let i = 0; i < tabLines.length; i++) {
       const t = openingTag(tabLines[i].trim());
       if (t?.tag !== "tab") {
-        if (tabLines[i].trim()) return { node: schema.nodes.opaque_block.create({ raw: lines.slice(start, next).join("\n") }), next };
+        if (tabLines[i].trim()) return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(start, next).join("\n") }), next };
         continue;
       }
       const content: string[] = [];
@@ -75,25 +76,25 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
           if (line === "</tab>" && --depth === 0) break;
           content.push(tabLines[i]);
         }
-        if (depth) return { node: schema.nodes.opaque_block.create({ raw: lines.slice(start, next).join("\n") }), next };
+        if (depth) return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(start, next).join("\n") }), next };
       }
-      children.push(schema.nodes.tab.create({ title: t.attrs.title || "Tab", nfmAttrs: t.attrs }, parseChildren(content.join("\n")).content));
+      children.push(schema.nodes["structure.tab"].create({ title: t.attrs.title || "Tab", nfmAttrs: t.attrs }, parseChildren(content.join("\n")).content));
     }
-    if (!children.length) children.push(schema.nodes.tab.create(null, schema.nodes.paragraph.create()));
+    if (!children.length) children.push(schema.nodes["structure.tab"].create(null, schema.nodes["block.paragraph"].create()));
     properties.active = Math.max(0, Math.min(children.length - 1, Number(properties.active) || 0));
     return { node: type.create(properties, children), next };
   }
-  if (!type.spec.content && name !== "html_embed" && body.trim()) return { node: schema.nodes.opaque_block.create({ raw: lines.slice(start, next).join("\n") }), next };
+  if (!type.spec.content && name !== "html_embed" && body.trim()) return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(start, next).join("\n") }), next };
   return { node: type.create(properties, type.spec.content ? parseChildren(body).content : undefined), next };
 }
 export function writeObjectBlock(node: PMNode, write: (node: PMNode) => string): string | undefined {
-  if (node.type.name === "image_block") {
+  if (isEditorKind(node, "image_block")) {
     // Retired local_figure: new output uses Pandoc's existing image attributes.
-    const image = schema.nodes.image.create({ src: node.attrs.src, alt: node.attrs.caption || node.attrs.alt, title: node.attrs.title || null });
-    const source = inlineMarkdown(schema.nodes.paragraph.create(null, image));
+    const image = schema.nodes["inline.image"].create({ src: node.attrs.src, alt: node.attrs.caption || node.attrs.alt, title: node.attrs.title || null, markdownAttrs: node.attrs.markdownAttrs });
+    const source = inlineMarkdown(schema.nodes["block.paragraph"].create(null, image));
     return source + (node.attrs.caption && node.attrs.alt !== node.attrs.caption ? "{alt=" + JSON.stringify(String(node.attrs.alt || "")) + "}" : "");
   }
-  const tag = Object.keys(objectTags).find(t => objectTags[t] === node.type.name);
+  const tag = Object.keys(objectTags).find(t => objectTags[t] === editorKind(node));
   if (!tag) return;
   const values: Record<string, string> = { ...node.attrs.nfmAttrs };
   for (const key of Object.keys(node.type.spec.attrs || {})) {
@@ -102,7 +103,7 @@ export function writeObjectBlock(node: PMNode, write: (node: PMNode) => string):
     else delete values[key];
   }
   const attributes = attributesXml(values).replace(/\r/g, "&#13;").replace(/\n/g, "&#10;");
-  if (node.type.name === "html_embed") return `<${tag}${attributes}>\n${String(node.attrs.html).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}\n</${tag}>`;
+  if (isEditorKind(node, "html_embed")) return `<${tag}${attributes}>\n${String(node.attrs.html).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}\n</${tag}>`;
   if (!node.type.spec.content) return `<${tag}${attributes}/>`;
   const blocks: string[] = []; node.forEach(n => blocks.push(write(n)));
   return `<${tag}${attributes}>\n${blocks.join("\n\n")}\n</${tag}>`;

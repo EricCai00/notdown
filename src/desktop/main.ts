@@ -101,6 +101,7 @@ async function openVaultNow(selected: string, create: boolean) {
   const web = createApp({ vaultPath: root, frontendDir: path.join(directory, "frontend"), allowedOrigins: [], accessToken: token, openFile: async filename => { const error = await shell.openPath(filename); if (error) throw new Error(error); }, recycleFile: filename => shell.trashItem(filename) });
   await web.locals.vault.list();
   const server = await new Promise<Server>((resolve, reject) => { const active = web.listen(0, "127.0.0.1", () => resolve(active)); active.once("error", reject); });
+  server.once("close", () => web.locals.closeRNotebook());
   const address = server.address();
   if (!address || typeof address === "string") { server.close(); throw new Error("Unable to start the vault service"); }
   const origin = `http://127.0.0.1:${address.port}`;

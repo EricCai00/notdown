@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import { Fragment, type Node as PMNode } from "prosemirror-model";
 import { closeHistory } from "prosemirror-history";
 import type { EditorState } from "prosemirror-state";
@@ -68,7 +69,7 @@ export function buttonTransaction(state: EditorState, pos: number, original: PMN
       const buttonPos = tr.mapping.map(pos, 1);
       const at = cursors.get(position) ?? (position === "start" ? 0 : position === "end" ? tr.doc.content.size : buttonPos + (position === "below" ? original.nodeSize : 0));
       const parsed = action.type === "insert-text"
-        ? Fragment.from(state.schema.nodes.paragraph.create(null, action.target ? state.schema.text(action.target) : undefined))
+        ? Fragment.from(state.schema.nodes["block.paragraph"].create(null, action.target ? state.schema.text(action.target) : undefined))
         : parse(action.content!).content;
       if (action.type === "insert-blocks") {
         let marker = "NotdownButtonBoundary7E39";
@@ -88,7 +89,7 @@ export function buttonTransaction(state: EditorState, pos: number, original: PMN
       cursors.set(position, at + content.size);
     } else if (action.type === "toggle-tasks") {
       tr.doc.descendants((node, at) => {
-        if (node.type.name === "task_list_item") tr.setNodeMarkup(at, undefined, { ...node.attrs, checked: !node.attrs.checked });
+        if (isEditorKind(node, "task_list_item")) tr.setNodeMarkup(at, undefined, { ...node.attrs, checked: !node.attrs.checked });
       });
     }
   }

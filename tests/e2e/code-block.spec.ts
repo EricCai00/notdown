@@ -1,5 +1,33 @@
 import { expect, test } from "@playwright/test";
 
+for (const variant of ["notdown", "notion-markdown"]) {
+  test(`three backticks immediately create a code block in ${variant}`, async ({ page, request }) => {
+    const response = await request.post("/api/pages", { data: {
+      title: "Immediate code input", body: "", bodyFormat: "notion-markdown",
+      syntax: { version: 1, variant, extensions: {} },
+    } });
+    expect(response.status()).toBe(201);
+    const note = await response.json();
+    await page.goto(`/#page/${note.id}`);
+    const editor = page.locator(".pm-document");
+    await editor.click();
+    await page.keyboard.type("``");
+    await expect(editor.locator(".pm-code-block")).toHaveCount(0);
+    await page.keyboard.type("`");
+    const code = editor.locator(".pm-code-block code");
+    await expect(code).toHaveCount(1);
+    await expect(code).toHaveText("");
+    await expect(editor).toBeFocused();
+    await page.keyboard.type("const value = 1;");
+    await expect(code).toHaveText("const value = 1;");
+    await page.keyboard.press("Control+s");
+    await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body)
+      .toContain("```\nconst value = 1;\n```");
+    await page.reload();
+    await expect(code).toHaveText("const value = 1;");
+  });
+}
+
 test("code toolbar changes language, copies code, wraps long lines and saves a caption", async ({ page, request }) => {
   const code = 'const longValue = "' + "0123456789".repeat(22) + '";';
   const response = await request.post("/api/pages", {

@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState, TextSelection } from "prosemirror-state";
@@ -5,7 +6,7 @@ import { history, undo } from "prosemirror-history";
 import { buildInlineInsertion, insertInlineObject, inlineChoices } from "../../src/document/inline-objects";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 import { commandEnabled, enabled, supportsOption, type Dialect, type SyntaxConfig } from "../../src/markdown-engine/config";
-import { mmdCitations } from "../../src/document/mmd-citations";
+import { mmdCitations, replaceMmdInlineBody } from "../../src/document/mmd-citations";
 import { replaceImageCaption } from "../../src/document/image-caption";
 const config = (variant: Dialect, extensions: Record<string, boolean> = {}): SyntaxConfig => ({ version: 1, variant, extensions });
 
@@ -14,17 +15,17 @@ test("Notdown URL citations coexist with explicitly defined footnotes and litera
   for (const footnotes of [true, false]) {
     const c = config("notdown", { footnotes });
     const doc = parseNative(source, c);
-    assert.equal(doc.firstChild!.firstChild!.type.name, "citation");
+    assert.equal(editorKind(doc.firstChild!.firstChild!), "citation");
     assert.equal(serializeNative(doc, c), source);
   }
   const disabled = parseNative(source, config("notdown", { notion_mentions: false }));
   assert.equal(disabled.firstChild!.textContent, source);
   const c = config("notdown"), defined = source + "\n\n[^https://example.com]: Explicit existing note";
   const doc = parseNative(defined, c);
-  assert.equal(doc.firstChild!.firstChild!.type.name, "footnote_reference");
+  assert.equal(editorKind(doc.firstChild!.firstChild!), "footnote_reference");
   assert.equal(serializeNative(doc, c), defined);
   const code = parseNative("`" + source + "`", c);
-  assert.equal(code.firstChild!.firstChild!.type.name, "text");
+  assert.equal(editorKind(code.firstChild!.firstChild!), "text");
   assert.equal(code.firstChild!.textContent, source);
 });
 
@@ -73,7 +74,34 @@ test("MMD bibliography numbering is independent of footnotes and preserves misma
   assert.deepEqual(projection.refs.map(r => r.number), [1, 2, 3, 4, 4, 5]);
   assert.equal(projection.refs[2].label, "(locator, 3)");
   assert(projection.refs.at(-1)!.suppressed); assert(projection.entries[0].missing);
+  assert.deepEqual(projection.entries.at(-1)!.references, []);
   assert.equal(projection.unused[0].key, "Doe2006"); assert.equal(serializeNative(doc, c), source);
+});
+
+test("MMD hidden citations retain numbering but only visible occurrences have backlinks", () => {
+  const c = config("markdown_mmd");
+  const source = "[Not cited][#book] [#book] [not cited][#book] [p. 2][#book]\n\n[#book]: Book title";
+  const projection = mmdCitations(parseNative(source, c));
+  assert.equal(projection.entries.length, 1);
+  assert.deepEqual(projection.entries[0].references, projection.refs.filter(ref => !ref.suppressed).map(ref => ref.pos));
+  assert.equal(projection.entries[0].references.length, 2);
+});
+
+test("inline bibliography editing preserves locator, delimiter suffix, marks and surrounding source", () => {
+  for (const variant of ["markdown_mmd", "notdown"] as const) {
+    const c = config(variant), raw = "[p. 8][#Jane Doe. Original book.;][]";
+    const source = `Before **${raw}** after\n\n\`[#Jane Doe. Original book.]\`\n\n[#unused]: Keep this`;
+    const doc = parseNative(source, c), target = mmdCitations(doc).entries[0].inline!;
+    const next = replaceMmdInlineBody(target.node.attrs.raw, "Alex Roe. *New book*. 2025.");
+    assert.equal(next, "[p. 8][#Alex Roe. *New book*. 2025.;][]");
+    let state = EditorState.create({ doc, plugins: [history()] });
+    state = state.apply(state.tr.setNodeMarkup(target.pos, undefined, { ...target.node.attrs, raw: next }));
+    assert.equal(serializeNative(state.doc, c), source.replace(raw, next));
+    assert(undo(state, tr => state = state.apply(tr)));
+    assert.equal(serializeNative(state.doc, c), source);
+    for (const invalid of ["", "key", "Bad ] text", "Bad \\ text", "Two\nlines", "Trailing semicolon;"])
+      assert.throws(() => replaceMmdInlineBody(raw, invalid));
+  }
 });
 
 test("caption updates touch only the image label, preserving URL/title/unknown attributes", () => {

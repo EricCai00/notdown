@@ -12,7 +12,7 @@ CodeMirror 源码 + 当前渲染器／方言配置
 POST /api/markdown/preview
            ↓
 libMultiMarkdown / Markdown.pl CLI → HTML 标准输出
-或 Pandoc reader → Pandoc JSON AST → Pandoc HTML writer
+或 Pandoc reader → Pandoc JSON AST → 引文处理（citeproc）→ Pandoc HTML writer
 或 Notion codec → ProseMirror 文档 → 现有 HTML renderer
            ↓
 原始 HTML 文本标签页；清理后页面标签页 + 本地公式渲染
@@ -21,6 +21,14 @@ libMultiMarkdown / Markdown.pl CLI → HTML 标准输出
 ```
 
 Pandoc AST 与 ProseMirror 文档只在预览请求内存中存在；直接渲染器将标准输出作为 HTML 返回。Lab 不调用知识库的创建、更新或附件接口，不改变当前笔记的 `bodyFormat`；导入只读取用户所选文件，下载只输出编辑器源码。窗口草稿使用 `sessionStorage`，包含源码、文件名、渲染器／方言、各方言的扩展覆盖及滚动开关。关闭窗口后不能将它视为长期备份。
+
+## Pandoc 引文预览
+
+启用 `citations` 的 Pandoc reader 会使用文档 YAML 内的 `references` 运行 citeproc，生成作者年份和参考文献列表。支持括号式、作者式、作者省略、前缀／定位信息／后缀、脚注中的引文，以及 `nocite`、`link-citations`、`link-bibliography`、`reference-section-title`、`suppress-bibliography`、`lang` 和 `notes-after-punctuation`。顶层标题保持顶层，以保留 `.reset-citation-positions` 的语义；同步滚动仍带源码行号。
+
+当前采用 Pandoc 默认作者年份样式；Lab 不加载 YAML 中的外部 `bibliography`、`csl` 或 `citation-abbreviations` 文件，并在预览区提示这一限制。缺失文献数据及 citeproc 诊断也显示在预览区。完整 YAML 和正文始终留在 Source 与下载文件中，关闭 `citations` 后恢复字面量显示，不改写源文件。本项仅调整 Pandoc Lab 预览，不改变主编辑器或官方直出解析器。
+
+可直接打开 [引文测试文档](../fixtures/pandoc-citations.md)，选择 **Pandoc Markdown**。自动验证覆盖实际 citeproc 输出、复杂定位、脚注内引文、参考文献链接、扩展关闭与源码保留。
 
 ## 外部程序直出 HTML
 

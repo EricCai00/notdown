@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import { localObjectPlugins } from "../../src/markdown-engine/presets";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -21,14 +22,14 @@ for (const [name, sample] of Object.entries(objectSamples)) test(`${name} is edi
     const config = { version: 1 as const, variant, extensions: Object.fromEntries(Object.values(localObjectPlugins).map(id => [id, true])) };
     const source = sample.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
     let state = EditorState.create({ doc: parseNative(source, config) }); state.doc.check();
-    assert.equal(state.doc.firstChild!.type.name, name);
+    assert.equal(editorKind(state.doc.firstChild!), name);
     assert.equal(resolveContentObject(state.doc.firstChild!)?.id, "block." + name);
     assert.equal(contentObject("block." + name)?.status, "implemented");
     assert.equal(serializeNative(state.doc, config), source);
     state = state.apply(state.tr.setNodeMarkup(0, undefined, { ...state.doc.firstChild!.attrs, nfmAttrs: { ...state.doc.firstChild!.attrs.nfmAttrs, custom: "keep" } }));
     const result = serializeNative(state.doc, config), reopened = parseNative(result, config);
     assert.equal(reopened.firstChild!.attrs.nfmAttrs.custom, "keep", result);
-    assert.equal(reopened.firstChild!.type.name, name, result);
+    assert.equal(editorKind(reopened.firstChild!), name, result);
     assert.equal(reopened.lastChild!.textContent, "Tail");
   }
 });
@@ -37,11 +38,11 @@ test("incomplete local objects, trailing text and code fences remain recoverable
   for (const variant of ["notdown"] as const) {
     const config = { version: 1 as const, variant, extensions: Object.fromEntries(Object.values(localObjectPlugins).map(id => [id, true])) };
     for (const source of ['<bookmark title="Card"/> trailing text', '<tabs>\n<tab title="First">\nUnclosed', '<tabs>\nUnexpected content\n</tabs>']) {
-      const doc = parseNative(source, config); assert.equal(doc.firstChild!.type.name, "opaque_block");
+      const doc = parseNative(source, config); assert.equal(editorKind(doc.firstChild!), "opaque_block");
       assert.equal(doc.firstChild!.attrs.raw, source); assert.equal(serializeNative(doc, config), source);
     }
     const source = '<ai-block prompt="Test">\n```html\n</ai-block>\n```\n\nKept\n</ai-block>';
-    const doc = parseNative(source, config); assert.equal(doc.firstChild!.type.name, "ai_block");
+    const doc = parseNative(source, config); assert.equal(editorKind(doc.firstChild!), "ai_block");
     assert.equal(doc.firstChild!.lastChild!.textContent, "Kept"); assert.equal(serializeNative(doc, config), source);
   }
 });
@@ -49,7 +50,7 @@ test("incomplete local objects, trailing text and code fences remain recoverable
 test("local object bodies inside quotes keep their container boundaries", () => {
   const config = { version: 1 as const, variant: "notdown" as const, extensions: Object.fromEntries(Object.values(localObjectPlugins).map(id => [id, true])) };
   const source = '> Quote\n\t<ai-block prompt="Test">\n\t\tInner content\n\t</ai-block>\n\nTail';
-  const doc = parseNative(source, config); assert.equal(doc.firstChild!.type.name, "blockquote");
-  assert.equal(doc.firstChild!.child(1).type.name, "ai_block");
+  const doc = parseNative(source, config); assert.equal(editorKind(doc.firstChild!), "blockquote");
+  assert.equal(editorKind(doc.firstChild!.child(1)), "ai_block");
   assert.equal(doc.firstChild!.child(1).textContent, "Inner content"); assert.equal(doc.lastChild!.textContent, "Tail");
 });

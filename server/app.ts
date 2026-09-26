@@ -13,6 +13,9 @@ import {syntaxFiles} from './syntax-files.js';
 import {bibliographyEntries} from '../src/markdown-engine/bibliography.js';
 import { prepareMarkdownImport, importSummary, type ImportPlan } from "./markdown-import.js";
 import { executeRMarkdown, rMarkdownCapabilities } from "./rmarkdown.js";
+import { RNotebook } from "./r-notebook";
+import { QuartoNotebook } from "./quarto-notebook";
+import { checkRuntime } from "./runtime-check";
 
 export function createApp(options: {
   vaultPath: string;
@@ -83,16 +86,58 @@ export function createApp(options: {
     };
 
   const files=syntaxFiles(vault);
+  const runtimeSettings = async () => (await vault.runtimeSettings.get()).settings;
+  const notebook = new RNotebook(runtimeSettings);
+  const quarto = new QuartoNotebook(runtimeSettings);
+  app.locals.closeRNotebook = () => { notebook.close(); quarto.close(); };
+  app.get("/api/runtimes/settings", route(async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store"); return res.json(await vault.runtimeSettings.get());
+  }));
+  app.put("/api/runtimes/settings", route(async (req, res) => {
+    const saved = await vault.runtimeSettings.configure(req.body);
+    notebook.close(); quarto.close();
+    return res.json(saved);
+  }));
+  let checkingRuntimes = 0;
+  app.post("/api/runtimes/check", route(async (req, res) => {
+    if (checkingRuntimes >= 2) throw new VaultError(429, "Two interpreter checks are already running. Please wait.");
+    checkingRuntimes++;
+    const controller = new AbortController();
+    const cancel = () => { if (!res.writableEnded) controller.abort(); };
+    res.on("close", cancel); res.setHeader("Cache-Control", "no-store");
+    try { return res.json(await checkRuntime(req.body, controller.signal)); }
+    finally { checkingRuntimes--; res.off("close", cancel); }
+  }));
+  app.post("/api/quarto/notebook", route(async (req, res) => {
+    const controller = new AbortController();
+    const cancel = () => { if (!res.writableEnded) controller.abort(); };
+    res.on("close", cancel); res.setHeader("Cache-Control", "no-store");
+    try { return res.json(await quarto.execute(req.body, controller.signal)); }
+    finally { res.off("close", cancel); }
+  }));
+  app.delete("/api/quarto/notebook/:session", route(async (req, res) => {
+    quarto.dispose(String(req.params.session)); res.json({ closed: true });
+  }));
+  app.post("/api/rmarkdown/notebook", route(async (req, res) => {
+    const controller = new AbortController();
+    const cancel = () => { if (!res.writableEnded) controller.abort(); };
+    res.on("close", cancel); res.setHeader("Cache-Control", "no-store");
+    try { return res.json(await notebook.execute(req.body, controller.signal)); }
+    finally { res.off("close", cancel); }
+  }));
+  app.delete("/api/rmarkdown/notebook/:session", route(async (req, res) => {
+    notebook.dispose(String(req.params.session)); res.json({ closed: true });
+  }));
   app.get("/api/rmarkdown/capabilities", route(async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    return res.json(await rMarkdownCapabilities());
+    return res.json(await rMarkdownCapabilities(undefined, await runtimeSettings()));
   }));
   app.post("/api/rmarkdown/run", route(async (req, res) => {
     const controller = new AbortController();
     const cancel = () => { if (!res.writableEnded) controller.abort(); };
     res.on("close", cancel);
     res.setHeader("Cache-Control", "no-store");
-    try { return res.json(await executeRMarkdown(req.body, controller.signal)); }
+    try { return res.json(await executeRMarkdown(req.body, controller.signal, await runtimeSettings())); }
     finally { res.off("close", cancel); }
   }));
   // Plans contain the exact selected bytes. Commit never rereads a changing source folder.

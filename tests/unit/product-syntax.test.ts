@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -44,22 +45,19 @@ for (const fixture of fixtures)
       doc = parseNative(fixture.source, c);
     doc.check();
     assert.equal(serializeNative(doc, c), fixture.source);
-    const changed = schema.nodes.doc.create(
-      doc.attrs,
-      doc.content.append(
+    const changed = schema.nodes["doc"].create(doc.attrs, doc.content.append(
         Fragment.from(
-          schema.nodes.paragraph.create(null, schema.text("Neighbor")),
+          schema.nodes["block.paragraph"].create(null, schema.text("Neighbor")),
         ),
-      ),
-    );
+      ));
     const written = serializeNative(changed, c);
     for (const original of fixture.source.split("\n\n"))
       assert(written.includes(original));
     parseNative(written, c).check();
     const types = new Set<string>();
     doc.descendants((n) => {
-      types.add(n.type.name);
-      for (const m of n.marks) types.add(m.type.name);
+      types.add(editorKind(n));
+      for (const m of n.marks) types.add(editorKind(m));
     });
     const expected: Record<number, string> = {
       1: "equation",
@@ -128,7 +126,7 @@ for (const fixture of fixtures)
     if (fixture.id === 7) assert.equal(doc.textContent, "😄");
     if (fixture.id === 18)
       assert.equal(
-        doc.firstChild!.firstChild!.child(1).type.name,
+        editorKind(doc.firstChild!.firstChild!.child(1)),
         "ordered_list",
       );
     if (fixture.id === 24)
@@ -178,10 +176,7 @@ test("product inline edits retain CriticMarkup, attributes and literal syntax", 
   for (const variant of ["typora", "obsidian", "markdown_mmd"] as const) {
     const c = config(variant),
       text = "==literal== %%literal%% {{file.txt}} {++literal++}",
-      doc = schema.nodes.doc.create(
-        null,
-        schema.nodes.paragraph.create(null, schema.text(text)),
-      );
+      doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, schema.text(text)));
     assert.equal(parseNative(serializeNative(doc, c), c).textContent, text);
   }
 });
@@ -191,7 +186,7 @@ test("extension switches and fenced code delimit parsing", () => {
       "> [!NOTE]\n> text",
       config("typora", { alerts: false }),
     ).toString(),
-    /blockquote/,
+    /block\.quote/,
   );
   assert.equal(
     parseNative("==text==", config("typora", { highlight: false })).textContent,
@@ -204,12 +199,12 @@ test("extension switches and fenced code delimit parsing", () => {
   );
   const raw = "```text\n%%comment%%\n{++change++}\n{{file.txt}}\n[toc]\n```";
   assert.equal(
-    parseNative(raw, config("markdown_mmd")).firstChild!.type.name,
+    editorKind(parseNative(raw, config("markdown_mmd")).firstChild!),
     "code_block",
   );
   assert.equal(
-    parseNative("```mermaid\nA-->B\n```", config("typora", { diagrams: false }))
-      .firstChild!.type.name,
+    editorKind(parseNative("```mermaid\nA-->B\n```", config("typora", { diagrams: false }))
+      .firstChild!),
     "code_block",
   );
 });

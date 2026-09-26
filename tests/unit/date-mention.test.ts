@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -65,7 +66,7 @@ test("editing a date retains unknown attributes, surrounding code and labels thr
   const doc = parseNotionMarkdown(raw);
   let pos = 0;
   doc.descendants((node, at) => {
-    if (node.type.name === "mention") pos = at;
+    if (editorKind(node) === "mention") pos = at;
   });
   const node = doc.nodeAt(pos)!;
   const attrs = updateDateAttributes(node.attrs.nfmAttrs, {
@@ -111,6 +112,8 @@ test("@ matching respects code, emails, inline atoms and disabled contexts", () 
     ["@today", "today"],
     ["Before @remind tomorrow 9am", "remind tomorrow 9am"],
     ["test@example.com", null],
+    ["[[Meeting @today", null],
+    ["+Meeting @today", null],
     ["`@today`", null],
     ["```text\n@today\n```", null],
     ['<mention-date start="2026-09-22"/> @明天', "明天"],

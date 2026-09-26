@@ -1,6 +1,6 @@
 import type MarkdownIt from "markdown-it";
 import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
-import deflist from "markdown-it-deflist";
+import { installDefinitionLists } from "./definition-lists";
 import { editorSchema } from "../document/editor-schema.js";
 import { enabled, markdownFamily, type SyntaxConfig } from "./config.js";
 
@@ -20,7 +20,7 @@ export function installMarkdownBlocks(md: MarkdownIt, config: SyntaxConfig) {
       ? null
       : match;
   };
-  if (enabled(config, "definition_lists")) md.use(deflist);
+  if (enabled(config, "definition_lists")) installDefinitionLists(md, config);
   if (config.variant === "notdown") {
     md.inline.ruler.before("link", "notdown_url_citation", (s, silent) => {
       const match = /^\[\^([a-z][a-z\d+.-]*:[^\]\s<>]+)\]/i.exec(s.src.slice(s.pos));
@@ -28,7 +28,7 @@ export function installMarkdownBlocks(md: MarkdownIt, config: SyntaxConfig) {
       if (!silent) {
         if (enabled(config, "notion_mentions")) {
           const token = s.push("source_inline", "", 0);
-          token.meta = { node: editorSchema.nodes.citation.create({ url: match[1] }) };
+          token.meta = { node: editorSchema.nodes["inline.citation"].create({ url: match[1] }) };
         } else {
           s.push("text", "", 0).content = match[0];
         }

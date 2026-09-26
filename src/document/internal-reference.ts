@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "./node-identity";
 import type { Mark, Node as PMNode } from "prosemirror-model";
 
 export type ReferenceSyntax = "wiki" | "wiki-title-first" | "markdown" | "mention";
@@ -39,12 +40,12 @@ export function internalReference(raw: string, syntax: ReferenceSyntax = "markdo
 }
 
 export function nodeReference(node: PMNode): InternalReference | null {
-  if (!["page_link", "child_page"].includes(node.type.name)) return null;
+  if (!["page_link", "child_page"].includes(editorKind(node))) return null;
   return internalReference(node.attrs.url || node.attrs.target,
     node.attrs.syntaxForm || (node.attrs.url || Object.keys(node.attrs.nfmAttrs || {}).length ? "mention" : "wiki"));
 }
 export function markReference(mark: Mark): InternalReference | null {
-  return mark.type.name === "link" ? internalReference(mark.attrs.href || "") : null;
+  return isEditorKind(mark, "link") ? internalReference(mark.attrs.href || "") : null;
 }
 
 export interface ReferencePage { id: string; title: string }

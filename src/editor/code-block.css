@@ -33,19 +33,19 @@
   font: inherit;
 }
 
-.pm-code-pre :is(.pm-code-punctuation, .pm-code-comment, .pm-code-prolog,
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) :is(.pm-code-punctuation, .pm-code-comment, .pm-code-prolog,
   .pm-code-doctype, .pm-code-cdata) { color: #8b8a86; }
-.pm-code-pre :is(.pm-code-keyword, .pm-code-tag, .pm-code-boolean,
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) :is(.pm-code-keyword, .pm-code-tag, .pm-code-boolean,
   .pm-code-number, .pm-code-symbol, .pm-code-constant) { color: #9b4b8f; }
-.pm-code-pre :is(.pm-code-string, .pm-code-regex, .pm-code-attr-name,
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) :is(.pm-code-string, .pm-code-regex, .pm-code-attr-name,
   .pm-code-attr-value, .pm-code-selector, .pm-code-char, .pm-code-inserted) { color: #a5523d; }
-.pm-code-pre :is(.pm-code-function, .pm-code-builtin, .pm-code-class-name,
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) :is(.pm-code-function, .pm-code-builtin, .pm-code-class-name,
   .pm-code-type, .pm-code-atrule) { color: #206a9a; }
-.pm-code-pre :is(.pm-code-variable, .pm-code-parameter, .pm-code-property,
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) :is(.pm-code-variable, .pm-code-parameter, .pm-code-property,
   .pm-code-operator, .pm-code-entity, .pm-code-url) { color: #4f5e77; }
-.pm-code-pre .pm-code-deleted { color: #b94040; }
-.pm-code-pre :is(.pm-code-bold, .pm-code-important) { font-weight: 600; }
-.pm-code-pre .pm-code-italic { font-style: italic; }
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) .pm-code-deleted { color: #b94040; }
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) :is(.pm-code-bold, .pm-code-important) { font-weight: 600; }
+:is(.pm-code-pre, .pm-r-code, .pm-r-inline) .pm-code-italic { font-style: italic; }
 
 .pm-code-toolbar {
   position: absolute;
@@ -177,3 +177,6 @@
 .pm-code-more-menu p { margin: 6px 8px; color: #787774; font-size: 12px; }
 .pm-code-more-menu { width: min(260px, calc(100vw - 16px)); padding: 5px; }
 .pm-code-more-menu button:disabled { color: #aaa9a5; cursor: default; }
+
+.pm-code-fence-menu { max-height: min(300px, calc(100vh - 16px)); }
+.pm-code-fence-hint { margin: 8px 2px 0; flex: none; color: #787774; font-size: 12px; }

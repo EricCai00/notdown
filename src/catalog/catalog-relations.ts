@@ -73,6 +73,7 @@ const notionAnchors: Record<string, string> = {
 };
 const ref = (label: string, url: string): Reference => ({ label, url });
 export const variantReferences: Record<Dialect, Reference[]> = {
+  quarto: [ref("Quarto Markdown", "https://quarto.org/docs/authoring/markdown-basics.html"), ref("Quarto computations", "https://quarto.org/docs/computations/execution-options.html")],
   rmarkdown: [ref("R Markdown", "https://rmarkdown.rstudio.com/authoring_quick_tour.html"), ref("knitr chunk options", "https://yihui.org/knitr/options/")],
   typora: [ref("Typora Markdown reference", typora)],
   obsidian: [ref("Obsidian formatting syntax", obsidian)],
@@ -220,7 +221,7 @@ export const catalogExtensions = workbook.rows.map((row, index) => {
     sourceRange: `A${index + 3}:N${index + 3}`,
     workbookStates: { ...Object.fromEntries(
       workbookVariants.map((v, i) => [v, row[i + 2]]),
-    ), notdown: "—", rmarkdown: "—" } as Record<Dialect, string>,
+    ), notdown: "—", rmarkdown: "—", quarto: "—" } as Record<Dialect, string>,
     workbookRegistration: row[13]!,
     status: registered
       ? "registered"

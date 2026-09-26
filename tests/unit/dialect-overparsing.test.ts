@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -7,7 +8,7 @@ import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 const config = (variant: Dialect, extensions: Record<string, boolean> = {}): SyntaxConfig => ({ version: 1, variant, extensions });
 const contains = (source: string, c: SyntaxConfig, type: string) => {
   let found = false;
-  parseNative(source, c).descendants(n => { if (n.type.name === type || n.marks.some(m => m.type.name === type)) found = true; });
+  parseNative(source, c).descendants(n => { if (editorKind(n) === type || n.marks.some(m => editorKind(m) === type)) found = true; });
   return found;
 };
 
@@ -16,7 +17,7 @@ test("all dialects retain their heading limits, including Notion's H5/H6 convers
     const c = config(id), source = "#".repeat(level) + " Heading\r\n\r\nTail";
     const doc = parseNative(source, c), head = doc.firstChild!;
     doc.check();
-    assert.equal(head.type.name, level <= 6 ? "heading" : "paragraph", `${id}: H${level}`);
+    assert.equal(editorKind(head), level <= 6 ? "heading" : "paragraph", `${id}: H${level}`);
     if (level <= 6) assert.equal(head.attrs.level, c.variant === "notion-markdown" ? Math.min(4, level) : level);
     assert.equal(serializeNative(doc, c), source);
     const edited = EditorState.create({ doc }).tr.insertText(" edited", doc.content.size - 1).doc;
@@ -25,7 +26,7 @@ test("all dialects retain their heading limits, including Notion's H5/H6 convers
 });
 
 test("ordered-parenthesis markers are not inherited by the original Markdown family", () => {
-  const native = new Set<Dialect>(["commonmark", "gfm", "obsidian", "commonmark_x", "markdown", "notdown", "rmarkdown"]);
+  const native = new Set<Dialect>(["commonmark", "gfm", "obsidian", "commonmark_x", "markdown", "notdown", "rmarkdown", "quarto"]);
   for (const { id } of dialects) {
     const c = config(id), source = "1) Item\n\nTail";
     assert.equal(contains(source, c, "ordered_list"), native.has(id), id);
@@ -48,10 +49,10 @@ test("fancy lists reject ordinary words, malformed parentheses and single-space 
     if (!enabled(c, "fancy_lists")) continue;
     for (const source of ["a. Item", "iv. Item", "(a) Item", "A.  Item", "I.  Item"]) {
       const doc = parseNative(source, c);
-      assert.equal(doc.firstChild!.type.name, "ordered_list", `${id}: ${source}`);
+      assert.equal(editorKind(doc.firstChild!), "ordered_list", `${id}: ${source}`);
       const edited = EditorState.create({ doc }).tr.insertText("X", 3).doc;
       const reopened = parseNative(serializeNative(edited, c), c);
-      assert.equal(reopened.firstChild!.type.name, "ordered_list", `${id}: ${source}`);
+      assert.equal(editorKind(reopened.firstChild!), "ordered_list", `${id}: ${source}`);
       assert.equal(reopened.textContent, "XItem");
     }
   }
@@ -71,9 +72,12 @@ test("opt-in Notion inline carriers cannot enable disabled descendants", () => {
 test("disabling Notion nesting also disables standalone toggle headings", () => {
   for (const variant of ["notion-markdown", "notdown"] as const) {
     const source = '## Fold {toggle="true"}', c = config(variant, { notion_nesting: false });
-    assert.equal(parseNative(source, c).firstChild!.type.name, "opaque_block");
+    assert.equal(editorKind(parseNative(source, c).firstChild!), "opaque_block");
     assert.equal(serializeNative(parseNative(source, c), c), source);
-    assert.equal(parseNative(source, config(variant)).firstChild!.attrs.toggle, true);
+    const toggle = parseNative(source, config(variant)).firstChild!;
+    assert.equal(editorKind(toggle), "nested_block");
+    assert.equal(toggle.firstChild!.attrs.toggle, true);
+    assert.equal(serializeNative(parseNative(source, config(variant)), config(variant)), source);
   }
 });
 
@@ -81,7 +85,7 @@ test("self-closing Notion block tags with trailing prose do not eat that prose",
   for (const variant of ["notion-markdown", "notdown"] as const) for (const tag of ["empty-block", "table_of_contents", "unknown", "page", "file"]) {
     const c = config(variant), source = `<${tag}/> keep this text`;
     const doc = parseNative(source, c);
-    assert.equal(doc.firstChild!.type.name, "paragraph");
+    assert.equal(editorKind(doc.firstChild!), "paragraph");
     assert.equal(doc.textContent, source);
     const edited = EditorState.create({ doc }).tr.insertText(" edited", doc.content.size - 1).doc;
     assert.equal(parseNative(serializeNative(edited, c), c).textContent, source + " edited");

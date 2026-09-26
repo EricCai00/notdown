@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { InputRule, inputRules } from "prosemirror-inputrules";
 
 /** Typing conveniences, not Markdown grammar. Stored content is plain Unicode. */
@@ -28,11 +29,11 @@ export function symbolReplacementPlugin(allow: () => boolean) {
           (state, _match, start, end) => {
             if (!allow() || !state.selection.empty) return null;
             const { $from } = state.selection;
-            if (!["paragraph", "heading"].includes($from.parent.type.name))
+            if (!["paragraph", "heading"].includes(editorKind($from.parent)))
               return null;
             if (
               (state.storedMarks ?? $from.marks()).some(
-                (mark) => mark.type.spec.code || mark.type.name === "link",
+                (mark) => mark.type.spec.code || isEditorKind(mark, "link"),
               )
             )
               return null;
@@ -42,7 +43,7 @@ export function symbolReplacementPlugin(allow: () => boolean) {
                 node.isInline &&
                 (!node.isText ||
                   node.marks.some(
-                    (mark) => mark.type.spec.code || mark.type.name === "link",
+                    (mark) => mark.type.spec.code || isEditorKind(mark, "link"),
                   ))
               )
                 protectedText = true;

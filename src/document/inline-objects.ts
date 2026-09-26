@@ -1,3 +1,4 @@
+import { isEditorKind } from "./node-identity";
 import { Fragment, Slice, type Node as PMNode } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import { enabled, type SyntaxConfig } from "../markdown-engine/config";
@@ -30,15 +31,15 @@ export function inlineChoices(doc: PMNode, command: InlineObjectCommand, encodin
   }
   const prefix = command === "citation" ? "#" : command === "abbreviation" ? ">" : "?";
   doc.descendants(node => {
-    if (encoding === "mmd" && node.type.name === "syntax_block" && node.attrs.kind === "definition" && String(node.attrs.data.key).startsWith(prefix))
+    if (encoding === "mmd" && isEditorKind(node, "syntax_block") && node.attrs.kind === "definition" && String(node.attrs.data.key).startsWith(prefix))
       result.set(String(node.attrs.data.key).slice(1), String(node.attrs.data.body));
     if (command === "abbreviation" && encoding === "php" && node.isText) {
-      const mark = node.marks.find(m => m.type.name === "abbreviation");
+      const mark = node.marks.find(m => isEditorKind(m, "abbreviation"));
       if (mark) result.set(node.text!, mark.attrs.title);
     }
-    if (command === "metadata_variable" && node.type.name === "syntax_block" && node.attrs.kind === "metadata")
+    if (command === "metadata_variable" && isEditorKind(node, "syntax_block") && node.attrs.kind === "metadata")
       for (const [key, value] of Object.entries(metadataValues(node.attrs.raw, node.attrs.metadataForm))) result.set(key, String(value));
-    if (command === "citation" && encoding === "notion" && node.type.name === "citation") result.set(node.attrs.url, node.attrs.url);
+    if (command === "citation" && encoding === "notion" && isEditorKind(node, "citation")) result.set(node.attrs.url, node.attrs.url);
   });
   return result;
 }
@@ -85,7 +86,7 @@ export function buildInlineInsertion(command: InlineObjectCommand, encoding: Inl
 /** One undoable transaction inserts the inline reference and its supporting definition. */
 export function insertInlineObject(state: EditorState, value: InlineInsertion, parse: (source: string) => PMNode) {
   const parsed = parse(value.inline + (value.definition ? "\n\n" + value.definition : ""));
-  if (parsed.firstChild?.type.name !== "paragraph") throw new Error("Expected one inline object.");
+  if (!isEditorKind(parsed.firstChild, "paragraph")) throw new Error("Expected one inline object.");
   const tr = state.tr.replaceSelection(new Slice(parsed.firstChild.content, 0, 0));
   const definitions: PMNode[] = [];
   parsed.forEach((node, _offset, index) => { if (index) definitions.push(node.type.create({ ...node.attrs, sourceKey: null }, node.content, node.marks)); });

@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { objectFields } from "../document/object-model";
@@ -14,6 +15,7 @@ import { TabsView } from "../blocks/tabs-view";
 import { ButtonView } from "../blocks/button-view";
 import { BookmarkView } from "../features/bookmarks/bookmark-view";
 import { EmbedView } from "../blocks/embed-view";
+import { MediaView } from "../blocks/media-view";
 import { parseNotionMarkdown } from "../document/notion-markdown";
 
 export class ContentObjectView implements NodeView {
@@ -28,7 +30,7 @@ export class ContentObjectView implements NodeView {
   private syncTimer?: ReturnType<typeof setInterval>;
   private syncing = false;
   constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined, private pages: () => BreadcrumbPage[], private currentPage?: () => BreadcrumbPage | undefined, private supplemental: () => boolean = () => false) {
-    this.dom.className = "pm-content-object pm-object-" + node.type.name;
+    this.dom.className = "pm-content-object pm-object-" + editorKind(node);
     this.controls.contentEditable = this.preview.contentEditable = this.status.contentEditable = "false";
     this.dom.append(this.controls, this.preview);
     if (node.type.spec.content) { this.contentDOM = document.createElement("div"); this.contentDOM.className = "pm-object-content"; this.dom.append(this.contentDOM); }
@@ -36,9 +38,9 @@ export class ContentObjectView implements NodeView {
       const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.disabled = !view.editable;
       button.addEventListener("click", callback); this.controls.append(button);
     };
-    if (node.type.name === "ai_block") action("Generate", () => { void this.runService("generate"); });
-    if (node.type.name === "meeting_notes") action("Transcribe", () => { void this.runService("transcribe"); });
-    if (node.type.name === "synced_block" && supplemental()) {
+    if (isEditorKind(node, "ai_block")) action("Generate", () => { void this.runService("generate"); });
+    if (isEditorKind(node, "meeting_notes")) action("Transcribe", () => { void this.runService("transcribe"); });
+    if (isEditorKind(node, "synced_block") && supplemental()) {
       action("Refresh from source", () => { void this.sync(false); });
       action("Publish to source", () => { void this.sync(true); });
       action("Toggle live refresh", () => { this.set({ "@auto-refresh": this.node.attrs.nfmAttrs["auto-refresh"] === "true" ? "false" : "true" }); this.status.textContent = this.node.attrs.nfmAttrs["auto-refresh"] === "true" ? "Live local refresh enabled after a source refresh. Local edits pause it." : "Live local refresh disabled."; });
@@ -55,13 +57,13 @@ export class ContentObjectView implements NodeView {
   }
   private refresh() {
     this.preview.replaceChildren();
-    if (this.node.type.name === "fenced_div" && this.contentDOM) {
+    if (isEditorKind(this.node, "fenced_div") && this.contentDOM) {
       const attrs = domAttributes(readAttributes(this.node.attrs.attributes));
       this.contentDOM.className = "pm-object-content pm-fenced-div " + (attrs.class || "");
       this.contentDOM.dataset.divAttributes = this.node.attrs.attributes;
       for (const key of ["id", "lang", "title", "style"]) { if (attrs[key]) this.contentDOM.setAttribute(key, attrs[key]); else this.contentDOM.removeAttribute(key); }
     }
-    if (this.node.type.name === "breadcrumb") {
+    if (isEditorKind(this.node, "breadcrumb")) {
       this.preview.append(renderBreadcrumb(this.pages(), this.currentPage?.()));
     } else if (!this.contentDOM) {
       const spec = this.node.type.spec.toDOM?.(this.node); if (spec) this.preview.append(DOMSerializer.renderSpec(document, spec).dom);
@@ -76,13 +78,13 @@ export class ContentObjectView implements NodeView {
       const pos = this.getPos(); if (pos === undefined) return;
       // Delayed responses never replace edits made while the request was running.
       if (!this.node.eq(original)) { this.status.textContent = "Content changed. Generated text: " + response.text; return; }
-      const content = response.text.split(/\r?\n/).map(line => schema.nodes.paragraph.create(null, line ? schema.text(line) : undefined));
+      const content = response.text.split(/\r?\n/).map(line => schema.nodes["block.paragraph"].create(null, line ? schema.text(line) : undefined));
       this.view.dispatch(this.view.state.tr.replaceWith(pos + 1, pos + this.node.nodeSize - 1, content));
       this.status.textContent = "Done";
     } catch (error) { if (!this.disposed && serial === this.request) this.status.textContent = (error as Error).message; }
   }
   private async snapshotHash(node: PMNode) {
-    const value = editorFingerprint(schema.nodes.doc.create(null, node.content));
+    const value = editorFingerprint(schema.nodes["doc"].create(null, node.content));
     const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return [...new Uint8Array(bytes)].map(n => n.toString(16).padStart(2, "0")).join("");
   }
@@ -127,5 +129,5 @@ export class ContentObjectView implements NodeView {
   destroy() { this.disposed = true; this.request++; clearInterval(this.syncTimer); }
 }
 export function objectNodeViews(pages: () => BreadcrumbPage[], currentPage?: () => BreadcrumbPage | undefined, parse: (source: string) => PMNode = parseNotionMarkdown, onOpenPage?: (id: string) => void, supplemental: () => boolean = () => false) {
-  return Object.fromEntries(Object.keys(objectFields).map(name => [name, (node: PMNode, view: EditorView, getPos: () => number | undefined) => name === "html_embed" || name === "embed_web_contents" ? new EmbedView(node, view, getPos) : name === "web_bookmark" ? new BookmarkView(node, view, getPos) : name === "button" ? new ButtonView(node, view, getPos, parse, pages, onOpenPage) : name === "tabs" ? new TabsView(node, view, getPos) : new ContentObjectView(node, view, getPos, pages, currentPage, supplemental)]));
+  return Object.fromEntries(Object.keys(objectFields).map(name => [name, (node: PMNode, view: EditorView, getPos: () => number | undefined) => name === "media_block" ? new MediaView(node) : name === "html_embed" || name === "embed_web_contents" ? new EmbedView(node, view, getPos) : name === "web_bookmark" ? new BookmarkView(node, view, getPos) : name === "button" ? new ButtonView(node, view, getPos, parse, pages, onOpenPage) : name === "tabs" ? new TabsView(node, view, getPos) : new ContentObjectView(node, view, getPos, pages, currentPage, supplemental)]));
 }

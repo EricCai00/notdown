@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -41,7 +42,7 @@ test("editing line blocks preserves empty lines without replacement placeholders
       };
       const source = "| First line\n| \n| \n| Last line\n\nTail\n";
       const doc = parseNative(source, c);
-      assert.equal(doc.firstChild!.type.name, "line_block");
+      assert.equal(editorKind(doc.firstChild!), "line_block");
       const changed = EditorState.create({ doc }).tr.insertText("EDIT ", 2).doc;
       const expected = source.replace("First line", "EDIT First line");
       const saved = serializeNative(changed, c);
@@ -63,23 +64,23 @@ test("a lone pipe is an empty line-block row, never an MMD table separator", () 
         const doc = parseNative(source, c);
         doc.check();
         const lines = doc.firstChild!;
-        assert.equal(lines.type.name, "line_block", `${variant}: ${JSON.stringify(empty)}`);
+        assert.equal(editorKind(lines), "line_block", `${variant}: ${JSON.stringify(empty)}`);
         assert.equal(lines.childCount, rows.length);
         assert.equal(lines.child(2).textContent.trim(), "");
         assert.equal(lines.child(3).textContent, "  indented");
-        assert.equal(doc.lastChild!.type.name, "table");
+        assert.equal(editorKind(doc.lastChild!), "table");
         assert.equal(serializeNative(doc, c), source);
         const edited = EditorState.create({ doc }).tr.insertText("EDIT ", 2).doc;
         const saved = serializeNative(edited, c);
         const reopened = parseNative(saved, c).firstChild!;
-        assert.equal(reopened.type.name, "line_block");
+        assert.equal(editorKind(reopened), "line_block");
         assert.equal(reopened.childCount, rows.length);
         for (let i = 0; i < rows.length; i++) {
           assert.equal(reopened.child(i).textContent, (i === 0 ? "EDIT " : "") + lines.child(i).textContent);
         }
         assert(saved.endsWith(source.slice(source.indexOf("| Name | Count |"))));
         const fenced = "```text\n" + rows.join("\n") + "\n```";
-        assert.equal(parseNative(fenced, c).firstChild!.type.name, "code_block");
+        assert.equal(editorKind(parseNative(fenced, c).firstChild!), "code_block");
         assert.equal(serializeNative(parseNative(fenced, c), c), fenced);
       }
     }
@@ -90,7 +91,7 @@ test("invalid MMD separators stay text when line blocks are disabled", () => {
   const c: SyntaxConfig = { version: 1, variant: "markdown_mmd", extensions: { line_blocks: false } };
   for (const source of ["| A\n| B\n|", "[Caption]\n| A\n| B\n|", "Text\n| A\n| B\n|"]) {
     const doc = parseNative(source, c);
-    doc.descendants(node => { assert.notEqual(node.type.name, "table"); });
+    doc.descendants(node => { assert.notEqual(editorKind(node), "table"); });
     assert.equal(serializeNative(doc, c), source);
   }
 });
@@ -104,8 +105,8 @@ test("valid MMD separators retain grouped headers, spans and captions before a l
     const raw = source + "\n|";
     const doc = parseNative(raw, c);
     doc.check();
-    assert.equal(doc.firstChild!.type.name, "table");
-    assert.equal(doc.lastChild!.type.name, "line_block");
+    assert.equal(editorKind(doc.firstChild!), "table");
+    assert.equal(editorKind(doc.lastChild!), "line_block");
     assert.equal(serializeNative(doc, c), raw);
   }
 });
@@ -115,7 +116,7 @@ test("Markdown-only blocks parse, edit, serialize and retain surrounding origina
     const c = config({ [flag]: true });
     const doc = parseNative(source + "\n\nTail\n", c);
     doc.check();
-    assert.equal(doc.firstChild!.type.name, type, flag);
+    assert.equal(editorKind(doc.firstChild!), type, flag);
     assert.equal(serializeNative(doc, c), source + "\n\nTail\n");
     let pos = 0;
     doc.descendants((n, at) => {
@@ -125,14 +126,14 @@ test("Markdown-only blocks parse, edit, serialize and retain surrounding origina
     const saved = serializeNative(changed, c),
       reopened = parseNative(saved, c);
     reopened.check();
-    assert.equal(reopened.firstChild!.type.name, type, flag + " edited");
+    assert.equal(editorKind(reopened.firstChild!), type, flag + " edited");
     assert(reopened.textContent.includes("EDIT "));
     assert(saved.endsWith("\n\nTail\n"));
     const off = parseNative(source, config());
     assert(!off.toString().includes(type + "("), flag + " off");
     assert.equal(serializeNative(off, config()), source);
     assert.equal(
-      parseNative("```md\n" + source + "\n```", c).firstChild!.type.name,
+      editorKind(parseNative("```md\n" + source + "\n```", c).firstChild!),
       "code_block",
     );
   }
@@ -143,8 +144,8 @@ test("HTML blocks and inline fragments render HTML with unchanged raw source and
   const c = config(),
     doc = parseNative(source, c);
   doc.check();
-  assert.equal(doc.firstChild!.type.name, "html_block");
-  assert(doc.toString().includes("html_inline"));
+  assert.equal(editorKind(doc.firstChild!), "html_block");
+  assert(doc.toString().includes("inline.inline_html"));
   const html = htmlDocument("Title", source, [], "markdown", c);
   assert(html.includes("<h2>Web results</h2>"));
   assert(
@@ -158,16 +159,15 @@ test("HTML blocks and inline fragments render HTML with unchanged raw source and
   assert(serializeNative(edited, c).startsWith("<h2>Edited</h2>"));
   assert(serializeNative(edited, c).endsWith("after."));
   assert.equal(
-    parseNative(source, config({ raw_html: false })).firstChild!.type.name,
+    editorKind(parseNative(source, config({ raw_html: false })).firstChild!),
     "opaque_block",
   );
   assert.equal(
-    parseNative("```html\n<h2>literal</h2>\n```", c).firstChild!.type.name,
+    editorKind(parseNative("```html\n<h2>literal</h2>\n```", c).firstChild!),
     "code_block",
   );
   assert.equal(
-    parseNative("<table><tr><td>HTML table</td></tr></table>", c).firstChild!
-      .type.name,
+    editorKind(parseNative("<table><tr><td>HTML table</td></tr></table>", c).firstChild!),
     "html_block",
   );
 });
@@ -188,8 +188,8 @@ test("footnotes retain identifiers, continuation blocks, and references outside 
       "Text[^longnote]. `[^literal]`\n\n[^longnote]: Note\n\n    - One\n    - Two\n\nTail";
   const doc = parseNative(source, c);
   doc.check();
-  assert(doc.firstChild!.toString().includes("footnote_reference"));
-  assert.equal(doc.child(1).child(1).type.name, "bullet_list");
+  assert(doc.firstChild!.toString().includes("inline.footnote"));
+  assert.equal(editorKind(doc.child(1).child(1)), "bullet_list");
   assert.equal(doc.child(1).attrs.label, "longnote");
   assert.equal(doc.lastChild!.textContent, "Tail");
   assert(
@@ -202,7 +202,7 @@ test("footnotes retain identifiers, continuation blocks, and references outside 
 test("line blocks yield to pipe tables; Div nesting ignores fences and retains incomplete input", () => {
   const c = config({ pipe_tables: true, line_blocks: true, fenced_divs: true });
   assert.equal(
-    parseNative("| A | B |\n| --- | --- |\n| 1 | 2 |", c).firstChild!.type.name,
+    editorKind(parseNative("| A | B |\n| --- | --- |\n| 1 | 2 |", c).firstChild!),
     "table",
   );
   assert.equal(
@@ -213,10 +213,10 @@ test("line blocks yield to pipe tables; Div nesting ignores fences and retains i
   const source = "::: {.box}\n```md\n:::\n```\n\nBody\n:::";
   const doc = parseNative(source, c);
   doc.check();
-  assert.equal(doc.firstChild!.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild!.firstChild!), "code_block");
   assert.equal(doc.firstChild!.lastChild!.textContent, "Body");
   assert.equal(
-    parseNative("::: {.box}\nUnclosed", c).firstChild!.type.name,
+    editorKind(parseNative("::: {.box}\nUnclosed", c).firstChild!),
     "opaque_block",
   );
 });
@@ -225,30 +225,30 @@ test("Div code boundaries, inline HTML in line blocks and GFM footnote defaults 
   const source = "::: {.box}\n    :::\n\nInside\n:::\n\nTail";
   const doc = parseNative(source, c);
   doc.check();
-  assert.equal(doc.firstChild!.type.name, "fenced_div");
-  assert.equal(doc.firstChild!.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild!), "fenced_div");
+  assert.equal(editorKind(doc.firstChild!.firstChild!), "code_block");
   assert.equal(doc.firstChild!.lastChild!.textContent, "Inside");
   assert.equal(doc.lastChild!.textContent, "Tail");
   const verse = "| A <em>gentle</em> line\n| Another";
   const lines = parseNative(verse, c);
-  assert(lines.toString().includes("html_inline"));
+  assert(lines.toString().includes("inline.inline_html"));
   assert.equal(serializeNative(lines, c), verse);
   assert(
     htmlDocument("Verse", verse, [], "markdown", c).includes("<em>gentle</em>"),
   );
   const gfm: SyntaxConfig = { version: 1, variant: "gfm", extensions: {} };
   assert.equal(
-    parseNative("[^n]: Note", { ...gfm, extensions: { footnotes: true } }).firstChild!.type.name,
+    editorKind(parseNative("[^n]: Note", { ...gfm, extensions: { footnotes: true } }).firstChild!),
     "footnote",
   );
   assert.equal(
-    parseNative("[^n]: Note", { ...gfm, extensions: { footnotes: false } })
-      .firstChild!.type.name,
+    editorKind(parseNative("[^n]: Note", { ...gfm, extensions: { footnotes: false } })
+      .firstChild!),
     "paragraph",
   );
 });
 
-test("new containers drag as a complete block and keep source after moving", () => {
+test("new containers and definition items keep their content after moving", () => {
   for (const [flag, source, type] of examples) {
     const c = config({ [flag]: true }),
       doc = parseNative(source + "\n\nTail", c);
@@ -261,8 +261,9 @@ test("new containers drag as a complete block and keep source after moving", () 
       assert.equal(moveEditorBlock(EditorState.create({ doc }), 0, doc.firstChild!.nodeSize, "after"), null);
       continue;
     }
-    assert.equal(blockAtPos(doc, at)?.node.type.name, type === "fenced_div" ? "heading" : type);
-    assert.equal(blockAtPos(doc, 0)?.node.type.name, type);
+    const rowType = type === "definition_list" ? "definition_list_item" : type;
+    assert.equal(editorKind(blockAtPos(doc, at)?.node), type === "fenced_div" ? "heading" : rowType);
+    assert.equal(editorKind(blockAtPos(doc, 0)?.node), rowType);
     const tr = moveEditorBlock(
       EditorState.create({ doc }),
       0,
@@ -273,7 +274,7 @@ test("new containers drag as a complete block and keep source after moving", () 
     tr.doc.check();
     const reopened = parseNative(serializeNative(tr.doc, c), c);
     reopened.check();
-    assert.equal(reopened.lastChild!.type.name, type);
+    assert.equal(editorKind(reopened.lastChild!), type);
   }
 });
 
@@ -286,7 +287,7 @@ test("Div children resolve independently, move across the container boundary and
     const first = 1, second = first + group.firstChild!.nodeSize, tail = group.nodeSize;
     assert.equal(blockAtPos(doc, first + 1)?.pos, first);
     assert.equal(blockAtPos(doc, second + 1)?.pos, second);
-    assert.equal(blockAtPos(doc, 0)?.node.type.name, "fenced_div");
+    assert.equal(editorKind(blockAtPos(doc, 0)?.node), "fenced_div");
     const state = EditorState.create({ doc });
     const moved = moveEditorBlock(state, first, tail, "after")!;
     assert(moved);
@@ -295,13 +296,13 @@ test("Div children resolve independently, move across the container boundary and
     const saved = serializeNative(moved.doc, c);
     assert(saved.startsWith(opening));
     const reopened = parseNative(saved, c);
-    assert.equal(reopened.firstChild!.type.name, "fenced_div");
+    assert.equal(editorKind(reopened.firstChild!), "fenced_div");
     assert.equal(reopened.firstChild!.textContent, "Second");
     assert.equal(reopened.lastChild!.textContent, "First");
     const reordered = moveEditorBlock(state, second, first, "before")!;
     assert.equal(reordered.doc.firstChild!.firstChild!.textContent, "Second");
     const deleted = deleteEditorBlock(state, first)!;
-    assert.equal(deleted.doc.firstChild!.type.name, "fenced_div");
+    assert.equal(editorKind(deleted.doc.firstChild!), "fenced_div");
     assert.equal(deleted.doc.firstChild!.textContent, "Second");
   }
 });
@@ -309,8 +310,8 @@ test("Div children resolve independently, move across the container boundary and
 test("nested Div boundaries and their first children remain separate drag targets", () => {
   const inner = parseNative('::: {.inner}\nNested\n:::', config({ fenced_divs: true })).firstChild!;
   const schema = inner.type.schema;
-  const outer = schema.nodes.fenced_div.create(null, inner);
-  const doc = schema.nodes.doc.create(null, schema.nodes.callout.create(null, outer));
+  const outer = schema.nodes["block.native_div"].create(null, inner);
+  const doc = schema.nodes["doc"].create(null, schema.nodes["block.callout"].create(null, outer));
   doc.check();
   assert.equal(blockAtPos(doc, 1)?.node, outer);
   assert.equal(blockAtPos(doc, 2)?.node, inner);

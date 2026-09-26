@@ -61,6 +61,103 @@ async function expectSelectionBounds(page: Page) {
   for (const difference of diffs) expect(difference).toBeLessThan(1);
 }
 
+for (const mode of ['document', 'split']) {
+  for (const direction of [-1, 1]) {
+    test(`marquee wheel ${direction > 0 ? 'down' : 'up'} extends from its document anchor in ${mode} view`, async ({ page, request }) => {
+      const body = Array.from({ length: 100 }, (_, i) => `Scroll row ${i}`).join('\n\n');
+      const note = await open(page, request, body);
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.locator(`.editing-modes [data-mode="${mode}"]`).click();
+      const rows = page.locator('.pm-document > p');
+      const scroller = page.locator(mode === 'split' ? '.page-pane' : '#main');
+      await rows.nth(40).evaluate(el => el.scrollIntoView({ block: 'center' }));
+      const first = (await rows.nth(40).boundingBox())!;
+      const last = (await rows.nth(40 + direction * 2).boundingBox())!;
+      const pointer = { x: last.x + 80, y: last.y + last.height / 2 };
+      await page.mouse.move(first.x - (mode === 'split' ? 12 : 65), first.y + first.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(pointer.x, pointer.y, { steps: 8 });
+      const selection = page.locator('.pm-document > p.pm-block-selected');
+      await expect(selection).toHaveCount(3);
+      let previous = await selection.allTextContents();
+      for (let step = 0; step < 2; step++) {
+        const scrollTop = await scroller.evaluate(el => el.scrollTop);
+        // No pointermove follows the wheel: scroll alone must update the range.
+        await page.mouse.wheel(0, direction * 260);
+        await expect.poll(async () => direction * ((await scroller.evaluate(el => el.scrollTop)) - scrollTop)).toBeGreaterThan(250);
+        await expect.poll(() => selection.count()).toBeGreaterThan(previous.length);
+        const current = await selection.allTextContents();
+        for (const text of previous) expect(current).toContain(text);
+        const indices = current.map(text => Number(text.replace('Scroll row ', '')));
+        expect(indices).toEqual(Array.from({ length: indices.length }, (_, i) => indices[0] + i));
+        if (direction > 0) expect(indices[0]).toBe(40);
+        else expect(indices.at(-1)).toBe(40);
+        await expectSelectionBounds(page);
+        previous = current;
+      }
+      // A subsequent move must not snap the anchor back to its old screen position.
+      await page.mouse.move(pointer.x + 1, pointer.y);
+      await expect(selection).toHaveText(previous);
+      await page.mouse.up();
+      await expect(page.locator('.pm-selection-box')).not.toBeVisible();
+      const scrollTop = await scroller.evaluate(el => el.scrollTop);
+      await page.mouse.wheel(0, direction * 200);
+      await expect.poll(async () => direction * ((await scroller.evaluate(el => el.scrollTop)) - scrollTop)).toBeGreaterThan(190);
+      await expect(selection).toHaveText(previous);
+      await page.keyboard.press('Escape');
+      await expect(selection).toHaveCount(0);
+      expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body);
+    });
+  }
+}
+
+test('example items select like numbered rows and repeated labels retain their number after save and undo', async ({ page, request }) => {
+  const body = '(@first) First example\n(@foo) Original example\n\nBetween\n\n(@third) Third example\n(@foo) Repeated example\n(@good) Good example\n\nSee (@foo) and (@good).\n\n1. Numbered row\n2. Other numbered row';
+  const note = await open(page, request, body);
+  const editor = page.locator('.pm-document');
+  const examples = editor.locator('li[data-example-label]');
+  await expect(examples).toHaveCount(5);
+  const numbers = () => examples.evaluateAll(nodes => nodes.map(node => (node as HTMLLIElement).value));
+  await expect.poll(numbers).toEqual([1, 2, 3, 2, 4]);
+  await expect(editor).toContainText('See (2) and (4).');
+  await expect(editor.locator('#md-example-foo')).toHaveCount(1);
+  const selected = examples.nth(3);
+  await selectBand(page, selected, 8);
+  await expect(editor.locator('.pm-block-selected')).toHaveCount(1);
+  await expect(selected).toHaveClass(/pm-block-selected/);
+  await expectSelectionBounds(page);
+  const exampleFrame = await page.locator('.pm-block-highlight').boundingBox();
+  const exampleColor = await page.locator('.pm-block-highlight').evaluate(node => getComputedStyle(node).backgroundColor);
+  await page.screenshot({ path: 'test-results/example-list-selection.png', fullPage: true });
+  await selectBand(page, editor.locator('li[data-list-item=numbered]').first(), 8);
+  await expect(editor.locator('.pm-block-selected')).toHaveCount(1);
+  await expectSelectionBounds(page);
+  const numberedFrame = await page.locator('.pm-block-highlight').boundingBox();
+  expect(Math.abs(exampleFrame!.x - numberedFrame!.x)).toBeLessThan(1);
+  expect(Math.abs(exampleFrame!.width - numberedFrame!.width)).toBeLessThan(1);
+  expect(Math.abs(exampleFrame!.height - numberedFrame!.height)).toBeLessThan(1);
+  await expect(page.locator('.pm-block-highlight')).toHaveCSS('background-color', exampleColor);
+  // Removing the first occurrence transfers the label anchor to the repeated row.
+  await selectBand(page, examples.nth(1), 8);
+  await page.keyboard.press('Delete');
+  await expect(examples).toHaveCount(4);
+  await expect.poll(numbers).toEqual([1, 2, 3, 4]);
+  await expect(editor).toContainText('See (3) and (4).');
+  await expect(editor.locator('#md-example-foo')).toHaveText('Repeated example');
+  await page.keyboard.press('Control+z');
+  await expect(examples).toHaveCount(5);
+  await expect.poll(numbers).toEqual([1, 2, 3, 2, 4]);
+  await examples.last().locator('p').click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('(@good) Good example!');
+  await page.reload();
+  await expect.poll(numbers).toEqual([1, 2, 3, 2, 4]);
+  await expect(editor).toContainText('See (2) and (4).');
+  await expect(editor.locator('#md-example-foo')).toHaveCount(1);
+});
+
 test('every visible block gets a full blue overlay, including node views, list markers and container backgrounds', async ({ page, request }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

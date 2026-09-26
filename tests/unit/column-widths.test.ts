@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -65,7 +66,7 @@ test("invalid and incomplete ratios safely display equally and preserve raw valu
   const invalid = parseNotionMarkdown(
     '<columns>\n\t<column width-ratio="0.3">\n\t\tKeep\n</columns>',
   );
-  assert.equal(invalid.firstChild!.type.name, "opaque_block");
+  assert.equal(editorKind(invalid.firstChild!), "opaque_block");
 });
 
 test("drag clamps adjacent columns to a usable size and preserves other ratios", () => {

@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import { Plugin, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
@@ -9,12 +10,19 @@ import { editMetadata } from "../markdown-engine/metadata-editing";
 import { parseNative } from "../markdown-engine/codec";
 
 export function blockPropertyFields(node: PMNode) {
-  if (node.type.name === "syntax_block" && node.attrs.kind === "metadata") {
+  if (isEditorKind(node, "media_block")) {
+    const type = node.attrs.type as string;
+    return [
+      { key: "src", label: `${type === "pdf" ? "PDF" : type[0].toUpperCase() + type.slice(1)} URL`, value: String(node.attrs.src || ""), multiline: false },
+      { key: "caption", label: type === "file" ? "File name" : "Caption", value: String(node.attrs.caption || ""), multiline: type !== "file" },
+    ];
+  }
+  if (isEditorKind(node, "syntax_block") && node.attrs.kind === "metadata") {
     return Object.entries(metadataValues(node.attrs.raw, node.attrs.metadataForm))
       .filter(([, value]) => value === null || typeof value !== "object")
       .map(([key, value]) => ({ key, label: "Metadata " + key, value: String(value ?? ""), multiline: true }));
   }
-  return Object.entries(objectFields[node.type.name] || {}).map(([key, label]) => ({
+  return Object.entries(objectFields[editorKind(node)] || {}).map(([key, label]) => ({
     key, label,
     value: String(key.startsWith("@") ? node.attrs.nfmAttrs?.[key.slice(1)] ?? "" : node.attrs[key] ?? ""),
     multiline: ["html", "prompt", "target", "path", "description", "caption"].includes(key),
@@ -28,7 +36,7 @@ export function blockPropertiesTransaction(state: EditorState, pos: number, orig
   const fields = blockPropertyFields(node);
   const changed = fields.filter(field => values[field.key] !== undefined && values[field.key] !== field.value);
   if (!changed.length) return null;
-  if (node.type.name === "syntax_block" && node.attrs.kind === "metadata") {
+  if (isEditorKind(node, "syntax_block") && node.attrs.kind === "metadata") {
     let raw = node.attrs.raw;
     for (const field of changed) raw = editMetadata(raw, node.attrs.metadataForm, field.key, values[field.key]);
     const parsed = parseNative(raw, node.attrs.config), next = parsed.firstChild;
@@ -48,7 +56,7 @@ export function blockPropertiesTransaction(state: EditorState, pos: number, orig
     } else if (key.startsWith("@")) attrs.nfmAttrs[key.slice(1)] = values[key];
     else attrs[key] = values[key];
   }
-  if (changed.some(field => field.key === "url") && node.type.name === "synced_block") {
+  if (changed.some(field => field.key === "url") && isEditorKind(node, "synced_block")) {
     delete attrs.nfmAttrs["source-revision"];
     delete attrs.nfmAttrs["snapshot-hash"];
   }
@@ -57,7 +65,7 @@ export function blockPropertiesTransaction(state: EditorState, pos: number, orig
 
 const openers = new WeakMap<EditorView, (pos: number) => void>();
 export function openBlockProperties(view: EditorView, pos: number) {
-  if (view.state.doc.nodeAt(pos)?.type.name === "button") {
+  if (isEditorKind(view.state.doc.nodeAt(pos), "button")) {
     if (view.editable) view.nodeDOM(pos)?.dispatchEvent(new Event("notdown-configure-button"));
     return;
   }
@@ -82,11 +90,11 @@ export function blockProperties(supplemental: () => boolean = () => false) {
       openers.set(view, pos => {
         const node = view.state.doc.nodeAt(pos);
         if (!view.editable || !node) return;
-        const fields = blockPropertyFields(node).filter(field => supplemental() || node.type.name !== "synced_block" || field.key !== "@id");
+        const fields = blockPropertyFields(node).filter(field => supplemental() || !isEditorKind(node, "synced_block") || field.key !== "@id");
         if (!fields.length) return;
         active?.dialog.remove();
         const dialog = document.createElement("dialog"); dialog.className = "pm-block-properties-dialog";
-        const title = (resolveContentObject(node)?.name || (node.type.name === "tab" ? "Tab" : "Block")) + " properties";
+        const title = (resolveContentObject(node)?.name || (isEditorKind(node, "tab") ? "Tab" : "Block")) + " properties";
         dialog.setAttribute("aria-label", title);
         const header = document.createElement("header"), heading = document.createElement("h2"), close = document.createElement("button");
         heading.textContent = title; close.type = "button"; close.textContent = "×"; close.setAttribute("aria-label", "Close properties"); close.onclick = () => dialog.close();

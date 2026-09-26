@@ -1,5 +1,11 @@
 import type { Node as PMNode } from "prosemirror-model";
+import { EditorState } from "@codemirror/state";
+import { EditorView, lineNumbers, keymap } from "@codemirror/view";
+import { defaultKeymap } from "@codemirror/commands";
+import { createElement, CodeXml, Copy, X } from "lucide";
+import { markdownSourceLanguage } from "../markdown-engine/source-language";
 import { isListItem } from "../document/list-items";
+import { isEditorKind } from "../document/node-identity";
 import { blockAtPos } from "./editor-blocks";
 import { restoreFootnotes } from "./footnotes";
 import "./block-source.css";
@@ -9,7 +15,7 @@ export function blockSource(doc: PMNode, pos: number, serialize: (doc: PMNode) =
   const block = blockAtPos(doc, pos);
   if (!block) throw new Error("This block is no longer available.");
   let node = block.node;
-  if (isListItem(node) && block.listNode) {
+  if ((isListItem(node) || isEditorKind(node, "definition_list_item")) && block.listNode) {
     const list = block.listNode;
     node = list.type.create({
       ...list.attrs,
@@ -25,7 +31,7 @@ export function blockSource(doc: PMNode, pos: number, serialize: (doc: PMNode) =
   return serialize(restoreFootnotes(fragment));
 }
 
-export function openBlockSource(source: string, onClose: () => void): HTMLDialogElement {
+export function openBlockSource(source: string, onClose: () => void, signal?: AbortSignal): HTMLDialogElement {
   const dialog = document.createElement("dialog");
   dialog.className = "pm-block-source-dialog";
   dialog.setAttribute("aria-label", "Block source");
@@ -34,37 +40,70 @@ export function openBlockSource(source: string, onClose: () => void): HTMLDialog
   title.textContent = "Block source";
   const close = document.createElement("button");
   close.type = "button";
-  close.textContent = "×";
+  close.append(createElement(X));
+  close.className = "pm-block-source-close";
   close.setAttribute("aria-label", "Close block source");
   close.onclick = () => dialog.close();
-  header.append(title, close);
-  const input = document.createElement("textarea");
-  input.readOnly = true;
-  input.spellcheck = false;
-  input.wrap = "off";
-  input.value = source;
-  input.setAttribute("aria-label", "Block Markdown source");
+  const heading = document.createElement("div");
+  heading.className = "pm-block-source-heading";
+  heading.append(createElement(CodeXml), title);
+  const mount = document.createElement("div");
+  mount.className = "pm-block-source-code";
+  const state = EditorState.create({
+    doc: source,
+    extensions: [
+      EditorState.readOnly.of(true),
+      EditorView.editable.of(false),
+      EditorState.tabSize.of(2),
+      EditorView.contentAttributes.of({
+        role: "textbox", "aria-label": "Block Markdown source",
+        "aria-readonly": "true", "aria-multiline": "true", tabindex: "0",
+      }),
+      lineNumbers(),
+      keymap.of(defaultKeymap),
+      markdownSourceLanguage(),
+    ],
+  });
+  const editor = new EditorView({ state, parent: mount });
   const footer = document.createElement("footer");
   const status = document.createElement("output");
   status.setAttribute("aria-live", "polite");
+  const details = document.createElement("span");
+  details.textContent = `${state.doc.lines} ${state.doc.lines === 1 ? "line" : "lines"} · Read only`;
   const copy = document.createElement("button");
   copy.type = "button";
-  copy.textContent = "Copy source";
+  copy.append(createElement(Copy), document.createTextNode("Copy"));
+  copy.setAttribute("aria-label", "Copy source");
+  copy.className = "pm-block-source-copy";
   copy.onclick = async () => {
     try {
       await navigator.clipboard.writeText(source);
       status.textContent = "Copied";
     } catch {
-      input.focus();
-      input.select();
+      editor.focus();
+      editor.dispatch({ selection: { anchor: 0, head: editor.state.doc.length } });
       status.textContent = "Copy unavailable. Press Ctrl+C / ⌘C to copy.";
     }
   };
-  footer.append(status, copy);
-  dialog.append(header, input, footer);
-  dialog.onclose = () => { dialog.remove(); onClose(); };
+  const actions = document.createElement("div");
+  actions.className = "pm-block-source-actions";
+  actions.append(copy, close);
+  header.append(heading, actions);
+  footer.append(details, status);
+  dialog.append(header, mount, footer);
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    signal?.removeEventListener("abort", dispose);
+    editor.destroy();
+    dialog.remove();
+    onClose();
+  };
+  signal?.addEventListener("abort", dispose, { once: true });
+  dialog.onclose = dispose;
   document.body.append(dialog);
   dialog.showModal();
-  input.focus();
+  editor.focus();
   return dialog;
 }

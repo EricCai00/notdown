@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import { Fragment, Slice, type Node as PMNode, type ResolvedPos } from "prosemirror-model";
 import { Plugin, Selection, SelectionRange, TextSelection, type EditorState, type Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
@@ -6,11 +7,11 @@ import type { Mappable } from "prosemirror-transform";
 export interface TableCell { node: PMNode; pos: number; r: number; c: number; h: number; w: number }
 export function tableMap(doc: PMNode, pos: number) {
   const node = doc.nodeAt(pos);
-  if (node?.type.name !== "table") throw new Error("Expected a table.");
+  if (!isEditorKind(node, "table")) throw new Error("Expected a table.");
   const cells: TableCell[] = [], grid: TableCell[][] = [];
   let r = 0;
   node.forEach((row, offset) => {
-    if (row.type.name !== "table_row") return;
+    if (!isEditorKind(row, "table_row")) return;
     grid[r] ||= []; let c = 0;
     row.forEach((cell, childOffset) => {
       while (grid[r][c]) c++;
@@ -23,11 +24,11 @@ export function tableMap(doc: PMNode, pos: number) {
   return { node, cells, grid, height: r, width: Math.max(0, ...grid.map(row => row.length)) };
 }
 export function cellAt($pos: ResolvedPos): number | undefined {
-  if ($pos.nodeAfter?.type.name === "table_cell") return $pos.pos;
-  for (let depth = $pos.depth; depth; depth--) if ($pos.node(depth).type.name === "table_cell") return $pos.before(depth);
+  if (isEditorKind($pos.nodeAfter, "table_cell")) return $pos.pos;
+  for (let depth = $pos.depth; depth; depth--) if (isEditorKind($pos.node(depth), "table_cell")) return $pos.before(depth);
 }
 function tableAtCell($cell: ResolvedPos) {
-  for (let depth = $cell.depth; depth; depth--) if ($cell.node(depth).type.name === "table") return $cell.before(depth);
+  for (let depth = $cell.depth; depth; depth--) if (isEditorKind($cell.node(depth), "table")) return $cell.before(depth);
   throw new Error("Cell is outside a table.");
 }
 export class TableSelection extends Selection {
@@ -66,12 +67,12 @@ export class TableSelection extends Selection {
     const start = tr.steps.length;
     for (let i = this.cells.length - 1; i >= 0; i--) {
       const cell = this.cells[i], pos = tr.mapping.slice(start).map(cell.pos);
-      tr.replaceWith(pos + 1, pos + cell.node.nodeSize - 1, i === 0 && content.size ? content.content : tr.doc.type.schema.nodes.paragraph.create());
+      tr.replaceWith(pos + 1, pos + cell.node.nodeSize - 1, i === 0 && content.size ? content.content : tr.doc.type.schema.nodes["block.paragraph"].create());
     }
     tr.setSelection(TextSelection.near(tr.doc.resolve(tr.mapping.slice(start).map(this.cells[0].pos) + 1)));
   }
   replaceWith(tr: Transaction, node: PMNode) {
-    this.replace(tr, new Slice(Fragment.from(node.isInline ? tr.doc.type.schema.nodes.paragraph.create(null, node) : node), 0, 0));
+    this.replace(tr, new Slice(Fragment.from(node.isInline ? tr.doc.type.schema.nodes["block.paragraph"].create(null, node) : node), 0, 0));
   }
 }
 function tableBookmark(anchor: number, head: number): { map(mapping: Mappable): ReturnType<typeof tableBookmark>; resolve(doc: PMNode): Selection } {
@@ -105,7 +106,7 @@ export function pasteTableText(state: EditorState, text: string): Transaction | 
   const tr = state.tr;
   for (const cell of [...selection.cells].reverse()) {
     const value = values.length === 1 && values[0].length === 1 ? values[0][0] : values[cell.r - top][cell.c - left];
-    tr.replaceWith(cell.pos + 1, cell.pos + cell.node.nodeSize - 1, state.schema.nodes.paragraph.create(null, value ? state.schema.text(value) : undefined));
+    tr.replaceWith(cell.pos + 1, cell.pos + cell.node.nodeSize - 1, state.schema.nodes["block.paragraph"].create(null, value ? state.schema.text(value) : undefined));
   }
   return tr;
 }
@@ -113,7 +114,7 @@ export function tableSelections() {
   return new Plugin({ props: {
     decorations(state) { return state.selection instanceof TableSelection ? DecorationSet.create(state.doc, state.selection.cells.map(c => Decoration.node(c.pos, c.pos + c.node.nodeSize, { class: "pm-selected-cell" }))) : null; },
     handleClickOn(view, _pos, node, pos, event) {
-      if (node.type.name !== "table_cell" || !event.shiftKey) return false;
+      if (!isEditorKind(node, "table_cell") || !event.shiftKey) return false;
       const anchor = view.state.selection instanceof TableSelection ? view.state.selection.$anchorCell.pos : cellAt(view.state.selection.$from);
       if (anchor === undefined) return false;
       try { view.dispatch(view.state.tr.setSelection(new TableSelection(view.state.doc.resolve(anchor), view.state.doc.resolve(pos)))); event.preventDefault(); return true; } catch { return false; }

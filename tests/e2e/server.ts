@@ -41,6 +41,7 @@ const server = app.listen(port, "127.0.0.1", () => {
   );
 });
 let shuttingDown = false;
+server.once("close", () => app.locals.closeRNotebook());
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;

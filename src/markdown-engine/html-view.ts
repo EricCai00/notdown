@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { renderRawHtml } from "./html.js";
@@ -24,8 +25,8 @@ let nextSourceId = 0;
 
 export function isHtmlBlock(node: PMNode) {
   return (
-    node.type.name === "html_block" ||
-    (node.type.name === "syntax_block" &&
+    isEditorKind(node, "html_block") ||
+    (isEditorKind(node, "syntax_block") &&
       node.attrs.kind === "raw" &&
       node.attrs.data?.format === "html")
   );
@@ -120,17 +121,19 @@ export class HtmlBlockView implements NodeView {
     const pos = this.getPos();
     // Raw attributes retain their complete fenced source. Reparse only this
     // carrier so the format, preview and recoverable source stay in sync.
-    if (pos !== undefined && this.node.type.name === "syntax_block") {
+    if (pos !== undefined && isEditorKind(this.node, "syntax_block")) {
       const parsed = parseNative(raw, this.node.attrs.config);
       const first = parsed.firstChild;
-      const attrs =
+      const replacement =
         parsed.childCount === 1 &&
-        first?.type === this.node.type &&
+        isEditorKind(first, "syntax_block") &&
         first.attrs.kind === "raw"
-          ? first.attrs
-          : { ...this.node.attrs, raw, html: "", data: { format: "html" } };
+          ? first
+          : null;
+      const attrs = replacement?.attrs ??
+        { ...this.node.attrs, raw, html: "", data: { format: "html" } };
       this.view.dispatch(
-        this.view.state.tr.setNodeMarkup(pos, undefined, {
+        this.view.state.tr.setNodeMarkup(pos, replacement?.type, {
           ...attrs,
           source: null,
           sourceFingerprint: null,
@@ -191,7 +194,7 @@ export class HtmlBlockView implements NodeView {
     if (!isHtmlBlock(node)) return false;
     this.node = node;
     const html = renderRawHtml(
-      node.type.name === "html_block"
+      isEditorKind(node, "html_block")
         ? node.attrs.gfmConfig ? renderGfmSyntax(node.attrs.raw, node.attrs.gfmConfig) : node.attrs.raw
         : node.attrs.data?.code || "",
       Boolean(node.attrs.tagfilter),

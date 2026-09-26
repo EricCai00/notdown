@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as PMNode } from "prosemirror-model";
@@ -81,8 +82,8 @@ export function highlightedCodeRanges(code: string, params: string): CodeHighlig
 function decorations(doc: PMNode): DecorationSet {
   const spans: Decoration[] = [];
   doc.descendants((node, pos) => {
-    if (node.type.name !== "code_block") return;
-    for (const range of highlightedCodeRanges(node.textContent, String(node.attrs.params || "")))
+    if (!isEditorKind(node, "code_block") && !isEditorKind(node, "executable_chunk") && !isEditorKind(node, "executable_inline")) return;
+    for (const range of highlightedCodeRanges(node.textContent, node.attrs.language === "ojs" ? "javascript" : String(node.attrs.language || node.attrs.params || "")))
       spans.push(Decoration.inline(pos + 1 + range.from, pos + 1 + range.to, { class: range.className }));
   });
   return DecorationSet.create(doc, spans);

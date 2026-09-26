@@ -6,3 +6,5 @@ await build({ entryPoints: ["src/desktop/preload.ts"], outfile: "desktop-dist/pr
 await build({ entryPoints: ["src/desktop/welcome.ts"], outfile: "desktop-dist/welcome.js", bundle: true, platform: "browser", target: "es2022" });
 for (const name of ["welcome.html", "welcome.css"]) await copyFile(`src/desktop/${name}`, `desktop-dist/${name}`);
 await copyFile("src/assets/notdown-icon.png", "desktop-dist/icon.png");
+await copyFile("server/r-notebook-driver.R", "desktop-dist/r-notebook-driver.R");
+await copyFile("server/jupyter-driver.py", "desktop-dist/jupyter-driver.py");

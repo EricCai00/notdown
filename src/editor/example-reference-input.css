@@ -1,0 +1,39 @@
+.pm-example-references {
+  position: fixed;
+  z-index: 180;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border, #deddd9);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text, #37352f);
+  box-shadow: 0 8px 28px #0002;
+}
+.pm-example-reference-hint {
+  padding: 5px 7px;
+  color: var(--muted, #787774);
+  font-size: 12px;
+}
+.pm-example-reference-options { max-height: 260px; overflow-y: auto; overscroll-behavior: contain; }
+.pm-example-reference-options button {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 7px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pm-example-reference-options button:hover,
+.pm-example-reference-options button[aria-selected="true"] { background: var(--hover, #efefed); }
+.pm-example-reference-options span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pm-example-reference-options small { color: var(--muted, #787774); overflow-wrap: anywhere; }

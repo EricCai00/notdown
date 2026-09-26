@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { promises as fs } from "node:fs";
@@ -210,9 +211,9 @@ test("mentions and previews round-trip unknown fields after editing and respect 
   const source =
     'Before <mention-link url="https://github.com/a/b/issues/1" future="keep">Issue &amp; detail</mention-link> after.\n\n<link-preview url="https://1drv.ms/w/s!file" custom="keep"/>\n\n```\n<mention-link url="x">literal</mention-link>\n```';
   const doc = parseNative(source, config);
-  assert.equal(doc.firstChild?.child(1).type.name, "link_mention");
-  assert.equal(doc.child(1).type.name, "link_preview");
-  assert.equal(doc.child(2).type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild?.child(1)), "link_mention");
+  assert.equal(editorKind(doc.child(1)), "link_preview");
+  assert.equal(editorKind(doc.child(2)), "code_block");
   assert.equal(serializeNative(doc, config), source);
   const mention = doc.firstChild!.child(1);
   const tr = EditorState.create({ doc }).tr.setNodeMarkup(8, undefined, {
@@ -233,7 +234,7 @@ test("mentions and previews round-trip unknown fields after editing and respect 
   });
   let count = 0;
   disabled.descendants((n) => {
-    if (["link_mention", "link_preview"].includes(n.type.name)) count++;
+    if (["link_mention", "link_preview"].includes(editorKind(n))) count++;
   });
   assert.equal(count, 0);
   const broken = 'Before <mention-link url="https://github.com/a/b">unfinished';

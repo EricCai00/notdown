@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorState } from "prosemirror-state";
@@ -11,10 +12,10 @@ test("callout first paragraph moves the container, subsequent paragraphs and nes
   const doc = parseNative('<callout icon="❗">\n\tFirst\n\n\tSecond\n\n\t- Nested\n</callout>\n\nTail', config);
   const positions = new Map<string, number>();
   doc.descendants((node, pos) => { if (node.isText) positions.set(node.text!, pos); });
-  assert.equal(blockAtPos(doc, positions.get("First")!)?.node.type.name, "callout");
+  assert.equal(editorKind(blockAtPos(doc, positions.get("First")!)?.node), "callout");
   const second = blockAtPos(doc, positions.get("Second")!)!;
-  assert.equal(second.node.type.name, "paragraph");
-  assert.equal(blockAtPos(doc, positions.get("Nested")!)?.node.type.name, "bullet_list_item");
+  assert.equal(editorKind(second.node), "paragraph");
+  assert.equal(editorKind(blockAtPos(doc, positions.get("Nested")!)?.node), "bullet_list_item");
   let state = EditorState.create({ doc, plugins: [history()] });
   const moved = moveEditorBlock(state, second.pos, positions.get("Tail")!, "after");
   assert(moved);

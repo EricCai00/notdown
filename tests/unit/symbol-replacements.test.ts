@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorState, TextSelection } from "prosemirror-state";
@@ -18,7 +19,7 @@ import {
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 
 const config: SyntaxConfig = { version: 1, variant: "notdown", extensions: {} };
-function harness(syntax = config, content = schema.nodes.paragraph.create()) {
+function harness(syntax = config, content = schema.nodes["block.paragraph"].create()) {
   const allow = (command: string) => commandEnabled(syntax, command);
   const plugins = [
     markdownRules(allow),
@@ -26,7 +27,7 @@ function harness(syntax = config, content = schema.nodes.paragraph.create()) {
   ];
   let state = EditorState.create({
     schema,
-    doc: schema.nodes.doc.create(null, content),
+    doc: schema.nodes["doc"].create(null, content),
     plugins,
   });
   state = state.apply(
@@ -105,14 +106,11 @@ test("Notdown defaults on, can disable live, and other dialects cannot force it 
 test("Backspace restores the last input and formatting remains intact", () => {
   const editor = harness(
     config,
-    schema.nodes.paragraph.create(
-      null,
-      schema.text("Bold ", [schema.marks.strong.create()]),
-    ),
+    schema.nodes["block.paragraph"].create(null, schema.text("Bold ", [schema.marks.strong.create()])),
   );
   editor.type("->");
   assert.equal(
-    editor.state.doc.firstChild!.firstChild!.marks[0].type.name,
+    editorKind(editor.state.doc.firstChild!.firstChild!.marks[0]),
     "strong",
   );
   assert(undoInputRule(editor.state, editor.view.dispatch));
@@ -127,17 +125,11 @@ test("Backspace restores the last input and formatting remains intact", () => {
 
 test("code, links, escapes, URLs and longer operators are protected", () => {
   for (const content of [
-    schema.nodes.code_block.create(null, schema.text("code X")),
-    schema.nodes.paragraph.create(
-      null,
-      schema.text("code X", [schema.marks.code.create()]),
-    ),
-    schema.nodes.paragraph.create(
-      null,
-      schema.text("link X", [
+    schema.nodes["block.code_block"].create(null, schema.text("code X")),
+    schema.nodes["block.paragraph"].create(null, schema.text("code X", [schema.marks.code.create()])),
+    schema.nodes["block.paragraph"].create(null, schema.text("link X", [
         schema.marks.link.create({ href: "https://example.com" }),
-      ]),
-    ),
+      ])),
   ]) {
     const editor = harness(config, content);
     editor.view.dispatch(
@@ -169,7 +161,7 @@ test("code, links, escapes, URLs and longer operators are protected", () => {
     const editor = harness();
     editor.type(source);
     if (source === "---")
-      assert.equal(editor.state.doc.firstChild!.type.name, "horizontal_rule");
+      assert.equal(editorKind(editor.state.doc.firstChild!), "horizontal_rule");
     else assert.equal(editor.state.doc.textContent, source, source);
   }
 });

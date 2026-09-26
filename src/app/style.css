@@ -3108,6 +3108,12 @@ dialog .muted,
 .switch-row input {
   accent-color: #2383e2;
 }
+.runtime-settings .runtime-setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; margin: 12px 0; align-items: end; }
+.runtime-settings .runtime-setting label { min-width: 0; }
+.runtime-settings .runtime-setting input { margin-top: 4px; font-family: monospace; }
+.runtime-settings output { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; margin-top: 8px; }
+.runtime-settings .runtime-setting output { grid-column: 1 / -1; margin-top: 0; }
+.runtime-settings summary { cursor: pointer; font-size: 13px; }
 .settings-section .switch-row select {
   min-width: 150px;
   padding: 6px 8px;
@@ -3468,3 +3474,61 @@ dialog .muted,
 }
 .insert-group-heading:first-child { border-top: 0; margin-top: 0; padding-top: 5px; }
 .insert-grid > button > svg { flex: 0 0 34px; width: 34px; height: 34px; }
+.inline-slash.insert-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  padding: 4px 0 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.inline-slash .dialog-heading {
+  flex: none;
+  padding: 6px 14px;
+}
+.inline-slash .insert-grid {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 0 5px 5px;
+}
+.inline-slash .insert-grid > * { flex-shrink: 0; }
+.inline-slash .insert-grid button {
+  min-height: 36px;
+  gap: 10px;
+  padding: 7px 9px;
+}
+.inline-slash .insert-grid button > span { min-width: 0; }
+.inline-slash .insert-grid strong { overflow-wrap: anywhere; }
+.inline-slash .insert-grid small { display: none; }
+.inline-slash .insert-grid > button > svg {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.inline-slash .insert-group-heading {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.insert-footer {
+  flex: none;
+  border-top: 1px solid var(--line);
+  padding: 4px;
+}
+.insert-close {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.insert-close:hover { background: var(--hover); }
+.insert-close kbd { font: inherit; font-size: 12px; }

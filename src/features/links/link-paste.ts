@@ -1,3 +1,4 @@
+import { createEditorNode, isEditorKind } from "../../document/node-identity";
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { closeHistory } from "prosemirror-history";
 import { linkTarget } from "./link-preview";
@@ -81,9 +82,7 @@ export function linkPaste(canUse: () => boolean, canBookmark: () => boolean = ()
           if (mode !== "link") {
             tr.setSelection(TextSelection.create(tr.doc, p.from, p.to));
             tr.replaceSelectionWith(
-              view.state.schema.nodes[
-                mode === "mention" ? "link_mention" : mode === "bookmark" ? "web_bookmark" : "link_preview"
-              ].create({ url: p.url }),
+              createEditorNode(view.state.schema, mode === "mention" ? "link_mention" : mode === "bookmark" ? "web_bookmark" : "link_preview", { url: p.url }),
               false,
             );
           }
@@ -92,7 +91,7 @@ export function linkPaste(canUse: () => boolean, canBookmark: () => boolean = ()
             // Only this user action fetches metadata; loading an existing page never does.
             let position: number | undefined;
             tr.doc.descendants((node, pos) => {
-              if (node.type.name === "web_bookmark" && node.attrs.url === p.url && pos >= p.from - 1 && pos <= tr.selection.to) position = pos;
+              if (isEditorKind(node, "web_bookmark") && node.attrs.url === p.url && pos >= p.from - 1 && pos <= tr.selection.to) position = pos;
             });
             if (position !== undefined) view.nodeDOM(position)?.dispatchEvent(new Event("notdown-create-bookmark"));
           }

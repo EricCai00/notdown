@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -48,12 +49,12 @@ test("MMD metadata preserves CRLF through adjacent edits, disabled switches and 
     assert.equal(serializeNative(parseNative(raw, disabled), disabled), raw);
   }
   const preserved = parseNative(raw, { ...mmd, extensions: { metadata_values: false } }).firstChild!;
-  assert.equal(preserved.type.name, 'opaque_block');
+  assert.equal(editorKind(preserved), 'opaque_block');
   assert.equal(resolveContentObject(preserved)?.id, 'metadata.yaml_front_matter');
 });
 
 test("database objects are removed while old tags remain recoverable Unsupported source", () => {
-  assert.equal(editorSchema.nodes.database, undefined);
+  assert.equal(editorSchema.nodes["database"], undefined);
   assert.equal(contentObject('block.database_reference'), undefined);
   const raw = '<database url="https://example.com/db" inline="true" custom="keep">Existing</database>\n\nTail';
   for (const variant of ['notion-markdown', 'commonmark'] as const) {

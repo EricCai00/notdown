@@ -39,6 +39,7 @@ import "./products.css";
 import { groupExtensions, extensionProvenanceHtml, pandocDefaultVersion, isBuiltInSyntax } from "../catalog/extension-provenance";
 import "../catalog/extension-provenance.css";
 import { RMarkdownRunner } from "./rmarkdown-runner";
+import { RNotebookController } from "./r-notebook";
 
 export type EditMode = "document" | "source" | "split";
 const projectionDelay = 500;
@@ -54,6 +55,7 @@ interface Options {
   onInsert(): void;
   onError(error: unknown): void;
   onOpenPage?: (id: string, reference?: InternalReference) => void;
+  onCreatePage?: (title: string, parent: string | null) => Promise<Page | null>;
 }
 /** Both views share a source draft and a bounded history; mode changes only hide a projection. */
 export class MarkdownWorkspace {
@@ -67,6 +69,7 @@ export class MarkdownWorkspace {
   private projecting = false;
   private destroyed = false;
   private rMarkdown: RMarkdownRunner;
+  private rNotebook: RNotebookController;
   private abort = new AbortController();
   private resize: ResizeObserver;
   private readonly scrollExtension = new Compartment();
@@ -182,6 +185,7 @@ export class MarkdownWorkspace {
       onHistory: (direction) => this.history(direction),
       canCommand: (name) => commandEnabled(this.session.snapshot.config, name),
       onOpenPage: options.onOpenPage,
+      onCreatePage: options.onCreatePage,
       onDocumentChange: (doc, isolateHistory) => {
         if (this.projecting) return;
         try {
@@ -302,7 +306,8 @@ export class MarkdownWorkspace {
     this.resize.observe(root.querySelector(".editing-toolbar")!);
     this.resize.observe(root.querySelector(".dialect-label")!);
     window.addEventListener("resize", () => this.measureLayout(), { signal });
-    this.rMarkdown = new RMarkdownRunner(root, () => this.capture(), text => this.insert(text));
+    this.rMarkdown = new RMarkdownRunner(root, () => this.capture());
+    this.rNotebook = new RNotebookController(root, () => this.capture());
     this.controls();
     this.setMode(options.mode);
   }
@@ -317,7 +322,9 @@ export class MarkdownWorkspace {
   }
   private controls() {
     const config = this.session.snapshot.config;
+    this.root.dataset.variant = config.variant;
     this.rMarkdown?.update(this.session.snapshot);
+    this.rNotebook?.update(this.session.snapshot);
     const panel = this.root.querySelector<HTMLElement>(".syntax-options-panel")!;
     const variantChanged = panel.dataset.variant !== config.variant;
     const query = panel.querySelector<HTMLInputElement>('.extension-search input')!.value.trim().toLowerCase();
@@ -364,6 +371,7 @@ export class MarkdownWorkspace {
   }
   private publish() {
     this.rMarkdown?.update(this.session.snapshot);
+    this.rNotebook?.update(this.session.snapshot);
     this.scheduleScroll();
     this.root.querySelector(".editing-state")!.textContent = this.pending
       ? "Updating page…"
@@ -594,7 +602,7 @@ export class MarkdownWorkspace {
       const note = "text" in input ? newFootnote(doc, input.text) : null;
       const label = note?.attrs.label ?? (input as { label: string }).label;
       const reference = `[^${label}]`, newline = state.lineBreak;
-      const definition = note ? newline + newline + serializeNative(editorSchema.nodes.doc.create(null, note), this.session.snapshot.config).replace(/\r\n|\r|\n/g, newline) + newline : "";
+      const definition = note ? newline + newline + serializeNative(editorSchema.nodes["doc"].create(null, note), this.session.snapshot.config).replace(/\r\n|\r|\n/g, newline) + newline : "";
       const { from, to } = state.selection.main;
       this.source.dispatch({
         changes: to === state.doc.length
@@ -776,6 +784,7 @@ export class MarkdownWorkspace {
   destroy() {
     this.capture();
     this.rMarkdown.destroy();
+    this.rNotebook.destroy();
     this.destroyed = true;
     clearTimeout(this.timer);
     cancelAnimationFrame(this.syncFrame);

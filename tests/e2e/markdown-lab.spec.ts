@@ -1,4 +1,37 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+
+test("Pandoc citations render from YAML references in Page and HTML while preserving the source", async ({ page }) => {
+  const source = await readFile(new URL("../../docs/fixtures/pandoc-citations.md", import.meta.url), "utf8");
+  await openLab(page);
+  await page.locator("#variant").selectOption("markdown");
+  await replaceSource(page, source);
+  await ready(page);
+  const preview = page.locator("#preview");
+  await expect(preview.locator('.citation[data-cites="doe99"]').first()).toHaveText("(Doe 1999)");
+  await expect(preview.locator("#lab-content-refs .csl-entry")).toHaveCount(2);
+  await expect(preview.locator("#lab-content-ref-smith04")).toContainText("Later Research");
+  await expect(preview.locator('h1.reset-citation-positions')).toHaveAttribute("data-source-line", /\d+/);
+  await expect(preview.locator('[role="doc-endnotes"]')).toContainText("Doe 1999");
+  await expect(preview.locator('code').first()).toHaveText("[@doe99]");
+  await expect(page.locator("#preview-notices")).toBeHidden();
+  await preview.locator('.citation a[href="#lab-content-ref-doe99"]').first().click();
+  await expect(preview.locator("#lab-content-ref-doe99")).toBeInViewport();
+  await page.getByRole("button", { name: "HTML", exact: true }).click();
+  await expect(page.locator("#html-output")).toContainText('id="refs"');
+  await expect(page.locator("#html-output")).toContainText("Doe 1999");
+  expect(await storedSource(page)).toBe(source);
+  await page.getByRole("button", { name: "Page", exact: true }).click();
+  await page.screenshot({ path: "test-results/lab-citations.png" });
+
+  await replaceSource(page, "Unknown [@missing].");
+  await ready(page);
+  await expect(page.locator("#preview-notices")).toContainText("Add a references list");
+  await replaceSource(page, source);
+  await ready(page);
+  await expect(page.locator("#preview-notices")).toBeHidden();
+  expect(await storedSource(page)).toBe(source);
+});
 
 async function openLab(page: Page, pandoc = true) {
   if (pandoc) {

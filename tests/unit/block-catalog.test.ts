@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -40,7 +41,7 @@ test("catalog covers schema nodes and extension block kinds, with real native ex
     let found = false;
     doc.descendants((node) => {
       if (
-        node.type.name === entry.node &&
+        (node.type.name === entry.node || editorKind(node) === entry.node) &&
         (entry.node !== "syntax_block" || !entry.id.startsWith("syntax:") ||
           entry.id === `syntax:${node.attrs.kind}`)
       )
@@ -53,17 +54,14 @@ test("catalog covers schema nodes and extension block kinds, with real native ex
 test("menu labels distinguish heading levels, task rows and ordered rows", () => {
   const s = editorSchema;
   assert.equal(
-    blockTypeLabel(s.nodes.heading.create({ level: 3 })),
+    blockTypeLabel(createEditorNode(s, "heading", { level: 3 })),
     "Heading 3",
   );
-  const task = s.nodes.task_list_item.create(
-    { checked: true },
-    s.nodes.paragraph.create(),
-  );
+  const task = s.nodes["block.task_list_item"].create({ checked: true }, s.nodes["block.paragraph"].create());
   assert.equal(blockTypeLabel(task), "Task list item");
-  const item = s.nodes.numbered_list_item.create(null, s.nodes.paragraph.create());
+  const item = s.nodes["block.numbered_list_item"].create(null, s.nodes["block.paragraph"].create());
   assert.equal(
-    blockTypeLabel(item, s.nodes.ordered_list.create(null, item)),
+    blockTypeLabel(item, s.nodes["structure.ordered_list"].create(null, item)),
     "Numbered list item",
   );
 });
@@ -74,16 +72,16 @@ test("the Unsupported specimen leaves following sections editable in every diale
     const config: SyntaxConfig = { version: 1, variant: id, extensions: {} };
     const source = sample + "\n\n## Next case\n\nEditable tail";
     const doc = parseNative(source, config);
-    assert.equal(doc.child(doc.childCount - 2).type.name, "heading", id);
+    assert.equal(editorKind(doc.child(doc.childCount - 2)), "heading", id);
     assert.equal(doc.child(doc.childCount - 2).textContent, "Next case", id);
-    assert.equal(doc.lastChild!.type.name, "paragraph", id);
+    assert.equal(editorKind(doc.lastChild!), "paragraph", id);
     assert.equal(doc.lastChild!.textContent, "Editable tail", id);
     if (id === "gfm") {
       // GFM's grammar treats unknown directive text as a paragraph; source
       // preservation must not replace ordinary Markdown with an opaque block.
-      assert.equal(doc.firstChild!.type.name, "paragraph", id);
+      assert.equal(editorKind(doc.firstChild!), "paragraph", id);
     } else if (id !== "notion-markdown") {
-      assert.equal(doc.firstChild!.type.name, "opaque_block", id);
+      assert.equal(editorKind(doc.firstChild!), "opaque_block", id);
       assert.equal(doc.firstChild!.attrs.raw, sample, id);
     }
     assert.equal(serializeNative(doc, config), source, id);

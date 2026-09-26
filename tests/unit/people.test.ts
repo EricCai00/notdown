@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
@@ -101,7 +102,7 @@ test("person references round-trip labels and unknown attributes without rewriti
   assert.ok(output.includes('<mention-user url="user://notion-user">External user</mention-user>'));
   assert.ok(output.includes(`\`\`\`xml\n${mention}\n\`\`\``));
   const labels: string[] = [];
-  parseNotionMarkdown(output).descendants(node => { if (node.type.name === "mention") labels.push(node.attrs.label); });
+  parseNotionMarkdown(output).descendants(node => { if (editorKind(node) === "mention") labels.push(node.attrs.label); });
   assert.deepEqual(labels, [person.name, "External user"]);
   assert.equal(personId(`person://${person.id}`), person.id);
   assert.equal(personId("user://notion-user"), null);

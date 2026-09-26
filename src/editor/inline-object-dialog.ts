@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { SyntaxConfig } from "../markdown-engine/config";
 import { buildInlineInsertion, inlineChoices, inlineEncodings, type InlineEncoding, type InlineInsertion, type InlineObjectCommand } from "../document/inline-objects";
@@ -63,7 +64,7 @@ export function inlineObjectDialog(command: InlineObjectCommand, config: SyntaxC
   dialog.onclose = () => { controller.abort(); dialog.remove(); onClose(); }; document.body.append(dialog); showEditorPanel(dialog, title.textContent!); Object.values(controls)[0]?.focus({ preventScroll: true });
   if (command === "citation") {
     const metadata: Record<string, unknown> = {};
-    doc.descendants(node => { if (node.type.name === "syntax_block" && node.attrs.kind === "metadata") Object.assign(metadata, metadataValues(node.attrs.raw, node.attrs.metadataForm)); });
+    doc.descendants(node => { if (isEditorKind(node, "syntax_block") && node.attrs.kind === "metadata") Object.assign(metadata, metadataValues(node.attrs.raw, node.attrs.metadataForm)); });
     const path = String(metadata.bibliography || metadata.bibtex || "");
     if (path) void fetch("/api/syntax/bibliography", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }), signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error("Unable to read the local bibliography."); return response.json(); })

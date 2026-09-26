@@ -9,7 +9,7 @@ export function openImportDialog(options: { save: () => Promise<boolean>; comple
   dialog.setAttribute("aria-label", "Import Markdown folder");
   dialog.innerHTML = `<form method="dialog"><header><h2>Import Markdown folder</h2><button aria-label="Close import">×</button></header></form>
     <p>Copy existing notes into this vault. Your source folder stays unchanged.</p>
-    <label>Markdown dialect<select id="import-dialect"><option value="gfm">GitHub Flavored Markdown</option><option value="obsidian">Obsidian</option><option value="notdown">Notdown</option><option value="rmarkdown">R Markdown (.Rmd)</option></select></label>
+    <label>Markdown dialect<select id="import-dialect"><option value="gfm">GitHub Flavored Markdown</option><option value="obsidian">Obsidian</option><option value="notdown">Notdown</option><option value="rmarkdown">R Markdown (.Rmd)</option><option value="quarto">Quarto (.md / .qmd)</option></select></label>
     <label class="import-picker">Choose a folder<input id="import-files" type="file" webkitdirectory multiple></label>
     <p class="import-hint">Up to 500 files / 20 MB per import. Hidden files are excluded. Standard Markdown links and images are rebased; wiki links and HTML references need review. Original files are archived in the vault.</p>
     <div id="import-preview" aria-live="polite"></div>

@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorState } from "prosemirror-state";
@@ -26,7 +27,7 @@ test("raw HTML stays literal and sanitized while unsupported formats retain thei
   assert.notEqual(resolveContentObject(parseNative(raw, notion).firstChild!)?.id, "block.html_block");
   for (const source of ['\\begin{center}\nText\n\\end{center}', 'Before \\textbf{word} after']) {
     const doc = parseNative(source, { ...config, extensions: { raw_tex: true } });
-    const node = doc.firstChild!.type.name === "syntax_block" ? doc.firstChild! : doc.firstChild!.child(1);
+    const node = editorKind(doc.firstChild!) === "syntax_block" ? doc.firstChild! : doc.firstChild!.child(1);
     assert.equal(resolveContentObject(node)?.id, "block.unsupported");
   }
 });
@@ -78,7 +79,7 @@ test("removed agent mentions preserve literal content, unknown attributes and CR
     ]) {
       const source = `Before ${tag} after\r\n\r\nTail\r\n`;
       const doc = parseNative(source, config);
-      doc.descendants(node => assert.notEqual(node.type.name, "mention"));
+      doc.descendants(node => assert.notEqual(editorKind(node), "mention"));
       assert.equal(serializeNative(doc, config), source);
       let state = EditorState.create({ doc });
       state = state.apply(state.tr.insertText("!", state.doc.content.size - 1));
@@ -92,7 +93,7 @@ test("removed agent mentions preserve literal content, unknown attributes and CR
       let recovered = "";
       reopened.firstChild!.forEach(node => { recovered += node.isText ? node.textContent : node.attrs.raw || ""; });
       assert.equal(recovered, `Before ${tag} after!`);
-      reopened.descendants(node => assert.notEqual(node.type.name, "mention"));
+      reopened.descendants(node => assert.notEqual(editorKind(node), "mention"));
     }
   }
 });

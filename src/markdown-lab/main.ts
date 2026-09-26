@@ -112,6 +112,11 @@ variantSelect.value = draft.variant;
 const preview = $("#preview");
 const htmlOutput = $("#html-output");
 const previewScroll = $("#preview-scroll");
+const previewNotices = document.createElement("div");
+previewNotices.id = "preview-notices";
+previewNotices.setAttribute("role", "status");
+previewNotices.hidden = true;
+preview.before(previewNotices);
 const renderStatus = $("#render-status");
 const dialog = $<HTMLDialogElement>("#settings");
 let capabilities: Capabilities | undefined;
@@ -281,6 +286,12 @@ async function render(current: number) {
     $("#mapping").textContent =
       result.mapping === "source" ? "Sync by source position" : result.mapping === "proportional" ? "Sync by document progress" : "Sync by estimated block position";
     $("#mapping").title = result.warnings.join("\n");
+    previewNotices.replaceChildren(...(result.notices || []).map(message => {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = message;
+      return paragraph;
+    }));
+    previewNotices.hidden = !result.notices?.length;
     $("#preview-error").hidden = true;
     requestAnimationFrame(() => synchronize(lastPane));
   } catch (error) {
@@ -288,6 +299,7 @@ async function render(current: number) {
     preview.setAttribute("aria-busy", "false");
     renderStatus.dataset.state = "error";
     renderStatus.textContent = "Preview not updated";
+    previewNotices.hidden = true;
     const banner = $("#preview-error");
     banner.textContent = `${(error as Error).message}. Source preserved. Any content below is the last successful preview.`;
     const retry = document.createElement("button");

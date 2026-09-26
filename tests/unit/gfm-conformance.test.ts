@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -49,10 +50,10 @@ test("all 677 official GFM examples: syntax, valid editable schema and exact sou
 test("GFM marks, exact link boundaries and protocol links reach editable nodes", () => {
   const raw = "~one~ ~~two~~ ~~~three~~~\n\nabcwww.example.com www.example.com https://example.com/a&amp; mailto:a.b-c_d@a.b xmpp:foo@bar.baz/txt/bin\n";
   const doc = parseNative(raw, config);
-  assert.equal(doc.firstChild!.child(0).marks[0].type.name, "strike");
+  assert.equal(editorKind(doc.firstChild!.child(0).marks[0]), "strike");
   assert.equal(doc.firstChild!.textContent, "one two ~~~three~~~");
   const links: [string, string][] = [];
-  doc.descendants(node => { for (const mark of node.marks) if (mark.type.name === "link") links.push([node.textContent, mark.attrs.href]); });
+  doc.descendants(node => { for (const mark of node.marks) if (editorKind(mark) === "link") links.push([node.textContent, mark.attrs.href]); });
   assert.deepEqual(links, [
     ["www.example.com", "http://www.example.com"],
     ["https://example.com/a", "https://example.com/a"],
@@ -66,7 +67,7 @@ test("GFM marks, exact link boundaries and protocol links reach editable nodes",
 test("GFM tasks accept whitespace, ordered/nested items and keep loose lists when edited", () => {
   for (const raw of ["- [x]\n  task", "1. [X] task", "- [ ]    task", "- [x]\ttask"]) {
     const doc = parseNative(raw, config);
-    assert.equal(doc.firstChild!.firstChild!.type.name, "task_list_item", raw);
+    assert.equal(editorKind(doc.firstChild!.firstChild!), "task_list_item", raw);
     assert.equal(doc.firstChild!.firstChild!.textContent, "task", raw);
   }
   const doc = parseNative("- first\n\n- second\n", config);
@@ -84,9 +85,9 @@ test("nested identical emphasis preserves outer formatting through structured ed
     const raw = `${marker}one ${marker}two${marker} three${marker}`;
     const doc = parseNative(raw, config), mark = marker === "*" ? "em" : marker === "**" ? "strong" : "strike";
     assert.equal(doc.firstChild!.textContent, "one two three");
-    doc.firstChild!.forEach(node => assert(node.marks.some(item => item.type.name === mark), raw));
+    doc.firstChild!.forEach(node => assert(node.marks.some(item => editorKind(item) === mark), raw));
     const changed = EditorState.create({ doc }).tr.insertText("!", 3).doc;
-    parseNative(serializeNative(changed, config), config).firstChild!.forEach(node => assert(node.marks.some(item => item.type.name === mark), raw));
+    parseNative(serializeNative(changed, config), config).firstChild!.forEach(node => assert(node.marks.some(item => editorKind(item) === mark), raw));
   }
 });
 
@@ -102,7 +103,7 @@ test("GFM table headers, escaped code pipes and cell line breaks survive edits",
   assert.match(written, /first<br>second/);
   assert.equal(restored.firstChild!.firstChild!.firstChild!.attrs.nfmAttrs.align, "left");
   let breaks = 0;
-  restored.descendants(node => { if (node.type.name === "hard_break") breaks++; });
+  restored.descendants(node => { if (editorKind(node) === "hard_break") breaks++; });
   assert.equal(breaks, 1);
 });
 
@@ -122,7 +123,7 @@ test("tagfilter is scoped to HTML tokens and safe previews preserve source after
   assert.equal(parseNative("~one~ ~~two~~", disabled).firstChild!.firstChild!.marks.length, 0);
   assert.doesNotMatch(renderGfmSyntax("www.example.com", disabled), /<a /);
   assert.doesNotMatch(renderGfmSyntax("- [x] task", disabled), /<input/);
-  assert.equal(parseNative("| A | B |\n| --- | --- |", disabled).firstChild!.type.name, "paragraph");
+  assert.equal(editorKind(parseNative("| A | B |\n| --- | --- |", disabled).firstChild!), "paragraph");
 });
 
 test("whole-fragment safe GFM export preserves HTML containers and rejects active content", () => {
@@ -143,7 +144,7 @@ test("HTML containers spanning Markdown blocks have one recoverable source edito
   const raw = '<details>\n<summary>More</summary>\n\n# Inner\n\n```html\n</details>\n```\n\n<!-- </details> -->\n\n**body**\n\n</details>\n\nTail';
   const doc = parseNative(raw, config);
   assert.equal(doc.childCount, 2);
-  assert.equal(doc.firstChild!.type.name, "html_block");
+  assert.equal(editorKind(doc.firstChild!), "html_block");
   assert.equal(doc.firstChild!.attrs.gfmConfig.variant, "gfm");
   assert.match(doc.firstChild!.attrs.raw, /\*\*body\*\*/);
   assert.equal(serializeNative(doc, config), raw);

@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -18,7 +19,7 @@ test("supplemental Notion objects are Notdown-only even with legacy or explicit 
     assert.equal(enabled(c, flag), id === "notdown");
     assert.equal(supportsOption(c, flag), id === "notdown");
     const doc = parseNative(sample + "\n\nTail", c);
-    assert.equal(doc.firstChild?.type.name === name, id === "notdown", id + name);
+    assert.equal(editorKind(doc.firstChild) === name, id === "notdown", id + name);
     const edited = EditorState.create({ doc }).tr.insertText("!", doc.content.size - 1).doc;
     assert(serializeNative(edited, c).startsWith(sample), id + name);
   }
@@ -35,19 +36,19 @@ test("custom properties and retired directives stay recoverable without activati
   ];
   for (const source of samples) {
     const official = parseNative(source, config("notion-markdown"));
-    assert.equal(official.firstChild?.type.name, "opaque_block", source);
+    assert.equal(editorKind(official.firstChild), "opaque_block", source);
     assert.equal(serializeNative(official, config("notion-markdown")), source);
     const extended = parseNative(source, config("notdown"));
-    assert.notEqual(extended.firstChild?.type.name, "opaque_block", source);
+    assert.notEqual(editorKind(extended.firstChild), "opaque_block", source);
     assert.throws(() => serializeNative(extended, config("notion-markdown")), /only.*Notdown/);
   }
   for (const source of [':::nest\nParent\n:::children\nChild\n:::endnest', ':::columns\nLeft\n:::column\nRight\n:::', '::page{id="old"}', '<figure src="old.png" alt="Alt" caption="Caption"/>']) {
     for (const variant of ["notdown", "notion-markdown"] as const) {
       const doc = parseNative(source, config(variant));
-      assert.equal(doc.firstChild?.type.name, "opaque_block", source);
+      assert.equal(editorKind(doc.firstChild), "opaque_block", source);
       assert.equal(serializeNative(doc, config(variant)), source);
       const fence = "```text\n" + source + "\n```";
-      assert.equal(parseNative(fence, config(variant)).firstChild?.type.name, "code_block");
+      assert.equal(editorKind(parseNative(fence, config(variant)).firstChild), "code_block");
     }
   }
 });
@@ -55,7 +56,7 @@ test("custom properties and retired directives stay recoverable without activati
 test("official dates and styles remain active; reminders only execute in Notdown", () => {
   for (const source of ['<mention-date start="2026-09-23" startTime="12:30" timeZone="Asia/Shanghai"/>', '<span color="red" underline="true">Text</span>']) {
     const doc = parseNative(source, config("notion-markdown"));
-    assert.equal(doc.firstChild?.type.name, "paragraph");
+    assert.equal(editorKind(doc.firstChild), "paragraph");
     assert.equal(serializeNative(doc, config("notion-markdown")), source);
   }
   const page = { id: "test", title: "Test", body: '<mention-date start="2026-09-23" reminder="2026-09-23T12:00:00Z"/>', bodyFormat: "notion-markdown", syntax: config("notdown") } as Page;

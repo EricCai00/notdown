@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -10,7 +11,7 @@ import { icons } from "../../src/shared/icons";
 const config: SyntaxConfig = { version: 1, variant: "notdown", extensions: {} };
 const types = (doc: PMNode) => {
   const result: string[] = [];
-  doc.descendants(node => { result.push(node.type.name); result.push(...node.marks.map(mark => mark.type.name)); });
+  doc.descendants(node => { result.push(editorKind(node)); result.push(...node.marks.map(mark => editorKind(mark))); });
   return result;
 };
 const samples: [string, string][] = [
@@ -53,17 +54,17 @@ test("Notdown combines Notion colors and mentions with Markdown marks and preser
   assert.match(written, /future="yes"/);
   assert.equal(reopened.textContent, edited.textContent);
   for (const parsed of [doc, reopened]) parsed.descendants(node => {
-    if (node.text === "inner") assert.equal(node.marks.find(mark => mark.type.name === "color")?.attrs.color, "blue");
+    if (node.text === "inner") assert.equal(node.marks.find(mark => editorKind(mark) === "color")?.attrs.color, "blue");
   });
 });
 
 test("Notdown keeps disabled extensions, unfinished carriers, code and unknown XML recoverable", () => {
   const source = '```md\nTerm\n: Definition\n==literal==\n<callout/>\n```\n\n::: {.unfinished}\nKeep';
   const doc = parseNative(source, config);
-  assert.equal(doc.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild!), "code_block");
   assert(!types(doc).includes("definition_list"));
   assert(!types(doc).includes("highlight"));
-  assert.equal(doc.lastChild!.type.name, "opaque_block");
+  assert.equal(editorKind(doc.lastChild!), "opaque_block");
   assert.equal(serializeNative(doc, config), source);
   const disabled = { ...config, extensions: { definition_lists: false, highlight: false } };
   const raw = 'Term\n: Definition\n\n==literal==';
@@ -89,7 +90,7 @@ test("Notdown keeps Markdown attributes, HTML, references, space lists and expli
   const doc = parseNative(source, config); doc.check();
   assert.equal(doc.firstChild!.attrs.markdownAttrs.id, "anchor");
   for (const name of ["html_inline", "link", "ordered_list", "nested_block", "hard_break"]) assert(types(doc).includes(name), name);
-  let lists = 0; doc.descendants(node => { if (node.type.name === "ordered_list") lists++; });
+  let lists = 0; doc.descendants(node => { if (editorKind(node) === "ordered_list") lists++; });
   assert.equal(lists, 2);
   assert.equal(doc.lastChild!.textContent, "Third");
   assert.equal(serializeNative(doc, config), source);
@@ -106,7 +107,7 @@ test("every insertion has a registered icon and group; disabled commands are abs
   assert.equal(items.find(item => item[0] === "embed")?.[5], "Notion embeds");
   assert.equal(items.find(item => item[0] === "footnote")?.[5], "Markdown inline");
   assert.equal(items.find(item => item[0] === "footnote")?.[1], "footnote");
-  assert.equal(items.find(item => item[0] === "inline_note")?.[2], "Inline note");
+  assert(!items.some(item => item[0] === "inline_note"));
   assert.equal(new Set(items.map(item => item[0])).size, items.length);
   for (const [id, icon, , , , group] of items) {
     const name = icon.split("-").map(part => part[0].toUpperCase() + part.slice(1)).join("");

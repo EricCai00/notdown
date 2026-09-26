@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Schema, type Node as PMNode } from "prosemirror-model";
@@ -23,23 +24,19 @@ import {
 // No DOM is needed to exercise exactly the nested schema used by the editor.
 const schema = editorSchema;
 const p = (text = "", strong = false) =>
-  schema.node(
-    "paragraph",
-    null,
-    text
+  schema.nodes["block.paragraph"].create(null, text
       ? schema.text(text, strong ? [schema.marks.strong.create()] : [])
-      : undefined,
-  );
+      : undefined);
 const li = (
   text: string,
   children: PMNode[] = [],
   checked: boolean | null = null,
-) => schema.node(checked === null ? "bullet_list_item" : "task_list_item", { checked }, [p(text), ...children]);
+) => createEditorNode(schema, checked === null ? "bullet_list_item" : "task_list_item", { checked }, [p(text), ...children]);
 const ul = (...children: PMNode[]) =>
-  schema.node("bullet_list", null, children);
+  schema.nodes["structure.bullet_list"].create(null, children);
 const ol = (order: number, ...children: PMNode[]) =>
-  schema.node("ordered_list", { order }, children.map(item => item.attrs.checked === null ? schema.nodes.numbered_list_item.create(item.attrs, item.content) : item));
-const doc = (...children: PMNode[]) => schema.node("doc", null, children);
+  schema.nodes["structure.ordered_list"].create({ order }, children.map(item => item.attrs.checked === null ? schema.nodes["block.numbered_list_item"].create(item.attrs, item.content) : item));
+const doc = (...children: PMNode[]) => schema.nodes["doc"].create(null, children);
 
 test("batch deletion removes overlapping rows once, keeps other branches and undoes together", () => {
   const original = doc(p("Before"), ul(li("Parent", [ul(li("Child"))]), li("Sibling")), p("Keep"), p("After"));
@@ -59,7 +56,7 @@ test("deleting all selected blocks leaves an editable paragraph", () => {
   assert.ok(tr);
   const next = state.apply(tr);
   assert.ok(next.doc.eq(doc(p())));
-  assert.equal(next.selection.$from.parent.type, schema.nodes.paragraph);
+  assert.equal(next.selection.$from.parent.type, schema.nodes["block.paragraph"]);
   assert.ok(run(undo, next).doc.eq(original));
 });
 
@@ -130,7 +127,7 @@ test("each consecutive list row and each nested child resolves to its own block"
   assert.equal(blockAtPos(document, child.pos)?.pos, child.pos);
   assert.equal(blockAtPos(document, 0)?.pos, parent.pos);
   assert.equal(
-    blockAtPos(document, pos(document, "Tail"))?.node.type.name,
+    editorKind(blockAtPos(document, pos(document, "Tail"))?.node),
     "paragraph",
   );
 });
@@ -148,9 +145,9 @@ test("dragging a parent moves its complete nested subtree and checkbox state", (
 });
 
 test("a nested item moves alone between lists and removes its empty old list", () => {
-  const child = schema.node("task_list_item", { checked: true }, [
+  const child = schema.nodes["block.task_list_item"].create({ checked: true }, [
     p("Child", true),
-    schema.node("opaque_block", { source: ":::unknown\n[[literal]]\n:::" }),
+    createEditorNode(schema, "opaque_block", { source: ":::unknown\n[[literal]]\n:::" }),
   ]);
   const document = doc(
     ul(li("Parent", [ul(child)])),
@@ -164,8 +161,7 @@ test("a nested item moves alone between lists and removes its empty old list", (
     ),
   );
   assert.equal(
-    result.doc.lastChild?.firstChild?.firstChild?.firstChild?.marks[0].type
-      .name,
+    editorKind(result.doc.lastChild?.firstChild?.firstChild?.firstChild?.marks[0]),
     "strong",
   );
 });
@@ -238,7 +234,7 @@ test("moving the only list row elsewhere removes the old list rather than invent
 });
 
 test("a normal block dragged between rows splits a list and retains its block type", () => {
-  const heading = schema.node("heading", { level: 2 }, schema.text("Heading"));
+  const heading = createEditorNode(schema, "heading", { level: 2 }, schema.text("Heading"));
   const document = doc(heading, ol(5, li("First"), li("Second"), li("Third")));
   const result = moved(document, "Heading", "Second", "before");
   assert.ok(
@@ -257,7 +253,7 @@ test("a normal paragraph may be a child of a list row without becoming another b
   );
   assert.ok(result.doc.eq(doc(ul(li("Parent", [p("Details")])))));
   assert.equal(
-    blockAtPos(result.doc, pos(result.doc, "Details"))?.node.type.name,
+    editorKind(blockAtPos(result.doc, pos(result.doc, "Details"))?.node),
     "paragraph",
   );
   const childMoved = moved(result.doc, "Details", "Parent", "after");
@@ -432,7 +428,7 @@ test("nested drag and Tab transactions roundtrip through real Markdown, while un
 });
 
 test("multi-row movement retains order, descendants and one-step undo", () => {
-  const doc = schema.node("doc", null, [
+  const doc = schema.nodes["doc"].create(null, [
     ul(li("First", [ul(li("Child"))]), li("Second")),
     p("Tail"),
   ]);
@@ -459,11 +455,11 @@ test("multi-row movement retains order, descendants and one-step undo", () => {
 });
 
 test("multi-row placement preserves mixed blocks and opaque payloads", () => {
-  const doc = editorSchema.node("doc", null, [
-    editorSchema.node("paragraph", null, editorSchema.text("A")),
-    editorSchema.node("opaque_block", { raw: ":::unknown\nuntouched\n:::" }),
-    editorSchema.node("paragraph", null, editorSchema.text("B")),
-    editorSchema.node("paragraph", null, editorSchema.text("Target")),
+  const doc = editorSchema.nodes["doc"].create(null, [
+    editorSchema.nodes["block.paragraph"].create(null, editorSchema.text("A")),
+    createEditorNode(editorSchema, "opaque_block", { raw: ":::unknown\nuntouched\n:::" }),
+    editorSchema.nodes["block.paragraph"].create(null, editorSchema.text("B")),
+    editorSchema.nodes["block.paragraph"].create(null, editorSchema.text("Target")),
   ]);
   const positions: number[] = [];
   doc.forEach((_node, pos) => positions.push(pos));
@@ -484,7 +480,7 @@ test("multi-row placement preserves mixed blocks and opaque payloads", () => {
     assert.equal(tr.doc.textContent, "TargetAB");
     let raw = "";
     tr.doc.descendants((node) => {
-      if (node.type.name === "opaque_block") raw = node.attrs.raw;
+      if (editorKind(node) === "opaque_block") raw = node.attrs.raw;
     });
     assert.equal(raw, ":::unknown\nuntouched\n:::");
   }

@@ -1,4 +1,4 @@
-import type { NodeSpec, MarkSpec, DOMOutputSpec, Node as PMNode } from "prosemirror-model";
+import type { NodeSpec, MarkSpec, DOMOutputSpec } from "prosemirror-model";
 import { domAttributes } from "../markdown-engine/attributes";
 
 const attrs = (values: Record<string, unknown>) => Object.fromEntries(Object.entries(values).map(([name, value]) => [name, { default: value }]));
@@ -51,7 +51,7 @@ export function objectNodeSpecs(block: (spec: NodeSpec) => NodeSpec): Record<str
     embed_web_contents: block({ group: "block", atom: true, attrs: attrs({ url: "", title: "" }), toDOM: n => ["iframe", { src: /^https?:\/\//i.test(n.attrs.url) ? n.attrs.url : "", title: n.attrs.title || "Web embed", sandbox: "allow-scripts allow-forms allow-presentation", referrerpolicy: "no-referrer" }] }),
     image_block: block({ group: "block", atom: true, draggable: true, attrs: attrs({ src: "", alt: "", caption: "", title: "" }), toDOM: n => ["figure", { class: "pm-image-block" }, ["img", { src: safeUrl(n.attrs.src), alt: n.attrs.alt, title: n.attrs.title }], ["figcaption", n.attrs.caption]] }),
     example_list: block({ group: "block", content: "example_list_item+", attrs: attrs({ start: 1 }), toDOM: n => ["ol", { start: n.attrs.start, class: "pm-example-list" }, 0] }),
-    example_list_item: block({ content: "paragraph block*", defining: true, attrs: attrs({ label: "", number: 1 }), toDOM: n => ["li", { "data-example-label": n.attrs.label, id: n.attrs.label ? "md-example-" + n.attrs.label : undefined, value: n.attrs.number }, 0] }),
+    example_list_item: block({ content: "paragraph block*", defining: true, attrs: attrs({ label: "", number: 1, referenceId: null }), toDOM: n => ["li", { "data-example-label": n.attrs.label, id: n.attrs.referenceId, value: n.attrs.number }, 0] }),
     inline_note: { inline: true, group: "inline", content: "inline*", isolating: true, toDOM: () => ["span", { class: "pm-inline-note" }, 0] },
   };
 }
@@ -71,8 +71,3 @@ export const objectSamples: Record<string, string> = {
   ai_block: '<ai-block prompt="Summarize the following text" model="">\nWrite text to summarize here.\n</ai-block>',
   html_embed: '<html-embed>\n&lt;!doctype html&gt;&lt;html&gt;&lt;body&gt;&lt;h1&gt;Embedded document&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;\n</html-embed>',
 };
-export function objectId(node: PMNode): string | undefined {
-  if (Object.values(objectTags).includes(node.type.name)) return "block." + node.type.name;
-  if (node.type.name === "example_list_item") return "block.example_list_item";
-  if (node.type.name === "inline_note") return "inline.footnote";
-}

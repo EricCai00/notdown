@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState, TextSelection } from "prosemirror-state";
@@ -67,7 +68,7 @@ test("span controls require an enabled encoding and table captions survive edits
   assert.equal(editTable("merge-right", null)(state), false);
   assert(editTable("caption")(state, tr => state = state.apply(tr)));
   const source = serializeNative(state.doc, config);
-  assert.equal(parseNative(source, config).firstChild!.firstChild!.type.name, "table_caption", source);
+  assert.equal(editorKind(parseNative(source, config).firstChild!.firstChild!), "table_caption", source);
 });
 
 test("column insertion and deletion keep width and unknown column attributes aligned", () => {

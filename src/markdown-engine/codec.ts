@@ -1,8 +1,10 @@
+import { createEditorNode, editorKind, isEditorKind } from "../document/node-identity";
 import { hasSupplementalAttributes, needsMarkdownTable, canConvertNotionTable } from "../document/notdown-boundary";
 import { encodeCodeCaption } from "../document/code-caption";
 import { objectTags } from "../document/object-model";
 import { localObjectPlugins } from "./presets";
 import { isListItem } from "../document/list-items";
+import { normalizeExampleNumbering } from "../document/example-numbering";
 import { readObjectBlock, writeObjectBlock } from "../document/object-codec";
 import { installAdvancedRules, listMarker } from "./advanced";
 import { installReferenceOptions } from "./reference-options";
@@ -41,7 +43,8 @@ import { readAttributes, writeAttributes } from "./attributes.js";
 import { renderRawHtml } from "./html.js";
 import { installDialectRules, dialectCodeBlock } from "./dialects.js";
 import { editableBlankParagraphs } from "./spacing.js";
-import { installRMarkdown } from "./rmarkdown";
+import { installQuarto } from "./quarto";
+import { installRMarkdown, rChunkMarkdown } from "./rmarkdown";
 import { coreGfm, gfmHtmlRanges, installGfm } from "./gfm";
 
 const children = (node: PMNode) => {
@@ -66,6 +69,7 @@ const features: Record<string, string> = {
   html_block: "raw_html",
   html_inline: "raw_html",
   definition_list: "definition_lists",
+  definition_list_item: "definition_lists",
   footnote: "footnotes",
   footnote_reference: "footnotes",
   line_block: "line_blocks",
@@ -90,34 +94,35 @@ const tags = new Set([
 ]);
 
 function unavailable(node: PMNode, config: SyntaxConfig): boolean {
-  if (node.type.name === "image_block") return true;
-  if (node.type.name === "code_block" &&
+  if (["executable_chunk", "executable_inline"].includes(editorKind(node)) && !(["quarto", "notdown"].includes(config.variant) || config.variant === "rmarkdown" && node.attrs.language === "r")) return true;
+  if (isEditorKind(node, "image_block")) return true;
+  if (isEditorKind(node, "code_block") &&
       (node.attrs.markdownAttrs?.caption !== undefined || node.attrs.nfmAttrs?.caption !== undefined) &&
       (config.variant === "notion-markdown" || config.variant === "notdown" && !enabled(config, "fenced_code_attributes"))) return true;
   if (config.variant !== "notdown" && hasSupplementalAttributes(node)) return true;
   if (config.variant === "notion-markdown" && needsMarkdownTable(node)) return true;
   if (config.variant === "notion-markdown" && node.marks.some(mark =>
-    ["native_span", "small_caps"].includes(mark.type.name))) return true;
-  if (node.type.name === "heading" && node.attrs.toggle && !enabled(config, "notion_nesting")) return true;
+    ["native_span", "small_caps"].includes(editorKind(mark)))) return true;
+  if (isEditorKind(node, "heading") && node.attrs.toggle && !enabled(config, "notion_nesting")) return true;
   if (node.attrs.metadataForm) {
     const flag = ({ mmd: "mmd_title_block", yaml: "yaml_metadata_block", pandoc: "pandoc_title_block" } as Record<string, string>)[node.attrs.metadataForm];
     if (flag && !enabled(config, flag)) return true;
   }
-  const localPlugin = localObjectPlugins[node.type.name];
+  const localPlugin = localObjectPlugins[editorKind(node)];
   if (localPlugin && !enabled(config, localPlugin)) return true;
-  const feature = node.type.name === "callout" && node.attrs.syntaxForm === "alert"
+  const feature = isEditorKind(node, "callout") && node.attrs.syntaxForm === "alert"
     ? "alerts"
-    : node.type.name === "table_of_contents" && node.attrs.syntaxForm !== "notion"
-      ? "toc_directives" : features[node.type.name];
-  if (feature && !enabled(config, feature) && !(node.type.name === "equation" && enabled(config, "display_math")))
+    : isEditorKind(node, "table_of_contents") && node.attrs.syntaxForm !== "notion"
+      ? "toc_directives" : features[editorKind(node)];
+  if (feature && !enabled(config, feature) && !(isEditorKind(node, "equation") && enabled(config, "display_math")))
     return true;
   if (
-    node.type.name === "table" &&
+    isEditorKind(node, "table") &&
     !enabled(config, ({ grid: "grid_tables", simple: "simple_tables", multiline: "multiline_tables", mmd: "mmd_tables", pipe: "pipe_tables" } as Record<string,string>)[node.attrs.syntaxForm] || "notion_tables")
   )
     return true;
   if (
-    node.type.name === "page_link" &&
+    isEditorKind(node, "page_link") &&
     !enabled(
       config,
       usesNotionSyntax(config)
@@ -129,26 +134,26 @@ function unavailable(node: PMNode, config: SyntaxConfig): boolean {
     return true;
   if (
     isListItem(node) &&
-    node.attrs.checked !== null &&
+    typeof node.attrs.checked === "boolean" &&
     !enabled(config, "task_lists")
   )
     return true;
   if (
-    node.marks.some((m) => m.type.name === "strike") &&
+    node.marks.some((m) => isEditorKind(m, "strike")) &&
     !enabled(config, "strikeout")
   )
     return true;
   if (
     (node.attrs.color ||
-      node.marks.some((m) => m.type.name === "color")) &&
+      node.marks.some((m) => isEditorKind(m, "color"))) &&
     !enabled(config, "notion_colors")
   )
     return true;
-  if (node.marks.some(m => m.type.name === "underline") && !enabled(config, "notion_underline")) return true;
+  if (node.marks.some(m => isEditorKind(m, "underline")) && !enabled(config, "notion_underline")) return true;
   return children(node).some((child) => unavailable(child, config));
 }
 function preserve(node: PMNode, raw: string): PMNode {
-  return schema.nodes.opaque_block.create({
+  return createEditorNode(schema, "opaque_block", {
     ...node.attrs,
     raw,
     source: raw,
@@ -229,7 +234,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
       if (!match || "linkLevel" in state && Number(state.linkLevel) > 0) return false;
       if (!silent) {
         const token = state.push("source_inline", "", 0);
-        token.meta = { node: schema.nodes.syntax_inline.create({ kind: "block-anchor", target: match[1], raw: match[0] }) };
+        token.meta = { node: createEditorNode(schema, "syntax_inline", { kind: "block-anchor", target: match[1], raw: match[0] }) };
       }
       state.pos += match[0].length;
       return true;
@@ -321,10 +326,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
         token.map = [start, finish];
         token.block = true;
         token.meta = {
-          node: schema.nodes.equation.create(
-            null,
-            value.trim() ? schema.text(value.trim()) : undefined,
-          ),
+          node: schema.nodes["block.math_block"].create(null, value.trim() ? schema.text(value.trim()) : undefined),
         };
         state.line = finish;
         return true;
@@ -376,8 +378,8 @@ function parser(config: SyntaxConfig): MarkdownIt {
         for (const child of parseInline(md.parseInline(rest.slice(tag.length, close), state.env)[0]?.children ?? [])) {
           const token = state.push("source_inline", "", 0);
           token.meta = { node: child.mark(child.marks.reduce((marks, mark) => {
-            const outer = marks.find(m => m.type.name === "color");
-            if (outer && mark.type.name === "color") {
+            const outer = marks.find(m => isEditorKind(m, "color"));
+            if (outer && isEditorKind(mark, "color")) {
               const parentColors = inlineColors(outer.attrs), innerColors = inlineColors(mark.attrs);
               mark = mark.type.create({
                 color: innerColors.color || parentColors.color,
@@ -392,7 +394,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
         return true;
       }
       const doc = parseNotionMarkdown(rest.slice(0, end), name => enabled(config, localObjectPlugins[name]));
-      if (doc.childCount !== 1 || doc.firstChild?.type.name !== "paragraph")
+      if (doc.childCount !== 1 || !isEditorKind(doc.firstChild, "paragraph"))
         return false;
       // Opting into a carrier must not opt into every feature of the Notion
       // inline parser (math, strike, mentions, or local link previews).
@@ -532,7 +534,8 @@ function parser(config: SyntaxConfig): MarkdownIt {
   installPandocTables(md, config, (raw, env) => parseNative(raw, config, (env.nativeDepth || 0) + 1, env));
   installDocumentOptions(md, config);
   installLatexMacros(md, config);
-  if (config.variant === "rmarkdown" || config.variant === "notdown") installRMarkdown(md);
+  if (["rmarkdown", "quarto", "notdown"].includes(config.variant)) installRMarkdown(md);
+  if (["quarto", "notdown"].includes(config.variant)) installQuarto(md);
   installGfm(md, config);
   if (parsers.size >= 16) parsers.delete(parsers.keys().next().value!);
   parsers.set(key, md);
@@ -574,7 +577,7 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
         const captionLine = source.split(/\r\n|\n|\r/)[t.map?.[0] ?? -1] || "";
         captionId = /^\s*\[.*?\](?:\[([^\]]*)\])?\s*$/.exec(captionLine)?.[1] || "";
         const inline = tokens[j + 1];
-        caption = schema.nodes.table_caption.create(null, inline?.type === "inline" ? parseInline(inline.children ?? []) : []);
+        caption = schema.nodes["structure.table_caption"].create(null, inline?.type === "inline" ? parseInline(inline.children ?? []) : []);
       }
       if (t.type === "tr_open") cells = [];
       if (t.type === "td_open" || t.type === "th_open") {
@@ -588,20 +591,14 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
             t.attrGet("style") ?? "",
           )?.[1];
         cells.push(
-          schema.nodes.table_cell.create(
-            { nfmAttrs: align ? { align } : {}, colspan: Number(t.attrGet("colspan")) || 1, rowspan: Number(t.attrGet("rowspan")) || 1, header: (config.variant === "gfm" || enabled(config, "mmd_tables")) && t.type === "th_open" },
-            inline?.type === "inline" ? schema.nodes.paragraph.create(
-              null,
-              inline?.type === "inline"
+          schema.nodes["structure.table_cell"].create({ nfmAttrs: align ? { align } : {}, colspan: Number(t.attrGet("colspan")) || 1, rowspan: Number(t.attrGet("rowspan")) || 1, header: (config.variant === "gfm" || enabled(config, "mmd_tables")) && t.type === "th_open" }, inline?.type === "inline" ? schema.nodes["block.paragraph"].create(null, inline?.type === "inline"
                 ? parseInline(inline.children ?? [])
-                : [],
-            ) : parseEditorMarkdown(source, tableNodes(tokens.slice(j + 1, end), config, source)).content,
-          ),
+                : []) : parseEditorMarkdown(source, tableNodes(tokens.slice(j + 1, end), config, source)).content),
         );
         j = end;
       }
       if (t.type === "tr_close")
-        rows.push(schema.nodes.table_row.create({ header, section }, cells));
+        rows.push(schema.nodes["structure.table_row"].create({ header, section }, cells));
     }
     const readCaption = (text: string) => {
       const match = /^(?:Table:|:)\s+(.+)$/.exec(text);
@@ -609,7 +606,7 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
       let value = match[1];
       const attrs = /\s*\{([^{}]+)\}$/.exec(value);
       if (attrs && enabled(config, "table_attributes")) { markdownAttrs = readAttributes(attrs[0].trim()); value = value.slice(0, attrs.index); }
-      caption = schema.nodes.table_caption.create(null, parseInline(parser(config).parseInline(value, {})[0]?.children || []));
+      caption = schema.nodes["structure.table_caption"].create(null, parseInline(parser(config).parseInline(value, {})[0]?.children || []));
       captionId = markdownAttrs.id || captionId;
       return true;
     };
@@ -631,10 +628,7 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
     token.type = "source_node";
     token.nesting = 0;
     token.meta = {
-      node: schema.nodes.table.create(
-        { nfmAttrs: { "header-row": String(rows[0]?.attrs.header || false) }, syntaxForm: enabled(config, "mmd_tables") ? "mmd" : "pipe", captionId, captionSide, markdownAttrs: { ...token.meta?.markdownAttrs, ...markdownAttrs } },
-        caption ? [caption, ...rows] : rows,
-      ),
+      node: schema.nodes["block.table"].create({ nfmAttrs: { "header-row": String(rows[0]?.attrs.header || false) }, syntaxForm: enabled(config, "mmd_tables") ? "mmd" : "pipe", captionId, captionSide, markdownAttrs: { ...token.meta?.markdownAttrs, ...markdownAttrs } }, caption ? [caption, ...rows] : rows),
     };
     result.push(token);
     i = j;
@@ -647,13 +641,23 @@ export function parseNative(
   depth = 0,
   context: Record<string, unknown> = {},
 ): PMNode {
+  const doc = parseNativeDocument(source, config, depth, context);
+  return depth === 0 ? normalizeExampleNumbering(doc) : doc;
+}
+
+function parseNativeDocument(
+  source: string,
+  config: SyntaxConfig,
+  depth = 0,
+  context: Record<string, unknown> = {},
+): PMNode {
   if (depth > 40)
-    return schema.nodes.doc.create(null, [
-      schema.nodes.opaque_block.create({ raw: source }),
+    return schema.nodes["doc"].create(null, [
+      createEditorNode(schema, "opaque_block", { raw: source }),
     ]);
   if (!nativeDialect(config))
-    return schema.nodes.doc.create({ source, sourceFormat: "markdown" }, [
-      schema.nodes.opaque_block.create({ raw: source }),
+    return schema.nodes["doc"].create({ source, sourceFormat: "markdown" }, [
+      createEditorNode(schema, "opaque_block", { raw: source }),
     ]);
   if (usesNotionSyntax(config)) {
     const doc = parseNotionMarkdown(source, name => enabled(config, localObjectPlugins[name]), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined);
@@ -683,7 +687,7 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
       token.map = [token.map![0], tokens[last].map![1]];
       const raw = source.split(/\r\n|\n|\r/).slice(...token.map).join(source.match(/\r\n|\n|\r/)?.[0] ?? "\n").replace(/[\r\n]+$/, "");
       token.type = "source_node";
-      token.meta = { node: schema.nodes.html_block.create({ raw, tagfilter: true, gfmConfig: config }) };
+      token.meta = { node: schema.nodes["block.html_block"].create({ raw, tagfilter: true, gfmConfig: config }) };
       tokens.splice(first + 1, last - first);
     }
   }
@@ -711,7 +715,7 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
         t.constructor as typeof import("markdown-it/lib/token.mjs").default
       )("source_inline", "", 0);
       child.meta = {
-        node: schema.nodes.html_inline.create({ raw: t.content, html }),
+        node: schema.nodes["inline.inline_html"].create({ raw: t.content, html }),
       };
       t.children = [child];
     }
@@ -720,7 +724,7 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
     const t = tokens[i];
     let node: PMNode | undefined;
     if (t.type === "html_block")
-      node = schema.nodes.html_block.create({
+      node = schema.nodes["block.html_block"].create({
         raw: t.content.replace(/\n$/, ""),
         tagfilter: config.variant === "gfm",
       });
@@ -729,18 +733,15 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
       const content = children(parseNative(t.meta.body, config, depth + 1));
       node =
         t.meta.closed === false
-          ? schema.nodes.opaque_block.create({
+          ? createEditorNode(schema, "opaque_block", {
               raw: source
                 .split(/\r\n|\r|\n/)
                 .slice(t.map![0], t.map![1])
                 .join("\n"),
             })
-          : schema.nodes[name].create(
-              name === "footnote"
+          : createEditorNode(schema, name, name === "footnote"
                 ? { label: t.meta.label }
-                : { attributes: t.meta.attributes },
-              content,
-            );
+                : { attributes: t.meta.attributes }, content);
       i++;
     }
     if (t.type === "line_block_open") {
@@ -748,12 +749,9 @@ function parseMarkdownNative(source: string, config: SyntaxConfig, depth: number
       while (++i < tokens.length && tokens[i].type !== "line_block_close")
         if (tokens[i].type === "inline")
           lines.push(
-            schema.nodes.line.create(
-              null,
-              parseInline(tokens[i].children ?? []),
-            ),
+            schema.nodes["structure.line"].create(null, parseInline(tokens[i].children ?? [])),
           );
-      node = schema.nodes.line_block.create(null, lines);
+      node = schema.nodes["block.line_block"].create(null, lines);
     }
     if (node) {
       t.type = "source_node";
@@ -774,24 +772,24 @@ function writeBlock(node: PMNode, config: SyntaxConfig): string {
   }
   const written = writeBlockBody(node, config);
   if (
-    node.type.name === "heading" &&
+    isEditorKind(node, "heading") &&
     attrs.id &&
     enabled(config, "mmd_header_identifiers") &&
     !enabled(config, "header_attributes")
   )
     return written + " [" + attrs.id + "]";
-  if (node.type.name === "equation" && attrs.mathDelimiter === "double")
+  if (isEditorKind(node, "equation") && attrs.mathDelimiter === "double")
     return "\\\\[\n" + node.textContent + "\n\\\\]";
-  if (node.type.name === "equation" && attrs.mathDelimiter === "single") return "\\[\n" + node.textContent + "\n\\]";
-  if (node.type.name === "equation" && attrs.mathDelimiter === "gfm") return "```math\n" + node.textContent + "\n```";
-  if (node.type.name === "code_block" && attrs.literate === "bird") return node.textContent.split("\n").map(line => "> " + line).join("\n");
-  if (node.type.name === "code_block" && Object.keys(attrs).length) {
+  if (isEditorKind(node, "equation") && attrs.mathDelimiter === "single") return "\\[\n" + node.textContent + "\n\\]";
+  if (isEditorKind(node, "equation") && attrs.mathDelimiter === "gfm") return "```math\n" + node.textContent + "\n```";
+  if (isEditorKind(node, "code_block") && attrs.literate === "bird") return node.textContent.split("\n").map(line => "> " + line).join("\n");
+  if (isEditorKind(node, "code_block") && Object.keys(attrs).length) {
     const lines = written.split("\n");
     if (attrs.caption !== undefined) attrs.caption = encodeCodeCaption(String(attrs.caption));
     lines[0] += writeAttributes(attrs);
     return lines.join("\n");
   }
-  return ["heading", "paragraph"].includes(node.type.name)
+  return ["heading", "paragraph"].includes(editorKind(node))
     ? written + writeAttributes(attrs)
     : written;
 }
@@ -826,7 +824,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
           : /(?!)/,
         "$1\\$2",
       );
-  switch (node.type.name) {
+  switch (editorKind(node)) {
     case "syntax_block":
       return node.attrs.raw;
     case "table_of_contents":
@@ -850,14 +848,20 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
     case "html_block":
       return node.attrs.raw;
     case "definition_list":
-      return kids.map((n, i) => (i ? n.type.name === "definition_term" && kids[i - 1].type.name === "definition_description" ? "\n\n" : "\n" : "") + writeBlock(n, config)).join("");
+      return kids.map(n => writeBlock(n, config)).join("\n\n");
+    case "definition_list_item":
+      return kids.map((n, i) => {
+        const looseStart = isEditorKind(n, "definition_description") && n.attrs.tight === false && isEditorKind(kids[i - 1], "definition_term");
+        const separator = i ? isEditorKind(n, "definition_term") || looseStart ? "\n\n" : "\n" : "";
+        return separator + writeBlock(n, config);
+      }).join("");
     case "definition_term":
     case "table_caption":
       return inline(node);
     case "definition_description":
       return blocks(kids)
         .split("\n")
-        .map((line, i) => (i ? "    " : ":   ") + line)
+        .map((line, i) => (i ? "    " : (node.attrs.marker === "~" ? "~   " : ":   ")) + line)
         .join("\n");
     case "footnote":
       return blocks(kids)
@@ -891,7 +895,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
       return kids
         .map((item, index) => {
           const marker =
-            node.type.name === "ordered_list"
+            isEditorKind(node, "ordered_list")
               ? listMarker(Number(node.attrs.order) + index, node.attrs.markerStyle, node.attrs.markerDelimiter) +
                 (["Alpha", "Roman"].includes(node.attrs.markerStyle) && node.attrs.markerDelimiter === "." ? "  " : " ")
               : "- ";
@@ -903,12 +907,12 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
                 : "[ ] ";
           const parts = children(item);
           let text =
-            parts[0].type.name === "paragraph"
+            isEditorKind(parts[0], "paragraph")
               ? inline(parts[0])
               : writeBlock(parts[0], config);
           for (const child of parts.slice(1))
             text +=
-              (["bullet_list", "ordered_list"].includes(child.type.name)
+              (["bullet_list", "ordered_list"].includes(editorKind(child))
                 ? "\n"
                 : "\n\n") + writeBlock(child, config);
           return (check + text)
@@ -930,7 +934,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
       if (["simple", "multiline"].includes(node.attrs.syntaxForm)) return writeSimpleTable(node, n => writeBlock(n, config));
       if (node.attrs.syntaxForm === "mmd") return multiMarkdownTable(node, inline, n => writeBlock(n, config));
       if (!enabled(config, "pipe_tables")) return notionBlockMarkdown(node);
-      const tableRows = kids.filter(n => n.type.name === "table_row"), caption = kids.find(n => n.type.name === "table_caption");
+      const tableRows = kids.filter(n => isEditorKind(n, "table_row")), caption = kids.find(n => isEditorKind(n, "table_caption"));
       const rows = tableRows.map(
         (row) =>
           "| " +
@@ -968,6 +972,8 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
     }
     case "code_block":
       return dialectCodeBlock(node, config);
+    case "executable_chunk":
+      return rChunkMarkdown(node);
     case "horizontal_rule":
     case "opaque_block":
       return blockMarkdown(node);
@@ -979,8 +985,8 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
 }
 export function serializeNative(doc: PMNode, config: SyntaxConfig): string {
   if (config.variant !== "notdown") doc.descendants(node => {
-    if (localObjectPlugins[node.type.name] || hasSupplementalAttributes(node) || config.variant === "notion-markdown" &&
-        (needsMarkdownTable(node) || node.type.name === "code_block" && node.attrs.markdownAttrs?.caption !== undefined))
+    if (localObjectPlugins[editorKind(node)] || hasSupplementalAttributes(node) || config.variant === "notion-markdown" &&
+        (needsMarkdownTable(node) || isEditorKind(node, "code_block") && node.attrs.markdownAttrs?.caption !== undefined))
       throw new Error("Supplemental Notion content can only be written in the Notdown variant. Preserve the original source or switch variants.");
   });
   if (config.variant === "notdown") return serializeEditorMarkdown(doc, node => writeNotdownBlock(node, config));
@@ -1006,7 +1012,7 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
       // Match the Markdown engine's source-editable inline HTML adapter. Known
       // HTML can render safely; unknown/disabled Notion tags remain literal.
       if (tokens.some(token => token.type === "html_inline" && /^<\/?(?:b|i|u|s|strong|em|mark|sub|sup|kbd|abbr|a|img)\b/i.test(token.content))) {
-        return [schema.nodes.html_inline.create({ raw: text, html: renderRawHtml(md.renderer.renderInline(tokens, md.options, env)) })];
+        return [schema.nodes["inline.inline_html"].create({ raw: text, html: renderRawHtml(md.renderer.renderInline(tokens, md.options, env)) })];
       }
       return parseInline(tokens);
     },
@@ -1031,20 +1037,40 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
         const fence = /^ {0,3}(`{3,}|~{3,})/.exec(first);
         if (fence && !raw.split("\n").slice(1).some(line => new RegExp(`^ {0,3}${fence[1][0]}{${fence[1].length},}\\s*$`).test(line))) return;
         const basic = ["paragraph", "heading", "blockquote", "bullet_list", "ordered_list", "horizontal_rule", "code_block"];
-        if (basic.includes(node.type.name)) {
-          const fancy = node.type.name === "ordered_list" && (node.attrs.markerStyle !== "decimal" && node.attrs.markerStyle || /^\d+\) /.test(first) || node.attrs.markerDelimiter === ")");
-          const attributedCode = node.type.name === "code_block" && (node.attrs.rChunk || Object.keys(node.attrs.markdownAttrs || {}).length);
-          const attributedHeading = node.type.name === "heading" && /\{(?:[#.]|[^{}]*=[^"'])|\[[^\]]+\]/.test(first);
-          const spacedList = ["ordered_list", "bullet_list"].includes(node.type.name) && /\n {2,}\S/.test(raw);
+        if (basic.includes(editorKind(node))) {
+          const fancy = isEditorKind(node, "ordered_list") && (node.attrs.markerStyle !== "decimal" && node.attrs.markerStyle || /^\d+\) /.test(first) || node.attrs.markerDelimiter === ")");
+          const attributedCode = isEditorKind(node, "code_block") && Object.keys(node.attrs.markdownAttrs || {}).length;
+          const attributedHeading = isEditorKind(node, "heading") && /\{(?:[#.]|[^{}]*=[^"'])|\[[^\]]+\]/.test(first);
+          const spacedList = ["ordered_list", "bullet_list"].includes(editorKind(node)) && /\n {2,}\S/.test(raw);
           if (!fancy && !attributedCode && !attributedHeading && !spacedList) {
-            if (node.type.name === "paragraph" && enabled(config, "escaped_line_breaks")) {
+            // Notdown normally keeps each physical line as a separate block.
+            // Only join the lines occupied by a parsed multiline inline note;
+            // code spans, escaped syntax and unrelated neighboring lines stay put.
+            if (isEditorKind(node, "paragraph") && count > 1 && enabled(config, "inline_notes")) {
+              const ranges: { from: number; to: number }[] = [];
+              for (const token of md.parseInline(raw, env)[0]?.children ?? []) {
+                if (!isEditorKind(token.meta?.node, "inline_note")) continue;
+                const from = raw.slice(0, token.meta.inlineStart).split("\n").length - 1;
+                const to = raw.slice(0, token.meta.inlineEnd).split("\n").length;
+                if (to <= from + 1) continue;
+                const previous = ranges.at(-1);
+                if (previous && from < previous.to) previous.to = Math.max(previous.to, to);
+                else ranges.push({ from, to });
+              }
+              for (const { from, to } of ranges) {
+                const joined = parseMarkdownNative(lines.slice(start + from, start + to).join("\n"), config, depth + 1, env).firstChild;
+                if (isEditorKind(joined, "paragraph")) result.set(start + from, { node: joined, lines: to - from });
+              }
+            }
+            if (isEditorKind(node, "paragraph") && enabled(config, "escaped_line_breaks")) {
               let cursor = start;
               while (cursor < start + count) {
+                if (result.has(cursor)) { cursor += result.get(cursor)!.lines; continue; }
                 let finish = cursor + 1;
                 while (finish < start + count && lines[finish]?.trim() && (lines[finish - 1].match(/\\+$/)?.[0].length ?? 0) % 2 === 1) finish++;
                 if (finish > cursor + 1) {
                   const joined = parseMarkdownNative(lines.slice(cursor, finish).join("\n"), config, depth + 1, env).firstChild;
-                  if (joined?.type.name === "paragraph") result.set(cursor, { node: joined, lines: finish - cursor });
+                  if (isEditorKind(joined, "paragraph")) result.set(cursor, { node: joined, lines: finish - cursor });
                 }
                 cursor = finish;
               }
@@ -1052,13 +1078,13 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
             return;
           }
         }
-        if (node.type.name === "opaque_block" && !first.startsWith(":::")) return;
+        if (isEditorKind(node, "opaque_block") && !first.startsWith(":::")) return;
         result.set(start, { node, lines: count });
       });
       // Hidden definitions in gaps remain source objects, never code contents.
       lines.forEach((line, index) => {
         if (!covered.has(index) && /^(?:\*\[[^\]]+\]|\[(?!\^)[^\]]+\]):\s*\S/.test(line))
-          result.set(index, { node: schema.nodes.syntax_block.create({ kind: "definition", raw: line, config }), lines: 1 });
+          result.set(index, { node: createEditorNode(schema, "syntax_block", { kind: "definition", raw: line, config }), lines: 1 });
       });
       return result;
     },
@@ -1066,6 +1092,7 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
 }
 
 function writeNotdownBlock(node: PMNode, config: SyntaxConfig): string {
+  if (isEditorKind(node, "executable_chunk")) return rChunkMarkdown(node);
   if (needsMarkdownTable(node)) {
     if (!canConvertNotionTable(node)) throw new Error("This table has attributes that a Pandoc grid table cannot preserve. Keep the original source.");
     if (!enabled(config, "grid_tables")) throw new Error("Enable grid_tables to write table spans or captions using Pandoc syntax.");
@@ -1073,14 +1100,14 @@ function writeNotdownBlock(node: PMNode, config: SyntaxConfig): string {
   }
   const write = (child: PMNode) => writeNotdownBlock(child, config);
   const inline = (child: PMNode) => inlineMarkdown(child, false, true, true, true, false, { literalExtensions: true, htmlMarksFirst: true, notionBreaks: true });
-  const markdown = ["definition_list", "definition_term", "definition_description", "footnote", "line_block", "fenced_div", "example_list", "syntax_block", "html_block"];
-  if (markdown.includes(node.type.name)
-    || ["heading", "code_block"].includes(node.type.name) && Object.keys(node.attrs.markdownAttrs || {}).length > 0
-    || node.type.name === "table" && node.attrs.syntaxForm !== "notion"
-    || node.type.name === "callout" && node.attrs.syntaxForm === "alert"
-    || node.type.name === "table_of_contents" && node.attrs.syntaxForm !== "notion"
-    || node.type.name === "ordered_list" && (node.attrs.markerStyle && node.attrs.markerStyle !== "decimal" || node.attrs.markerDelimiter === ")")) return writeBlock(node, config);
-  if (node.type.name === "heading" && node.attrs.level > 4) {
+  const markdown = ["definition_list", "definition_list_item", "definition_term", "definition_description", "footnote", "line_block", "fenced_div", "example_list", "syntax_block", "html_block"];
+  if (markdown.includes(editorKind(node))
+    || ["heading", "code_block"].includes(editorKind(node)) && Object.keys(node.attrs.markdownAttrs || {}).length > 0
+    || isEditorKind(node, "table") && node.attrs.syntaxForm !== "notion"
+    || isEditorKind(node, "callout") && node.attrs.syntaxForm === "alert"
+    || isEditorKind(node, "table_of_contents") && node.attrs.syntaxForm !== "notion"
+    || isEditorKind(node, "ordered_list") && (node.attrs.markerStyle && node.attrs.markerStyle !== "decimal" || node.attrs.markerDelimiter === ")")) return writeBlock(node, config);
+  if (isEditorKind(node, "heading") && node.attrs.level > 4) {
     return notionBlockMarkdown(node, write, inline).replace(/^#{4}/, "#".repeat(node.attrs.level));
   }
   return notionBlockMarkdown(node, write, inline);

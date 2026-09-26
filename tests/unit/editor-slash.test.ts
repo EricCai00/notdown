@@ -21,8 +21,8 @@ import {
 
 const schema = editorSchema;
 const paragraph = (value = "") =>
-  schema.nodes.paragraph.create(null, value ? schema.text(value) : undefined);
-function harness(doc = schema.nodes.doc.create(null, paragraph()), at = 1) {
+  schema.nodes["block.paragraph"].create(null, value ? schema.text(value) : undefined);
+function harness(doc = schema.nodes["doc"].create(null, paragraph()), at = 1) {
   let state = EditorState.create({
     doc,
     selection: TextSelection.create(doc, at),
@@ -146,7 +146,7 @@ test("space ends a command; URL paths and embedded slashes remain literal", () =
 
 test("consuming a query deletes only its transaction range and preserves surrounding text", () => {
   const editor = harness(
-    schema.nodes.doc.create(null, paragraph("left  right")),
+    schema.nodes["doc"].create(null, paragraph("left  right")),
     6,
   );
   editor.type("/h2");
@@ -190,18 +190,12 @@ test("composition holds command actions until the final state transaction", () =
 });
 
 test("nested list queries use their own textblock and absolute document positions", () => {
-  const doc = schema.nodes.doc.create(null, [
+  const doc = schema.nodes["doc"].create(null, [
     paragraph("/previous"),
-    schema.nodes.bullet_list.create(
-      null,
-      schema.nodes.bullet_list_item.create(null, [
+    schema.nodes["structure.bullet_list"].create(null, schema.nodes["block.bullet_list_item"].create(null, [
         paragraph("parent"),
-        schema.nodes.bullet_list.create(
-          null,
-          schema.nodes.bullet_list_item.create(null, paragraph()),
-        ),
-      ]),
-    ),
+        schema.nodes["structure.bullet_list"].create(null, schema.nodes["block.bullet_list_item"].create(null, paragraph())),
+      ])),
   ]);
   let at = 1;
   doc.descendants((node: ProseMirrorNode, position: number) => {
@@ -216,7 +210,7 @@ test("nested list queries use their own textblock and absolute document position
 
 test("fenced and inline code never open a slash menu", () => {
   const fenced = harness(
-    schema.nodes.doc.create(null, schema.nodes.code_block.create()),
+    schema.nodes["doc"].create(null, schema.nodes["block.code_block"].create()),
     1,
   );
   fenced.type("/");
@@ -229,14 +223,11 @@ test("fenced and inline code never open a slash menu", () => {
 });
 
 test("a previous hard-break line cannot leak its slash into the current query", () => {
-  const doc = schema.nodes.doc.create(
-    null,
-    schema.nodes.paragraph.create(null, [
+  const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [
       schema.text("/old"),
-      schema.nodes.hard_break.create(),
+      schema.nodes["character.line_break"].create(),
       schema.text("current"),
-    ]),
-  );
+    ]));
   const editor = harness(doc, doc.content.size - 1);
   editor.type("text");
   assert.equal(editor.match(), null);

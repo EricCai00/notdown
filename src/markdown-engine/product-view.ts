@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { parseNative } from "./codec.js";
@@ -107,9 +108,11 @@ export class SyntaxBlockView implements NodeView {
         parsed = parseNative(raw, this.node.attrs.config),
         first = parsed.firstChild;
       // Keep unfinished input editable in its existing carrier until syntax is complete.
+      const replacement = parsed.childCount === 1 && isEditorKind(first, "syntax_block")
+        ? first : null;
       const attrs =
-        first?.type === this.node.type && parsed.childCount === 1
-          ? { ...first.attrs, source: null, sourceFingerprint: null }
+        replacement
+          ? { ...replacement.attrs, source: null, sourceFingerprint: null }
           : {
               ...this.node.attrs,
               raw,
@@ -119,7 +122,7 @@ export class SyntaxBlockView implements NodeView {
               sourceFingerprint: null,
             };
       this.view.dispatch(
-        this.view.state.tr.setNodeMarkup(pos, undefined, {
+        this.view.state.tr.setNodeMarkup(pos, replacement?.type, {
           ...attrs,
           sourceKey: this.node.attrs.sourceKey,
         }),
@@ -180,7 +183,7 @@ export class SyntaxBlockView implements NodeView {
       }, 4000);
   }
   update(node: PMNode) {
-    if (node.type.name !== "syntax_block") return false;
+    if (!isEditorKind(node, "syntax_block")) return false;
     if (node.attrs.kind === "raw" && node.attrs.data?.format === "html") return false;
     this.node = node;
     this.dom.dataset.syntaxKind = node.attrs.kind;
@@ -280,22 +283,22 @@ export function refreshProductViews(view: EditorView) {
   const meta: Record<string, unknown> = {}, definitions: Record<string, string> = {};
   const footnotes = new Map<string, string>();
   view.state.doc.descendants((node) => {
-    if (node.type.name === "footnote" && !footnotes.has(node.attrs.label)) footnotes.set(node.attrs.label, node.textBetween(0, node.content.size, "\n", " "));
-    if (node.type.name === "syntax_block" && node.attrs.kind === "metadata")
+    if (isEditorKind(node, "footnote") && !footnotes.has(node.attrs.label)) footnotes.set(node.attrs.label, node.textBetween(0, node.content.size, "\n", " "));
+    if (isEditorKind(node, "syntax_block") && node.attrs.kind === "metadata")
       Object.assign(meta, metadataValues(node.attrs.raw, node.attrs.metadataForm));
-    if (node.type.name === "syntax_block" && node.attrs.kind === "definition")
+    if (isEditorKind(node, "syntax_block") && node.attrs.kind === "definition")
       definitions[node.attrs.data.key] = node.attrs.data.body;
   });
   view.state.doc.descendants((node, pos) => {
     const dom = view.nodeDOM(pos);
     if (!(dom instanceof HTMLElement)) return;
-    if (node.type.name === "footnote_reference") {
+    if (isEditorKind(node, "footnote_reference")) {
       const missing = !footnotes.has(node.attrs.label);
       dom.title = missing ? "Footnote definition not found: " + node.attrs.label : footnotes.get(node.attrs.label) || "Empty footnote";
       dom.setAttribute("aria-invalid", String(missing));
     }
     if (
-      node.type.name === "syntax_inline" &&
+      isEditorKind(node, "syntax_inline") &&
       ["abbreviation", "glossary", "citation"].includes(node.attrs.kind)
     ) {
       const match = /\[([>#?])([^\]]+)\]/.exec(node.attrs.raw);
@@ -307,7 +310,7 @@ export function refreshProductViews(view: EditorView) {
         else if (node.attrs.kind === "citation") dom.removeAttribute("href");
       }
     }
-    if (node.type.name === "syntax_inline" && node.attrs.kind === "variable") {
+    if (isEditorKind(node, "syntax_inline") && node.attrs.kind === "variable") {
       const key =
         mmdMetadataKey(/^\[%([^\]]+)\]/.exec(node.attrs.raw)?.[1] || "");
       dom.textContent = String(meta[key] ?? "Undefined: " + key);

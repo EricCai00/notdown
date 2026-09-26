@@ -385,6 +385,13 @@
   border-left: 2px solid #e9e8e4;
   padding-left: 14px;
 }
+.pm-definition-list dd[data-definition-tight="true"] > p {
+  display: inline;
+  margin: 0;
+}
+.pm-definition-list dd[data-definition-tight="true"] > p + p::before {
+  content: " ";
+}
 .pm-line-block {
   white-space: pre-wrap;
   margin: 0;

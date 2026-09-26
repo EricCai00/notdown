@@ -1,0 +1,17 @@
+.pm-page-input {
+  width: 360px;
+  max-height: min(420px, calc(100dvh - 16px));
+}
+.pm-page-input .pm-people-choice {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pm-page-input label {
+  display: block;
+  margin-top: 8px;
+}
+.pm-page-input select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}

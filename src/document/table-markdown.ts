@@ -1,10 +1,11 @@
+import { isEditorKind } from "./node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 
 /** Writes the shared table model using MultiMarkdown's spans and sections. */
 export function multiMarkdownTable(table: PMNode, inline: (node: PMNode) => string, block?: (node: PMNode) => string): string {
   const rows: PMNode[] = [];
   let caption: PMNode | undefined;
-  table.forEach((child) => child.type.name === "table_caption" ? caption = child : rows.push(child));
+  table.forEach((child) => isEditorKind(child, "table_caption") ? caption = child : rows.push(child));
   const occupied: { remaining: number; origin: number }[] = [];
   let origin = 0;
   const lines: string[] = [];
@@ -28,7 +29,7 @@ export function multiMarkdownTable(table: PMNode, inline: (node: PMNode) => stri
     row.forEach((cell) => {
       continued();
       const parts: string[] = [];
-      const structured = cell.childCount > 1 || cell.firstChild?.type.name !== "paragraph";
+      const structured = cell.childCount > 1 || !isEditorKind(cell.firstChild, "paragraph");
       multiline ||= structured;
       cell.forEach((p) => parts.push(structured && block ? block(p) : inline(p)));
       const text = (structured ? parts.join("\n\n") : parts.join("<br>").replace(/ *\n/g, "<br>")).replace(/\|/g, "\\|");

@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -124,11 +125,11 @@ test("Mermaid still uses the existing diagram path and survives a disabled diagr
   const source = "```mermaid\nflowchart LR\nA-->B\n```\n";
   const config: SyntaxConfig = { version: 1, variant: "notdown", extensions: {} };
   const diagram = parseNative(source, config);
-  assert.equal(diagram.firstChild!.type.name, "syntax_block");
+  assert.equal(editorKind(diagram.firstChild!), "syntax_block");
   assert.equal(diagram.firstChild!.attrs.kind, "diagram");
   assert.equal(serializeNative(diagram, config), source);
   const off = { ...config, extensions: { diagrams: false } };
   const code = parseNative(source, off);
-  assert.equal(code.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(code.firstChild!), "code_block");
   assert.equal(serializeNative(code, off), source);
 });

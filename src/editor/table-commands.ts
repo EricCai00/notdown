@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import { Plugin, TextSelection, type Command } from "prosemirror-state";
 import { canConvertNotionTable } from "../document/notdown-boundary";
 import type { Node as PMNode } from "prosemirror-model";
@@ -8,13 +9,13 @@ type Cell = { node: PMNode; r: number; c: number; h: number; w: number };
 export function editTable(action: TableAction, complexEncoding: string | null = "grid"): Command {
   return (state, dispatch) => {
     const { $from } = state.selection;
-    let depth = $from.depth; while (depth && $from.node(depth).type.name !== "table") depth--;
+    let depth = $from.depth; while (depth && !isEditorKind($from.node(depth), "table")) depth--;
     if (!depth) return false;
     const table = $from.node(depth), pos = $from.before(depth), rows: PMNode[] = [];
     let caption: PMNode | undefined, selected: Cell | undefined;
     const cells: Cell[] = [], grid: Cell[][] = [];
     table.forEach((row, offset) => {
-      if (row.type.name === "table_caption") { caption = row; return; }
+      if (isEditorKind(row, "table_caption")) { caption = row; return; }
       const r = rows.length; rows.push(row); grid[r] ||= [];
       let c = 0;
       row.forEach((node, childOffset) => {
@@ -29,13 +30,13 @@ export function editTable(action: TableAction, complexEncoding: string | null = 
     });
     if (!selected && action !== "caption") return false;
     if (!complexEncoding && ["merge-right", "merge-down", "merge-selection", "caption"].includes(action) && ["pipe", "simple", "multiline", "notion"].includes(table.attrs.syntaxForm)) return false;
-    const blank = () => state.schema.nodes.table_cell.create(null, state.schema.nodes.paragraph.create());
+    const blank = () => state.schema.nodes["structure.table_cell"].create(null, state.schema.nodes["block.paragraph"].create());
     let height = rows.length, width = Math.max(1, ...grid.map(r => r.length));
     const widths = [...table.attrs.widths], columnAttrs = [...table.attrs.columnAttrs];
     const current = selected!;
     const canMerge = (first: Cell, others: Cell[]) => others.every(cell => Object.entries(cell.node.attrs.nfmAttrs || {}).every(([key, value]) => first.node.attrs.nfmAttrs?.[key] === value));
     const rectangle = state.selection instanceof TableSelection ? state.selection.rect : undefined;
-    if (action === "caption") caption ||= state.schema.nodes.table_caption.create(null, state.schema.text("Table caption"));
+    if (action === "caption") caption ||= state.schema.nodes["structure.table_caption"].create(null, state.schema.text("Table caption"));
     else if (action === "merge-selection") {
       if (!rectangle || !(state.selection instanceof TableSelection) || state.selection.cells.length < 2) return false;
       const group = cells.filter(c => c.r >= rectangle.top && c.r < rectangle.bottom && c.c >= rectangle.left && c.c < rectangle.right);
@@ -73,7 +74,7 @@ export function editTable(action: TableAction, complexEncoding: string | null = 
         if (row) { if (cell.r >= at) cell.r++; else if (cell.r + cell.h > at) cell.h++; }
         else { if (cell.c >= at) cell.c++; else if (cell.c + cell.w > at) cell.w++; }
       }
-      if (row) { rows.splice(at, 0, state.schema.nodes.table_row.create()); height++; }
+      if (row) { rows.splice(at, 0, state.schema.nodes["structure.table_row"].create()); height++; }
       else { width++; if (widths.length) widths.splice(at, 0, ""); if (columnAttrs.length) columnAttrs.splice(at, 0, {}); }
     } else {
       const row = action === "delete-row", at = row ? rectangle?.top ?? current.r : rectangle?.left ?? current.c;

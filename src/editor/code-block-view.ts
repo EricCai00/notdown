@@ -4,6 +4,7 @@ import { closeHistory } from "prosemirror-history";
 import { createElement, Check, ChevronDown, Copy, CornerDownLeft, Ellipsis, type IconNode } from "lucide";
 import { codeCaption } from "../document/code-caption";
 import { codeLanguage, codeLanguageLabel, filterCodeLanguages } from "./code-languages";
+import { rememberCodeLanguage } from "./code-input-preferences";
 import "./code-block.css";
 
 const icon = (glyph: IconNode) => createElement(glyph, {
@@ -91,9 +92,8 @@ export class CodeBlockView implements NodeView {
     for (const attr of Array.from((spec.dom as HTMLElement).attributes)) this.pre.setAttribute(attr.name, attr.value);
     this.pre.classList.add("pm-code-pre");
     this.languageText.textContent = codeLanguageLabel(String(this.node.attrs.params || ""));
-    this.languageButton.disabled = Boolean(this.node.attrs.rChunk);
-    this.languageButton.title = this.node.attrs.rChunk ? String(this.node.attrs.params) + " · Edit chunk options in Source" : "Code language";
-    this.moreButton.hidden = Boolean(this.node.attrs.rChunk);
+    this.languageButton.disabled = !this.view.editable;
+    this.languageButton.title = "Code language";
     this.dom.classList.toggle("pm-code-wrapped", this.wrapped);
     this.wrapButton.setAttribute("aria-pressed", String(this.wrapped));
     this.wrapButton.title = this.wrapped ? "Don't wrap code" : "Wrap code";
@@ -108,6 +108,7 @@ export class CodeBlockView implements NodeView {
     if (!this.view.editable || current?.type !== this.node.type) return;
     const tr = this.view.state.tr.setNodeMarkup(pos!, undefined, { ...current.attrs, ...attrs });
     this.view.dispatch(separate ? closeHistory(tr) : tr);
+    if (typeof attrs.params === "string") rememberCodeLanguage(attrs.params);
   }
 
   private setCaption(value: string) {

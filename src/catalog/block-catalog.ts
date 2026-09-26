@@ -63,7 +63,7 @@ let tab = "blocks",
   category = "",
   extensionCategory = "",
   variant: Dialect = "typora",
-  selected = blockCatalog[0].id;
+  selected = "block.paragraph";
 let preview: BlockEditor | undefined;
 const results = root.querySelector<HTMLElement>(".catalog-results")!;
 const detail = root.querySelector<HTMLElement>(".catalog-detail")!;
@@ -178,7 +178,7 @@ ${entry.sample ? `<h3>Example <small>${variantLink(entry.variant)} · example se
   const external =
     object?.adapters.some((a) =>
       /^(?:media|image|paragraph.image|syntax\.(?:embed|figure|transclusion))/.test(
-        a.carrier,
+        a.representation || a.carrier,
       ),
     ) ||
     [
@@ -358,7 +358,7 @@ function readLocation() {
   )
     ? params.get("tab")!
     : "blocks";
-  selected = params.get("id") || "";
+  selected = params.get("id") || (tab === "blocks" ? "block.paragraph" : "");
   if (tab === "extensions") selected = canonicalExtensionId(selected);
   if (selected === "inline.file_transclusion") selected = "block.file_transclusion";
   variant =

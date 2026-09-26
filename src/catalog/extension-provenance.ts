@@ -28,6 +28,7 @@ const obsidian = "https://help.obsidian.md/";
 const notion = "https://developers.notion.com/guides/data-apis/enhanced-markdown";
 type Rules = Record<string, SyntaxEvidence>;
 const rules: Record<Dialect, Rules> = {
+  quarto: {},
   rmarkdown: {},
   commonmark: {}, gfm: {}, typora: {}, obsidian: {}, "notion-markdown": {}, notdown: {},
   markdown: {}, commonmark_x: {}, markdown_strict: {}, markdown_phpextra: {}, markdown_mmd: {}, markdown_github: {},
@@ -77,6 +78,7 @@ for (const variant of ["markdown", "commonmark_x", "markdown_github"] as const) 
   }
 }
 Object.assign(rules.rmarkdown, rules.markdown);
+Object.assign(rules.quarto, rules.markdown);
 add("markdown_phpextra", "abbreviations", "PHP Extra Docs", php + "#abbr");
 add("markdown_phpextra", "definition_lists", "PHP Extra Docs", php + "#def-list");
 add("markdown_phpextra", "footnotes", "PHP Extra Docs", php + "#footnotes");

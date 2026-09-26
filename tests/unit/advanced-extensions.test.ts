@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -14,7 +15,7 @@ test("small caps preserve HTML/bracketed encoding and unknown attributes after e
   for (const source of ['[Small]{.smallcaps data-custom="keep"}', '<span class="smallcaps" data-custom="keep">Small</span>']) {
     const doc = parseNative(source, c), changed = EditorState.create({ doc }).tr.insertText("X", 2).doc;
     const output = serializeNative(changed, c), reopened = parseNative(output, c);
-    assert.equal(reopened.firstChild!.firstChild!.marks.find(m => m.type.name === "small_caps")?.attrs.attributes["data-custom"], "keep", output);
+    assert.equal(reopened.firstChild!.firstChild!.marks.find(m => editorKind(m) === "small_caps")?.attrs.attributes["data-custom"], "keep", output);
     assert.equal(output.startsWith("<span"), source.startsWith("<span"));
   }
 });
@@ -22,7 +23,7 @@ test("small caps preserve HTML/bracketed encoding and unknown attributes after e
 test("Div closing tags inside code fences cannot truncate content", () => {
   const c = config({ native_divs: true, fenced_code_blocks: true });
   const source = '<div class="sample">\n\n```html\n</div>\n```\n\nKept\n\n</div>\n\nTail';
-  const doc = parseNative(source, c); assert.equal(doc.firstChild!.type.name, "fenced_div");
+  const doc = parseNative(source, c); assert.equal(editorKind(doc.firstChild!), "fenced_div");
   assert.equal(doc.firstChild!.firstChild!.textContent, "</div>");
   assert.equal(doc.firstChild!.lastChild!.textContent, "Kept");
   assert.equal(serializeNative(doc, c), source);
@@ -64,7 +65,7 @@ for (const [name, source, type] of [
   if (name === "tex_math_gfm") c.variant = "gfm";
   const input = source.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
   const doc = parseNative(input, c); doc.check();
-  assert.equal(doc.firstChild!.type.name, type);
+  assert.equal(editorKind(doc.firstChild!), type);
   assert.equal(serializeNative(doc, c), input);
   let pos: number | undefined;
   doc.firstChild!.descendants((n, p) => { if (pos === undefined && n.isText) pos = p + 1; });
@@ -72,7 +73,7 @@ for (const [name, source, type] of [
   if (pos !== undefined) tr.insertText("edited ", pos);
   else tr.setNodeMarkup(0, undefined, { ...doc.firstChild!.attrs, raw: source.replace("hello", "edited") });
   const output = serializeNative(tr.doc, c), reopened = parseNative(output, c); reopened.check();
-  assert.equal(reopened.firstChild!.type.name, type, output);
+  assert.equal(editorKind(reopened.firstChild!), type, output);
   assert.equal(reopened.lastChild!.textContent, "Tail", output);
 });
 
@@ -80,7 +81,7 @@ test("native inline syntax remains editable and uses its encoding after changes"
   const c = config({ native_spans: true, bracketed_spans: true, inline_notes: true, inline_code_attributes: true, mark: true });
   const doc = parseNative('[Small]{.smallcaps} <span class="user">Native</span> ^[a **note**] `code`{.sample} ==light==', c);
   doc.check();
-  const marks = new Set<string>(); doc.descendants(n => { n.marks.forEach(m => marks.add(m.type.name)); });
+  const marks = new Set<string>(); doc.descendants(n => { n.marks.forEach(m => marks.add(editorKind(m))); });
   for (const mark of ["small_caps", "native_span", "strong", "code", "highlight"]) assert.ok(marks.has(mark), mark);
   const changed = EditorState.create({ doc }).tr.insertText("X", 2).doc;
   const output = serializeNative(changed, c); const reopened = parseNative(output, c); reopened.check();
@@ -91,9 +92,9 @@ test("table captions and attributes persist across edited pipe and grid encoding
   for (const source of ["| Name | Value |\n|---|---|\n| One | Two |", "+-----+-----+\n| One | Two |\n+-----+-----+"]) {
     const c = config({ table_captions: true, table_attributes: true, grid_tables: true, pipe_tables: true });
     const input = source + '\n\nTable: **Numbers** {#data .striped}\n\nTail';
-    const doc = parseNative(input, c); assert.equal(doc.firstChild!.type.name, "table");
+    const doc = parseNative(input, c); assert.equal(editorKind(doc.firstChild!), "table");
     assert.equal(doc.firstChild!.attrs.markdownAttrs.id, "data");
-    assert.equal(doc.firstChild!.firstChild!.type.name, "table_caption");
+    assert.equal(editorKind(doc.firstChild!.firstChild!), "table_caption");
     const changed = EditorState.create({ doc }).tr.insertText("New ", 2).doc;
     const output = serializeNative(changed, c), reopened = parseNative(output, c);
     assert.equal(reopened.firstChild!.attrs.markdownAttrs.id, "data", output);
@@ -121,7 +122,7 @@ test("LaTeX macro context renders math without rewriting formulas or code exampl
   const doc = parseNative(source, c); assert.equal(doc.firstChild!.attrs.data.latexDefinition, true);
   const math = doc.child(1).firstChild!; assert.equal(math.attrs.value, "\\RR"); assert.match(math.attrs.latexPrefix, /newcommand/);
   assert.equal(serializeNative(doc, c), source);
-  assert.equal(doc.lastChild!.type.name, "code_block");
+  assert.equal(editorKind(doc.lastChild!), "code_block");
   assert(!renderNotionMarkdown(source, [], { document: doc }).includes("katex-error"));
   const off = parseNative(source, config({ latex_macros: false })); assert.equal(off.child(1).firstChild!.attrs.latexPrefix, "");
 });

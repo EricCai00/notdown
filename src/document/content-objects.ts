@@ -1,7 +1,7 @@
+import { editorKind, nodeName } from "./node-identity";
 import { markReference } from "./internal-reference";
 import { localObjectPlugins } from "../markdown-engine/presets";
-import { isListItem } from "./list-items";
-import { objectId, objectSamples } from "./object-model";
+import { objectSamples } from "./object-model";
 import type { Mark, Node as PMNode } from "prosemirror-model";
 import {
   commandEnabled,
@@ -14,6 +14,8 @@ export type EditingMode =
   "direct" | "source" | "reference" | "text" | "preserved";
 export interface ContentAdapter {
   carrier: string;
+  /** Encoding/shape discriminator; never another schema node name. */
+  representation?: string;
   /** All listed switches are required. Alternatives use separate adapters. */
   extensions: string[];
   editing: EditingMode;
@@ -43,6 +45,7 @@ type Row = [
 // carrier@switch+switch:editing; alternatives are separated by semicolons.
 const rows: Record<ContentCategory, Row[]> = {
   block: [
+    ["executable_chunk", "Executable Chunk", "Quarto;R Markdown;knitr;R;Python;Julia;OJS", "text", "implemented", "P1", "executable_chunk:direct", "One executable cell for all supported languages; R Markdown supports R, Quarto and Notdown support R/Python/Julia/OJS. Separate language sessions, temporary output."],
     [
       "paragraph",
       "Paragraph",
@@ -301,8 +304,8 @@ const rows: Record<ContentCategory, Row[]> = {
       "structured",
       "partial",
       "P2",
-      "definition_list@definition_lists:direct",
-      "Terms and definitions are editable; moving one definition item independently is pending.",
+      "definition_list_item@definition_lists:direct",
+      "Each item contains one term and its definitions; items and definition body blocks have independent block controls.",
     ],
     [
       "example_list_item",
@@ -428,6 +431,7 @@ const rows: Record<ContentCategory, Row[]> = {
     ],
   ],
   inline: [
+    ["executable_expression", "Executable Expression", "Quarto inline", "text", "implemented", "P1", "executable_inline:source", "One inline expression for all supported languages, preserving legacy R delimiters and temporary execution results."],
     [
       "code_span",
       "Code span",
@@ -800,8 +804,8 @@ for (const [id, note] of Object.entries({
   "block.native_div": "Fenced and native HTML Div share editable children and a properties form; original encoding and unknown attributes are retained.",
   "block.video": "Local playback and editable attachment URL/caption; undo and Markdown persistence.",
   "block.audio": "Local playback and editable attachment URL/caption; undo and Markdown persistence.",
-  "block.file": "Editable attachment URL and caption with a download link; binary contents stay in the attachment.",
-  "block.definition_list_item": "Edit terms and bodies; add, remove and move term/definition groups independently with undo.",
+  "block.file": "Separate File insertion keeps any resource as an icon/name/download card with derived local size, including audio and PDFs; binary contents stay in the attachment.",
+  "block.definition_list_item": "One term with all its definitions: select, drag, duplicate, delete and convert independently with undo. Definition body blocks have their own controls.",
   "inline.image": "Inline images have editable URL, alternative text and title through double-click properties.",
   "inline.inline_html": "Double-click to edit one HTML fragment as source; preview stays sanitized.",
   "inline.inline_comment": "Hidden on the page and retained in source; insert a comment through the input dialog and edit existing comments in Source view.",
@@ -810,7 +814,7 @@ for (const [id, note] of Object.entries({
   "block.unsupported": "Unknown content and non-HTML raw source (block or inline) remain recoverable and source-editable. Other raw output formats are not rendered or converted; reference-only placeholders retain URL/description fields.",
   "block.diagram": "Mermaid, sequence and flow diagrams have local previews and a source editor. Rendering errors leave editable source intact.",
   "block.html_block": "Bare HTML and {=html} raw source share a sanitized HTML preview and source editor, retaining their original encoding. HTML embed remains a separate document object.",
-  "block.pdf": "Editable PDF attachment URL/caption, an embedded browser PDF viewer for local files and an Open PDF fallback link.",
+  "block.pdf": "Separate PDF insertion with a local browser PDF preview, editable URL/caption and a fallback link; no custom PDF reader.",
   "block.file_transclusion": "Editable block/inline inclusion references and recursive local previews, with file-change refresh and cycle/path/size checks. Included source remains a separate file.",
   "block.embed_web_contents": "Editable URL iframe in an isolated preview. Availability depends on the remote site's embedding policy.",
   "block.block_comment": "Editable Markdown source comments, retained on disk and omitted from rendered output.",
@@ -838,6 +842,7 @@ export function getContentCapabilities(id: string, config: SyntaxConfig) {
   const adapters =
     object?.adapters.filter(
       (adapter) =>
+        (!(["block.executable_chunk", "inline.executable_expression"].includes(id)) || ["rmarkdown", "quarto", "notdown"].includes(config.variant)) &&
         !(config.variant === "notion-markdown" && ["inline.image", "inline.autolink"].includes(id)) &&
         adapter.extensions.every((flag) => enabled(config, flag)),
     ) || [];
@@ -859,6 +864,7 @@ export const implementationRoles: Record<string, string> = {
   column: "Column structure",
   tab: "Tab panel",
   example_list: "Example list group",
+  definition_list: "Definition list grouping",
   table_row: "Table row",
   table_cell: "Table cell",
   table_caption: "Table caption",
@@ -884,129 +890,28 @@ for (const id of ["inline.native_span", "inline.small_caps"]) {
   for (const flag of ["native_spans", "attributes"])
     object.adapters.push({ carrier: object.adapters[0].carrier, extensions: [flag], editing: "direct" });
 }
-const nodeObjects: Record<string, string> = {
-  link_mention: "inline.link",
-  paragraph: "block.paragraph",
-  heading: "block.heading",
-  blockquote: "block.quote",
-  horizontal_rule: "block.divider",
-  code_block: "block.code_block",
-  line_block: "block.line_block",
-  table: "block.table",
-  columns: "block.columns",
-  callout: "block.callout",
-  toggle_block: "block.toggle",
-  fenced_div: "block.native_div",
-  equation: "block.math_block",
-  html_block: "block.html_block",
-  html_inline: "inline.inline_html",
-  synced_block: "block.synced_block",
-  table_of_contents: "block.table_of_contents",
-  opaque_block: "block.unsupported",
-  unknown_block: "block.unsupported",
-  definition_list: "block.definition_list_item",
-  image: "inline.image",
-  hard_break: "character.line_break",
-  footnote_reference: "inline.footnote",
-  inline_math: "inline.inline_math",
-  citation: "inline.citation",
-};
 export interface ObjectContext {
   parent?: PMNode;
   list?: PMNode;
   pageRole?: "child" | "reference";
 }
-export function resolveContentObject(
-  node: PMNode,
-  context: ObjectContext = {},
-): ContentObjectDefinition | undefined {
-  let id = nodeObjects[node.type.name];
-  const a = node.attrs;
-  if (node.type.name === "opaque_block" && a.metadataForm)
-    id = a.metadataForm === "pandoc" ? "metadata.pandoc_title_block" : "metadata.yaml_front_matter";
-  if (node.type.name === "nested_block")
-    return node.firstChild
-      ? resolveContentObject(node.firstChild, context)
-      : undefined;
-  if (node.type.name === "heading" && a.toggle) id = "block.toggle_heading";
-  if (isListItem(node))
-    id =
-      "block." +
-      (node.type.name === "task_list_item"
-        ? "task_list_item"
-        : node.type.name === "numbered_list_item"
-          ? "numbered_list_item"
-          : "bullet_list_item");
-  if (
-    node.type.name === "paragraph" &&
-    node.childCount === 1 &&
-    node.firstChild?.type.name === "image" &&
-    (!context.parent || (context.parent.isBlock && !context.parent.isTextblock))
-  )
-    id = "block.image_block";
-  if (
-    node.type.name === "image" &&
-    context.parent?.type.name === "paragraph" &&
-    context.parent.childCount === 1
-  )
-    id = "block.image_block";
-  if (node.type.name === "child_page")
-    id =
-      (context.pageRole ? context.pageRole === "child" : a.nfmAttrs?.role === "child") ? "block.child_page" : "block.link_to_page";
-  if (node.type.name === "page_link") id = "inline.internal_link";
-  if (node.type.name === "syntax_inline" && a.kind === "block-anchor") return byId.get("inline.internal_link");
-  if (node.type.name === "media_block") id = `block.${a.type}`;
-  if (node.type.name === "mention")
-    id =
-      "inline." +
-      ({
-        user: "mention_person",
-        date: "date_or_reminder",
-      }[String(a.kind)] || "mention_page_or_data_source");
-  if (node.type.name === "syntax_block") {
-    id = (
-      {
-        diagram: "block.diagram",
-        embed: "block.embed_web_contents",
-        figure: "block.image_block",
-        comment: "block.block_comment",
-        transclusion: "block.file_transclusion",
-        "html-markdown": "block.html_block",
-      } as Record<string, string>
-    )[a.kind];
-    if (a.kind === "raw")
-      id = a.data?.format === "html" ? "block.html_block" : "block.unsupported";
-    if (a.kind === "metadata")
-      id =
-        "metadata." +
-        (a.metadataForm === "pandoc" || String(a.raw).startsWith("%")
-            ? "pandoc_title_block"
-            : "yaml_front_matter");
-    if (a.kind !== "definition" && !id) id = "block.unsupported";
+/** A content node's name IS its object ID. Only owned structures need a projection. */
+export function resolveContentObject(node: PMNode, context: ObjectContext = {}): ContentObjectDefinition | undefined {
+  const object = byId.get(node.type.name);
+  if (object) return object;
+  if (node.type.name === "structure.nested_block") return node.firstChild ? resolveContentObject(node.firstChild, context) : undefined;
+  if (node.type.name === "structure.inline_note") return byId.get("inline.footnote");
+  if (node.type.name === "structure.preserved_inline") {
+    if (node.attrs.kind === "transclusion") return byId.get("block.file_transclusion");
+    if (node.attrs.kind === "raw") return byId.get("block.unsupported");
   }
-  if (node.type.name === "syntax_inline")
-    if (a.kind === "example-reference") return byId.get("inline.internal_link");
-  if (node.type.name === "syntax_inline")
-    id =
-      "inline." +
-      ((
-        {
-          comment: "inline_comment",
-          variable: "metadata_variable",
-          unresolved_reference: "link",
-        } as Record<string, string>
-      )[a.kind] || a.kind);
-  if (node.type.name === "syntax_inline" && a.kind === "transclusion")
-    id = "block.file_transclusion";
-  if (node.type.name === "syntax_inline" && a.kind === "raw")
-    id = a.title === "html" ? "inline.inline_html" : "block.unsupported";
-  return byId.get(objectId(node) || id);
+  return undefined;
 }
 export function resolveMarkObject(
   mark: Mark,
 ): ContentObjectDefinition | undefined {
   if (markReference(mark)) return byId.get("inline.internal_link");
-  const name = mark.type.name;
+  const name = editorKind(mark);
   const key =
     name === "critic"
       ? mark.attrs.kind === "comment"
@@ -1027,10 +932,11 @@ export function resolveMarkObject(
   return byId.get(`inline.${key}`);
 }
 const commandObjects: Record<string, string> = {
+  image: "block.image_block",
   citation: "inline.citation", abbreviation: "inline.abbreviation", glossary: "inline.glossary", metadata_variable: "inline.metadata_variable",
   addition: "inline.addition", deletion: "inline.deletion", substitution: "inline.substitution",
   mention_person: "inline.mention_person", date_or_reminder: "inline.date_or_reminder",
-  native_span: "inline.native_span", small_caps: "inline.small_caps", inline_note: "inline.footnote",
+  native_span: "inline.native_span", small_caps: "inline.small_caps",
   text: "block.paragraph",
   heading1: "block.heading",
   heading2: "block.heading",
@@ -1041,6 +947,14 @@ const commandObjects: Record<string, string> = {
   quote: "block.quote",
   divider: "block.divider",
   code: "block.code_block",
+  executable_chunk: "block.executable_chunk",
+  executable_inline: "inline.executable_expression",
+  quarto_python: "block.executable_chunk",
+  quarto_julia: "block.executable_chunk",
+  quarto_ojs: "block.executable_chunk",
+  quarto_r: "block.executable_chunk",
+  r_chunk: "block.executable_chunk",
+  r_inline: "inline.executable_expression",
   inline: "inline.code_span",
   child: "block.child_page",
   link: "block.link_to_page",
@@ -1074,4 +988,12 @@ export function contentCommand(command: string, config?: SyntaxConfig) {
     aliases: object?.aliases || [],
     enabled: !config || commandEnabled(config, command),
   };
+}
+
+for (const object of contentObjects) for (const adapter of object.adapters) {
+  const representation = adapter.carrier;
+  if (representation.startsWith("mark.") || representation === "text") continue;
+  adapter.representation = representation;
+  const node = nodeName(representation.split(".")[0]);
+  adapter.carrier = node.startsWith("structure.") ? node : object.id;
 }

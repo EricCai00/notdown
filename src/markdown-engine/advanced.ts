@@ -1,3 +1,4 @@
+import { createEditorNode, isEditorKind } from "../document/node-identity";
 import type MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import type { Node as PMNode } from "prosemirror-model";
@@ -8,7 +9,7 @@ import { readAttributes, slug } from "./attributes";
 import { openingTag } from "../document/notion-syntax";
 
 const inline = (md: MarkdownIt, raw: string, env: any) => parseInline(md.parseInline(raw, env)[0]?.children || []);
-const source = (s: any, node: PMNode) => { const t = s.push("source_inline", "", 0); t.meta = { node }; };
+const source = (s: any, node: PMNode, length: number) => { const t = s.push("source_inline", "", 0); t.meta = { node, inlineStart: s.pos, inlineEnd: s.pos + length }; };
 const alternatives = { alt: ["paragraph", "reference", "blockquote", "list"] };
 function texCommandLength(raw: string): number {
   const command = /^\\[A-Za-z]+\*?/.exec(raw); if (!command) return 0;
@@ -55,12 +56,12 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
     const rest = s.src.slice(s.pos); let length = 0, nodes: PMNode[] = [];
     if (on("angle_brackets_escapable") && /^\\[<>]/.test(rest)) { length = 2; nodes = [schema.text(rest[1])]; }
     if (!length && on("inline_notes") && rest.startsWith("^[")) {
-      const end = md.helpers.parseLinkLabel(s, s.pos + 1, true);
-      if (end >= 0) { length = end - s.pos + 1; nodes = [schema.nodes.inline_note.create(null, inline(md, s.src.slice(s.pos + 2, end), s.env))]; }
+      const end = md.helpers.parseLinkLabel(s, s.pos + 1, false);
+      if (end >= 0) { length = end - s.pos + 1; nodes = [schema.nodes["structure.inline_note"].create(null, inline(md, s.src.slice(s.pos + 2, end), s.env))]; }
     }
     if (!length && on("wikilinks_title_before_pipe") && rest.startsWith("[[")) {
       const m = /^\[\[([^\]\n]+)\]\]/.exec(rest);
-      if (m) { const [label, target = label] = m[1].split("|"); length = m[0].length; nodes = [schema.nodes.page_link.create({ target: target.trim(), label: label.trim(), syntaxForm: "wiki-title-first", labelMode: m[1].includes("|") ? "custom" : "auto" })]; }
+      if (m) { const [label, target = label] = m[1].split("|"); length = m[0].length; nodes = [schema.nodes["inline.internal_link"].create({ target: target.trim(), label: label.trim(), syntaxForm: "wiki-title-first", labelMode: m[1].includes("|") ? "custom" : "auto" })]; }
     }
     if (!length && (on("bracketed_spans") || on("attributes")) && rest[0] === "[") {
       const end = md.helpers.parseLinkLabel(s, s.pos, true), attributes = end >= 0 ? /^\{([^{}]+)\}/.exec(s.src.slice(end + 1)) : null;
@@ -93,25 +94,25 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
       const end = rest.indexOf("==", 2); if (end > 2) { length = end + 2; const mark = schema.marks.highlight.create(); nodes = inline(md, rest.slice(2, end), s.env).map(n => n.mark(mark.addToSet(n.marks))); }
     }
     if (!length && on("tex_math_single_backslash") && rest.startsWith("\\(")) {
-      const end = rest.indexOf("\\)", 2); if (end > 2) { length = end + 2; nodes = [schema.nodes.inline_math.create({ value: rest.slice(2, end), delimiter: "single" })]; }
+      const end = rest.indexOf("\\)", 2); if (end > 2) { length = end + 2; nodes = [schema.nodes["inline.inline_math"].create({ value: rest.slice(2, end), delimiter: "single" })]; }
     }
     if (!length && on("tex_math_gfm") && rest.startsWith("$`")) {
-      const end = rest.indexOf("`$", 2); if (end > 2) { length = end + 2; nodes = [schema.nodes.inline_math.create({ value: rest.slice(2, end), delimiter: "gfm" })]; }
+      const end = rest.indexOf("`$", 2); if (end > 2) { length = end + 2; nodes = [schema.nodes["inline.inline_math"].create({ value: rest.slice(2, end), delimiter: "gfm" })]; }
     }
     if (!length && on("example_lists")) {
       const m = /^@([\w-]+)/.exec(rest), number = m && s.env.exampleLabels?.[m[1]];
-      if (m && number !== undefined) { length = m[0].length; nodes = [schema.nodes.syntax_inline.create({ kind: "example-reference", raw: m[0], label: String(number), target: "md-example-" + m[1], config })]; }
+      if (m && number !== undefined) { length = m[0].length; nodes = [createEditorNode(schema, "syntax_inline", { kind: "example-reference", raw: m[0], label: String(number), target: "md-example-" + m[1], config })]; }
     }
     if (!length && on("citations") && !/[\p{L}\p{N}_]/u.test(s.src[s.pos - 1] || "")) {
       const m = /^\[(?:[^\]\n]*?\s)?-?@[A-Za-z0-9_][^\]\n]*\]|^-?@[A-Za-z0-9_][\w:.#$%&+?<>~/-]*/.exec(rest);
-      if (m) { const raw = m[0].startsWith("[") ? m[0] : m[0].replace(/[.,;:!?]+$/, ""); length = raw.length; nodes = [schema.nodes.syntax_inline.create({ kind: "citation", raw, label: raw, title: "Pandoc citation", config })]; }
+      if (m) { const raw = m[0].startsWith("[") ? m[0] : m[0].replace(/[.,;:!?]+$/, ""); length = raw.length; nodes = [createEditorNode(schema, "syntax_inline", { kind: "citation", raw, label: raw, title: "Pandoc citation", config })]; }
     }
     if (!length && on("raw_tex")) {
       length = texCommandLength(rest);
-      if (length) { const raw = rest.slice(0, length); nodes = [schema.nodes.syntax_inline.create({ kind: "raw", raw, label: raw, title: "tex", config })]; }
+      if (length) { const raw = rest.slice(0, length); nodes = [createEditorNode(schema, "syntax_inline", { kind: "raw", raw, label: raw, title: "tex", config })]; }
     }
     if (!length) return false;
-    if (!silent) for (const n of nodes) source(s, n);
+    if (!silent) for (const n of nodes) source(s, n, length);
     s.pos += length; return true;
   });
   md.block.ruler.before("fence", "advanced_blocks", (s, start, end, silent) => {
@@ -123,18 +124,18 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
       const close = "\\end{" + environment[1] + "}";
       if (!first.includes(close)) { while (next < end && !line(next).includes(close)) next++; if (next === end) return false; next++; }
       const raw = s.getLines(start, next, s.blkIndent, false).replace(/\n$/, "");
-      node = schema.nodes.syntax_block.create({ kind: "raw", raw, config, data: { format: "tex", code: raw, syntaxForm: "tex" } });
+      node = createEditorNode(schema, "syntax_block", { kind: "raw", raw, config, data: { format: "tex", code: raw, syntaxForm: "tex" } });
     }
     if (!node && on("tex_math_single_backslash") && first.startsWith("\\[")) {
       let value: string;
       if (first.endsWith("\\]")) value = first.slice(2, -2);
       else { while (next < end && line(next).trim() !== "\\]") next++; if (next === end) return false; value = s.getLines(start + 1, next++, s.blkIndent, false); }
-      node = schema.nodes.equation.create({ markdownAttrs: { mathDelimiter: "single" } }, value.trim() ? schema.text(value.trim()) : undefined);
+      node = schema.nodes["block.math_block"].create({ markdownAttrs: { mathDelimiter: "single" } }, value.trim() ? schema.text(value.trim()) : undefined);
     }
     if (!node && on("literate_haskell") && /^> ?\S/.test(first)) {
       while (next < end && /^>/.test(line(next))) next++;
       const value = Array.from({ length: next - start }, (_, i) => line(start + i).replace(/^> ?/, "")).join("\n");
-      node = schema.nodes.code_block.create({ params: "haskell", markdownAttrs: { literate: "bird" } }, schema.text(value));
+      node = schema.nodes["block.code_block"].create({ params: "haskell", markdownAttrs: { literate: "bird" } }, schema.text(value));
     }
     if (!node && (on("native_divs") || on("markdown_in_html_blocks")) && /^<div(?:\s|>)/.test(first)) {
       const tag = openingTag(first); if (tag && !first.slice(tag.length).trim()) {
@@ -148,7 +149,7 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
         }
         if (next < end) {
           const body = parse(s.getLines(start + 1, next, s.blkIndent, false), s.env).content;
-          node = schema.nodes.fenced_div.create({ attributes: Object.entries(tag.attrs).map(([k,v]) => `${k}="${v}"`).join(" "), syntaxForm: "html" }, body); next++;
+          node = schema.nodes["block.native_div"].create({ attributes: Object.entries(tag.attrs).map(([k,v]) => `${k}="${v}"`).join(" "), syntaxForm: "html" }, body); next++;
         }
       }
     }
@@ -182,13 +183,15 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
           lines.push(s.isEmpty(next) ? "" : s.src.slice(s.bMarks[next] + Math.min(s.sCount[next], s.blkIndent + 4), s.eMarks[next])); next++;
         }
         let content = parse(lines.join("\n"), s.env).content;
-        if (content.firstChild?.type.name !== "paragraph") content = content.addToStart(schema.nodes.paragraph.create());
-        const number = example ? (s.env.exampleCounter = (s.env.exampleCounter || 0) + 1) : order + children.length;
-        if (example && m[2]) (s.env.exampleLabels ||= {})[m[2]] = number;
-        children.push(schema.nodes[example ? "example_list_item" : "numbered_list_item"].create(example ? { label: m[2], number } : null, content));
+        if (!isEditorKind(content.firstChild, "paragraph")) content = content.addToStart(schema.nodes["block.paragraph"].create());
+        const labels = s.env.exampleLabels ||= Object.create(null);
+        const repeated = example && m[2] && Object.hasOwn(labels, m[2]);
+        const number = example ? repeated ? labels[m[2]] : (s.env.exampleCounter = (s.env.exampleCounter || 0) + 1) : order + children.length;
+        if (example && m[2] && !repeated) labels[m[2]] = number;
+        children.push(createEditorNode(schema, example ? "example_list_item" : "numbered_list_item", example ? { label: m[2], number } : null, content));
         while (next < end && s.isEmpty(next) && next + 1 < end && marker(line(next + 1))) next++;
       }
-      node = schema.nodes[example ? "example_list" : "ordered_list"].create(example ? { start: children[0].attrs.number } : { order, markerStyle: style, markerDelimiter: first.startsWith("(") ? "()" : firstMarker[4] }, children);
+      node = createEditorNode(schema, example ? "example_list" : "ordered_list", example ? { start: children[0].attrs.number } : { order, markerStyle: style, markerDelimiter: first.startsWith("(") ? "()" : firstMarker[4] }, children);
     }
     if (!node) return false;
     if (silent) return true;
@@ -205,7 +208,7 @@ export function installAdvancedRules(md: MarkdownIt, config: SyntaxConfig, parse
         if (!t.meta?.markdownAttrs?.id || t.meta.markdownAttrs.generated) t.meta = { ...t.meta, markdownAttrs: { ...t.meta?.markdownAttrs, id, generated: "true" } };
       }
       if (t.type === "fence" && on("tex_math_gfm") && t.info.trim() === "math") {
-        t.type = "source_node"; t.meta = { node: schema.nodes.equation.create({ markdownAttrs: { mathDelimiter: "gfm" } }, t.content.trim() ? schema.text(t.content.trim()) : undefined) };
+        t.type = "source_node"; t.meta = { node: schema.nodes["block.math_block"].create({ markdownAttrs: { mathDelimiter: "gfm" } }, t.content.trim() ? schema.text(t.content.trim()) : undefined) };
       }
       const children = t.children || [];
       for (let j = 0; j < children.length; j++) {

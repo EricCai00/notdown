@@ -1,3 +1,4 @@
+import { createEditorNode } from "../../document/node-identity";
 import {
   Plugin,
   PluginKey,
@@ -10,36 +11,20 @@ import { dateSuggestions, type DateSuggestion } from "./date-mention";
 import { placeDatePanel, renderDateSuggestions } from "./date-view";
 import { allPeople, peopleChanged, requestPeople } from "../people/people-client";
 import { personInitials, searchPeople, type Person } from "../people/person";
+import { pageInputMatch, pageInputChoices, pageInputLabel, insertPageInput, type InputPage, type PageInputOptions } from "../../editor/page-reference-input";
 
 type Match = { from: number; to: number; query: string };
 const key = new PluginKey<{ dismissed: number | null }>("date-mention-input");
 export function dateInputMatch(state: EditorState): Match | null {
-  const { selection } = state;
-  if (
-    !(selection instanceof TextSelection) ||
-    !selection.empty ||
-    !selection.$from.parent.isTextblock ||
-    selection.$from.parent.type.spec.code
-  )
-    return null;
-  const { $from } = selection;
-  const text = $from.parent.textBetween(0, $from.parentOffset, "\n", "\ufffc");
-  const match = /(?:^|\s)@([^@\n\ufffc]{0,80})$/.exec(text);
-  if (!match) return null;
-  const local = $from.parentOffset - match[1].length - 1;
-  let code = false;
-  $from.parent.nodesBetween(local, $from.parentOffset, (node) => {
-    if (node.marks.some((mark) => mark.type.spec.code)) code = true;
-  });
-  if (code) return null;
-  return { from: $from.start() + local, to: selection.from, query: match[1] };
+  return pageInputMatch(state) ? null : pageInputMatch(state, true);
 }
-export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => boolean = () => false, supplemental: () => boolean = () => false) {
-  type Choice = { kind: "date"; date: DateSuggestion } | { kind: "person"; person: Person } | { kind: "manage" };
+export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => boolean = () => false, supplemental: () => boolean = () => false, pageOptions?: PageInputOptions) {
+  type Choice = { kind: "date"; date: DateSuggestion } | { kind: "person"; person: Person } | { kind: "page"; page: InputPage } | { kind: "manage" };
   let panel: HTMLDivElement | undefined,
     active = -1,
     current: Match | null = null,
     view: EditorView;
+  let composing = false, compositionEnd: ReturnType<typeof setTimeout> | undefined;
   const hide = () => {
     panel?.remove();
     panel = undefined;
@@ -52,11 +37,12 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
   const choicesFor = (query: string): Choice[] => [
     ...(peopleAllowed() ? searchPeople(allPeople(), query).slice(0, 12).map(person => ({ kind: "person" as const, person })) : []),
     ...(allowed() ? dateSuggestions(query).filter(date => supplemental() || !date.reminder).map(date => ({ kind: "date" as const, date })) : []),
+    ...(pageOptions ? pageInputChoices(pageOptions.pages(), query).slice(0, 12).map(page => ({ kind: "page" as const, page })) : []),
     ...(peopleAllowed() ? [{ kind: "manage" as const }] : []),
   ];
   const insertPerson = (person: Person, match: Match, doc = view.state.doc) => {
     if (view.isDestroyed || !view.editable || !peopleAllowed() || !view.state.doc.eq(doc) || !allPeople().some(item => item.id === person.id && !item.deleted)) return;
-    const node = view.state.schema.nodes.mention.create({ kind: "user", label: person.name, nfmAttrs: { url: `person://${person.id}` } });
+    const node = createEditorNode(view.state.schema, "mention", { kind: "user", label: person.name, nfmAttrs: { url: `person://${person.id}` } });
     const tr = closeHistory(view.state.tr.replaceWith(match.from, match.to, node));
     tr.setSelection(TextSelection.create(tr.doc, match.from + node.nodeSize));
     hide();
@@ -65,7 +51,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
   };
   const choose = (choice: Choice) => {
     const match = dateInputMatch(view.state);
-    if (!match || !current || match.from !== current.from || !view.editable) {
+    if (!match || !current || match.from !== current.from || !view.editable || composing || view.composing) {
       hide();
       return;
     }
@@ -76,7 +62,13 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
       return;
     }
     if (choice.kind === "person") { insertPerson(choice.person, match); return; }
-    const node = view.state.schema.nodes.mention.create({
+    if (choice.kind === "page") {
+      const page = pageOptions && pageInputChoices(pageOptions.pages(), "").find(page => page.id === choice.page.id);
+      if (!page || !pageOptions) { hide(); return; }
+      const tr = insertPageInput(view.state, { ...match, trigger: "@" }, page, pageOptions.allow);
+      hide(); view.dispatch(tr); view.focus(); return;
+    }
+    const node = createEditorNode(view.state.schema, "mention", {
       kind: "date",
       nfmAttrs: supplemental() ? choice.date.attrs : {
         start: choice.date.attrs.start.slice(0, 10),
@@ -113,6 +105,13 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
     }
     choices.forEach((choice, index) => {
       if (choice.kind === "date") return;
+      if (choice.kind === "page" && choices.findIndex(item => item.kind === "page") === index) {
+        const heading = document.createElement("div");
+        heading.className = "pm-date-heading";
+        heading.dataset.pageHeading = "";
+        heading.textContent = "Pages";
+        panel!.append(heading);
+      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = `pm-people-choice${choice.kind === "manage" ? " pm-people-manage" : ""}`;
@@ -130,6 +129,9 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
         extra.textContent = choice.person.organization || choice.person.email;
         label.append(extra);
         button.append(avatar, label);
+      } else if (choice.kind === "page") {
+        button.dataset.pageId = choice.page.id;
+        button.textContent = pageInputLabel(choice.page, pageOptions!.pages());
       } else button.textContent = "Manage people…";
       button.onpointerdown = event => event.preventDefault();
       button.onclick = () => choose(choice);
@@ -138,13 +140,13 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
     if (allowed() && dateSuggestions(current.query).length) {
       const dates = document.createElement("div");
       renderDateSuggestions(dates, current.query, active - people.length, date => choose({ kind: "date", date }), supplemental());
-      panel.insertBefore(dates, panel.querySelector(".pm-people-manage"));
+      panel.insertBefore(dates, panel.querySelector("[data-page-heading], .pm-people-manage"));
     }
     panel.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   };
   const paint = () => {
     const match =
-      (allowed() || peopleAllowed()) && view.editable && !view.composing && view.hasFocus()
+      (allowed() || peopleAllowed() || pageOptions) && view.editable && !composing && !view.composing && view.hasFocus()
         ? dateInputMatch(view.state)
         : null;
     if (
@@ -161,7 +163,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
       panel = document.createElement("div");
       panel.className = "pm-date-panel pm-date-quick pm-mention-menu";
       panel.setAttribute("role", "listbox");
-      panel.setAttribute("aria-label", peopleAllowed() ? "Mention suggestions" : "Date suggestions");
+      panel.setAttribute("aria-label", peopleAllowed() || pageOptions ? "Mention suggestions" : "Date suggestions");
       document.body.append(panel);
     }
     renderChoices();
@@ -190,7 +192,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
     },
     props: {
       handleKeyDown(_view, event) {
-        if (!panel || !current || event.isComposing || view.composing)
+        if (!panel || !current || composing || event.isComposing || view.composing || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey)
           return false;
         const choices = choicesFor(current.query);
         if (event.key === "Escape") {
@@ -209,7 +211,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
           renderChoices();
           return true;
         }
-        if (event.key === "Enter" && choices.length && (active >= 0 || choices[0].kind !== "manage")) {
+        if ((event.key === "Enter" || event.key === "Tab") && choices.length && (active >= 0 || choices[0].kind !== "manage")) {
           choose(choices[Math.max(0, active)]);
           return true;
         }
@@ -217,11 +219,14 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
       },
       handleDOMEvents: {
         compositionstart() {
+          clearTimeout(compositionEnd);
+          composing = true;
           hide();
           return false;
         },
         compositionend() {
-          queueMicrotask(() => { if (!view.isDestroyed) paint(); });
+          clearTimeout(compositionEnd);
+          compositionEnd = setTimeout(() => { composing = false; if (!view.isDestroyed) paint(); }, 0);
           return false;
         },
       },
@@ -257,6 +262,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
           paint();
         },
         destroy() {
+          clearTimeout(compositionEnd);
           events.abort();
           hide();
         },

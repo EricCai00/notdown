@@ -86,17 +86,28 @@
 .pm-syntax-block[data-syntax-kind="comment"] {
   display: none;
 }
-.pm-critic {
+.pm-critic:not(mark) {
   text-decoration-color: #af4c4c;
-  background: #fff3bd;
 }
-ins.pm-critic {
+.pm-highlight,
+mark.pm-critic {
+  background: #fff3bd;
+  color: inherit;
+}
+ins.pm-critic,
+.pm-critic-new {
   background: #daf1dc;
   text-decoration: none;
   border-bottom: 1px solid #589060;
 }
-del.pm-critic {
+del.pm-critic,
+.pm-critic-old {
   background: #f7dada;
+}
+.pm-critic-old {
+  text-decoration: line-through;
+  margin-inline-end: 0.15em;
+  white-space: pre-wrap;
 }
 .md-bibliography {
   margin-top: 20px;
@@ -111,3 +122,49 @@ del.pm-critic {
 .md-bibliography [aria-invalid="true"] { color: #a34831; }
 .pm-document .pm-selected-cell { background: #dceaf8 !important; outline: 1px solid #80add6; outline-offset: -1px; }
 .pm-syntax-block[hidden] { display: none; }
+
+/* Match the MMD reference presentation without changing other dialects. */
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) {
+  --mmd-reference-color: #7b668e;
+  --mmd-reference-underline: #c7bbd2;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) .pm-footnote-ref[data-footnote-number] a::after {
+  content: var(--footnote-number);
+  color: inherit;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) :is(.pm-footnote-ref a, .md-mmd-citation, .pm-footnote-backref, .md-citation-backref) {
+  color: var(--mmd-reference-color);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--mmd-reference-underline);
+  opacity: 1;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) .pm-footnotes {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e6e4dc;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) .pm-footnote {
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 6px;
+  font-size: 14px;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) .pm-footnote::before {
+  color: inherit;
+  text-align: right;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) .md-bibliography {
+  margin-top: 32px;
+  padding: 24px 0 100px;
+  border-top: 1px solid #e6e4dc;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.markdown-workspace:is([data-variant="markdown_mmd"], [data-variant="notdown"]) .md-bibliography > ol {
+  margin: 8px 0 0;
+  padding-left: 28px;
+}
+.md-bibliography :is(li, p) > button { opacity: 0; }
+.md-bibliography :is(li, p):hover > button,
+.md-bibliography :is(li, p) > button:focus-visible { opacity: 1; }
+@media (hover: none) { .md-bibliography :is(li, p) > button { opacity: 1; } }

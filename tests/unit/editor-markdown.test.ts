@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import { parseNative } from "../../src/markdown-engine/codec";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -51,14 +52,14 @@ test("every task is a distinct list_item with nested editable children", () => {
     "- [ ] Parent\n  - [x] Child\n  - Sibling\n- [X] Done\n- Plain\n\n3. Third\n4. Fourth";
   const doc = parseEditorMarkdown(source);
   const list = doc.child(0);
-  assert.equal(list.type.name, "bullet_list");
+  assert.equal(editorKind(list), "bullet_list");
   assert.equal(list.childCount, 3);
   assert.equal(list.child(0).attrs.checked, false);
   assert.equal(list.child(1).attrs.checked, true);
   assert.equal(list.child(2).attrs.checked, null);
   assert.equal(list.child(0).child(0).textContent, "Parent");
   const nested = list.child(0).child(1);
-  assert.equal(nested.type.name, "bullet_list");
+  assert.equal(editorKind(nested), "bullet_list");
   assert.equal(nested.childCount, 2);
   assert.equal(nested.child(0).attrs.checked, true);
   assert.equal(nested.child(1).attrs.checked, null);
@@ -79,18 +80,18 @@ test("page mentions are stable atoms and ordinary links are editable marked labe
   const atoms: EditorNode[] = [];
   let linked: EditorNode | undefined;
   paragraph.forEach((node) => {
-    if (node.type.name === "page_link") atoms.push(node);
-    if (node.marks.some((mark) => mark.type.name === "link")) linked = node;
+    if (editorKind(node) === "page_link") atoms.push(node);
+    if (node.marks.some((mark) => editorKind(mark) === "link")) linked = node;
   });
   assert.equal(atoms.length, 1);
   assert.equal(atoms[0].isAtom, true);
   assert.deepEqual(
     { ...atoms[0].attrs },
-    { target: "note-1", label: "Project plan", url: "", syntaxForm: "wiki", labelMode: "custom", nfmAttrs: {} },
+    { kind: "", raw: "", title: "", html: "", config: null, editorRepresentation: "page_link", target: "note-1", label: "Project plan", url: "", syntaxForm: "wiki", labelMode: "custom", nfmAttrs: {} },
   );
   assert.equal(linked?.text, "the website");
   assert.equal(linked?.marks[0].attrs.href, "https://example.com/a?b=1");
-  assert.equal(doc.child(1).type.name, "child_page");
+  assert.equal(editorKind(doc.child(1)), "child_page");
   assert.equal(doc.child(1).attrs.target, "note-2");
   const output = assertSemanticRoundtrip(replaceText(doc, "Read", "See"));
   assert.match(output, /\[\[note-1\|Project plan\]\]/);
@@ -107,8 +108,8 @@ test("editing one paragraph leaves unrelated formatting, tables, definitions and
   const doc = parseEditorMarkdown(source);
   const output = serializeEditorMarkdown(replaceText(doc, "Before", "After"));
   assert.equal(output, source.replace("Before", "After"));
-  assert.equal(doc.child(2).type.name, "opaque_block");
-  assert.equal(doc.child(3).type.name, "opaque_block");
+  assert.equal(editorKind(doc.child(2)), "opaque_block");
+  assert.equal(editorKind(doc.child(3)), "opaque_block");
 });
 
 test("deleting a block preserves reference definitions attached to its boundary", () => {
@@ -161,33 +162,30 @@ test("two columns preserve page atoms, nested lists, and code after editing", ()
   const doc = parseEditorMarkdown(
     ":::columns\nLeft [[page]]\n:::column\n- [ ] Parent\n  - Child\n\n```md\n:::column\n```\n:::",
   );
-  assert.equal(doc.child(0).type.name, "columns");
+  assert.equal(editorKind(doc.child(0)), "columns");
   assert.equal(doc.child(0).childCount, 2);
   const changed = replaceText(doc, "Child", "Nested child");
   const output = serializeEditorMarkdown(changed);
   assert.doesNotMatch(output, /^:::columns/m);
   const reopened = parseNative(output, { version: 1, variant: "notdown", extensions: {} });
-  assert.equal(reopened.firstChild?.type.name, "columns");
+  assert.equal(editorKind(reopened.firstChild), "columns");
   assert.equal(reopened.textContent, changed.textContent);
-  assert.equal(reopened.firstChild?.child(1).lastChild?.type.name, "code_block");
+  assert.equal(editorKind(reopened.firstChild?.child(1).lastChild), "code_block");
 });
 
 test("new paragraphs escape Markdown syntax while raw HTML stays inert", () => {
   const raw = parseEditorMarkdown('<script>alert("x")</script>\n\nText');
-  assert.equal(raw.child(0).type.name, "opaque_block");
-  const htmlSpec = schema.nodes.opaque_block.spec.toDOM!(raw.child(0));
+  assert.equal(editorKind(raw.child(0)), "opaque_block");
+  const htmlSpec = schema.nodes["block.unsupported"].spec.toDOM!(raw.child(0));
   assert.deepEqual(htmlSpec, [
     "pre",
     { class: "opaque-block", contenteditable: "false" },
     ["code", '<script>alert("x")</script>'],
   ]);
-  const doc = schema.nodes.doc.create(null, [
-    schema.nodes.paragraph.create(
-      null,
-      schema.text(
+  const doc = schema.nodes["doc"].create(null, [
+    schema.nodes["block.paragraph"].create(null, schema.text(
         "# literal\n- not a list\n1. text\n[[not a page]]\n<img src=x>",
-      ),
-    ),
+      )),
   ]);
   assertSemanticRoundtrip(doc);
 });
@@ -201,10 +199,7 @@ test("changed formatted inline content retains mark boundaries and code delimite
 
 test("literal thematic and setext syntax remains plain paragraph content", () => {
   for (const text of ["---", "===", "line\n---", "line\n=", "- - -", "* * *"]) {
-    const doc = schema.nodes.doc.create(
-      null,
-      schema.nodes.paragraph.create(null, schema.text(text)),
-    );
+    const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, schema.text(text)));
     assertSemanticRoundtrip(doc);
   }
 });
@@ -253,11 +248,11 @@ test("local audio and video stay ordinary links through edits and CRLF roundtrip
   const doc = parseEditorMarkdown(source);
   for (const [index, href] of [[0, "assets/voice.mp3"], [1, "./assets/demo.webm#t=3"]] as const) {
     const node = doc.child(index).firstChild!;
-    assert.equal(node.type.name, "text");
-    assert.equal(node.marks[0].type.name, "link");
+    assert.equal(editorKind(node), "text");
+    assert.equal(editorKind(node.marks[0]), "link");
     assert.equal(node.marks[0].attrs.href, href);
   }
-  assert.equal(schema.nodes.media, undefined);
+  assert.equal(schema.nodes["media"], undefined);
   assert.equal(serializeEditorMarkdown(doc), source);
   assert.equal(serializeEditorMarkdown(replaceText(doc, "Tail", "Changed")), source.replace("Tail", "Changed"));
   assert.match(assertSemanticRoundtrip(replaceText(doc, "录音", "新录音")), /^\[新录音\]\(assets\/voice.mp3\)/);
@@ -269,13 +264,13 @@ test("remote and absolute media URLs remain links and code stays literal", () =>
   const doc = parseEditorMarkdown(source);
   let media = 0;
   doc.descendants((node) => {
-    if (node.type.name === "media") media++;
+    if (editorKind(node) === "media") media++;
   });
   assert.equal(media, 0);
   for (let index = 0; index < 3; index++)
-    assert.equal(doc.child(index).child(0).marks[0].type.name, "link");
-  assert.equal(doc.child(3).child(0).marks[0].type.name, "code");
-  assert.equal(doc.child(4).type.name, "code_block");
+    assert.equal(editorKind(doc.child(index).child(0).marks[0]), "link");
+  assert.equal(editorKind(doc.child(3).child(0).marks[0]), "code");
+  assert.equal(editorKind(doc.child(4)), "code_block");
   assert.equal(serializeEditorMarkdown(doc), source);
 });
 

@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import { parseNative } from "../../src/markdown-engine/codec";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -62,12 +63,12 @@ test("text Tab creates real parent/child nodes; repeat and Shift Tab retain care
     3,
   );
   state = run(state, indentEditorBlock);
-  assert.equal(state.doc.firstChild?.type.name, "nested_block");
+  assert.equal(editorKind(state.doc.firstChild), "nested_block");
   assert.equal(state.selection.$from.parentOffset, 3);
   roundtrip(state);
   state = run(select(state, "Grandchild"), indentEditorBlock);
   state = run(state, indentEditorBlock);
-  assert.equal(state.doc.firstChild?.child(1).type.name, "nested_block");
+  assert.equal(editorKind(state.doc.firstChild?.child(1)), "nested_block");
   roundtrip(state);
   state = run(state, outdentEditorBlock);
   assert.equal(state.doc.firstChild?.childCount, 3);
@@ -91,7 +92,7 @@ test("parent text drag moves subtree; child drag, delete and undo preserve sibli
   roundtrip(state);
   const child = blockAtPos(state.doc, select(state, "Child").selection.from)!;
   state = state.apply(deleteEditorBlock(state, child.pos)!);
-  assert.equal(state.doc.lastChild?.type.name, "paragraph");
+  assert.equal(editorKind(state.doc.lastChild), "paragraph");
   assert.equal(state.doc.lastChild?.textContent, "Parent");
   state = run(state, undo);
   assert.ok(state.doc.textContent.includes("Child"));
@@ -103,7 +104,7 @@ test("list Backspace removes marker first without merging or discarding descenda
     "Second",
   );
   state = run(state, backspaceEditorBlock);
-  assert.equal(state.doc.child(1).type.name, "nested_block");
+  assert.equal(editorKind(state.doc.child(1)), "nested_block");
   assert.equal(state.doc.child(1).firstChild?.textContent, "Second");
   assert.ok(state.doc.textContent.includes("Nested"));
   roundtrip(state);
@@ -117,7 +118,7 @@ test("ending list then Backspace returns directly to the previous item, with no 
   ]) {
     let state = select(stateFor(source), "");
     state = run(state, exitEmptyList);
-    assert.equal(state.doc.lastChild?.type.name, "paragraph");
+    assert.equal(editorKind(state.doc.lastChild), "paragraph");
     state = run(state, backspaceEditorBlock);
     assert.equal(state.doc.childCount, 1);
     assert.equal(state.doc.firstChild?.childCount, 1);
@@ -143,7 +144,7 @@ test("nest syntax preserves fences, links, source bytes, list children and malfo
   const source =
     ":::nest\r\nParent [[target]]\r\n\r\nChild\r\n\r\n```md\r\n:::endnest\r\n```\r\n:::endnest\r\n";
   const state = stateFor(source);
-  assert.equal(state.doc.firstChild?.type.name, "nested_block");
+  assert.equal(editorKind(state.doc.firstChild), "nested_block");
   assert.equal(serializeEditorMarkdown(state.doc), source);
   assert.deepEqual(extractLinks(source), ["target"]);
   assert.match(renderMarkdown(source), /pm-nested-block/);
@@ -160,20 +161,17 @@ test("nest syntax preserves fences, links, source bytes, list children and malfo
 test("empty text parents and children roundtrip without becoming the same row", () => {
   for (const content of [
     [
-      schema.nodes.paragraph.create(),
-      schema.nodes.paragraph.create(null, schema.text("Child")),
+      schema.nodes["block.paragraph"].create(),
+      schema.nodes["block.paragraph"].create(null, schema.text("Child")),
     ],
     [
-      schema.nodes.paragraph.create(null, schema.text("Parent")),
-      schema.nodes.paragraph.create(),
+      schema.nodes["block.paragraph"].create(null, schema.text("Parent")),
+      schema.nodes["block.paragraph"].create(),
     ],
   ]) {
     const state = EditorState.create({
       schema,
-      doc: schema.nodes.doc.create(
-        null,
-        schema.nodes.nested_block.create(null, content),
-      ),
+      doc: schema.nodes["doc"].create(null, schema.nodes["structure.nested_block"].create(null, content)),
     });
     roundtrip(state);
   }
@@ -181,13 +179,10 @@ test("empty text parents and children roundtrip without becoming the same row", 
 
 test("literal nesting delimiters typed as prose remain text after saving", () => {
   const p = (text: string) =>
-    schema.nodes.paragraph.create(null, schema.text(text));
+    schema.nodes["block.paragraph"].create(null, schema.text(text));
   const state = EditorState.create({
     schema,
-    doc: schema.nodes.doc.create(
-      null,
-      schema.nodes.nested_block.create(null, [p("Parent"), p(":::endnest")]),
-    ),
+    doc: schema.nodes["doc"].create(null, schema.nodes["structure.nested_block"].create(null, [p("Parent"), p(":::endnest")])),
   });
   roundtrip(state);
 });
@@ -198,16 +193,16 @@ test("empty nested list Enter lifts one level and retains the bullet", () => {
     exitEmptyList,
   );
   assert.equal(state.doc.firstChild?.childCount, 2);
-  assert.equal(state.doc.firstChild?.lastChild?.type.name, "bullet_list_item");
+  assert.equal(editorKind(state.doc.firstChild?.lastChild), "bullet_list_item");
   state = run(state, exitEmptyList);
-  assert.equal(state.doc.lastChild?.type.name, "paragraph");
+  assert.equal(editorKind(state.doc.lastChild), "paragraph");
 });
 
 test("text outdent brings later siblings underneath the lifted block", () => {
   const source = ":::nest\nParent\n:::children\nChild\n\nFollowing\n:::endnest";
   const state = run(select(stateFor(source), "Child"), outdentEditorBlock);
   assert.equal(state.doc.firstChild?.textContent, "Parent");
-  assert.equal(state.doc.lastChild?.type.name, "nested_block");
+  assert.equal(editorKind(state.doc.lastChild), "nested_block");
   assert.equal(state.doc.lastChild?.firstChild?.textContent, "Child");
   assert.equal(state.doc.lastChild?.lastChild?.textContent, "Following");
   roundtrip(state);

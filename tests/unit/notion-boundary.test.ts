@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -40,7 +41,7 @@ test("NFM images remain media blocks, including caption, color and child blocks"
     const doc = parseNative(source, official);
     assert.match(html(source), /<img\b/);
     assert.equal(serializeNative(doc, official), source);
-    const generated = serializeNative(schema.nodes.doc.create(null, doc.content), official);
+    const generated = serializeNative(schema.nodes["doc"].create(null, doc.content), official);
     assert.match(html(generated), /<img\b/);
   }
 });
@@ -70,13 +71,13 @@ test("NFM preserves unsupported blocks without applying their semantics or chang
   ]) {
     const source = unsupported.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
     const doc = parseNative(source, official);
-    assert.equal(doc.firstChild!.type.name, "opaque_block", unsupported);
+    assert.equal(editorKind(doc.firstChild!), "opaque_block", unsupported);
     assert.equal(serializeNative(doc, official), source);
     const edited = EditorState.create({ doc }).tr.insertText(" edited", doc.content.size - 1).doc;
     assert.equal(serializeNative(edited, official), source + " edited");
   }
   const toggle = parseNative('# Toggle {toggle="true"}\n\tChild', official);
-  assert.equal(toggle.firstChild!.type.name, "nested_block");
+  assert.equal(editorKind(toggle.firstChild!), "nested_block");
   assert.equal(toggle.firstChild!.firstChild!.attrs.toggle, true);
 });
 
@@ -84,23 +85,21 @@ test("NFM citation URLs do not interpret Markdown footnote labels, and honor the
   const source = 'Citation [^https://example.com] and literal [^note]';
   const doc = parseNative(source, official);
   let citations = 0;
-  doc.descendants(node => { if (node.type.name === "citation") citations++; });
+  doc.descendants(node => { if (editorKind(node) === "citation") citations++; });
   assert.equal(citations, 1);
   assert.match(doc.textContent, /\[\^note\]/);
-  assert.equal(parseNative(source, { ...official, extensions: { notion_mentions: false } }).firstChild!.type.name, "opaque_block");
+  assert.equal(editorKind(parseNative(source, { ...official, extensions: { notion_mentions: false } }).firstChild!), "opaque_block");
   assert.equal(serializeNative(doc, official), source);
 });
 
 test("NFM rejects unsupported generated inline structures while Notdown retains them", () => {
-  const image = schema.nodes.image.create({ src: "a.png", alt: "A" });
-  const doc = schema.nodes.doc.create(null, schema.nodes.paragraph.create(null, [schema.text("Before "), image]));
+  const image = schema.nodes["inline.image"].create({ src: "a.png", alt: "A" });
+  const doc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [schema.text("Before "), image]));
   assert.throws(() => serializeNative(doc, official), /not documented/);
   assert.match(serializeNative(doc, notdown), /!\[A\]\(a.png\)/);
-  const summary = schema.nodes.doc.create(null, schema.nodes.toggle_block.create(null,
-    schema.nodes.paragraph.create(null, image)));
+  const summary = schema.nodes["doc"].create(null, schema.nodes["block.toggle"].create(null, schema.nodes["block.paragraph"].create(null, image)));
   assert.throws(() => serializeNative(summary, official), /not documented/);
-  const markDoc = schema.nodes.doc.create(null, schema.nodes.paragraph.create(null,
-    schema.text("Small", [schema.marks.small_caps.create()])));
+  const markDoc = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, schema.text("Small", [schema.marks.small_caps.create()])));
   assert.throws(() => serializeNative(markDoc, official), /not documented/);
 });
 

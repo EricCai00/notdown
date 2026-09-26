@@ -1,4 +1,6 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { localObjectPlugins } from "../markdown-engine/presets";
+import { nodeName, editorNodeType } from "../document/node-identity";
 import { contentObjects, implementationRoles, resolveContentObject, type ContentObjectDefinition } from "../document/content-objects";
 import type { Node as PMNode } from "prosemirror-model";
 import { objectSamples } from "../document/object-model";
@@ -11,6 +13,8 @@ const labels: Record<string, string> = {
   blockquote: "Quote",
   horizontal_rule: "Divider",
   code_block: "Code",
+  executable_chunk: "Executable Chunk",
+  executable_inline: "Executable Expression",
   bullet_list: "Bulleted list",
   ordered_list: "Numbered list",
   bullet_list_item: "Bullet list item",
@@ -24,6 +28,7 @@ const labels: Record<string, string> = {
   html_block: "HTML block",
   html_inline: "Inline HTML",
   definition_list: "Definition list",
+  definition_list_item: "Definition list item",
   definition_term: "Definition term",
   definition_description: "Definition description",
   footnote: "Footnote",
@@ -64,12 +69,12 @@ export const syntaxKinds: Record<string, string> = {
   definition: "Reference definition",
 };
 export function blockTypeLabel(node: PMNode, list?: PMNode): string {
-  if (node.type.name === "nested_block" && node.firstChild) return blockTypeLabel(node.firstChild, list);
+  if (isEditorKind(node, "nested_block") && node.firstChild) return blockTypeLabel(node.firstChild, list);
   const object = resolveContentObject(node, { list });
-  if (node.type.name === "heading") return (object?.name || "Heading") + " " + node.attrs.level;
-  if (node.type.name === "callout" && node.attrs.kind) return "Callout · " + node.attrs.kind;
-  const role = node.type.name === "syntax_block" ? implementationRoles[`syntax.${node.attrs.kind}`] : implementationRoles[node.type.name];
-  return object?.name || role || labels[node.type.name] || node.type.name;
+  if (isEditorKind(node, "heading")) return (object?.name || "Heading") + " " + node.attrs.level;
+  if (isEditorKind(node, "callout") && node.attrs.kind) return "Callout · " + node.attrs.kind;
+  const role = isEditorKind(node, "syntax_block") ? implementationRoles[`syntax.${node.attrs.kind}`] : implementationRoles[editorKind(node)];
+  return object?.name || role || labels[editorKind(node)] || editorKind(node);
 }
 export interface CatalogEntry {
   id: string;
@@ -92,6 +97,8 @@ const samples: Record<string, string> = {
   blockquote: "> A quoted paragraph.",
   horizontal_rule: "Before\n\n---\n\nAfter",
   code_block: "```javascript\nconst message = 'Hello Notdown';\n```",
+  executable_chunk: "```{python}\n#| label: sample\n1 + 1\n```",
+  executable_inline: "The result is `{python} 1 + 1`.",
   bullet_list: "- First\n- Second\n  - Child",
   ordered_list: "1. First\n2. Second",
   bullet_list_item: "- First\n- Second",
@@ -107,6 +114,7 @@ const samples: Record<string, string> = {
   html_block:
     "<div><h3>HTML block</h3><p>HTML preview with <strong>formatting</strong>.</p></div>",
   definition_list: "Markdown\n: A text format.\n\nBlock\n: A unit of content.",
+  definition_list_item: "Markdown\n: A text format.\n: An editable document format.",
   footnote: "A note[^1].\n\n[^1]: Footnote text.",
   line_block: "| First line\n| Second line\n|   Indented line",
   fenced_div: "::: {.example}\nA container.\n:::",
@@ -136,6 +144,7 @@ const required: Record<string, string[]> = {
   html_block: ["raw_html"],
   html_inline: ["raw_html"],
   definition_list: ["definition_lists"],
+  definition_list_item: ["definition_lists"],
   footnote: ["footnotes"],
   line_block: ["line_blocks"],
   fenced_div: ["fenced_divs"],
@@ -155,6 +164,7 @@ const internal = new Set([
   "table_row",
   "table_cell",
   "definition_term",
+  "definition_list",
   "definition_description",
   "line",
 ]);
@@ -170,24 +180,24 @@ const notion = new Set([
 ]);
 export const implementationCatalog: CatalogEntry[] = Object.entries(editorSchema.nodes)
   .filter(([id]) => id !== "doc")
-  .map(([id, node]) => ({
-    id,
-    node: id,
+  .map(([canonicalId, node]) => { const id = node.spec.editorKind || canonicalId; return ({
+    id: canonicalId,
+    node: canonicalId,
     label: labels[id] || id,
     category: internal.has(id)
       ? "Internal nodes"
       : node.isInline
         ? "Inline content"
         : "Blocks",
-    sample: samples[id],
-    variant: localObjectPlugins[id] ? "notdown" : notion.has(id) || id === "nested_block" ? "notion-markdown" : "typora",
+    sample: canonicalId === nodeName(id) ? samples[id] : undefined,
+    variant: ["executable_chunk", "executable_inline"].includes(id) ? "quarto" : ["r_chunk", "r_inline"].includes(id) ? "rmarkdown" : localObjectPlugins[id] ? "notdown" : notion.has(id) || id === "nested_block" ? "notion-markdown" : "typora",
     extensions: required[id],
     note: internal.has(id)
       ? "Part of a composite block; not an independently insertable page block."
       : id === "synced_block"
         ? "Content snapshot only; no cross-page synchronization."
         : undefined,
-  }));
+  }); });
 const extra: [string, string, string, Dialect, string[]][] = [
   [
     "raw",
@@ -270,7 +280,7 @@ const extra: [string, string, string, Dialect, string[]][] = [
 for (const [kind, label, sample, variant, extensions] of extra)
   implementationCatalog.push({
     id: kind === "toc" ? "toc:directive" : kind === "table" ? "table:mmd" : `syntax:${kind}`,
-    node: kind === "toc" ? "table_of_contents" : kind === "table" ? "table" : "syntax_block",
+    node: kind === "toc" ? "block.table_of_contents" : kind === "table" ? "block.table" : editorNodeType(editorSchema, "syntax_block", { kind, raw: sample, data: { format: kind === "raw" ? "html" : "" } }).name,
     category: "Extension blocks",
     label,
     sample,
@@ -281,7 +291,7 @@ for (const [kind, label, sample, variant, extensions] of extra)
 for (let level = 1; level <= 6; level++)
   implementationCatalog.push({
     id: `heading:${level}`,
-    node: "heading",
+    node: "block.heading",
     label: `Heading ${level}`,
     category: "Block variants",
     sample: `${"#".repeat(level)} Heading ${level}`,
@@ -290,7 +300,7 @@ for (let level = 1; level <= 6; level++)
 for (const kind of ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"])
   implementationCatalog.push({
     id: `alert:${kind}`,
-    node: "callout",
+    node: "block.callout",
     label: `Callout · ${kind}`,
     category: "Block variants",
     sample: `> [!${kind}]\n> ${kind.toLowerCase()} content.`,
@@ -309,7 +319,7 @@ for (const [id, type] of Object.entries(editorSchema.marks))
 for (const kind of ["audio", "video", "file", "pdf"])
   implementationCatalog.push({
     id: `media:${kind}`,
-    node: "media_block",
+    node: `block.${kind}`,
     label: `Media · ${kind}`,
     category: "Block variants",
     variant: "notion-markdown",
@@ -320,7 +330,7 @@ for (const kind of ["audio", "video", "file", "pdf"])
 for (const fold of ["+", "-"])
   implementationCatalog.push({
     id: `alert:fold:${fold}`,
-    node: "callout",
+    node: "block.callout",
     label: `Callout · ${fold === "+" ? "Expanded" : "Collapsed"}`,
     category: "Block variants",
     variant: "obsidian",
@@ -336,6 +346,8 @@ const sampleAliases: Record<string, string> = {
   "block.pdf": "media:pdf", "block.file": "media:file",
 };
 const specificSamples: Record<string, Partial<CatalogEntry>> = {
+  "block.unsupported": { sample: samples.opaque_block, variant: "typora" },
+  "block.child_page": { sample: '<page url="#page/example" role="child">Example child</page>', variant: "notdown" },
   "inline.citation": { sample: "A source [p. 12][#paper].\n\n[#paper]: Jane Doe. *Example book*. 2026.", variant: "markdown_mmd" },
   "inline.abbreviation": { sample: "[>MMD]\n\n[>MMD]: MultiMarkdown", variant: "markdown_mmd" },
   "inline.glossary": { sample: "[?codec]\n\n[?codec]: A reader and writer for a document format.", variant: "markdown_mmd" },
@@ -376,13 +388,13 @@ const specificSamples: Record<string, Partial<CatalogEntry>> = {
   "inline.image": { sample: "An inline ![image](example.png) in text.", variant: "typora" },
 };
 export const blockCatalog: CatalogEntry[] = contentObjects.map(object => {
-  const carrier = object.adapters[0]?.carrier || "";
+  const carrier = object.adapters[0]?.representation || object.adapters[0]?.carrier || "";
   const node = carrier.split(".")[0];
   const sampleId = sampleAliases[object.id] || (node === "syntax" ? "syntax:" + carrier.split(".")[1] : node === "mark" ? "mark:" + carrier.split(".")[1] : node);
-  const example = implementationCatalog.find(entry => entry.id === sampleId);
+  const example = implementationCatalog.find(entry => entry.id === nodeName(sampleId));
   return {
     id: object.id, label: object.name, category: object.category,
-    node: example?.node || node, variant: example?.variant || "typora",
+    node: editorSchema.nodes[object.id] ? object.id : example?.node || nodeName(node), variant: example?.variant || "typora",
     sample: example?.sample, extensions: example?.extensions, ...specificSamples[object.id],
     note: object.note, aliases: object.aliases, object,
   };
@@ -404,8 +416,8 @@ export const childStructureCatalog: CatalogEntry[] = [
   ["footnote", "Footnote definition", ["inline.footnote"]],
   ["syntax:definition", "Reference definition", ["inline.link", "inline.abbreviation", "inline.citation", "inline.glossary"]],
 ].map(([id, label, parents]) => ({
-  ...implementationCatalog.find(e => e.id === id), id: id as string, label: label as string,
-  node: id === "syntax:definition" ? "syntax_block" : id as string,
-  category: "Child structures", variant: implementationCatalog.find(e => e.id === id)?.variant || "typora", parents: parents as string[],
+  ...implementationCatalog.find(e => e.id === nodeName(id as string)), id: id as string, label: label as string,
+  node: id === "syntax:definition" ? "structure.reference_definition" : nodeName(id as string),
+  category: "Child structures", variant: implementationCatalog.find(e => e.id === nodeName(id as string))?.variant || "typora", parents: parents as string[],
   note: "Owned by a content object. Not an independently insertable page object.",
 }));

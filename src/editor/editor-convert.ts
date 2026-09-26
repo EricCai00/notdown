@@ -1,4 +1,6 @@
+import { editorNodeType, isEditorKind } from "../document/node-identity";
 import { isListItem } from "../document/list-items";
+import { rExpressionSource } from "../document/r-expression";
 import {
   Fragment,
   type Node as PMNode,
@@ -28,18 +30,19 @@ export type ListItemConversion =
 
 function itemDepth($pos: ResolvedPos): number {
   for (let depth = $pos.depth; depth > 0; depth--) {
-    if (isListItem($pos.node(depth))) return depth;
+    if (isListItem($pos.node(depth)) || isEditorKind($pos.node(depth), "definition_list_item") && $pos.index(depth) === 0) return depth;
   }
   return -1;
 }
 
 function leafText(node: PMNode): string {
-  if (node.type.name === "hard_break") return "\n";
-  if (node.type.name === "page_link") {
+  if ((isEditorKind(node, "executable_inline"))) return rExpressionSource(node);
+  if (isEditorKind(node, "hard_break")) return "\n";
+  if (isEditorKind(node, "page_link")) {
     const { target, label } = node.attrs;
     return `[[${target}${label && label !== target ? `|${label}` : ""}]]`;
   }
-  if (node.type.name === "image") {
+  if (isEditorKind(node, "image")) {
     const label = String(
       node.attrs.alt || "",
     ).replace(/([\\\[\]])/g, "\\$1");
@@ -54,7 +57,7 @@ export function convertTextblockToCode(state: EditorState): Transaction | null {
   const { selection, schema } = state;
   const { $from, $to } = selection;
   const block = $from.parent;
-  const code = schema.nodes.code_block;
+  const code = schema.nodes["block.code_block"];
   if (
     !code ||
     !block.isTextblock ||
@@ -98,7 +101,7 @@ export function convertListItem(
   const { selection, schema } = state;
   const selectedItem =
     selection instanceof NodeSelection &&
-    isListItem(selection.node);
+    (isListItem(selection.node) || isEditorKind(selection.node, "definition_list_item"));
   const $from = selectedItem
     ? state.doc.resolve(selection.from + 1)
     : selection.$from;
@@ -113,10 +116,13 @@ export function convertListItem(
       return null;
   }
   const list = $from.node(depth - 1);
-  if (list.type.name !== "bullet_list" && list.type.name !== "ordered_list")
+  const definition = isEditorKind(item, "definition_list_item");
+  if (!isEditorKind(list, "bullet_list") && !isEditorKind(list, "ordered_list") && !isEditorKind(list, "definition_list"))
     return null;
-  const first = item.firstChild;
-  if (!first || first.type.name !== "paragraph") return null;
+  const first = definition && item.firstChild
+    ? schema.nodes["block.paragraph"].create(item.firstChild.attrs, item.firstChild.content, item.firstChild.marks)
+    : item.firstChild;
+  if (!first || !isEditorKind(first, "paragraph")) return null;
 
   const listPos = $from.before(depth - 1);
   const index = $from.index(depth - 1);
@@ -128,11 +134,11 @@ export function convertListItem(
   });
 
   const listType =
-    type === "number" ? schema.nodes.ordered_list : schema.nodes.bullet_list;
+    type === "number" ? schema.nodes["structure.ordered_list"] : schema.nodes["structure.bullet_list"];
   const isListConversion =
     type === "list" || type === "number" || type === "task";
   const checked = type === "task" ? (item.attrs.checked ?? false) : null;
-  const itemType = schema.nodes[type === "task" ? "task_list_item" : type === "number" ? "numbered_list_item" : "bullet_list_item"];
+  const itemType = editorNodeType(schema, type === "task" ? "task_list_item" : type === "number" ? "numbered_list_item" : "bullet_list_item");
   if (isListConversion && list.type === listType) {
     return state.tr.setNodeMarkup(itemPos, itemType, {
       ...item.attrs,
@@ -146,29 +152,30 @@ export function convertListItem(
     listPos + replacement.reduce((size, node) => size + node.nodeSize, 0);
   const remaining: PMNode[] = [];
   item.forEach((child, _offset, childIndex) => {
-    if (childIndex > 0) remaining.push(child);
+    if (childIndex > 0) {
+      if (definition) child.forEach(block => remaining.push(block));
+      else remaining.push(child);
+    }
   });
+  const itemContent = definition ? Fragment.fromArray([first, ...remaining]) : item.content;
   let mapItemOffset: (offset: number) => number;
 
   if (isListConversion) {
     const converted = itemType.create(
       { ...item.attrs, checked },
-      item.content,
+      itemContent,
       item.marks,
     );
     replacement.push(listType.create({ ...list.attrs, order: 1 }, converted));
     mapItemOffset = (offset) => targetPos + 2 + offset;
   } else if (type === "quote") {
-    replacement.push(schema.nodes.blockquote.create(null, item.content));
+    replacement.push(schema.nodes["block.quote"].create(null, itemContent));
     mapItemOffset = (offset) => targetPos + 1 + offset;
   } else {
     let converted: PMNode;
     if (type === "code") {
       const text = first.textBetween(0, first.content.size, "\n", leafText);
-      converted = schema.nodes.code_block.create(
-        { ...first.attrs, params: "" },
-        text ? schema.text(text) : undefined,
-      );
+      converted = schema.nodes["block.code_block"].create({ ...first.attrs, params: "" }, text ? schema.text(text) : undefined);
       mapItemOffset = (offset) => {
         if (offset <= first.nodeSize) {
           const textOffset = Math.max(
@@ -183,8 +190,8 @@ export function convertListItem(
     } else {
       const heading = /^heading([1-3])$/.exec(type);
       const targetType = heading
-        ? schema.nodes.heading
-        : schema.nodes.paragraph;
+        ? schema.nodes["block.heading"]
+        : schema.nodes["block.paragraph"];
       converted = targetType.create(
         { ...first.attrs, ...(heading ? { level: Number(heading[1]) } : {}) },
         first.content,
@@ -192,9 +199,9 @@ export function convertListItem(
       );
       mapItemOffset = (offset) => targetPos + offset;
     }
-    if (type !== "code" && remaining.length && schema.nodes.nested_block) {
+    if (type !== "code" && remaining.length && schema.nodes["structure.nested_block"]) {
       replacement.push(
-        schema.nodes.nested_block.create(null, [converted, ...remaining]),
+        schema.nodes["structure.nested_block"].create(null, [converted, ...remaining]),
       );
       const originalMap = mapItemOffset;
       mapItemOffset = (offset) => originalMap(offset) + 1;
@@ -206,7 +213,7 @@ export function convertListItem(
       list.type.create(
         {
           ...list.attrs,
-          ...(list.type.name === "ordered_list"
+          ...(isEditorKind(list, "ordered_list")
             ? { order: list.attrs.order + index + 1 }
             : {}),
         },

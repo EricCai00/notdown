@@ -94,6 +94,8 @@ export interface RenderResult {
   blocks: number;
   mapping: "source" | "approximate" | "proportional";
   warnings: string[];
+  /** Actionable render notices, separate from scroll-mapping information. */
+  notices?: string[];
 }
 export const blockPlugins: { id: string; label: string; fence: string; description: string }[] = [];
 export const extensionLabels: Record<string, string> = {

@@ -645,6 +645,15 @@ button span[aria-hidden] {
 #preview-error button {
   margin-left: 12px;
 }
+#preview-notices {
+  padding: 10px 22px;
+  background: #fff8eb;
+  color: #785a2f;
+  border-bottom: 1px solid #edd8bb;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+#preview-notices p { margin: 4px 0; white-space: pre-wrap; }
 .lab-footer {
   min-height: 39px;
   padding: 0 25px;

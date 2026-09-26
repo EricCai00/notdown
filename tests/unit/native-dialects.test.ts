@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -28,7 +29,7 @@ const config = (
   flags: Record<string, boolean> = {},
 ): SyntaxConfig => ({ version: 1, variant, extensions: flags });
 const types = (source: string, c: SyntaxConfig) =>
-  parseNative(source, c).content.content.map((n) => n.type.name);
+  parseNative(source, c).content.content.map((n) => editorKind(n));
 
 test("list interruption flags never swallow consecutive list items", () => {
   for (const variant of added) {
@@ -56,7 +57,7 @@ test("list interruption flags never swallow consecutive list items", () => {
 });
 
 test("only Pandoc presets use the captured Pandoc defaults for implemented extensions", () => {
-  assert.equal(dialects.length, 13);
+  assert.equal(dialects.length, 14);
   assert(dialects.every((d) => d.native));
   for (const variant of ["markdown", "commonmark_x", "markdown_github"] as Dialect[]) {
     const c = config(variant);
@@ -176,11 +177,11 @@ test("base-rule extension switches change actual parsing and preserve source", (
   );
   assert.match(
     parseNative("x\\\ny", config("markdown")).toString(),
-    /hard_break/,
+    /character\.line_break/,
   );
   assert.doesNotMatch(
     parseNative("x\\\ny", config("markdown_strict")).toString(),
-    /hard_break/,
+    /character\.line_break/,
   );
   assert.equal(parseNative("\\@", config("markdown")).textContent, "@");
   assert.equal(
@@ -201,14 +202,14 @@ test("code created or edited in every reader serializes to a supported spelling"
   const code = "first\n\n```\nlast";
   for (const variant of added) {
     const c = config(variant),
-      doc = schema.nodes.doc.create(null, [
-        schema.nodes.code_block.create(null, schema.text(code)),
+      doc = schema.nodes["doc"].create(null, [
+        schema.nodes["block.code_block"].create(null, schema.text(code)),
       ]);
     const written = serializeNative(doc, c),
       reopened = parseNative(written, c);
     reopened.check();
     assert.equal(
-      reopened.firstChild!.type.name,
+      editorKind(reopened.firstChild!),
       "code_block",
       variant + " " + written,
     );
@@ -236,14 +237,14 @@ test("literal punctuation and metadata-looking paragraphs survive structured wri
       "% plain",
     ]) {
       const c = config(variant),
-        doc = schema.nodes.doc.create(null, [
-          schema.nodes.paragraph.create(null, schema.text(text)),
+        doc = schema.nodes["doc"].create(null, [
+          schema.nodes["block.paragraph"].create(null, schema.text(text)),
         ]);
       const written = serializeNative(doc, c),
         reopened = parseNative(written, c);
       reopened.check();
       assert.equal(
-        reopened.firstChild!.type.name,
+        editorKind(reopened.firstChild!),
         "paragraph",
         variant + " " + written,
       );
@@ -256,11 +257,11 @@ test("literal punctuation and metadata-looking paragraphs survive structured wri
     all_symbols_escapable: false,
   });
   for (const text of ["Title: facts", "% plain"]) {
-    const doc = schema.nodes.doc.create(null, [
-      schema.nodes.paragraph.create(null, schema.text(text)),
+    const doc = schema.nodes["doc"].create(null, [
+      schema.nodes["block.paragraph"].create(null, schema.text(text)),
     ]);
     const reopened = parseNative(serializeNative(doc, c), c);
-    assert.equal(reopened.firstChild!.type.name, "paragraph");
+    assert.equal(editorKind(reopened.firstChild!), "paragraph");
     assert.equal(reopened.textContent, text);
   }
 });
@@ -271,19 +272,15 @@ test("subscript, superscript, abbreviation and metadata retain source through ne
   const doc = parseNative(body, c);
   assert.match(doc.toString(), /subscript\("2"\)/);
   assert.match(doc.toString(), /superscript\("2"\)/);
-  const marked = schema.nodes.doc.create(
-    null,
-    schema.nodes.paragraph.create(null, [
+  const marked = schema.nodes["doc"].create(null, schema.nodes["block.paragraph"].create(null, [
       schema.text("two words", [schema.marks.superscript.create()]),
-    ]),
-  );
+    ]));
   assert.equal(
     parseNative(serializeNative(marked, c), c).firstChild!.firstChild!.text,
     "two words",
   );
   assert.equal(
-    parseNative(serializeNative(marked, c), c).firstChild!.firstChild!.marks[0]
-      .type.name,
+    editorKind(parseNative(serializeNative(marked, c), c).firstChild!.firstChild!.marks[0]),
     "superscript",
   );
   const abbreviation = "*[HTML]: Hyper Text Markup Language\n\nHTML document";
@@ -308,7 +305,7 @@ test("subscript, superscript, abbreviation and metadata retain source through ne
       source = metadata + "\n\nTail",
       doc = parseNative(source, c);
     doc.check();
-    assert.equal(doc.firstChild!.type.name, enabled(c,'metadata_values')?'syntax_block':'opaque_block');
+    assert.equal(editorKind(doc.firstChild!), enabled(c,'metadata_values')?'syntax_block':'opaque_block');
     const changed = EditorState.create({ doc }).tr.insertText(
       " edit",
       doc.content.size - 1,
@@ -320,11 +317,11 @@ test("subscript, superscript, abbreviation and metadata retain source through ne
 test("fenced Div syntax distinguishes the Markdown and CommonMark reader families", () => {
   const source = "::: Warning :::::\nText\n:::";
   assert.equal(
-    parseNative(source, config("markdown")).firstChild!.type.name,
+    editorKind(parseNative(source, config("markdown")).firstChild!),
     "fenced_div",
   );
   assert.notEqual(
-    parseNative(source, config("commonmark_x")).firstChild!.type.name,
+    editorKind(parseNative(source, config("commonmark_x")).firstChild!),
     "fenced_div",
   );
   assert.deepEqual(types("text\n::: {.note}\nBody\n:::", config("markdown")), [
@@ -337,7 +334,7 @@ test("fenced Div syntax distinguishes the Markdown and CommonMark reader familie
   const code = "::: {.box}\n```\n::: fake :::::\n```\n:::";
   const doc = parseNative(code, config("commonmark_x"));
   doc.check();
-  assert.equal(doc.firstChild!.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild!.firstChild!), "code_block");
   // A disabled code fence cannot hide the closing Div marker from the scanner.
   const strict = config("markdown_strict", { fenced_divs: true });
   assert.deepEqual(types("::: note\n~~~\n:::\n\nTail", strict), [

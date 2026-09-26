@@ -8,7 +8,7 @@ import { validSyntax, syntaxFormat, type SyntaxConfig } from "../src/markdown-en
 import { VaultError } from "./vault.js";
 
 export type ImportFile = { path: string; data: string };
-export type ImportRequest = { files: ImportFile[]; dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown"; name: string };
+export type ImportRequest = { files: ImportFile[]; dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown" | "quarto"; name: string };
 export type ImportPlan = {
   id: string;
   name: string;
@@ -106,7 +106,7 @@ function rewriteLinks(body: string, filename: string, targets: Map<string, strin
 }
 
 export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
-  if (!input || !["gfm", "obsidian", "notdown", "rmarkdown"].includes(input.dialect) || typeof input.name !== "string" || !input.name.trim() || input.name.length > 200 || !Array.isArray(input.files) || !input.files.length || input.files.length > 500)
+  if (!input || !["gfm", "obsidian", "notdown", "rmarkdown", "quarto"].includes(input.dialect) || typeof input.name !== "string" || !input.name.trim() || input.name.length > 200 || !Array.isArray(input.files) || !input.files.length || input.files.length > 500)
     throw new VaultError(400, "Select 1–500 files, a folder name and a supported import dialect");
   let bytes = 0;
   const seen = new Set<string>();
@@ -132,7 +132,7 @@ export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
   const documents: { path: string; id: string; body: string; prefix: string; metadata: Document }[] = [];
   for (const [index, file] of originals.entries()) {
     if (file.path.split("/").some(part => part.startsWith("."))) { warnings.add(`${file.path}: hidden file skipped.`); continue; }
-    if (/\.(?:md|markdown|rmd)$/i.test(file.path)) {
+    if (/\.(?:md|markdown|rmd|qmd)$/i.test(file.path)) {
       try {
         const text = new TextDecoder("utf-8", { fatal: true }).decode(file.data);
         if (file.data.length > 10 * 1024 * 1024) throw new Error("page exceeds 10 MB");
@@ -170,9 +170,9 @@ export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
   for (const file of documents) {
     const metadata = file.metadata;
     const oldTitle = metadata.get("title");
-    const title = typeof oldTitle === "string" && oldTitle.trim() && oldTitle.length <= 500 ? oldTitle : path.posix.basename(file.path).replace(/\.(md|markdown|rmd)$/i, "").slice(0, 500);
+    const title = typeof oldTitle === "string" && oldTitle.trim() && oldTitle.length <= 500 ? oldTitle : path.posix.basename(file.path).replace(/\.(md|markdown|rmd|qmd)$/i, "").slice(0, 500);
     const originalSyntax = metadata.toJS({ maxAliasCount: 50 })?.syntax;
-    const selectedSyntax = validSyntax(originalSyntax) ? originalSyntax : /\.rmd$/i.test(file.path) ? { ...syntax, variant: "rmarkdown" as const } : syntax;
+    const selectedSyntax = validSyntax(originalSyntax) ? originalSyntax : /\.qmd$/i.test(file.path) ? { ...syntax, variant: "quarto" as const } : /\.rmd$/i.test(file.path) ? { ...syntax, variant: "rmarkdown" as const } : syntax;
     metadata.set("id", file.id);
     metadata.set("title", title);
     metadata.set("parent", folderIds.get(path.posix.dirname(file.path) === "." ? "" : path.posix.dirname(file.path)));

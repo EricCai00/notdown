@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind } from "../../src/document/node-identity";
 import { parseNative } from "../../src/markdown-engine/codec";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -15,15 +16,15 @@ import {
 } from "../../src/document/editor-markdown";
 
 const p = (text: string) =>
-  s.nodes.paragraph.create(null, text ? s.text(text) : undefined);
+  s.nodes["block.paragraph"].create(null, text ? s.text(text) : undefined);
 const li = (
   text: string,
   children: PMNode[] = [],
   checked: boolean | null = null,
-) => s.nodes[checked === null ? "bullet_list_item" : "task_list_item"].create({ checked }, [p(text), ...children]);
-const ul = (...items: PMNode[]) => s.nodes.bullet_list.create(null, items);
+) => createEditorNode(s, checked === null ? "bullet_list_item" : "task_list_item", { checked }, [p(text), ...children]);
+const ul = (...items: PMNode[]) => s.nodes["structure.bullet_list"].create(null, items);
 const ol = (order: number, ...items: PMNode[]) =>
-  s.nodes.ordered_list.create({ order }, items.map(item => item.attrs.checked === null ? s.nodes.numbered_list_item.create(item.attrs, item.content) : item));
+  s.nodes["structure.ordered_list"].create({ order }, items.map(item => item.attrs.checked === null ? s.nodes["block.numbered_list_item"].create(item.attrs, item.content) : item));
 
 function textPosition(doc: PMNode, text: string, offset = 0): number {
   let result = -1;
@@ -58,11 +59,11 @@ test("numbering one bullet item preserves siblings and nested children", () => {
   const nested = ul(li("nested"));
   const first = li("first", [], true);
   const last = li("last", [], false);
-  const doc = s.nodes.doc.create(null, ul(first, li("middle", [nested]), last));
+  const doc = s.nodes["doc"].create(null, ul(first, li("middle", [nested]), last));
   const result = convert(doc, "middle", "number", 3);
   assert.equal(result.doc.childCount, 3);
   assert.ok(result.doc.child(0).firstChild!.eq(first));
-  assert.equal(result.doc.child(1).type.name, "ordered_list");
+  assert.equal(editorKind(result.doc.child(1)), "ordered_list");
   assert.equal(result.doc.child(1).attrs.order, 1);
   assert.ok(result.doc.child(1).firstChild!.child(1).eq(nested));
   assert.ok(result.doc.child(2).firstChild!.eq(last));
@@ -70,13 +71,10 @@ test("numbering one bullet item preserves siblings and nested children", () => {
 });
 
 test("splitting an ordered list retains the following original number", () => {
-  const doc = s.nodes.doc.create(
-    null,
-    ol(3, li("first"), li("middle"), li("last")),
-  );
+  const doc = s.nodes["doc"].create(null, ol(3, li("first"), li("middle"), li("last")));
   const result = convert(doc, "middle", "list");
   assert.equal(result.doc.child(0).attrs.order, 3);
-  assert.equal(result.doc.child(1).type.name, "bullet_list");
+  assert.equal(editorKind(result.doc.child(1)), "bullet_list");
   assert.equal(result.doc.child(2).attrs.order, 5);
   assert.equal(
     serializeEditorMarkdown(result.doc).trim(),
@@ -85,10 +83,7 @@ test("splitting an ordered list retains the following original number", () => {
 });
 
 test("task conversion changes only the current checkbox and keeps a compatible list", () => {
-  const doc = s.nodes.doc.create(
-    null,
-    ul(li("first", [], true), li("middle"), li("last", [], false)),
-  );
+  const doc = s.nodes["doc"].create(null, ul(li("first", [], true), li("middle"), li("last", [], false)));
   const result = convert(doc, "middle", "task");
   assert.equal(result.doc.childCount, 1);
   assert.deepEqual(
@@ -109,14 +104,11 @@ test("task conversion changes only the current checkbox and keeps a compatible l
 });
 
 test("task conversion from an ordered item leaves ordered siblings unchanged", () => {
-  const doc = s.nodes.doc.create(
-    null,
-    ol(8, li("first", [], true), li("middle"), li("last")),
-  );
+  const doc = s.nodes["doc"].create(null, ol(8, li("first", [], true), li("middle"), li("last")));
   const result = convert(doc, "middle", "task");
   assert.equal(result.doc.child(0).attrs.order, 8);
   assert.equal(result.doc.child(0).firstChild!.attrs.checked, true);
-  assert.equal(result.doc.child(1).type.name, "bullet_list");
+  assert.equal(editorKind(result.doc.child(1)), "bullet_list");
   assert.equal(result.doc.child(1).firstChild!.attrs.checked, false);
   assert.equal(result.doc.child(2).attrs.order, 10);
 });
@@ -124,15 +116,12 @@ test("task conversion from an ordered item leaves ordered siblings unchanged", (
 test("heading conversion retains the item's descendants and following blocks", () => {
   const nested = ul(li("child"));
   const tail = p("details");
-  const doc = s.nodes.doc.create(
-    null,
-    ul(li("first"), li("middle", [nested, tail]), li("last")),
-  );
+  const doc = s.nodes["doc"].create(null, ul(li("first"), li("middle", [nested, tail]), li("last")));
   const result = convert(doc, "middle", "heading2", 2);
   assert.deepEqual(
     Array.from(
       { length: result.doc.childCount },
-      (_, i) => result.doc.child(i).type.name,
+      (_, i) => editorKind(result.doc.child(i)),
     ),
     ["bullet_list", "nested_block", "bullet_list"],
   );
@@ -143,15 +132,12 @@ test("heading conversion retains the item's descendants and following blocks", (
 });
 
 test("converting a nested row keeps the result inside its ancestor item", () => {
-  const doc = s.nodes.doc.create(
-    null,
-    ul(
+  const doc = s.nodes["doc"].create(null, ul(
       li("parent", [
         ol(4, li("first"), li("middle", [ul(li("grandchild"))]), li("last")),
       ]),
       li("outside"),
-    ),
-  );
+    ));
   const result = convert(doc, "middle", "heading1");
   const parent = result.doc.firstChild!.firstChild!;
   assert.equal(result.doc.childCount, 1);
@@ -159,7 +145,7 @@ test("converting a nested row keeps the result inside its ancestor item", () => 
   assert.deepEqual(
     Array.from(
       { length: parent.childCount },
-      (_, i) => parent.child(i).type.name,
+      (_, i) => editorKind(parent.child(i)),
     ),
     ["paragraph", "ordered_list", "nested_block", "ordered_list"],
   );
@@ -169,21 +155,21 @@ test("converting a nested row keeps the result inside its ancestor item", () => 
 
 test("quote conversion retains the entire item inside the quote", () => {
   const item = li("middle", [ul(li("child")), p("details")]);
-  const doc = s.nodes.doc.create(null, ul(li("first"), item, li("last")));
+  const doc = s.nodes["doc"].create(null, ul(li("first"), item, li("last")));
   const result = convert(doc, "middle", "quote", 4);
-  assert.equal(result.doc.child(1).type.name, "blockquote");
+  assert.equal(editorKind(result.doc.child(1)), "blockquote");
   assert.ok(result.doc.child(1).content.eq(item.content));
   assert.equal(result.selection.$from.parentOffset, 4);
 });
 
 test("code conversion renders atom Markdown while retaining nested children", () => {
-  const first = s.nodes.paragraph.create(null, [
+  const first = s.nodes["block.paragraph"].create(null, [
     s.text("open ", [s.marks.strong.create()]),
-    s.nodes.page_link.create({ target: "page-id", label: "Project" }),
+    s.nodes["inline.internal_link"].create({ target: "page-id", label: "Project" }),
     s.text(" now"),
   ]);
-  const item = s.nodes.bullet_list_item.create(null, [first, ul(li("child"))]);
-  const doc = s.nodes.doc.create(null, ul(item, li("last")));
+  const item = s.nodes["block.bullet_list_item"].create(null, [first, ul(li("child"))]);
+  const doc = s.nodes["doc"].create(null, ul(item, li("last")));
   const atomEnd = 3 + 5 + 1;
   const state = EditorState.create({
     doc,
@@ -192,7 +178,7 @@ test("code conversion renders atom Markdown while retaining nested children", ()
   const tr = convertListItem(state, "code");
   assert.ok(tr);
   tr.doc.check();
-  assert.equal(tr.doc.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(tr.doc.firstChild!), "code_block");
   assert.equal(tr.doc.firstChild!.textContent, "open [[page-id|Project]] now");
   assert.equal(tr.doc.firstChild!.firstChild!.marks.length, 0);
   assert.equal(tr.doc.child(1).textContent, "child");
@@ -203,27 +189,21 @@ test("code conversion renders atom Markdown while retaining nested children", ()
 });
 
 test("caret in a later child block follows that block through conversion", () => {
-  const doc = s.nodes.doc.create(
-    null,
-    ul(li("middle", [p("details")]), li("last")),
-  );
+  const doc = s.nodes["doc"].create(null, ul(li("middle", [p("details")]), li("last")));
   const result = convert(doc, "details", "text", 3);
   assert.equal(result.selection.$from.parent.textContent, "details");
   assert.equal(result.selection.$from.parentOffset, 3);
 });
 
 test("code conversion keeps link text and image targets", () => {
-  const first = s.nodes.paragraph.create(null, [
+  const first = s.nodes["block.paragraph"].create(null, [
     s.text("Recording", [s.marks.link.create({ href: "recording.mp3" })]),
     s.text(" "),
     s.text("Clip", [s.marks.link.create({ href: "clip.mp4" })]),
     s.text(" "),
-    s.nodes.image.create({ src: "photo.png", alt: "" }),
+    s.nodes["inline.image"].create({ src: "photo.png", alt: "" }),
   ]);
-  const doc = s.nodes.doc.create(
-    null,
-    ul(s.nodes.bullet_list_item.create(null, first)),
-  );
+  const doc = s.nodes["doc"].create(null, ul(s.nodes["block.bullet_list_item"].create(null, first)));
   const state = EditorState.create({
     doc,
     selection: TextSelection.create(doc, 3),
@@ -238,16 +218,16 @@ test("code conversion keeps link text and image targets", () => {
 });
 
 test("ordinary paragraph to code keeps page and image targets and link text", () => {
-  const paragraph = s.nodes.paragraph.create(null, [
+  const paragraph = s.nodes["block.paragraph"].create(null, [
     s.text("before ", [s.marks.strong.create()]),
-    s.nodes.page_link.create({ target: "page-id", label: "Project" }),
+    s.nodes["inline.internal_link"].create({ target: "page-id", label: "Project" }),
     s.text(" "),
-    s.nodes.image.create({ src: "photo.png", alt: "Photo" }),
+    s.nodes["inline.image"].create({ src: "photo.png", alt: "Photo" }),
     s.text(" "),
     s.text("Recording", [s.marks.link.create({ href: "recording.mp3" })]),
     s.text(" after"),
   ]);
-  const doc = s.nodes.doc.create(null, [p("above"), paragraph, p("below")]);
+  const doc = s.nodes["doc"].create(null, [p("above"), paragraph, p("below")]);
   const sourcePos = doc.firstChild!.nodeSize;
   const caret = sourcePos + 1 + "before ".length + 1;
   const state = EditorState.create({
@@ -258,7 +238,7 @@ test("ordinary paragraph to code keeps page and image targets and link text", ()
   assert.ok(tr);
   tr.doc.check();
   assert.equal(tr.steps.length, 1);
-  assert.equal(tr.doc.child(1).type.name, "code_block");
+  assert.equal(editorKind(tr.doc.child(1)), "code_block");
   assert.equal(
     tr.doc.child(1).textContent,
     "before [[page-id|Project]] ![Photo](photo.png) Recording after",
@@ -273,12 +253,12 @@ test("ordinary paragraph to code keeps page and image targets and link text", ()
 });
 
 test("ordinary code conversion preserves hard breaks and backward selection", () => {
-  const paragraph = s.nodes.paragraph.create(null, [
+  const paragraph = s.nodes["block.paragraph"].create(null, [
     s.text("one"),
-    s.nodes.hard_break.create(),
+    s.nodes["character.line_break"].create(),
     s.text("two"),
   ]);
-  const doc = s.nodes.doc.create(null, paragraph);
+  const doc = s.nodes["doc"].create(null, paragraph);
   const state = EditorState.create({
     doc,
     selection: TextSelection.create(doc, 7, 2),
@@ -291,13 +271,13 @@ test("ordinary code conversion preserves hard breaks and backward selection", ()
 });
 
 test("ordinary code conversion rejects cross-block selections and first list paragraphs", () => {
-  const doc = s.nodes.doc.create(null, [p("first"), p("last")]);
+  const doc = s.nodes["doc"].create(null, [p("first"), p("last")]);
   const state = EditorState.create({
     doc,
     selection: TextSelection.create(doc, 2, 9),
   });
   assert.equal(convertTextblockToCode(state), null);
-  const listDoc = s.nodes.doc.create(null, ul(li("first")));
+  const listDoc = s.nodes["doc"].create(null, ul(li("first")));
   assert.equal(
     convertTextblockToCode(EditorState.create({ doc: listDoc })),
     null,
@@ -305,14 +285,8 @@ test("ordinary code conversion rejects cross-block selections and first list par
 });
 
 test("selection direction and marks survive conversion", () => {
-  const first = s.nodes.paragraph.create(
-    null,
-    s.text("formatted", [s.marks.strong.create()]),
-  );
-  const doc = s.nodes.doc.create(
-    null,
-    ul(s.nodes.bullet_list_item.create(null, first)),
-  );
+  const first = s.nodes["block.paragraph"].create(null, s.text("formatted", [s.marks.strong.create()]));
+  const doc = s.nodes["doc"].create(null, ul(s.nodes["block.bullet_list_item"].create(null, first)));
   const from = textPosition(doc, "formatted");
   const state = EditorState.create({
     doc,
@@ -322,28 +296,28 @@ test("selection direction and marks survive conversion", () => {
   assert.ok(tr);
   assert.equal(tr.selection.$anchor.parentOffset, 7);
   assert.equal(tr.selection.$head.parentOffset, 2);
-  assert.equal(tr.doc.firstChild!.firstChild!.marks[0].type.name, "strong");
+  assert.equal(editorKind(tr.doc.firstChild!.firstChild!.marks[0]), "strong");
 });
 
 test("a node-selected list item can be converted", () => {
-  const doc = s.nodes.doc.create(null, ul(li("only")));
+  const doc = s.nodes["doc"].create(null, ul(li("only")));
   const state = EditorState.create({
     doc,
     selection: NodeSelection.create(doc, 1),
   });
   const tr = convertListItem(state, "text");
   assert.ok(tr);
-  assert.equal(tr.doc.firstChild!.type.name, "paragraph");
+  assert.equal(editorKind(tr.doc.firstChild!), "paragraph");
   assert.equal(tr.selection.$from.parent.textContent, "only");
 });
 
 test("non-list and cross-item selections are not converted", () => {
-  const plain = s.nodes.doc.create(null, p("plain"));
+  const plain = s.nodes["doc"].create(null, p("plain"));
   assert.equal(
     convertListItem(EditorState.create({ doc: plain }), "number"),
     null,
   );
-  const doc = s.nodes.doc.create(null, ul(li("first"), li("last")));
+  const doc = s.nodes["doc"].create(null, ul(li("first"), li("last")));
   const state = EditorState.create({
     doc,
     selection: TextSelection.create(

@@ -15,6 +15,61 @@ import { renderBlockPlugin } from "../../src/markdown-lab/plugins.js";
 import { mapScroll } from "../../src/markdown-lab/scroll.js";
 import { variants } from "../../src/markdown-lab/model.js";
 import { dialects } from "../../src/markdown-engine/config.js";
+import { parseFragment } from "parse5";
+
+test("Lab citeproc formats inline bibliography, locators and citations inside notes without changing source", async (t) => {
+  if (!(await getPandocCapabilities()).available) return t.skip("Pandoc is not installed");
+  const source = await fs.readFile(new URL("../../docs/fixtures/pandoc-citations.md", import.meta.url), "utf8");
+  const input = { variant: "markdown", source };
+  const result = await renderPreview(input);
+  assert.equal(input.source, source);
+  assert.deepEqual(result.notices, []);
+  assert.match(result.html, /class="citation" data-cites="doe99"/);
+  assert.match(result.html, /Doe 1999/);
+  assert.match(result.html.replace(/<[^>]*>/g, ""), /Smith \(2004/);
+  assert.match(result.html, /id="refs"/);
+  assert.match(result.html, /id="ref-doe99"/);
+  assert.match(result.html, /href="#ref-smith04"/);
+  assert.match(result.html, /ii, A, D[–-]Z/);
+  assert.match(result.html, /99 years later/);
+  assert.match(result.html, /<em>passim<\/em>/);
+  assert.match(result.html, /role="doc-endnotes"[\s\S]*Doe 1999/);
+  assert.match(result.html, /<code>\[@doe99\]<\/code>/);
+  const roots = parseFragment(result.html).childNodes as any[];
+  const chapter = roots.find(node => node.tagName === "h1" && node.attrs.some((attr: any) => attr.name === "id" && attr.value === "new-chapter"));
+  assert(chapter, "chapter headings remain top-level for citeproc position resets");
+  assert(chapter.attrs.some((attr: any) => attr.name === "class" && attr.value.includes("reset-citation-positions")));
+  const line = source.split("\n").findIndex(line => line.startsWith("# New chapter")) + 1;
+  assert(chapter.attrs.some((attr: any) => attr.name === "data-source-line" && attr.value === String(line)));
+
+  const disabled = await renderPreview({ ...input, extensions: { citations: false } });
+  assert.doesNotMatch(disabled.html, /class="citation"|id="refs"/);
+  assert.match(disabled.html, /\[@doe99\]/);
+});
+
+test("Lab reports missing citation data and ignores external resource metadata", async (t) => {
+  if (!(await getPandocCapabilities()).available) return t.skip("Pandoc is not installed");
+  const missing = await renderPreview({ variant: "markdown", source: "Unknown [@missing]." });
+  assert(missing.notices?.some(notice => notice.includes("references")));
+  const source = await fs.readFile(new URL("../../docs/fixtures/pandoc-citations.md", import.meta.url), "utf8");
+  const external = source.replace("---\n", "---\nbibliography: missing.bib\ncsl: missing.csl\ncitation-abbreviations: missing.json\nfilters: [missing.lua]\ntemplate: missing.html\n");
+  const result = await renderPreview({ variant: "markdown", source: external + "\nUnknown [@missing].\n" });
+  assert.match(result.html, /Doe 1999/);
+  assert(result.notices?.some(notice => notice.includes("does not load external bibliography, csl, citation-abbreviations")));
+  assert(result.notices?.some(notice => notice.includes("missing") && !notice.includes("does not load external")));
+});
+
+test("Lab preserves nocite and bibliography controls", async (t) => {
+  if (!(await getPandocCapabilities()).available) return t.skip("Pandoc is not installed");
+  const source = await fs.readFile(new URL("../../docs/fixtures/pandoc-citations.md", import.meta.url), "utf8");
+  const metadata = source.slice(0, source.indexOf("\n---\n") + 5);
+  const result = await renderPreview({ variant: "markdown", source: metadata.replace("---\n", '---\nnocite: "@*"\n') + "\nNo citations in prose." });
+  assert.match(result.html, /id="ref-doe99"/);
+  assert.match(result.html, /id="ref-smith04"/);
+  const suppressed = await renderPreview({ variant: "markdown", source: source.replace("---\n", "---\nsuppress-bibliography: true\n") });
+  assert.match(suppressed.html, /Doe 1999/);
+  assert.doesNotMatch(suppressed.html, /id="refs"/);
+});
 
 test("official direct parsers preserve their own syntax and reject Lab overrides", async (t) => {
  const capabilities=await getMarkdownLabCapabilities();

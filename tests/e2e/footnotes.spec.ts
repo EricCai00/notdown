@@ -17,8 +17,54 @@ async function insertMenu(page: Page) {
   await page.locator(".pm-document > p").first().click();
   await page.keyboard.press("End");
   await page.keyboard.type(" /footnote");
+  await expect(page.locator('.inline-slash [data-insert]')).toHaveCount(1);
+  await expect(page.locator('[data-insert="inline_note"]')).toHaveCount(0);
   await page.locator('[data-insert="footnote"]').click();
 }
+
+for (const variant of ["notdown", "markdown"]) test(`${variant}: inline footnotes render as numbered references and save inline syntax after editing`, async ({ page, request }) => {
+  const body = "Before^[Inline **formatted** note\nwith a [link](https://example.com)]. Regular [^a] again [^a]. Last^[Second note]\n\n[^a]: Regular definition.";
+  const note = await open(page, request, body, variant);
+  await page.locator('.editing-modes [data-mode="split"]').click();
+  const editor = page.locator(".pm-document"), refs = editor.locator(".pm-footnote-ref");
+  const notes = editor.locator(".pm-footnotes > .pm-footnote");
+  await expect(refs).toHaveCount(4);
+  expect(await refs.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-footnote-number")))).toEqual(["1", "2", "2", "3"]);
+  await expect(notes).toHaveCount(3);
+  await expect(editor.locator(":scope > p").first()).not.toContainText("formatted");
+  await expect(editor.locator(".pm-inline-note")).toHaveCount(0);
+  await expect(notes.first().locator("strong")).toHaveText("formatted");
+  await expect(notes.first().locator('a[href="https://example.com"]')).toHaveText("link");
+  await refs.first().hover();
+  await expect(page.getByRole("tooltip")).toContainText("Inline formatted note");
+  await refs.first().locator("a").click();
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.anchorNode?.parentElement?.closest(".pm-footnote")?.getAttribute("data-inline-note"))).toBe("true");
+  await page.keyboard.press("End");
+  await page.keyboard.type(" edited");
+  await expect(notes.first()).toContainText("edited");
+  await page.keyboard.press("Enter");
+  await expect(notes.first().locator("p")).toHaveCount(1);
+  await notes.first().getByRole("button", { name: "Return to footnote 1 reference 1", exact: true }).click();
+  await refs.first().hover();
+  await expect(page.getByRole("tooltip")).toContainText("edited");
+  await expectSource(page, /Before\^\[Inline \*\*formatted\*\* note[\s\S]*edited/);
+  await expectSource(page, /\[\^inline-note/, true);
+  await page.screenshot({ path: `test-results/inline-footnotes-${variant}.png` });
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("edited");
+  await page.reload();
+  await expect(refs).toHaveCount(4);
+  await expect(notes.first()).toContainText("edited");
+  // The last inline reference owns its definition; deleting it removes both.
+  await editor.locator(":scope > p").first().click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Backspace");
+  await expect(refs).toHaveCount(3);
+  await expect(notes).toHaveCount(2);
+  await page.keyboard.press("Control+z");
+  await expect(refs).toHaveCount(4);
+  await expect(notes.last()).toContainText("Second note");
+});
 
 for (const mode of ["document", "split"]) for (const bibliography of [false, true]) test(`${mode}: tail clicks reuse one empty block before footnotes${bibliography ? " and bibliography" : ""}`, async ({ page, request }) => {
   const body = "Text [^a]." + (bibliography ? " [#book]" : "") + "\n\n[^a]: Footnote content." +

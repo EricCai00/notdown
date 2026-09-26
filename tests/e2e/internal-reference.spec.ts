@@ -24,6 +24,58 @@ async function expectScroll(page: Page, text: string) {
   await expect.poll(() => page.evaluate(() => (window as any).referenceScroll || "")).toContain(text);
 }
 
+test('inserting new examples twice assigns unused labels and consecutive new numbers', async ({ page, request }) => {
+  const note = await create(request, 'New example labels', '(@example) First\n(@s) Second\n(@d) Third\n\nTail');
+  await open(page, note.id);
+  const editor = page.locator('.pm-document');
+  for (const label of ['example-2', 'example-3']) {
+    await editor.locator(':scope > p').filter({ hasText: /^Tail$/ }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('/example');
+    await page.locator('[data-insert="example_list_item"]').click();
+    await expect(editor.locator(`li[data-example-label="${label}"]`)).toHaveCount(1);
+  }
+  const rows = editor.locator('li[data-example-label]');
+  await expect(rows).toHaveCount(5);
+  await expect.poll(() => rows.evaluateAll(nodes => nodes.map(node => (node as HTMLLIElement).value))).toEqual([1, 2, 3, 4, 5]);
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('(@example-3) Example text');
+  await page.reload();
+  await expect.poll(() => rows.evaluateAll(nodes => nodes.map(node => (node as HTMLLIElement).value))).toEqual([1, 2, 3, 4, 5]);
+});
+
+for (const variant of ["markdown", "notdown"]) test(`${variant}: clicking example references finds the first label and follows deletion across reload`, async ({ page, request }) => {
+  const body = '(@foo) Original example\n(@bar) Another example\n\nBetween\n\n(@foo) Repeated example\n\nSee (@foo) and (@bar).';
+  const note = await create(request, 'Example navigation', body, variant);
+  await open(page, note.id);
+  const editor = page.locator('.pm-document');
+  const foo = editor.locator('a[href="#md-example-foo"]');
+  await foo.click();
+  await expectScroll(page, 'Original example');
+  await editor.locator('a[href="#md-example-bar"]').click();
+  await expectScroll(page, 'Another example');
+  await expect(page.getByText('Linked location not found.', { exact: true })).toHaveCount(0);
+
+  const row = editor.locator('li[data-example-label="foo"]').first();
+  const rect = (await row.boundingBox())!, bounds = (await editor.boundingBox())!;
+  await page.mouse.move(bounds.x - 65, rect.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + rect.width / 2, rect.y + 12, { steps: 12 });
+  await page.mouse.up();
+  await expect(row).toHaveClass(/pm-block-selected/);
+  await page.keyboard.press('Delete');
+  await expect(editor.locator('li[data-example-label="foo"]')).toHaveCount(1);
+  await foo.click();
+  await expectScroll(page, 'Repeated example');
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).not.toContain('Original example');
+  await page.reload();
+  await foo.click();
+  await expectScroll(page, 'Repeated example');
+  await expect(page.getByText('Linked location not found.', { exact: true })).toHaveCount(0);
+});
+
 test("Wiki page and cross-page heading/block links keep custom labels and navigate", async ({ page, request }) => {
   const target = await create(request, "Reference destination", "## Details\n\nParagraph target ^para\n\n- List line ^item", "obsidian");
   const source = await create(request, "Reference source", `[[${target.id}]] [[${target.id}#Details|Section alias]] [[${target.id}#^item|List alias]]`);

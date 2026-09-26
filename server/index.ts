@@ -22,7 +22,11 @@ await seedNewDefaultVault(
   process.env.VAULT_PATH === undefined,
 );
 await app.locals.vault.init();
-app.listen(port, "127.0.0.1", () => {
+const server = app.listen(port, "127.0.0.1", () => {
   console.log(`Notdown: http://127.0.0.1:${port}`);
   console.log(`Vault: ${vaultPath}`);
+});
+server.once("close", () => app.locals.closeRNotebook());
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => {
+  app.locals.closeRNotebook(); server.closeAllConnections(); server.close();
 });

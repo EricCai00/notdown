@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "./node-identity";
 import { nodeReference, markReference, referenceHref, referenceLabel, resolveReferencePage, type ReferencePage } from "./internal-reference";
 import { isListItem } from "./list-items";
 import { alertExportStyles } from "./alert-presentation";
@@ -56,7 +57,7 @@ function label(node: PMNode): string {
       node.attrs.label ||
       node.attrs.alt ||
       node.attrs.value ||
-      (node.type.name === "hard_break" ? " " : "")
+      (isEditorKind(node, "hard_break") ? " " : "")
     );
   let result = "";
   node.forEach((child) => {
@@ -76,7 +77,7 @@ export function getOutline(
     roots: OutlineNode[] = [],
     headings: OutlineNode[] = [];
   const walk = (node: PMNode, listParents: OutlineNode[] = []) => {
-    const heading = node.type.name === "heading",
+    const heading = isEditorKind(node, "heading"),
       list = isListItem(node);
     let parents = listParents;
     if (heading || list) {
@@ -166,7 +167,7 @@ export function renderNotionMarkdown(
   };
   const headings: { title: string; level: number; id: string }[] = [];
   doc.descendants((node) => {
-    if (node.type.name === "heading")
+    if (isEditorKind(node, "heading"))
       headings.push({
         title: label(node),
         level: node.attrs.level,
@@ -192,39 +193,40 @@ export function renderNotionMarkdown(
     );
   };
   const renderNode = (node: PMNode, cellStyle?: string): string => {
-    if (node.type.name === "syntax_block") {
+    if (isEditorKind(node, "syntax_block")) {
       const custom = options.syntaxBlock?.(node);
       if (custom !== undefined) return codeCaption(node)
         ? `<figure class="pm-code-rendered">${custom}<figcaption>${escapeXml(codeCaption(node))}</figcaption></figure>`
         : custom;
       return syntaxHtml(node);
     }
-    if (node.type.name === "syntax_inline") {
+    if (isEditorKind(node, "syntax_inline")) {
       const external = options.syntaxBlock?.(node);
       if (external !== undefined) return external;
       if (node.attrs.html) return renderRawHtml(node.attrs.html);
     }
-    if (node.type.name === "html_block")
+    if (isEditorKind(node, "html_block"))
       return (
         '<div class="pm-html-block">' + renderRawHtml(node.attrs.gfmConfig ? renderGfmSyntax(node.attrs.raw, node.attrs.gfmConfig) : node.attrs.raw, node.attrs.tagfilter, Boolean(node.attrs.gfmConfig)) + "</div>"
       );
-    if (node.type.name === "html_inline")
+    if (isEditorKind(node, "html_inline"))
       return (
         '<span class="pm-html-inline">' +
         renderRawHtml(node.attrs.html) +
         "</span>"
       );
-    if (node.type.name === "code_block") {
+    if (isEditorKind(node, "code_block")) {
       const custom = options.codeBlock?.(
         String(node.attrs.params || ""),
         node.textContent,
       );
       if (custom !== undefined) return custom;
     }
+    const tightDefinition = isEditorKind(node, "definition_description") && node.attrs.tight === true;
     const childHtml: string[] = [];
     node.forEach((child, _, rowIndex) => {
-      if (node.type.name === "table") {
-        if (child.type.name === "table_caption") {
+      if (isEditorKind(node, "table")) {
+        if (isEditorKind(child, "table_caption")) {
           const id = tableCaptionId(node);
           childHtml.push(render(child).replace("<caption>", id ? `<caption id="${escapeXml(id)}">` : "<caption>"));
           return;
@@ -234,24 +236,28 @@ export function renderNotionMarkdown(
           cells.push(render(cell, tableCellStyle(node, rowIndex, columnIndex))),
         );
         childHtml.push(`<tr>${cells.join("")}</tr>`);
+      } else if (tightDefinition && isEditorKind(child, "paragraph")) {
+        const inline: string[] = [];
+        child.forEach(part => inline.push(render(part)));
+        childHtml.push(inline.join(""));
       } else childHtml.push(render(child));
     });
-    let content = childHtml.join("");
+    let content = childHtml.join(tightDefinition ? "\n" : "");
     if (node.isText) content = escapeXml(node.text);
-    else if (node.type.name === "doc") return content;
-    else if (node.type.name === "table_cell" && cellStyle !== undefined)
+    else if (isEditorKind(node, "doc")) return content;
+    else if (isEditorKind(node, "table_cell") && cellStyle !== undefined)
       return `<${node.attrs.header ? "th" : "td"}${node.attrs.colspan > 1 ? ` colspan="${Number(node.attrs.colspan)}"` : ""}${node.attrs.rowspan > 1 ? ` rowspan="${Number(node.attrs.rowspan)}"` : ""} style="${escapeXml(cellStyle)}">${content}</${node.attrs.header ? "th" : "td"}>`;
-    else if (node.type.name === "table_of_contents")
+    else if (isEditorKind(node, "table_of_contents"))
       content = `<nav class="pm-toc">${headings.filter((h) => tocIncludes(node, h.level)).map((h) => `<a href="#${escapeXml(h.id)}" style="padding-left:${(h.level - 1) * 16}px">${escapeXml(h.title)}</a>`).join("")}</nav>`;
-    else if (["child_page", "page_link"].includes(node.type.name)) {
+    else if (["child_page", "page_link"].includes(editorKind(node))) {
       const target = node.attrs.target;
       const reference = nodeReference(node);
       const page = reference ? resolveReferencePage(reference, pages) : undefined;
       const url = safeReference(reference ? referenceHref(reference, page?.id) : node.attrs.url || pageUrl(target));
-      content = `<a class="${node.type.name === "child_page" ? "child-page-node" : "page-mention"}" href="${escapeXml(url)}"><span aria-hidden="true">▤</span> ${escapeXml(reference ? referenceLabel(node, reference, page) : node.attrs.label || target)}</a>`;
-    } else if (node.type.name === "toggle_block") {
+      content = `<a class="${isEditorKind(node, "child_page") ? "child-page-node" : "page-mention"}" href="${escapeXml(url)}"><span aria-hidden="true">▤</span> ${escapeXml(reference ? referenceLabel(node, reference, page) : node.attrs.label || target)}</a>`;
+    } else if (isEditorKind(node, "toggle_block")) {
       content = `<details open class="pm-toggle"><summary>${childHtml[0]}</summary>${childHtml.slice(1).join("")}</details>`;
-    } else if (["inline_math", "equation"].includes(node.type.name)) {
+    } else if (["inline_math", "equation"].includes(editorKind(node))) {
       content = katex.renderToString(
         (node.attrs.latexPrefix || "") + (node.isInline ? node.attrs.value : node.textContent),
         {
@@ -264,9 +270,9 @@ export function renderNotionMarkdown(
     } else {
       const spec = node.type.spec.toDOM?.(node);
       content = spec ? renderSpec(spec, content) : content;
-      if (node.type.name === "code_block" && codeCaption(node))
+      if (isEditorKind(node, "code_block") && codeCaption(node))
         content = `<figure class="pm-code-rendered">${content}<figcaption>${escapeXml(codeCaption(node))}</figcaption></figure>`;
-      if (node.type.name === "heading") {
+      if (isEditorKind(node, "heading")) {
         if (!node.attrs.markdownAttrs?.id)
           content = content.replace(
             /^<h(\d)/,

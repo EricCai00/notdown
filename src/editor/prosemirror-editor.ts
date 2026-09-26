@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
 import { findReferenceLocation } from "../document/reference-locations";
 import { showEditorPanel } from "./editor-panel";
@@ -6,6 +7,7 @@ import { hasSupplementalAttributes, needsMarkdownTable, hasOfficialDateTime } fr
 import { localObjectPlugins } from "../markdown-engine/presets";
 import { footnotePresentation, projectFootnotes, restoreFootnotes, newFootnote, footnoteChoices, type FootnoteInput } from "./footnotes";
 import "./footnotes.css";
+import { citationCleanup } from "./citations";
 import { PageMetadataView, protectPageMetadata } from "../features/metadata/page-metadata-view";
 import { replacePandocTitle } from "../features/metadata/pandoc-page-title";
 import { metadataSourceTransaction } from "../features/metadata/metadata-source";
@@ -38,6 +40,9 @@ import { markProperties } from "./mark-properties";
 import { selectionMenu } from "./selection-menu";
 import { blockSource, openBlockSource } from "./block-source";
 import { exampleLists } from "./example-lists";
+import { numberedListDisplayPlugin } from "./numbered-list-display";
+import { exampleReferenceInput } from "./example-reference-input";
+import "./example-reference-input.css";
 import {
   Fragment,
   Slice,
@@ -119,7 +124,12 @@ import {
   type LinkedPage,
 } from "./editor-links";
 import { renderMarkdown } from "../document/markdown";
-import { markdownRules, itemAtSelection } from "./editor-input-rules";
+import { markdownRules, itemAtSelection, mathBlockEnter } from "./editor-input-rules";
+import { codeFenceInput } from "./code-fence-input";
+import { commentInput } from "./comment-input";
+import { pageReferenceInput, type InputPage, type PageInputOptions } from "./page-reference-input";
+import "./page-reference-input.css";
+import { lastCodeLanguage } from "./code-input-preferences";
 import { symbolReplacementPlugin } from "./symbol-replacements";
 import { emojiInput } from "./emoji-input";
 import "./emoji-input.css";
@@ -133,6 +143,8 @@ import { notionNodeViews, refreshEmbeddedToc } from "./notion-nodeviews";
 import { refreshAlertViews } from "../blocks/alert-view";
 import { EmbedView } from "../blocks/embed-view";
 import { CodeBlockView } from "./code-block-view";
+import { ImageBlockView } from "./image-block-view";
+import { RChunkView, rInlineView } from "./rmarkdown-view";
 import { codeHighlighting } from "./code-highlighting";
 import { inlineMarkNavigation } from "./inline-mark-navigation";
 import "./inline-mark-navigation.css";
@@ -171,6 +183,7 @@ interface Options {
   onHistory?: (direction: "undo" | "redo") => boolean;
   canCommand?: (name: string) => boolean;
   onOpenPage?: (id: string, reference?: InternalReference) => void;
+  onCreatePage?: (title: string, parent: string | null) => Promise<InputPage | null>;
 }
 
 class ListItemView implements NodeView {
@@ -187,7 +200,13 @@ class ListItemView implements NodeView {
     this.render();
   }
   render() {
-    this.dom.dataset.listItem = this.node.type.name.replace("_list_item", "");
+    this.dom.dataset.listItem = editorKind(this.node).replace("_list_item", "");
+    if (isEditorKind(this.node, "example_list_item")) {
+      this.dom.dataset.exampleLabel = this.node.attrs.label;
+      this.dom.value = this.node.attrs.number;
+      if (this.node.attrs.referenceId) this.dom.id = this.node.attrs.referenceId;
+      else this.dom.removeAttribute("id");
+    }
     if (typeof this.node.attrs.checked === "boolean") {
       this.dom.dataset.checked = String(this.node.attrs.checked);
       if (!this.checkbox) {
@@ -245,7 +264,11 @@ export class BlockEditor {
   private selectionResize?: ResizeObserver;
   private selectionObserved = new Set<Element>();
   private selectionFrame = 0;
-  private boxStart: { x: number; y: number; moved: boolean } | null = null;
+  private boxStart: {
+    x: number; y: number;
+    pointerX: number; pointerY: number;
+    moved: boolean;
+  } | null = null;
   private dropLine = document.createElement("div");
   private hovered: EditorBlock | null = null;
   private dragFrom: number | null = null;
@@ -264,6 +287,11 @@ export class BlockEditor {
     private options: Options,
   ) {
     this.bodyFormat = options.bodyFormat || "markdown";
+    const pageInput: PageInputOptions = {
+      pages: options.pages, currentPage: options.currentPage,
+      allow: command => options.canCommand?.(command) ?? false,
+      create: options.onCreatePage, onError: options.onError,
+    };
     root.classList.add("pm-editor");
     const self = this;
     const placeholder = new Plugin({
@@ -281,7 +309,7 @@ export class BlockEditor {
           }
           const { $from } = state.selection;
           if (
-            $from.parent.type === schema.nodes.paragraph &&
+            $from.parent.type === schema.nodes["block.paragraph"] &&
             !$from.parent.content.size &&
             !inTableCell(state)
           )
@@ -291,7 +319,7 @@ export class BlockEditor {
               }),
             );
           state.doc.forEach((node, pos) => {
-            if (!self.folded.has(pos) || node.type !== schema.nodes.heading)
+            if (!self.folded.has(pos) || !isEditorKind(node, "heading"))
               return;
             decorations.push(
               Decoration.node(pos, pos + node.nodeSize, {
@@ -304,7 +332,7 @@ export class BlockEditor {
             while (next < state.doc.content.size) {
               const following = state.doc.nodeAt(next)!;
               if (
-                following.type === schema.nodes.heading &&
+                isEditorKind(following, "heading") &&
                 following.attrs.level <= node.attrs.level
               )
                 break;
@@ -366,8 +394,9 @@ export class BlockEditor {
       },
       Enter: chainCommands(
         tableLineBreak,
+        mathBlockEnter(() => options.canCommand?.("equation") !== false),
         lineBlockEnter,
-        (state, dispatch, view) => splitListItem(schema.nodes.example_list_item, { label: "", number: (state.selection.$from.node(-1)?.attrs.number || 0) + 1 })(state, dispatch, view),
+        (state, dispatch, view) => splitListItem(schema.nodes["block.example_list_item"], { label: "", number: (state.selection.$from.node(-1)?.attrs.number || 0) + 1 })(state, dispatch, view),
         exitEmptyList,
         splitItem,
         baseKeymap.Enter,
@@ -377,7 +406,7 @@ export class BlockEditor {
         dispatch?.(
           (state.selection.$from.parent.type.spec.code
             ? state.tr.insertText("\n")
-            : state.tr.replaceSelectionWith(schema.nodes.hard_break.create())
+            : state.tr.replaceSelectionWith(schema.nodes["character.line_break"].create())
           ).scrollIntoView(),
         );
         return true;
@@ -424,16 +453,22 @@ export class BlockEditor {
             if (!tr.docChanged || options.canCommand?.("notion_custom") === true) return true;
             let allowed = true;
             tr.doc.descendants(node => {
-              if (localObjectPlugins[node.type.name] || hasSupplementalAttributes(node) || needsMarkdownTable(node)) allowed = false;
+              if (localObjectPlugins[editorKind(node)] || hasSupplementalAttributes(node) || needsMarkdownTable(node)) allowed = false;
             });
             return allowed;
           } }),
           footnotePresentation(),
+          citationCleanup(),
           ...(options.metadataHost ? [protectPageMetadata()] : []),
           history(),
           codeHighlighting(),
           emojiInput(() => options.canCommand?.("emoji_shortcode") === true),
-          dateMentionInput(() => options.canCommand?.("date_or_reminder") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("mention_person") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("notion_custom") === true),
+          codeFenceInput(() => options.canCommand?.("backtick_code") !== false),
+          commentInput(() => options.canCommand?.("comment") === true,
+            source => options.codec?.parse(source) ?? parseNotionMarkdown(source)),
+          exampleReferenceInput(() => options.canCommand?.("example_list_item") === true),
+          pageReferenceInput(pageInput),
+          dateMentionInput(() => options.canCommand?.("date_or_reminder") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("mention_person") ?? this.bodyFormat === "notion-markdown", () => options.canCommand?.("notion_custom") === true, pageInput),
           linkPaste(() => options.canCommand?.("link_preview") ?? false, () => options.canCommand?.("web_bookmark") ?? false),
           latexMacroEditing(),
           tableAppearance(),
@@ -450,6 +485,7 @@ export class BlockEditor {
             link: () => this.showLinkEditor(),
           }),
           exampleLists(),
+          numberedListDisplayPlugin(),
           objectProperties(source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), () => options.canCommand?.("notion_custom") === true, () => options.canCommand?.("notion_image_caption") === true),
           createSlashPlugin((match) =>
             queueMicrotask(() => {
@@ -469,6 +505,9 @@ export class BlockEditor {
             const reference = internalReference(target, "wiki");
             const page = reference && resolveReferencePage(reference, options.pages(), options.currentPage?.()?.id);
             return page ? page.id + (reference?.fragment ? "#" + reference.fragment : "") : target;
+          }, undefined, {
+            parse: source => options.codec?.parse(source) ?? parseNotionMarkdown(source),
+            context: doc => options.codec?.serialize(restoreFootnotes(doc)) ?? serializeNotionMarkdown(restoreFootnotes(doc)),
           }),
           symbolReplacementPlugin(() => options.canCommand?.("symbol_replacements") === true),
           inlineMarkNavigation(schema),
@@ -485,13 +524,17 @@ export class BlockEditor {
         spellcheck: "false",
       },
       nodeViews: preserveSelectionDecorations({
-        image: (node, view, getPos) => imageView(node, view, getPos, () => options.canCommand?.("notion_image_caption") === true),
+        image: (node, view, getPos) => imageView(node, view, getPos, () => options.canCommand?.("notion_image_caption") === true || options.canCommand?.("image_caption") === true, () => options.canCommand?.("image_layout") === true),
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
+        executable_chunk: (node, view, getPos) => new RChunkView(node, view, getPos, () => options.canCommand?.("quarto_python") !== false),
+        executable_inline: (node, view, getPos) => rInlineView(node, view, getPos, () => options.canCommand?.("quarto_python") !== false),
         ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true),
+        image_block: (node, view, getPos) => new ImageBlockView(node, view, getPos, () => options.canCommand?.("image_layout") === true),
         syntax_block: (node, view, getPos) =>
           options.metadataHost && node.attrs.kind === "metadata"
             ? new PageMetadataView(node, view, getPos, options.metadataHost, source => this.options.codec!.parse(source))
             : isHtmlBlock(node) ? new HtmlBlockView(node, view, getPos)
+            : node.attrs.kind === "figure" && node.attrs.data?.image ? new ImageBlockView(node, view, getPos, () => options.canCommand?.("image_layout") === true)
             : node.attrs.kind === "embed" ? new EmbedView(node, view, getPos) : new SyntaxBlockView(node, view, getPos),
         syntax_inline: (node) =>
           node.attrs.kind === "transclusion"
@@ -500,7 +543,7 @@ export class BlockEditor {
               ? htmlInlineView(node)
               : {
                   dom: (() => {
-                    const spec = schema.nodes.syntax_inline.spec.toDOM!(node);
+                    const spec = schema.nodes["structure.preserved_inline"].spec.toDOM!(node);
                     return importSyntaxDOM(spec);
                   })(),
                 },
@@ -511,9 +554,10 @@ export class BlockEditor {
         ...createPageNodeViews(options.pages, options.currentPage),
         link_preview: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
         link_mention: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
-        mention: (node, view, getPos) => node.attrs.kind === "date" && options.canCommand?.("notion_custom") === true && !hasOfficialDateTime(node) ? new DateMentionView(node, view, getPos) : node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url) ? new PersonMentionView(node) : { dom: importSyntaxDOM(schema.nodes.mention.spec.toDOM!(node)) },
+        mention: (node, view, getPos) => node.attrs.kind === "date" && options.canCommand?.("notion_custom") === true && !hasOfficialDateTime(node) ? new DateMentionView(node, view, getPos) : node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url) ? new PersonMentionView(node) : { dom: importSyntaxDOM(schema.nodes["inline.mention_page_or_data_source"].spec.toDOM!(node)) },
         bullet_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
         numbered_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
+        example_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
         task_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
         opaque_block: (node, view, getPos) => {
           if (options.metadataHost && node.attrs.metadataForm)
@@ -615,7 +659,14 @@ export class BlockEditor {
     const signal = this.abort.signal;
     this.root.addEventListener("load", () => this.scheduleSelectionPaint(), { capture: true, signal });
     window.addEventListener("resize", () => this.scheduleSelectionPaint(), { signal });
-    document.addEventListener("scroll", () => this.scheduleSelectionPaint(), { capture: true, signal });
+    document.addEventListener("scroll", (event) => {
+      // Keep the anchor attached to the document while the pointer stays still.
+      // Ignore scrolling inside block widgets and the other editing pane.
+      if (event.target === document ||
+          (event.target instanceof Element && event.target.contains(this.view.dom)))
+        this.paintBox();
+      this.scheduleSelectionPaint();
+    }, { capture: true, signal });
     this.addButton.addEventListener(
       "pointerdown",
       (event) => event.preventDefault(),
@@ -844,7 +895,7 @@ export class BlockEditor {
     live.forEach((node, pos, index) => {
       const mapped = projected.child(index);
       if (mapped.type !== node.type) return;
-      if (node.type.name === "footnote_section") {
+      if (isEditorKind(node, "footnote_section")) {
         node.forEach((definition, offset) => {
           // Keys are projection-local. Labels identify the definition after sorting.
           mapped.forEach(candidate => {
@@ -912,7 +963,7 @@ export class BlockEditor {
     const target = this.view.posAtDOM(heading, 0);
     const ancestors: { pos: number; level: number }[] = [];
     this.view.state.doc.forEach((node, pos) => {
-      if (pos > target || node.type !== schema.nodes.heading) return;
+      if (pos > target || !isEditorKind(node, "heading")) return;
       while (ancestors.length && ancestors.at(-1)!.level >= node.attrs.level)
         ancestors.pop();
       ancestors.push({ pos, level: node.attrs.level });
@@ -945,6 +996,15 @@ export class BlockEditor {
   getSlashQuery() {
     return getSlashState(this.view.state)?.query ?? null;
   }
+  getSlashAnchor() {
+    const match = getSlashState(this.view.state);
+    if (!match || this.destroyed) return null;
+    const start = this.view.coordsAtPos(match.from);
+    const caret = this.view.coordsAtPos(match.to);
+    // Keep horizontal alignment at the trigger, but follow the typing line
+    // when a long query wraps. ProseMirror also handles empty paragraphs.
+    return { left: start.left, top: caret.top, bottom: caret.bottom };
+  }
   consumeSlash() {
     consumeSlash(this.view);
   }
@@ -955,7 +1015,7 @@ export class BlockEditor {
   inFootnote() {
     const { $from } = this.view.state.selection;
     for (let depth = $from.depth; depth > 0; depth--)
-      if ($from.node(depth).type.name === "footnote") return true;
+      if (isEditorKind($from.node(depth), "footnote")) return true;
     return false;
   }
 
@@ -970,7 +1030,7 @@ export class BlockEditor {
     if ("label" in input && !footnoteChoices(state.doc).some(note => note.label === input.label)) return;
     const definition = "text" in input ? newFootnote(state.doc, input.text) : null;
     const label = definition?.attrs.label ?? (input as { label: string }).label;
-    const tr = state.tr.replaceSelectionWith(schema.nodes.footnote_reference.create({ label }));
+    const tr = state.tr.replaceSelectionWith(schema.nodes["inline.footnote"].create({ label }));
     if (definition) tr.insert(tr.doc.content.size, definition);
     this.view.dispatch(tr.scrollIntoView());
     this.bookmark = undefined;
@@ -992,15 +1052,15 @@ export class BlockEditor {
     const doc =
       this.options.codec?.parse(markdown) ?? parseNotionMarkdown(markdown);
     const mediaImage = this.options.canCommand?.("inline_image") === false &&
-      doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph &&
-      doc.firstChild.childCount === 1 && doc.firstChild.firstChild?.type === schema.nodes.image;
+      doc.childCount === 1 && doc.firstChild?.type === schema.nodes["block.paragraph"] &&
+      doc.firstChild.childCount === 1 && doc.firstChild.firstChild?.type === schema.nodes["inline.image"];
     if (
       inTableCell(this.view.state) &&
-      (mediaImage || !(doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph))
+      (mediaImage || !(doc.childCount === 1 && doc.firstChild?.type === schema.nodes["block.paragraph"]))
     ) {
       const nodes: PMNode[] = [];
       markdown.split(/\r?\n/).forEach((line, index) => {
-        if (index) nodes.push(schema.nodes.hard_break.create());
+        if (index) nodes.push(schema.nodes["character.line_break"].create());
         if (line) nodes.push(schema.text(line));
       });
       this.view.dispatch(
@@ -1013,12 +1073,17 @@ export class BlockEditor {
       return;
     }
     const inline =
-      !mediaImage && doc.childCount === 1 && doc.firstChild?.type === schema.nodes.paragraph;
+      !mediaImage && doc.childCount === 1 && doc.firstChild?.type === schema.nodes["block.paragraph"];
     const slice = inline
       ? new Slice(doc.firstChild!.content, 0, 0)
       : new Slice(doc.content, 0, 0);
     const tr = this.view.state.tr.replaceSelection(slice).scrollIntoView();
-    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes.syntax_block && doc.firstChild.attrs.kind === "comment") {
+    if (doc.childCount === 1 && isEditorKind(doc.firstChild, "executable_chunk")) {
+      tr.doc.descendants((node, pos) => {
+        if (node === doc.firstChild) tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+      });
+    }
+    if (doc.childCount === 1 && isEditorKind(doc.firstChild, "syntax_block") && doc.firstChild.attrs.kind === "comment") {
       // A hidden atom must never become the typing target: typing would replace
       // the comment. Keep a visible text position immediately after it.
       let end: number | undefined;
@@ -1027,27 +1092,27 @@ export class BlockEditor {
       });
       if (end !== undefined) {
         if (!tr.doc.resolve(end).nodeAfter?.isTextblock)
-          tr.insert(end, schema.nodes.paragraph.create());
+          tr.insert(end, schema.nodes["block.paragraph"].create());
         tr.setSelection(TextSelection.create(tr.doc, end + 1));
       }
     }
     this.view.dispatch(tr);
     this.bookmark = undefined;
     this.view.focus();
-    if (inline && doc.firstChild?.childCount === 1 && doc.firstChild.firstChild?.type === schema.nodes.mention && doc.firstChild.firstChild.attrs.kind === "date" && !doc.firstChild.firstChild.attrs.nfmAttrs.start) {
+    if (inline && doc.firstChild?.childCount === 1 && isEditorKind(doc.firstChild.firstChild, "mention") && doc.firstChild.firstChild.attrs.kind === "date" && !doc.firstChild.firstChild.attrs.nfmAttrs.start) {
       this.view.state.doc.descendants((node, pos) => {
         if (node === doc.firstChild!.firstChild) this.view.nodeDOM(pos)?.dispatchEvent(new Event("notdown-edit-date"));
       });
     }
-    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes.equation) {
+    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes["block.math_block"]) {
       this.view.state.doc.descendants((node, pos) => {
         if (node === doc.firstChild) this.view.nodeDOM(pos)?.dispatchEvent(new Event("notdown-edit-equation"));
       });
     }
-    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes.button && doc.firstChild.attrs.actions === "[]") {
+    if (doc.childCount === 1 && doc.firstChild?.type === schema.nodes["block.button"] && doc.firstChild.attrs.actions === "[]") {
       const pos = this.view.state.selection.from;
-      const buttonPos = this.view.state.doc.nodeAt(pos)?.type === schema.nodes.button ? pos : pos - 1;
-      if (this.view.state.doc.nodeAt(buttonPos)?.type === schema.nodes.button) openBlockProperties(this.view, buttonPos);
+      const buttonPos = this.view.state.doc.nodeAt(pos)?.type === schema.nodes["block.button"] ? pos : pos - 1;
+      if (this.view.state.doc.nodeAt(buttonPos)?.type === schema.nodes["block.button"]) openBlockProperties(this.view, buttonPos);
     }
   }
 
@@ -1062,14 +1127,18 @@ export class BlockEditor {
     const state = this.view.state;
     if (inTableCell(state)) return;
     const item = itemAtSelection(state);
-    if (item && type !== "divider") {
+    if ((item || isEditorKind(blockAtPos(state.doc, state.selection.from)?.node, "definition_list_item")) && type !== "divider") {
       const tr = convertListItem(state, type);
+      if (tr && type === "code") tr.setNodeMarkup(tr.selection.$from.before(), undefined,
+        { ...tr.selection.$from.parent.attrs, params: lastCodeLanguage() });
       if (tr) this.view.dispatch(tr.scrollIntoView());
       this.view.focus();
       return;
     }
     if (type === "code") {
       const tr = convertTextblockToCode(state);
+      if (tr) tr.setNodeMarkup(tr.selection.$from.before(), undefined,
+        { ...tr.selection.$from.parent.attrs, params: lastCodeLanguage() });
       if (tr) this.view.dispatch(tr.scrollIntoView());
       this.view.focus();
       return;
@@ -1077,29 +1146,29 @@ export class BlockEditor {
     if (["list", "number", "task"].includes(type)) {
       const listType =
         type === "number"
-          ? schema.nodes.ordered_list
-          : schema.nodes.bullet_list;
+          ? schema.nodes["structure.ordered_list"]
+          : schema.nodes["structure.bullet_list"];
       if (!state.selection.$from.parent.isTextblock)
-        this.run(setBlockType(schema.nodes.paragraph));
+        this.run(setBlockType(schema.nodes["block.paragraph"]));
       this.run(wrapInList(listType));
       const created = itemAtSelection(this.view.state);
       if (created && type === "task")
         this.view.dispatch(
-          this.view.state.tr.setNodeMarkup(created.pos, schema.nodes.task_list_item, {
+          this.view.state.tr.setNodeMarkup(created.pos, schema.nodes["block.task_list_item"], {
             ...created.node.attrs,
             checked: false,
           }),
         );
     } else {
       if (item) this.run(outdentEditorBlock);
-      if (type === "quote") this.run(wrapIn(schema.nodes.blockquote));
+      if (type === "quote") this.run(wrapIn(schema.nodes["block.quote"]));
       else if (type === "divider") {
         const tr = this.view.state.tr
-          .replaceSelectionWith(schema.nodes.horizontal_rule.create())
+          .replaceSelectionWith(schema.nodes["block.divider"].create())
           .scrollIntoView();
         const after = Math.min(tr.selection.to, tr.doc.content.size);
         if (after === tr.doc.content.size)
-          tr.insert(after, schema.nodes.paragraph.create());
+          tr.insert(after, schema.nodes["block.paragraph"].create());
         tr.setSelection(
           Selection.near(
             tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)),
@@ -1108,8 +1177,8 @@ export class BlockEditor {
         this.view.dispatch(tr);
       } else {
         const target = type.startsWith("heading")
-          ? schema.nodes.heading
-          : schema.nodes.paragraph;
+          ? schema.nodes["block.heading"]
+          : schema.nodes["block.paragraph"];
         if (
           type === "text" &&
           this.view.state.selection.$from.parent.type === target
@@ -1180,7 +1249,7 @@ export class BlockEditor {
     const dom = this.view.nodeDOM(block.pos);
     if (!(dom instanceof HTMLElement) || !dom.getClientRects().length) return null;
     let rect = dom.getBoundingClientRect();
-    if (hit && (isListItem(block.node) || (block.node.type.name === "nested_block" && !dom.classList.contains("pm-toggle")))) {
+    if (hit && (isListItem(block.node) || isEditorKind(block.node, "definition_list_item") || (isEditorKind(block.node, "nested_block") && !dom.classList.contains("pm-toggle")))) {
       const head = this.rowRect(block);
       if (head) rect = new DOMRect(rect.left, head.top, rect.width, head.height);
     }
@@ -1189,7 +1258,7 @@ export class BlockEditor {
       const left = dom.parentElement.getBoundingClientRect().left;
       rect = new DOMRect(left, rect.top, rect.right - left, rect.height);
     }
-    if (block.node.type.name === "horizontal_rule" && rect.height < 12)
+    if (isEditorKind(block.node, "horizontal_rule") && rect.height < 12)
       rect = new DOMRect(rect.left, rect.top - (12 - rect.height) / 2, rect.width, 12);
     return rect.width && rect.height ? rect : null;
   }
@@ -1207,7 +1276,7 @@ export class BlockEditor {
     const block = this.hovered && blockAtPos(doc, this.hovered.pos);
     let pos = block ? block.end : doc.content.size;
     const tr = this.view.state.tr;
-    const paragraph = schema.nodes.paragraph.create();
+    const paragraph = schema.nodes["block.paragraph"].create();
     if (isListItem(block?.node)) {
       tr.insert(
         pos,
@@ -1220,6 +1289,15 @@ export class BlockEditor {
         ),
       );
       pos++;
+    } else if (isEditorKind(block?.node, "definition_list_item") && block.listNode && block.listPos !== undefined) {
+      const index = doc.resolve(block.pos).index();
+      const before: PMNode[] = [], after: PMNode[] = [];
+      block.listNode.forEach((child, _offset, i) => (i <= index ? before : after).push(child));
+      const preceding = block.listNode.copy(Fragment.fromArray(before));
+      const replacement = [preceding, paragraph];
+      if (after.length) replacement.push(block.listNode.copy(Fragment.fromArray(after)));
+      tr.replaceWith(block.listPos, block.listPos + block.listNode.nodeSize, replacement);
+      pos = block.listPos + preceding.nodeSize;
     } else tr.insert(pos, paragraph);
     tr.setSelection(TextSelection.create(tr.doc, pos + 1));
     this.bookmark = undefined;
@@ -1237,16 +1315,16 @@ export class BlockEditor {
     while (index >= 0) {
       const node = doc.child(index);
       const dom = this.view.nodeDOM(end - node.nodeSize);
-      if (node.type.name !== "footnote_section" &&
+      if (!isEditorKind(node, "footnote_section") &&
           !(dom instanceof HTMLElement && dom.hidden)) break;
       end -= node.nodeSize;
       index--;
     }
     const last = index >= 0 ? doc.child(index) : null;
     const tr = this.view.state.tr;
-    const empty = last?.type === schema.nodes.paragraph && !last.content.size;
+    const empty = last?.type === schema.nodes["block.paragraph"] && !last.content.size;
     const pos = empty ? end - last.nodeSize : end;
-    if (!empty) tr.insert(pos, schema.nodes.paragraph.create());
+    if (!empty) tr.insert(pos, schema.nodes["block.paragraph"].create());
     tr.setSelection(TextSelection.create(tr.doc, pos + 1));
     this.bookmark = undefined;
     this.view.dispatch(closeHistory(tr).scrollIntoView());
@@ -1291,25 +1369,38 @@ export class BlockEditor {
       return;
     event.preventDefault();
     this.closeMenu();
-    this.boxStart = { x: event.clientX, y: event.clientY, moved: false };
+    this.boxStart = {
+      x: event.clientX - bounds.left, y: event.clientY - bounds.top,
+      pointerX: event.clientX, pointerY: event.clientY, moved: false,
+    };
   }
 
   private updateBox(event: PointerEvent) {
     const start = this.boxStart;
     if (!start) return;
+    start.pointerX = event.clientX;
+    start.pointerY = event.clientY;
+    this.paintBox();
+    if (start.moved) event.preventDefault();
+  }
+
+  private paintBox() {
+    const start = this.boxStart;
+    if (!start) return;
+    const bounds = this.view.dom.getBoundingClientRect();
+    const anchorX = bounds.left + start.x, anchorY = bounds.top + start.y;
     if (
       !start.moved &&
-      Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4
+      Math.hypot(start.pointerX - anchorX, start.pointerY - anchorY) < 4
     )
       return;
     start.moved = true;
-    event.preventDefault();
     window.getSelection()?.removeAllRanges();
     this.root.classList.add("pm-box-selecting");
-    const left = Math.min(start.x, event.clientX),
-      right = Math.max(start.x, event.clientX);
-    const top = Math.min(start.y, event.clientY),
-      bottom = Math.max(start.y, event.clientY);
+    const left = Math.min(anchorX, start.pointerX),
+      right = Math.max(anchorX, start.pointerX);
+    const top = Math.min(anchorY, start.pointerY),
+      bottom = Math.max(anchorY, start.pointerY);
     Object.assign(this.marquee.style, {
       left: left + "px",
       top: top + "px",
@@ -1324,7 +1415,7 @@ export class BlockEditor {
       if (
         !block ||
         block.pos !== pos ||
-        ["bullet_list", "ordered_list", "column"].includes(node.type.name)
+        ["bullet_list", "ordered_list", "example_list", "definition_list", "definition_description", "column"].includes(editorKind(node))
       )
         return;
       const rect = this.selectionRect(block, true);
@@ -1347,7 +1438,7 @@ export class BlockEditor {
     const dom = this.view.nodeDOM(block.pos);
     if (!(dom instanceof HTMLElement)) return null;
     if (dom.matches(".pm-content-object, .pm-embed")) return dom.getBoundingClientRect();
-    if (block.node.type.name === "callout") {
+    if (isEditorKind(block.node, "callout")) {
       // The first content row represents the entire callout. Keep its vertical
       // hit area, but anchor the gutter to the container's outside edge.
       const bounds = dom.getBoundingClientRect();
@@ -1357,11 +1448,12 @@ export class BlockEditor {
     }
     const row = [
       "nested_block",
+      "definition_list_item",
       "toggle_block",
       "callout",
       "synced_block",
       "blockquote",
-    ].includes(block.node.type.name)
+    ].includes(editorKind(block.node))
       ? dom.querySelector(".pm-toggle-content > :first-child") ||
         dom.firstElementChild ||
         dom
@@ -1404,8 +1496,8 @@ export class BlockEditor {
     this.view.state.doc.descendants((node, pos) => {
       if (
         !node.isBlock ||
-        ["bullet_list", "ordered_list", "column", "doc"].includes(
-          node.type.name,
+        ["bullet_list", "ordered_list", "example_list", "definition_list", "definition_description", "column", "doc"].includes(
+          editorKind(node),
         )
       )
         return;
@@ -1414,7 +1506,7 @@ export class BlockEditor {
       const rect = this.rowRect(candidate);
       // Div controls occupy a second gutter outside the ordinary child
       // controls. The container adds no padding to the rendered content.
-      if (node.type.name === "fenced_div" && rect && y >= rect.top && y <= rect.bottom) {
+      if (isEditorKind(node, "fenced_div") && rect && y >= rect.top && y <= rect.bottom) {
         if (x >= rect.left - 108 && x < rect.left - 60) {
           best = candidate;
           return false;
@@ -1472,7 +1564,7 @@ export class BlockEditor {
       const grip = this.handle.getBoundingClientRect();
       const add = this.addButton.getBoundingClientRect();
       if (row && row.width && row.height &&
-        event.clientX >= add.left && event.clientX <= (this.hovered.node.type.name === "fenced_div" ? grip.right : row.left) &&
+        event.clientX >= add.left && event.clientX <= (isEditorKind(this.hovered.node, "fenced_div") ? grip.right : row.left) &&
         event.clientY >= Math.min(row.top, grip.top) &&
         event.clientY <= Math.max(row.bottom, grip.bottom)) return;
     }
@@ -1484,7 +1576,7 @@ export class BlockEditor {
       event.clientY < rect.top ||
       event.clientY > rect.bottom ||
       event.clientX > rect.right + 4 ||
-      event.clientX < rect.left - (block.node.type.name === "fenced_div" ? 112 : 80)
+      event.clientX < rect.left - (isEditorKind(block.node, "fenced_div") ? 112 : 80)
     ) {
       this.handle.classList.remove("visible");
       this.addButton.classList.remove("visible");
@@ -1498,7 +1590,7 @@ export class BlockEditor {
     // A nested list has its own wrapper, so its gutter retains the indentation.
     const edge = (isListItem(block.node) ? dom.parentElement : dom)!
       .getBoundingClientRect().left;
-    const gutterOffset = block.node.type.name === "fenced_div" ? 84 : 36;
+    const gutterOffset = isEditorKind(block.node, "fenced_div") ? 84 : 36;
     this.handle.style.left = `${edge - rootRect.left - gutterOffset}px`;
     this.handle.style.top = `${rect.top - rootRect.top + Math.max(0, (Math.min(rect.height, 32) - 24) / 2)}px`;
     this.addButton.style.left = parseFloat(this.handle.style.left) - 24 + "px";
@@ -1513,7 +1605,7 @@ export class BlockEditor {
     let boundary = doc.resolve(position);
     // List wrappers are not separate draggable rows. Their first/last item
     // shares the outer gap with the neighboring block outside the list.
-    while (["bullet_list", "ordered_list"].includes(boundary.parent.type.name) &&
+    while (["bullet_list", "ordered_list"].includes(editorKind(boundary.parent)) &&
       (boundary.parentOffset === 0 || boundary.parentOffset === boundary.parent.content.size)) {
       position = boundary.parentOffset === 0 ? boundary.before() : boundary.after();
       boundary = doc.resolve(position);
@@ -1550,16 +1642,17 @@ export class BlockEditor {
     }
     const placement: BlockPlacement =
       [
-        schema.nodes.bullet_list_item,
-        schema.nodes.numbered_list_item,
-        schema.nodes.task_list_item,
-        schema.nodes.nested_block,
-        schema.nodes.paragraph,
-        schema.nodes.heading,
-        schema.nodes.toggle_block,
-        schema.nodes.callout,
-        schema.nodes.synced_block,
-        schema.nodes.blockquote,
+        schema.nodes["block.bullet_list_item"],
+        schema.nodes["block.numbered_list_item"],
+        schema.nodes["block.task_list_item"],
+        schema.nodes["block.definition_list_item"],
+        schema.nodes["structure.nested_block"],
+        schema.nodes["block.paragraph"],
+        schema.nodes["block.heading"],
+        schema.nodes["block.toggle"],
+        schema.nodes["block.callout"],
+        schema.nodes["block.synced_block"],
+        schema.nodes["block.quote"],
       ].includes(block.node.type) && event.clientX > rect.left + 36
         ? "inside"
         : event.clientY < rect.top + rect.height / 2
@@ -1576,7 +1669,7 @@ export class BlockEditor {
       }) ||
       (placement === "inside" &&
         this.options.canCommand?.("nesting") === false &&
-        !isListItem(block.node))
+        !isListItem(block.node) && !isEditorKind(block.node, "definition_list_item"))
     ) {
       this.dropTarget = null;
       this.dropLine.classList.remove("visible");
@@ -1690,11 +1783,13 @@ export class BlockEditor {
           this.options.codec?.serialize(doc) ??
           (this.bodyFormat === "notion-markdown" ? serializeNotionMarkdown(doc) : serializeEditorMarkdown(doc)),
         );
-        this.sourceDialog?.remove();
-        this.sourceDialog = openBlockSource(source, () => {
+        this.sourceDialog?.close();
+        const dialog = openBlockSource(source, () => {
+          if (this.sourceDialog !== dialog) return;
           this.sourceDialog = undefined;
           if (!this.destroyed) this.view.focus();
-        });
+        }, this.abort.signal);
+        this.sourceDialog = dialog;
       } catch (error) {
         this.options.onError(error);
         this.view.focus();
@@ -1724,7 +1819,7 @@ export class BlockEditor {
           this.insertBlockType(type);
         });
     menu.append(document.createElement("hr"));
-    if (block.node.type === schema.nodes.heading)
+    if (isEditorKind(block.node, "heading"))
       add(
         this.folded.has(block.pos) ? "Expand heading" : "Collapse heading",
         () => {

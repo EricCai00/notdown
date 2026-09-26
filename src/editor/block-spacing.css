@@ -41,7 +41,7 @@
     .pm-object-content:not(.pm-tabs-panels)
   ):not(:where([contenteditable="false"] *))
 ) > :where(
-  blockquote, pre, .pm-code-block, hr, table, .note-columns, .pm-callout,
+  blockquote, pre, .pm-code-block, .pm-r-chunk, hr, table, .note-columns, .pm-callout,
   .pm-content-object:not(.pm-object-breadcrumb, .pm-object-fenced_div), .pm-syntax-block:not([data-syntax-kind="comment"]),
   .pm-html-block, .pm-media-block, .pm-preserved-block
 ),
@@ -53,7 +53,7 @@
     .pm-object-content:not(.pm-tabs-panels)
   ):not(:where([contenteditable="false"] *))
 ) > :where(
-  blockquote, pre, .pm-code-block, hr, table, .note-columns, .pm-callout,
+  blockquote, pre, .pm-code-block, .pm-r-chunk, hr, table, .note-columns, .pm-callout,
   .pm-content-object:not(.pm-object-breadcrumb, .pm-object-fenced_div), .pm-syntax-block:not([data-syntax-kind="comment"]),
   .pm-html-block, .pm-media-block, .pm-preserved-block
 ) + * {

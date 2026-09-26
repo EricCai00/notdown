@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -31,7 +32,7 @@ for (const position of ["above", "below", "start", "end"]) test(`ordered rich te
   state = state.apply(buttonTransaction(state, pos, original, actions, parse));
   const output = serializeNative(state.doc, config), reopened = parse(output);
   reopened.check();
-  const types: string[] = []; reopened.forEach(n => types.push(n.type.name));
+  const types: string[] = []; reopened.forEach(n => types.push(editorKind(n)));
   assert(types.indexOf("heading") < types.indexOf("code_block"));
   assert.equal(types.filter(t => t === "button").length, 1, output);
   assert(output.includes('<button label="literal"/>'), output);

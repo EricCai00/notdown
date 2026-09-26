@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 /** Documentation audit only; never opens or writes a vault. */
 import fs from "node:fs";
 import assert from "node:assert/strict";
@@ -182,13 +183,13 @@ const probeCases: [string, string, string, string, string?][] = [
 ];
 const probes = probeCases.map(([variant, name, source, expected, absent]) => {
   const c = config(variant), doc = parseNative(source, c), types: string[] = [], marks: string[] = [];
-  doc.descendants(n => { types.push(n.type.name); marks.push(...n.marks.map(m => m.type.name)); });
+  doc.descendants(n => { types.push(editorKind(n)); marks.push(...n.marks.map(m => editorKind(m))); });
   assert(types.includes(expected), `${name}: missing ${expected}`);
   if (absent) assert(!types.includes(absent) && !marks.includes(absent), `${name}: unexpected ${absent}`);
   if (name === "angle_autolink") assert(marks.includes("link"));
   if (name === "heading_4") assert.equal(doc.firstChild?.attrs.level, 4);
   if (name === "toggle_heading") assert.equal(doc.firstChild?.firstChild?.attrs.toggle, true);
-  if (name === "editable_blank") assert(doc.content.content.some(n => n.type.name === "paragraph" && n.content.size === 0));
+  if (name === "editable_blank") assert(doc.content.content.some(n => editorKind(n) === "paragraph" && n.content.size === 0));
   assert.equal(serializeNative(doc, c), source, `${name}: source changed`);
   return { variant, name, source, types, marks, roundtrip: true };
 });

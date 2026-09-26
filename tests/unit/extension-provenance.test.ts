@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { extensionProvenance, groupExtensions, extensionProvenanceHtml, isBuiltInSyntax } from "../../src/catalog/extension-provenance";
@@ -34,9 +35,9 @@ test("CommonMark-family native parsing supports the displayed core rules without
     const nodes: string[] = [];
     let linked = false;
     doc.descendants(node => {
-      nodes.push(node.type.name);
-      if (node.type.name === "ordered_list") assert.equal(node.attrs.order, 7);
-      if (node.marks.some(mark => mark.type.name === "link")) linked = true;
+      nodes.push(editorKind(node));
+      if (editorKind(node) === "ordered_list") assert.equal(node.attrs.order, 7);
+      if (node.marks.some(mark => editorKind(mark) === "link")) linked = true;
     });
     assert(nodes.includes("hard_break"));
     assert.equal(nodes.filter(type => type === "code_block").length, 2);

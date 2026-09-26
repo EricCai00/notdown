@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorState } from "prosemirror-state";
@@ -26,7 +27,7 @@ test("one reference model and catalog object classify page and location links", 
   doc.descendants(node => {
     const ref = nodeReference(node);
     if (ref) { refs.push(ref.kind); assert.equal(resolveContentObject(node)?.id, "inline.internal_link"); }
-    for (const mark of node.marks) if (mark.type.name === "link") assert.equal(resolveMarkObject(mark)?.id, "inline.internal_link");
+    for (const mark of node.marks) if (editorKind(mark) === "link") assert.equal(resolveMarkObject(mark)?.id, "inline.internal_link");
   });
   assert.deepEqual(refs, ["page", "location", "location", "location", "page"]);
   assert(!contentObject("inline.mention_page_or_data_source")?.adapters.some(a => a.carrier === "page_link"));

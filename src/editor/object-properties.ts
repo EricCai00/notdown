@@ -1,3 +1,4 @@
+import { editorKind, isEditorKind } from "../document/node-identity";
 import { Plugin } from "prosemirror-state";
 import type { Node as PMNode } from "prosemirror-model";
 import { resolveContentObject } from "../document/content-objects";
@@ -20,16 +21,16 @@ export function objectProperties(parse: (source: string) => PMNode, supplemental
   let dialog: HTMLDialogElement | undefined;
   return new Plugin({
     props: { handleDoubleClickOn(view, _pos, node, pos, event, direct) {
-      if (!direct || !view.editable || !fields[node.type.name] || (node.type.name === "mention" && (node.attrs.kind === "date" && supplemental() && !hasOfficialDateTime(node) || node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url)))) return false;
+      if (!direct || !view.editable || !fields[editorKind(node)] || (isEditorKind(node, "mention") && (node.attrs.kind === "date" && supplemental() && !hasOfficialDateTime(node) || node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url)))) return false;
       dialog?.remove(); const element = dialog = document.createElement("dialog"); element.className = "pm-link-dialog";
       const heading = document.createElement("h3"); heading.textContent = resolveContentObject(node)?.name || "Content properties";
       const form = document.createElement("form"), output = document.createElement("output"); output.setAttribute("aria-live", "polite");
       const controls: Record<string, HTMLInputElement | HTMLTextAreaElement> = {};
-      const visibleFields = node.type.name === "mention" && node.attrs.kind === "date" && (!supplemental() || hasOfficialDateTime(node))
+      const visibleFields = isEditorKind(node, "mention") && node.attrs.kind === "date" && (!supplemental() || hasOfficialDateTime(node))
         ? { "@start": "Start date", "@end": "End date", "@startTime": "Start time", "@timeZone": "Time zone" }
-        : node.type.name === "image" && imageCaption() && view.state.doc.resolve(pos).parent.childCount === 1
+        : isEditorKind(node, "image") && imageCaption() && view.state.doc.resolve(pos).parent.childCount === 1
           ? { src: "Image URL", alt: "Caption" }
-        : fields[node.type.name];
+        : fields[editorKind(node)];
       for (const [key, label] of Object.entries(visibleFields)) {
         if (key === "@reminder" && !supplemental()) continue;
         const row = document.createElement("label"); row.textContent = label;
@@ -47,7 +48,7 @@ export function objectProperties(parse: (source: string) => PMNode, supplemental
         const attrs: Record<string, any> = { ...node.attrs, nfmAttrs: { ...node.attrs.nfmAttrs } };
         for (const [key, input] of Object.entries(controls)) { if (key.startsWith("@")) { if (input.value) attrs.nfmAttrs[key.slice(1)] = input.value; else delete attrs.nfmAttrs[key.slice(1)]; } else attrs[key] = input.value; }
         let replacement = node.type.create(attrs, node.content, node.marks);
-        if (["syntax_inline", "html_inline"].includes(node.type.name)) {
+        if (["syntax_inline", "html_inline"].includes(editorKind(node))) {
           const parsed = parse(attrs.raw), child = parsed.firstChild?.firstChild;
           if (parsed.childCount !== 1 || parsed.firstChild?.childCount !== 1 || !child?.isInline) { output.textContent = "Enter one complete inline object."; return; }
           replacement = child.mark(node.marks);

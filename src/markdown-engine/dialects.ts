@@ -1,3 +1,4 @@
+import { createEditorNode } from "../document/node-identity";
 import type MarkdownIt from "markdown-it";
 import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
 import fence from "markdown-it/lib/rules_block/fence.mjs";
@@ -70,7 +71,7 @@ export function installDialectRules(md: MarkdownIt, config: SyntaxConfig) {
     token.map = [start, finish];
     token.block = true;
     token.meta = {
-      node: schema.nodes.opaque_block.create({
+      node: createEditorNode(schema, "opaque_block", {
         metadataForm,
         raw: s.getLines(start, finish, 0, false).replace(/\n$/, ""),
       }),

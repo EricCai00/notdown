@@ -2,8 +2,11 @@ import type { Node as PMNode } from "prosemirror-model";
 import { metadataValues } from "./products.js";
 import { escapeXml } from "../document/notion-syntax.js";
 import { renderRawHtml } from "./html.js";
+import { imageFigureHTML } from "../document/image-layout";
 
 export function syntaxHtml(node: PMNode) {
+  if (node.attrs.kind === "figure" && node.attrs.data?.image)
+    return imageFigureHTML(node.attrs.data.image, node.attrs.config?.variant === "notdown");
   if (node.attrs.kind === "raw" && node.attrs.data?.format !== "html")
     return '<pre class="opaque-block" aria-label="Unsupported"><code>' + escapeXml(node.attrs.raw) + "</code></pre>";
   if (node.attrs.kind === "comment") return "";

@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { closeHistory } from "prosemirror-history";
@@ -19,15 +20,15 @@ export class EmbedView implements NodeView {
   private original?: PMNode;
   private disposed = false;
   private serial = 0;
-  private get html() { return this.node.type.name === "html_embed"; }
-  private get value(): string { return String(this.html ? this.node.attrs.html : this.node.type.name === "syntax_block" ? this.node.attrs.data.src || "" : this.node.attrs.url); }
+  private get html() { return isEditorKind(this.node, "html_embed"); }
+  private get value(): string { return String(this.html ? this.node.attrs.html : isEditorKind(this.node, "syntax_block") ? this.node.attrs.data.src || "" : this.node.attrs.url); }
   constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined) {
     this.dom.contentEditable = "false";
     this.render();
   }
   private render() {
     this.dom.className = "pm-embed " + (this.html ? "pm-object-html_embed" : "pm-web-embed");
-    if (this.node.type.name === "syntax_block") this.dom.dataset.syntaxKind = "embed";
+    if (isEditorKind(this.node, "syntax_block")) this.dom.dataset.syntaxKind = "embed";
     this.dom.replaceChildren();
     if (!this.value.trim()) {
       const button = el("button", "pm-embed-empty"); button.type = "button"; button.disabled = !this.view.editable;
@@ -110,7 +111,7 @@ export class EmbedView implements NodeView {
       const value = this.html ? input.value : input.value.trim();
       const attrs = { ...this.node.attrs };
       if (this.html) attrs.html = value;
-      else if (this.node.type.name === "syntax_block") {
+      else if (isEditorKind(this.node, "syntax_block")) {
         attrs.data = { ...attrs.data, src: value };
         attrs.raw = `<iframe${attributesXml(attrs.data)}></iframe>`;
         attrs.source = null; attrs.sourceFingerprint = null;
@@ -124,7 +125,7 @@ export class EmbedView implements NodeView {
     window.addEventListener("resize", this.position); document.addEventListener("scroll", this.position, true);
   }
   update(node: PMNode) {
-    if (node.type !== this.node.type || (node.type.name === "syntax_block" && node.attrs.kind !== "embed")) return false;
+    if (node.type !== this.node.type || (isEditorKind(node, "syntax_block") && node.attrs.kind !== "embed")) return false;
     if (node.eq(this.node)) return true;
     if (this.dialog) this.close();
     this.node = node; this.render(); return true;

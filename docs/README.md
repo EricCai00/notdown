@@ -6,6 +6,7 @@
 
 - [仓库组织与开发入口](architecture/REPOSITORY.md)
 - [原生 Markdown 编辑核心](architecture/MARKDOWN-ENGINE.md)
+- [内容对象与节点身份](architecture/OBJECT-IDENTITY.md)
 - [基础设计](architecture/FOUNDATION.md)
 - [块模型评审](architecture/BLOCK-MODEL-REVIEW.md)
 - [内容对象路线图](architecture/CONTENT-OBJECT-ROADMAP.md)
@@ -23,6 +24,9 @@
 
 ## 功能说明
 
+- [Quarto 方言、多语言 Notebook 与解释器设置](features/QUARTO.md)、[2026-09-25 验证记录](verification/QUARTO-2026-09-25.md)
+- [可执行块与 inline 统一语言选择验证](verification/EXECUTABLE-LANGUAGE-2026-09-25.md)
+
 - [R Markdown 方言与本机 R 执行](features/R-MARKDOWN.md)
 
 - [Vault 级 JSON metadata 与文档覆盖](features/VAULT-METADATA.md)
@@ -32,15 +36,18 @@
 - [Windows 桌面版与 Markdown 文件夹导入](features/DESKTOP-AND-IMPORT.md)
 - [代码语言、Custom 分组与高亮来源](features/CODE-LANGUAGES.md)
 - [脚注交互与正文块类型](features/FOOTNOTES.md)
-- [引文、缩写、术语、修订、图片题注与表格编辑](features/INLINE-OBJECTS.md)
+- [引文、缩写、术语、修订、图片工具栏与表格编辑](features/INLINE-OBJECTS.md)
 
 - [符号自动替换](features/SYMBOL-REPLACEMENTS.md)
 
 - [Markdown Lab](features/MARKDOWN-LAB.md)
+- [Pandoc 引文测试文档](fixtures/pandoc-citations.md)
 - [链接预览](features/LINK-PREVIEWS.md)
 - [联系人](features/PEOPLE.md)
 
 ## 审计与验证记录
+
+- [内容节点 object ID 统一验证（2026-09-24）](verification/OBJECT-IDENTITY-2026-09-24.md)
 
 - [GFM 677 例规范核查与编辑回归（2026-09-24）](audits/GFM-CONFORMANCE-2026-09-24.md)
 

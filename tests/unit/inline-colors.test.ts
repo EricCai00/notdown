@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -7,13 +8,13 @@ import { inlineColorStyle } from "../../src/document/notion-syntax";
 import { renderPreview } from "../../server/pandoc";
 
 const config: SyntaxConfig = { version: 1, variant: "notdown", extensions: {} };
-const colorMark = (source: string) => parseNative(source, config).firstChild!.firstChild!.marks.find(m => m.type.name === "color")!;
+const colorMark = (source: string) => parseNative(source, config).firstChild!.firstChild!.marks.find(m => editorKind(m) === "color")!;
 
 test("Notdown inline colors round-trip together, with unknown fields and Markdown formatting after editing", () => {
   const source = '<span color="red" bg_color="yellow" custom="a&amp;b">**words**</span>\r\n\r\nTail';
   const doc = parseNative(source, config);
   assert.equal(serializeNative(doc, config), source);
-  const mark = doc.firstChild!.firstChild!.marks.find(m => m.type.name === "color")!;
+  const mark = doc.firstChild!.firstChild!.marks.find(m => editorKind(m) === "color")!;
   assert.equal(mark.attrs.color, "red");
   assert.equal(mark.attrs.bg_color, "yellow");
   assert.equal(inlineColorStyle(mark.attrs), "color:#d44c47;background-color:#fbf3db");
@@ -56,7 +57,7 @@ test("clearing a styled native span does not restore stale color attributes", ()
   assert.doesNotMatch(written, /color=/);
   assert.match(written, /class="example"/);
   assert.match(written, /custom="keep"/);
-  assert(!parseNative(written, config).firstChild!.firstChild!.marks.some(mark => mark.type.name === "color"));
+  assert(!parseNative(written, config).firstChild!.firstChild!.marks.some(mark => editorKind(mark) === "color"));
 });
 
 test("other variants and disabled colors preserve the source without activating supplemental styles", () => {

@@ -1,3 +1,4 @@
+import { createEditorNode, isEditorKind } from "../document/node-identity";
 import type MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import type { Node as PMNode } from "prosemirror-model";
@@ -26,7 +27,7 @@ const sourceBlock = (
   config: SyntaxConfig,
   data: unknown = {},
   html = "",
-) => schema.nodes.syntax_block.create({ kind, raw, config, data, html });
+) => createEditorNode(schema, "syntax_block", { kind, raw, config, data, html });
 const inlineNode = (
   kind: string,
   raw: string,
@@ -35,7 +36,7 @@ const inlineNode = (
   target = "",
   html = "",
 ) =>
-  schema.nodes.syntax_inline.create({ kind, raw, label, title, target, html });
+  createEditorNode(schema, "syntax_inline", { kind, raw, label, title, target, html });
 export function metadataValues(raw: string, form = ""): Record<string, unknown> {
   try {
     if (form === "mmd") return readMmdMetadata(raw)?.values || {};
@@ -212,14 +213,9 @@ export function installProductRules(
               ]),
             );
           }
-          node = schema.nodes[
-            /\d/.test(listStart[1]) ? "ordered_list" : "bullet_list"
-          ].create(
-            /\d/.test(listStart[1])
+          node = createEditorNode(schema, /\d/.test(listStart[1]) ? "ordered_list" : "bullet_list", /\d/.test(listStart[1])
               ? { order: Number.parseInt(listStart[1]) }
-              : null,
-            items,
-          );
+              : null, items);
         } else last = start + 1;
       }
       if (enabled(config, "comments") && line.trim() === "%%") {
@@ -242,7 +238,7 @@ export function installProductRules(
         line.trim(),
       );
       if (toc && enabled(config, "toc_directives") && (config.variant !== "typora" || line.trim().startsWith("[")) && (config.variant !== "markdown_mmd" || line.trim().startsWith("{{")))
-        node = schema.nodes.table_of_contents.create({
+        node = schema.nodes["block.table_of_contents"].create({
           syntaxForm: line.trim().startsWith("{{") ? "mmd" : "directive",
           minLevel: Number(toc[1] || 1),
           maxLevel: Number(toc[2] || toc[1] || 6),
@@ -267,10 +263,7 @@ export function installProductRules(
           last++;
         }
         const inner = parse(body.join("\n"), s.env);
-        node = schema.nodes.callout.create(
-          { syntaxForm: "alert", icon: "", kind: alert[1], title: alert[3] || "", fold: alert[2], alertStyle: config.variant === "obsidian" ? "obsidian" : "github" },
-          inner.content,
-        );
+        node = schema.nodes["block.callout"].create({ syntaxForm: "alert", icon: "", kind: alert[1], title: alert[3] || "", fold: alert[2], alertStyle: config.variant === "obsidian" ? "obsidian" : "github" }, inner.content);
       }
       if (
         enabled(config, "tex_math_double_backslash") &&
@@ -282,10 +275,7 @@ export function installProductRules(
           const raw = tail.slice(0, close + 3);
           last = start + raw.split("\n").length;
           const value = raw.slice(3, -3).trim();
-          node = schema.nodes.equation.create(
-            { markdownAttrs: { mathDelimiter: "double" } },
-            value ? schema.text(value) : null,
-          );
+          node = schema.nodes["block.math_block"].create({ markdownAttrs: { mathDelimiter: "double" } }, value ? schema.text(value) : null);
         }
       }
       if (!node) return false;
@@ -309,7 +299,7 @@ export function installProductRules(
       const t = s.tokens[i];
       if (
         t.type === "source_node" &&
-        t.meta?.node?.type.name === "opaque_block" &&
+        isEditorKind(t.meta?.node, "opaque_block") &&
         t.meta.node.attrs.metadataForm &&
         enabled(config, "metadata_values")
       ) {
@@ -363,7 +353,7 @@ export function installProductRules(
       if (t.type === "fence" && (enabled(config, "fenced_code_attributes") || enabled(config, "attributes"))) {
         // Unknown knitr engines/options remain complete info strings. Do not
         // reinterpret them as Pandoc attributes when an Rmd code block is edited.
-        if (config.variant === "rmarkdown" && /^\{[a-zA-Z][\w.-]*(?:[\s,][^\r\n]*|)\}$/.test(t.info.trim())) continue;
+        if (["rmarkdown", "quarto", "notdown"].includes(config.variant) && /^\{[a-zA-Z][\w.-]*(?:[\s,][^\r\n]*|)\}$/.test(t.info.trim())) continue;
         const attr = /\{([^}]+)\}\s*$/.exec(t.info);
         if (attr && !attr[1].startsWith("=")) {
           const markdownAttrs = readAttributes(attr[0]);
@@ -396,7 +386,7 @@ export function installProductRules(
       enabled(config, "tex_math_double_backslash") &&
       (match = /^\\\\\(([\s\S]*?)\\\\\)/.exec(rest))
     )
-      node = schema.nodes.inline_math.create({ value: match[1] });
+      node = schema.nodes["inline.inline_math"].create({ value: match[1] });
     else if (
       enabled(config, "metadata_variables") &&
       (match = /^\[%([^\]]+)\]/.exec(rest))
@@ -412,7 +402,7 @@ export function installProductRules(
       enabled(config, "transclusion") && config.variant !== "obsidian" &&
       (match = /^\{\{(?!TOC[:}])([^{}]+)\}\}/.exec(rest))
     )
-      node = schema.nodes.syntax_inline.create({
+      node = createEditorNode(schema, "syntax_inline", {
         kind: "transclusion",
         raw: match[0],
         label: match[1],
@@ -532,7 +522,7 @@ export function installProductRules(
     ) {
       const attrs = readAttributes(match[5]);
       node = match[1]
-        ? schema.nodes.image.create({
+        ? schema.nodes["inline.image"].create({
             src: match[3],
             alt: match[2],
             title: match[4],
@@ -591,6 +581,7 @@ export function installProductRules(
               : child.type === "link_close"
                 ? stack.pop()
                 : undefined;
+          if (child.type === "image") child.meta = { ...child.meta, notdownImageLayout: config.variant === "notdown" };
           if (
             target &&
             (enabled(config, "attributes") || enabled(config, "link_attributes") ||
@@ -687,7 +678,7 @@ export function installProductRules(
             "figure",
             raw,
             config,
-            {},
+            { image: { src: img.attrGet("src") || "", alt: extras.alt ?? img.content, title: img.attrGet("title") || "", caption: img.content.replace(/\\([\\\[\]])/g, "$1"), attributes: extras } },
             renderRawHtml(
               `<figure>${imageHtml}<figcaption>${escape(img.content)}</figcaption></figure>`,
             ),

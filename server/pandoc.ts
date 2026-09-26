@@ -46,6 +46,7 @@ function runProgram(
   source = "",
   signal?: AbortSignal,
   label = "Renderer",
+  diagnostics?: (message: string) => void,
 ): Promise<string> {
   if (signal?.aborted)
     return Promise.reject(new PreviewError("Preview cancelled", 499));
@@ -97,13 +98,16 @@ function runProgram(
       if (failure) reject(failure);
       else if (code !== 0)
         reject(new PreviewError(errorText.trim() || `${label} could not render this content`));
-      else resolve(Buffer.concat(output).toString("utf8"));
+      else {
+        if (errorText.trim()) diagnostics?.(errorText.trim());
+        resolve(Buffer.concat(output).toString("utf8"));
+      }
     });
     child.stdin.end(source, "utf8");
   });
 }
-function pandoc(args: string[], source = "", signal?: AbortSignal) {
-  return runProgram(process.env.PANDOC_PATH || "pandoc", args, source, signal, "Pandoc");
+function pandoc(args: string[], source = "", signal?: AbortSignal, diagnostics?: (message: string) => void) {
+  return runProgram(process.env.PANDOC_PATH || "pandoc", args, source, signal, "Pandoc", diagnostics);
 }
 
 let cachedCapabilities: Promise<Capabilities> | undefined;
@@ -338,6 +342,20 @@ function blockText(value: any): string {
 const normalize = (text: string) =>
   text.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 32);
 
+function containsCitation(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(containsCitation);
+  if (!value || typeof value !== "object") return false;
+  const node = value as Record<string, unknown>;
+  return node.t === "Cite" || Object.values(node).some(containsCitation);
+}
+
+// Data-only citation metadata. Never pass bibliography/CSL paths or execution
+// options from an uploaded document to Pandoc's resource-loading processors.
+const citationMetadata = new Set([
+  "references", "nocite", "lang", "link-citations", "link-bibliography",
+  "reference-section-title", "suppress-bibliography", "notes-after-punctuation",
+]);
+
 export async function renderPreview(
   input: unknown,
   signal?: AbortSignal,
@@ -403,6 +421,16 @@ export async function renderPreview(
   const document: PandocDocument = JSON.parse(
     await pandoc(["--sandbox", "-f", format, "-t", "json"], source, signal),
   );
+  const notices: string[] = [];
+  const citationsEnabled = extensions.citations ?? supported.citations ?? false;
+  const hasCitations = containsCitation(document.blocks) || containsCitation(document.meta.nocite);
+  const citeproc = citationsEnabled && (hasCitations || !!document.meta.references);
+  if (citeproc) {
+    const external = ["bibliography", "csl", "citation-abbreviations"].filter(key => Object.hasOwn(document.meta, key));
+    if (external.length) notices.push(`Markdown Lab does not load external ${external.join(", ")} files. Use YAML references for bibliography data; citations use Pandoc's default author-date style.`);
+    if (hasCitations && !document.meta.references)
+      notices.push("Citation data is missing. Add a references list to the document's YAML metadata to format these citations.");
+  }
   const roots = locator
     .parse(source, {})
     .filter((token) => token.level === 0 && token.nesting !== -1 && token.map);
@@ -424,6 +452,15 @@ export async function renderPreview(
       line = Math.min(lines.length, line);
     }
     cursor = line;
+    // citeproc only resets citation positions at top-level headings. Wrapping
+    // them in a scroll-mapping Div would silently disable that Pandoc feature.
+    if (node.t === "Header") {
+      const attr = node.c[1];
+      attr[1].push("lab-source-block");
+      attr[2] = attr[2].filter((pair: string[]) => pair[0] !== "data-source-line");
+      attr[2].push(["data-source-line", String(line)]);
+      return transform(node, plugins);
+    }
     return {
       t: "Div",
       c: [
@@ -432,17 +469,26 @@ export async function renderPreview(
       ],
     };
   });
-  // Metadata remains in the source editor. It cannot choose files, templates or filters.
-  document.meta = {};
+  // Keep only citation data in the render copy; the complete source is unchanged.
+  document.meta = citeproc
+    ? Object.fromEntries(Object.entries(document.meta).filter(([key]) => citationMetadata.has(key)))
+    : {};
   const html = await pandoc(
-    ["--sandbox", "-f", "json", "-t", "html5", "--mathjax", "--wrap=none"],
+    ["--sandbox", ...(citeproc ? ["--citeproc"] : []), "-f", "json", "-t", "html5", "--mathjax", "--wrap=none"],
     JSON.stringify(document),
     signal,
+    citeproc ? message => {
+      // Keep --mathjax compatible with older Pandoc installations; its CLI
+      // deprecation is unrelated to the author's citation data.
+      const relevant = message.split(/\r?\n/).filter(line => !line.startsWith("[WARNING] Deprecated: --mathjax.")).join("\n").trim();
+      if (relevant) notices.push(relevant);
+    } : undefined,
   );
   return {
     html,
     engine: capabilities.version,
     blocks: document.blocks.length,
+    notices,
     mapping: exact ? "source" : "approximate",
     warnings: exact
       ? []

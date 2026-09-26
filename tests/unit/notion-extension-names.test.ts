@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -23,7 +24,7 @@ test("renamed Notion block switches read old configurations and canonical overri
       assert(normalized.extensions.future_flag);
       assert.equal(enabled(config, current), active);
       const doc = parseNative(source, config);
-      assert.equal(doc.firstChild!.type.name, active ? nodeName : "opaque_block", current);
+      assert.equal(editorKind(doc.firstChild!), active ? nodeName : "opaque_block", current);
       assert.equal(serializeNative(doc, config), source);
       const conflict = { ...config, extensions: { [old]: active, [current]: !active } };
       assert.equal(enabled(conflict, old), !active);
@@ -43,12 +44,12 @@ test("colors and underline parse, edit and gate independently, preserving disabl
       const source = active === "notion_colors" ? color : underline;
       const mark = active === "notion_colors" ? "color" : "underline";
       const doc = parseNative(source, config);
-      assert(doc.firstChild!.firstChild!.marks.some(m => m.type.name === mark), variant + active);
+      assert(doc.firstChild!.firstChild!.marks.some(m => editorKind(m) === mark), variant + active);
       assert.equal(commandEnabled(config, "color"), active === "notion_colors");
       assert.equal(commandEnabled(config, "underline"), active === "notion_underline");
       const edited = EditorState.create({ doc }).tr.insertText("X", 2).doc;
       const saved = serializeNative(edited, config);
-      assert(parseNative(saved, config).firstChild!.firstChild!.marks.some(m => m.type.name === mark));
+      assert(parseNative(saved, config).firstChild!.firstChild!.marks.some(m => editorKind(m) === mark));
       for (const disabledSource of [active === "notion_colors" ? underline : color, '<span color="red" underline="true">Both</span>', '```\n' + source + '\n```']) {
         const preserved = parseNative(disabledSource, config);
         assert.equal(serializeNative(preserved, config), disabledSource);

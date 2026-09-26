@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -35,7 +36,7 @@ test("native variants change real parsing rules without rewriting source", () =>
   assert(gfm.toString().includes("strike("));
   assert.equal(gfm.child(2).firstChild!.attrs.checked, true);
   assert.equal(common.child(2).firstChild!.attrs.checked, null);
-  assert.equal(gfm.lastChild!.type.name, "table");
+  assert.equal(editorKind(gfm.lastChild!), "table");
   assert.equal(serializeNative(common, config("commonmark")), source);
   assert.equal(serializeNative(gfm, config("gfm")), source);
   const changed = EditorState.create({ doc: gfm }).tr.insertText(
@@ -91,18 +92,18 @@ test("each enabled Notion container is available in Markdown and disabling prese
       active.check();
       inactive.check();
       assert.equal(
-        active.firstChild!.type.name,
+        editorKind(active.firstChild!),
         type,
         extension + " " + variant,
       );
       assert.equal(
-        inactive.firstChild!.type.name,
+        editorKind(inactive.firstChild!),
         "opaque_block",
         extension + " disabled " + variant,
       );
       assert.equal(serializeNative(inactive, off), source);
       const fenced = "```text\n" + source + "\n```";
-      assert.equal(parseNative(fenced, on).firstChild!.type.name, "code_block");
+      assert.equal(editorKind(parseNative(fenced, on).firstChild!), "code_block");
     }
   }
 });
@@ -118,7 +119,7 @@ test("extension flags affect inline rules, preserve code literals, and persist e
   const doc = parseNative(source, c);
   doc.check();
   assert(doc.toString().includes("inline_math"));
-  assert(doc.toString().includes("page_link"));
+  assert(doc.toString().includes("inline.internal_link"));
   assert(doc.toString().includes("color("));
   assert.deepEqual(extractLinks(source, "markdown", c), ["target"]);
   const mathOff = parseNative("$x$\n\n$$\nx\n$$", config("commonmark"));
@@ -130,7 +131,7 @@ test("extension flags affect inline rules, preserve code literals, and persist e
   const saved = serializeNative(edited, g),
     reopened = parseNative(saved, g);
   reopened.check();
-  assert.equal(reopened.firstChild!.type.name, "table");
+  assert.equal(editorKind(reopened.firstChild!), "table");
   assert(reopened.textContent.includes("XA"));
   assert(saved.includes("| :--- | ---: |"));
   assert.equal(
@@ -143,15 +144,15 @@ test("extension flags affect inline rules, preserve code literals, and persist e
     "one two",
   );
   assert.equal(
-    parseNative(
+    editorKind(parseNative(
       "one\ntwo",
       config("commonmark", { hard_line_breaks: true }),
-    ).firstChild!.child(1).type.name,
+    ).firstChild!.child(1)),
     "hard_break",
   );
   const marks = parseNative('**<span color="red">Both</span>**', c).firstChild!
     .firstChild!.marks;
-  assert.deepEqual(marks.map((m) => m.type.name).sort(), ["color", "strong"]);
+  assert.deepEqual(marks.map((m) => editorKind(m)).sort(), ["color", "strong"]);
 });
 test("source, blocks, syntax changes and shared undo retain a single recoverable draft", () => {
   const c = config("notion-markdown");

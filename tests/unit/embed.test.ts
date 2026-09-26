@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -10,13 +11,13 @@ test("embed commands, optional dialects, disabled encodings and malformed bounda
   for (const [tag, type, flag] of [["web-embed", "embed_web_contents", "notion_web_embed"], ["html-embed", "html_embed", "notion_html_document"]]) {
     const source = `<${tag} custom="keep"/>\n\nTail`;
     const parsed = parseNative(source, config);
-    assert.equal(parsed.firstChild?.type.name, type);
+    assert.equal(editorKind(parsed.firstChild), type);
     assert.equal(serializeNative(parsed, config), source);
-    assert.equal(parseNative(source, { ...config, extensions: { [flag]: false } }).firstChild?.type.name, "opaque_block");
-    assert.notEqual(parseNative(source, { version: 1, variant: "gfm", extensions: { [flag]: true } }).firstChild?.type.name, type);
-    assert.equal(parseNative(`<${tag}/> trailing`, config).firstChild?.type.name, "opaque_block");
+    assert.equal(editorKind(parseNative(source, { ...config, extensions: { [flag]: false } }).firstChild), "opaque_block");
+    assert.notEqual(editorKind(parseNative(source, { version: 1, variant: "gfm", extensions: { [flag]: true } }).firstChild), type);
+    assert.equal(editorKind(parseNative(`<${tag}/> trailing`, config).firstChild), "opaque_block");
     const code = '```html\n' + source + '\n```';
-    assert.equal(parseNative(code, config).firstChild?.type.name, "code_block");
+    assert.equal(editorKind(parseNative(code, config).firstChild), "code_block");
     assert.equal(serializeNative(parseNative(code, config), config), code);
   }
 });

@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import { parseNative } from "../markdown-engine/codec";
 import { defaultSyntax } from "../markdown-engine/config";
@@ -12,7 +13,7 @@ export function findSyncedSource(page: Page, id: string): { doc: PMNode; node: P
   const doc = parseNative(page.body, page.syntax || defaultSyntax(page.bodyFormat));
   let found: { doc: PMNode; node: PMNode; pos: number } | undefined;
   doc.descendants((node, pos) => {
-    if (node.type.name === "synced_block" && node.attrs.nfmAttrs.id === id && !node.attrs.reference) {
+    if (isEditorKind(node, "synced_block") && node.attrs.nfmAttrs.id === id && !node.attrs.reference) {
       if (found) throw new Error("Source block ID is ambiguous.");
       found = { doc, node, pos };
     }

@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind, editorNodeType } from "../../src/document/node-identity";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -26,13 +27,13 @@ const config = (
   extensions: Record<string, boolean> = {},
 ): SyntaxConfig => ({ version: 1, variant, extensions });
 test("target inventory merges raw HTML and preserves other formats as unsupported", () => {
-  assert.equal(contentObjects.length, 78);
-  assert.equal(new Set(contentObjects.map((o) => o.id)).size, 78);
+  assert.equal(contentObjects.length, 80);
+  assert.equal(new Set(contentObjects.map((o) => o.id)).size, 80);
   assert.deepEqual(
     ["block", "metadata", "inline", "character"].map(
       (c) => contentObjects.filter((o) => o.category === c).length,
     ),
-    [41, 2, 31, 4],
+    [42, 2, 32, 4],
   );
   for (const object of contentObjects) {
     assert.equal(object.id.split(".")[0], object.category);
@@ -40,9 +41,9 @@ test("target inventory merges raw HTML and preserves other formats as unsupporte
       assert.deepEqual(object.adapters, [], object.id);
   }
   for (const name of Object.keys(s.nodes)) {
-    const node = s.nodes[name].createAndFill();
+    const node = editorNodeType(s, name).createAndFill();
     assert(
-      implementationRoles[name] ||
+      implementationRoles[editorNodeType(s, name).spec.editorKind || name] ||
         name === "text" ||
         [
           "syntax_block",
@@ -50,7 +51,7 @@ test("target inventory merges raw HTML and preserves other formats as unsupporte
           "mention",
           "list_item",
           "media_block",
-        ].includes(name) ||
+        ].includes(editorNodeType(s, name).spec.editorKind || name) ||
         (node && resolveContentObject(node)),
       name,
     );
@@ -112,44 +113,43 @@ test("every product preview represents the advertised object rather than its car
   }
 });
 
-test("context resolves tasks, toggle headings, media, image placement and page roles", () => {
-  const item = s.nodes.task_list_item.create(
-    { checked: true },
-    s.nodes.paragraph.create(),
-  );
+test("content identity follows the node type, while owned structures and marks retain their roles", () => {
+  const item = s.nodes["block.task_list_item"].create({ checked: true }, s.nodes["block.paragraph"].create());
   assert.equal(
     resolveContentObject(item, {
-      list: s.nodes.ordered_list.create(null, item),
+      list: s.nodes["structure.ordered_list"].create(null, item),
     })?.id,
     "block.task_list_item",
   );
   assert.equal(
-    resolveContentObject(s.nodes.heading.create({ toggle: true }))?.id,
+    resolveContentObject(createEditorNode(s, "heading", { toggle: true }))?.id,
     "block.toggle_heading",
   );
-  const image = s.nodes.image.create({ src: "asset.png" });
+  const image = s.nodes["inline.image"].create({ src: "asset.png" });
   assert.equal(
     resolveContentObject(image, {
-      parent: s.nodes.paragraph.create(null, image),
-    })?.id,
-    "block.image_block",
-  );
-  assert.equal(
-    resolveContentObject(image, {
-      parent: s.nodes.paragraph.create(null, [s.text("text"), image]),
+      parent: s.nodes["block.paragraph"].create(null, image),
     })?.id,
     "inline.image",
   );
   assert.equal(
-    resolveContentObject(s.nodes.media_block.create({ type: "pdf" }))?.id,
+    resolveContentObject(image, {
+      parent: s.nodes["block.paragraph"].create(null, [s.text("text"), image]),
+    })?.id,
+    "inline.image",
+  );
+  assert.equal(
+    resolveContentObject(createEditorNode(s, "media_block", { type: "pdf" }))?.id,
     "block.pdf",
   );
-  const page = s.nodes.child_page.create({ target: "id" });
+  const page = createEditorNode(s, "child_page", { target: "id" });
   assert.equal(resolveContentObject(page)?.id, "block.link_to_page");
   assert.equal(
     resolveContentObject(page, { pageRole: "child" })?.id,
-    "block.child_page",
+    "block.link_to_page",
   );
+  assert.equal(resolveContentObject(s.nodes["block.child_page"].create({ target: "id" }))?.id, "block.child_page");
+  assert.equal(resolveContentObject(s.nodes["block.image_block"].create({ src: "asset.png" }))?.id, "block.image_block");
   assert.equal(
     resolveMarkObject(s.marks.color.create({ color: "yellow_bg" }))?.id,
     "inline.background_color",
@@ -171,7 +171,7 @@ test("callout consolidation retains encoding, custom types, attributes, nested e
   ] as const) {
     const c = config(variant);
     const doc = parseNative(source, c);
-    assert.equal(doc.firstChild?.type.name, "callout");
+    assert.equal(editorKind(doc.firstChild), "callout");
     assert.equal(doc.firstChild?.attrs.syntaxForm, form);
     assert.equal(serializeNative(doc, c), source);
     let state = EditorState.create({ doc, plugins: [history()] });
@@ -182,7 +182,7 @@ test("callout consolidation retains encoding, custom types, attributes, nested e
     state = state.apply(state.tr.insertText(" edited", position + 6));
     const written = serializeNative(state.doc, c);
     const next = parseNative(written, c).firstChild!;
-    assert.equal(next.type.name, "callout");
+    assert.equal(editorKind(next), "callout");
     assert.equal(next.attrs.syntaxForm, form);
     assert.match(next.textContent, /Nested edited/);
     if (form === "alert") {
@@ -232,7 +232,7 @@ test("TOC encodings share range semantics and HTML export without losing origina
       "\r\n\r\n# One\r\n\r\n## Two\r\n\r\n### Three\r\n\r\n#### Four";
     const doc = parseNative(raw, c),
       toc = doc.firstChild!;
-    assert.equal(toc.type.name, "table_of_contents");
+    assert.equal(editorKind(toc), "table_of_contents");
     assert.equal(toc.attrs.syntaxForm, form);
     assert.deepEqual([toc.attrs.minLevel, toc.attrs.maxLevel], levels);
     assert.equal(serializeNative(doc, c), raw);
@@ -290,11 +290,11 @@ test("merged nodes use encoding-specific feature gates and preserve neighboring 
   const raw =
     '```text\r\n> [!NOTE]\r\n[toc]\r\n```\r\n\r\n<callout future="keep">\r\nunclosed';
   const doc = parseNative(raw, c);
-  assert.equal(doc.firstChild!.type.name, "code_block");
+  assert.equal(editorKind(doc.firstChild!), "code_block");
   const state = EditorState.create({ doc });
   const changed = state.tr.insert(
     doc.content.size,
-    s.nodes.paragraph.create(null, s.text("Neighbor")),
+    s.nodes["block.paragraph"].create(null, s.text("Neighbor")),
   ).doc;
   assert(serializeNative(changed, c).includes(raw));
 });

@@ -1,5 +1,7 @@
 # Notdown 内容合集与插入菜单
 
+2026-09-25：Notdown 增加 Quarto 的 R/Python/Julia/OJS 可执行块、行内表达式、`#|` / `//|` 选项原文保留，以及按窗口隔离的交互执行。沿用 Quarto 语法，不增加新的正文协议，文件仍是 `.md`；其他方言的启用边界不变。见 [Quarto 方言与多语言 Notebook](../features/QUARTO.md)。
+
 2026-09-23 最终边界：Notdown 集合已有 Markdown 方言与 Notion。自定义正文语法仅用于补足官方 Enhanced Markdown 不支持的 Notion block、已有 block 的属性、inline 和 style，且只能在 `syntax.variant: notdown` 启用；`notion-markdown` 仅启用官方文档定义的语法，显式扩展开关也不能越过此边界。能用已有方言表达的内容复用该方言，不能另造重复协议。旧文件和未知字段必须可恢复保留，不批量迁移用户内容。 九组补充块默认启用；图片题注复用 Pandoc，旧指令与 Lab 围栏不再作为活动语法。见 [整改清单](../audits/CUSTOM-SYNTAX-AUDIT-2026-09-23.md)。
 
 2026-09-22。Notdown 是项目自己的 Markdown 方言，复用单一 ProseMirror 文档与现有 codec；不是 Notion、思源或其他上游的完整 fork。
@@ -19,6 +21,7 @@ Markdown 扩展也可出现在 Notion 容器内。修改外层 Callout、折叠�
 - 普通块的单换行和 Tab 子层级沿用 Notion；Markdown 扩展容器内部由其原有读写器解释。使用空行明确分隔定义列表等多行内容与下一块。
 - `[^label]` 在 Notdown 默认是脚注引用；原 Notion 引用行为留在 `notion-markdown` 预设。
 - Wiki 链接默认 `[[target|label]]`；反向解释、smart punctuation、literate Haskell 等不默认混入。
+- 单反斜杠和双反斜杠的圆括号／方括号公式默认关闭，避免占用 Markdown 转义；`tex_math_single_backslash` 与 `tex_math_double_backslash` 可显式开启，已有显式设置保留。美元公式仍默认开启。
 - Notion 显式标签与未知 XML 的边界优先，不用全局字符串替换合并语法。新的完整 HTML 文档使用 HTML document 块。
 - 此次不是全部上游一致性测试认证，也不宣称所有方言的空格缩进、标点替换与输出控制选项能同时生效。现有专用预设继续提供其原有行为。
 

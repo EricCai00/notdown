@@ -119,7 +119,7 @@ ext([61], ["block.table"], ["mmd_tables"], "MMD 分组表头、跨列、分区�
 ext([62], ["inline.inline_html", "inline.internal_link"], ["raw_html"], "HTML 自定义锚点 + 普通片段链接；不是独立 GitHub 扩展。安全投影保留 id/name 的命名空间映射，原始源码不变。");
 ext(range(63, 70), ["inline.link"], [], "GitHub 站点语义，需要账号、仓库或集成配置，不属于 GFM Spec 的裸 URL 自动链接。", { correction: "应标记 GitHub Docs / 平台功能；不能映射为 emoji、notion_mentions 或 autolink_bare_uris。第 63 行 @github/support 是团队提及，不是单个用户。", limitation: "Notdown 未实现团队通知、Issue/PR/JIRA/SHA 短引用解析；原文按普通文本保留。", references: reference(github) });
 ext([71], ["block.math_block"], ["tex_math_gfm"], "GitHub Docs 的 math 围栏；对应 Pandoc tex_math_gfm，可选于本地 GFM。");
-ext([72, 73], ["block.code_block", "inline.code_span"], [], "R Markdown/knitr 的可执行代码块与行内 R 表达式。", { limitation: "Notdown 未注册 R Markdown 方言或 knitr 执行器；只显示/保留代码，不计算输出。", references: reference("https://rmarkdown.rstudio.com/lesson-3.html"), variants: [] });
+ext([72, 73], ["block.executable_chunk", "inline.executable_expression"], [], "R Markdown/knitr 的可执行代码块与行内 R 表达式。", { limitation: "显式 Notebook 执行需要本机 R/knitr 与 Pandoc，结果为窗口临时状态；Quarto 的多语言表达式见对应方言说明。", references: reference("https://rmarkdown.rstudio.com/lesson-3.html"), variants: ["rmarkdown", "quarto", "notdown"] });
 ext([77], ["inline.text_color", "block.paragraph"], ["notion_colors"], "此处 Enhanced markdown 指 Notion Enhanced Markdown；段落尾属性是块颜色，行内颜色用 <span color=\"blue\">…</span>。", { correction: "text {color=\"blue\"} 不应笼统标成通用行内颜色语法；它是 Notion 块属性。" });
 ext([78], ["block.toggle_heading"], ["notion_nesting"], "Notion 折叠标题；子块用 tab 缩进。本地已有插入、编辑、折叠持久化及子树移动。", { correction: "PHP Extra 可保存 toggle 属性，但不赋予折叠交互语义；应移除 PHP Extra 的等价折叠支持关系。" });
 ext([80], ["block.callout"], ["notion_callouts"], "Notion callout 标签；官方子内容用 tab 缩进，表格里的单空格是本地宽松示例，不作为规范缩进范例。");

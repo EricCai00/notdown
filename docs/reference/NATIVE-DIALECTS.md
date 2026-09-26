@@ -1,5 +1,7 @@
 # 十一种原生方言：已实现规则与兼容边界
 
+2026-09-25 补充：当前注册表有 14 种方言（含后来新增的 Notdown、R Markdown、Quarto）。Quarto 复用 Pandoc 基础规则，增加四种主语言的可执行块及行内表达式；Notdown 同时包含这些语法。下面保留早期十一种预设的历史比较，当前执行能力以 [Quarto](../features/QUARTO.md) 和 [R Markdown](../features/R-MARKDOWN.md) 为准。
+
 2026-09-22 方言边界修正：各方言默认值按上游规范独立定义，仅 Pandoc 自身预设沿用 Pandoc 3.11 快照。九种本地对象改为默认关闭的独立插件，在页面语法面板开启；旧正文不迁移、不删除。已实现默认规则隔离、显式启用、解析／命令／目录统一门控；尚未宣称完整上游一致性或跨端同步。详见[方言核对与插件说明](./DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
 
 > 2026-09-22 更新：当前 103 个 Markdown 扩展已接入本地路径，12 个 Outside Markdown scope 项不启用；规范键为 notion_*，兼容 notdown_*。新增表格、行内及服务能力以 [对象 Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md) 和 [具体边界](./LOCAL-OBJECTS.md) 为准。下文保留预设接入时的方言比较。

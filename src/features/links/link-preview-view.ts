@@ -1,3 +1,4 @@
+import { isEditorKind } from "../../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import {
@@ -59,7 +60,7 @@ export class LinkPreviewView implements NodeView {
     private view: EditorView,
     private getPos: () => number | undefined,
   ) {
-    this.inline = node.type.name === "link_mention";
+    this.inline = isEditorKind(node, "link_mention");
     this.dom = document.createElement(this.inline ? "span" : "figure");
     this.dom.contentEditable = "false";
     this.render();

@@ -1,3 +1,4 @@
+import { isEditorKind } from "../document/node-identity";
 import type MarkdownIt from "markdown-it";
 import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "../document/editor-schema";
@@ -98,10 +99,10 @@ export function installPandocTables(md: MarkdownIt, config: SyntaxConfig, parse:
       if (/^\{[^{}]+\}$/.test(line(next))) { attributes = { ...attributes, ...readAttributes(line(next)) }; next++; }
     }
     if (silent) return true;
-    const children = rows.map(row => schema.nodes.table_row.create({ header: row.header }, row.cells.map(cell => schema.nodes.table_cell.create({ colspan: cell.colspan, rowspan: cell.rowspan, nfmAttrs: cell.align ? { align: cell.align } : {} }, parse(cell.raw, s.env).content))));
-    if (caption) children.unshift(schema.nodes.table_caption.create(null, parse(caption, s.env).firstChild?.content));
+    const children = rows.map(row => schema.nodes["structure.table_row"].create({ header: row.header }, row.cells.map(cell => schema.nodes["structure.table_cell"].create({ colspan: cell.colspan, rowspan: cell.rowspan, nfmAttrs: cell.align ? { align: cell.align } : {} }, parse(cell.raw, s.env).content))));
+    if (caption) children.unshift(schema.nodes["structure.table_caption"].create(null, parse(caption, s.env).firstChild?.content));
     const token = s.push("source_node", "", 0); token.block = true; token.map = [start, next];
-    token.meta = { node: schema.nodes.table.create({ syntaxForm, captionSide, markdownAttrs: attributes, captionId: attributes.id || "", nfmAttrs: { "header-row": String(rows[0]?.header || false) } }, children) };
+    token.meta = { node: schema.nodes["block.table"].create({ syntaxForm, captionSide, markdownAttrs: attributes, captionId: attributes.id || "", nfmAttrs: { "header-row": String(rows[0]?.header || false) } }, children) };
     s.line = next; return true;
   }, { alt: ["paragraph", "reference", "blockquote", "list"] });
 }
@@ -109,7 +110,7 @@ export function installPandocTables(md: MarkdownIt, config: SyntaxConfig, parse:
 /** Canonical grid output handles block cells and keeps span geometry. */
 export function writeGridTable(table: PMNode, write: (node: PMNode) => string) {
   const rows: PMNode[] = []; let caption: PMNode | undefined;
-  table.forEach(n => n.type.name === "table_caption" ? caption = n : rows.push(n));
+  table.forEach(n => isEditorKind(n, "table_caption") ? caption = n : rows.push(n));
   type Placement = { node: PMNode; row: number; col: number; colspan: number; rowspan: number; lines: string[] };
   const grid: Placement[][] = rows.map(() => []), placements: Placement[] = [];
   rows.forEach((row, r) => { let c = 0; row.forEach(node => {
@@ -137,7 +138,7 @@ export function writeGridTable(table: PMNode, write: (node: PMNode) => string) {
 }
 export function writeSimpleTable(table: PMNode, write: (node: PMNode) => string): string {
   const rows: PMNode[] = []; let caption: PMNode | undefined;
-  table.forEach(n => n.type.name === "table_caption" ? caption = n : rows.push(n));
+  table.forEach(n => isEditorKind(n, "table_caption") ? caption = n : rows.push(n));
   const values = rows.map(row => { const cells: string[][] = []; row.forEach(cell => { const blocks: string[] = []; cell.forEach(n => blocks.push(write(n))); cells.push(blocks.join("\n\n").split("\n")); }); return cells; });
   const width = Math.max(...values.map(r => r.length));
   const widths = Array.from({length:width}, (_, i) => Math.max(3, ...values.flatMap(r => (r[i] || [""]).map(v=>v.length))) + 2);

@@ -1,0 +1,6 @@
+dialog.pm-comment-dialog { width: min(440px, calc(100vw - 32px)); }
+.pm-comment-dialog .comment-caption { margin: 0 0 16px; color: var(--muted, #787774); font-size: 13px; }
+.pm-comment-dialog form textarea { min-height: 112px; padding: 12px 14px; border-radius: 8px; line-height: 1.7; background: var(--surface-subtle, #fafaf9); transition: border-color .15s, box-shadow .15s; }
+.pm-comment-dialog[data-mode="block"] form textarea { min-height: 208px; }
+.pm-comment-dialog form textarea:focus { outline: none; border-color: #2383e2; box-shadow: 0 0 0 3px #2383e218; }
+.pm-comment-dialog .comment-hint { line-height: 1.6; }

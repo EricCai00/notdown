@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -12,7 +13,7 @@ import { htmlDocument, extractLinks } from "../../src/document/document-format";
 const config = (variant: Dialect, extensions: Record<string, boolean> = {}): SyntaxConfig => ({ version: 1, variant, extensions });
 const has = (source: string, c: SyntaxConfig, type: string) => {
   let found = false;
-  parseNative(source, c).descendants(n => { if (n.type.name === type || n.marks.some(m => m.type.name === type)) found = true; });
+  parseNative(source, c).descendants(n => { if (editorKind(n) === type || n.marks.some(m => editorKind(m) === type)) found = true; });
   return found;
 };
 
@@ -25,7 +26,7 @@ test("supplemental carriers cannot be enabled in upstream dialects, including by
     assert(!commandEnabled(active, name));
     const source = sample.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
     const session = new DocumentSession(source, active);
-    assert.notEqual(session.snapshot.doc.firstChild!.type.name, name);
+    assert.notEqual(editorKind(session.snapshot.doc.firstChild!), name);
     assert.equal(serializeNative(session.snapshot.doc, active), source);
     session.configure(base);
     assert.equal(session.snapshot.source, source);
@@ -34,7 +35,7 @@ test("supplemental carriers cannot be enabled in upstream dialects, including by
     const disabledEdit = disabledState.tr.insertText(" edited", disabledState.doc.content.size - 1).doc;
     assert(serializeNative(disabledEdit, base).startsWith(sample.replace(/\n/g, "\r\n")));
     session.configure(active);
-    assert.notEqual(session.snapshot.doc.firstChild!.type.name, name);
+    assert.notEqual(editorKind(session.snapshot.doc.firstChild!), name);
     const state = EditorState.create({ doc: session.snapshot.doc });
     const changed = state.tr.insertText(" edited", state.doc.content.size - 1).doc;
     const written = serializeNative(changed, active);
@@ -91,7 +92,7 @@ test("callout folds and same-line titles require Obsidian syntax while basic ale
     basic.descendants((node, pos) => { if (node.isText && node.text === "Body") end = pos + 4; });
     const edited = EditorState.create({ doc: basic }).tr.insertText(" edited", end).doc;
     const reopened = parseNative(serializeNative(edited, c), c).firstChild!;
-    assert.equal(reopened.type.name, "callout");
+    assert.equal(editorKind(reopened), "callout");
     assert.equal(reopened.textContent, "Body edited");
     assert.equal(reopened.attrs.fold, "");
     assert.equal(reopened.attrs.title, "");
@@ -102,7 +103,7 @@ test("switching callout dialects preserves recoverable source and leaves code li
   const source = "> [!NOTE]+ Title\r\n> Body\r\n\r\nTail";
   const session = new DocumentSession(source, config("obsidian"));
   session.configure(config("markdown", { alerts: true }));
-  assert.equal(session.snapshot.doc.firstChild!.type.name, "blockquote");
+  assert.equal(editorKind(session.snapshot.doc.firstChild!), "blockquote");
   assert.equal(session.snapshot.source, source);
   const doc = session.snapshot.doc;
   session.documentChanged(EditorState.create({ doc }).tr.insertText(" edited", doc.content.size - 1).doc);

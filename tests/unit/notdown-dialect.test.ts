@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "prosemirror-state";
@@ -11,6 +12,33 @@ import { groupExtensions } from "../../src/catalog/extension-provenance";
 import { renderPreview } from "../../server/pandoc";
 
 const config = (flags: Record<string, boolean> = {}): SyntaxConfig => ({ version: 1, variant: "notdown", extensions: flags });
+
+test("Notdown leaves backslash math opt-in and preserves escapes and dollar math", () => {
+  const mathKinds = (source: string, syntax = config()) => {
+    const kinds: string[] = [];
+    parseNative(source, syntax).descendants(node => {
+      const kind = editorKind(node);
+      if (kind === "inline_math" || kind === "equation") kinds.push(kind);
+    });
+    return kinds;
+  };
+  for (const [flag, slash] of [
+    ["tex_math_single_backslash", "\\"],
+    ["tex_math_double_backslash", "\\\\"],
+  ]) {
+    const source = `${slash}(x+1${slash})\n\n${slash}[\nx+1\n${slash}]`;
+    assert.equal(enabled(config(), flag), false);
+    assert.deepEqual(mathKinds(source), []);
+    assert.equal(serializeNative(parseNative(source, config()), config()), source);
+    assert.deepEqual(mathKinds(source, config({ [flag]: true })), ["inline_math", "equation"]);
+    assert.deepEqual(mathKinds(source, config({ [flag]: false })), []);
+    const reset = config(resetExtensions(config({ [flag]: true, future_option: true })));
+    assert.equal(enabled(reset, flag), false);
+    assert.equal(reset.extensions.future_option, true);
+  }
+  assert.equal(parseNative(String.raw`\(literal\) and \[literal\]`, config()).textContent, "(literal) and [literal]");
+  assert.deepEqual(mathKinds("$x+1$\n\n$$\nx+1\n$$"), ["inline_math", "equation"]);
+});
 
 test("Notdown inherits all Notion defaults and enables additional Markdown content and block encodings", () => {
   const base: SyntaxConfig = { version: 1, variant: "notion-markdown", extensions: {} };
@@ -35,15 +63,15 @@ test("Notdown blocks parse, round-trip and preserve raw blocks when explicitly d
   for (const [name, sample] of Object.entries(objectSamples)) {
     const source = sample.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
     const session = new DocumentSession(source, config());
-    assert.equal(session.snapshot.doc.firstChild!.type.name, name);
+    assert.equal(editorKind(session.snapshot.doc.firstChild!), name);
     assert.equal(serializeNative(session.snapshot.doc, config()), source);
     session.configure(config({ [localObjectPlugins[name]]: false, future_option: true }));
-    assert.equal(session.snapshot.doc.firstChild!.type.name, "opaque_block");
+    assert.equal(editorKind(session.snapshot.doc.firstChild!), "opaque_block");
     assert.equal(session.snapshot.source, source);
     assert.equal(serializeNative(session.snapshot.doc, session.snapshot.config), source);
     session.configure({ ...session.snapshot.config, extensions: resetExtensions(session.snapshot.config) });
     assert.deepEqual(session.snapshot.config.extensions, { future_option: true });
-    assert.equal(session.snapshot.doc.firstChild!.type.name, name);
+    assert.equal(editorKind(session.snapshot.doc.firstChild!), name);
     const state = EditorState.create({ doc: session.snapshot.doc });
     const written = serializeNative(state.tr.insertText(" edited", state.doc.content.size - 1).doc, config());
     assert(written.startsWith(sample.replace(/\n/g, "\r\n")));
@@ -56,9 +84,9 @@ test("Notdown retains Notion nesting, marks, XML attributes and literal code fen
   const session = new DocumentSession(source, config());
   let tabs = 0, nested = 0, color = false;
   session.snapshot.doc.descendants(node => {
-    if (node.type.name === "tabs") tabs++;
-    if (node.type.name === "nested_block") nested++;
-    if (node.marks.some(mark => mark.type.name === "color")) color = true;
+    if (editorKind(node) === "tabs") tabs++;
+    if (editorKind(node) === "nested_block") nested++;
+    if (node.marks.some(mark => editorKind(mark) === "color")) color = true;
   });
   assert.equal(tabs, 1); assert(nested > 0); assert(color);
   assert.equal(serializeNative(session.snapshot.doc, config()), source);
@@ -68,7 +96,7 @@ test("Notdown retains Notion nesting, marks, XML attributes and literal code fen
   assert.equal(session.snapshot.config.variant, "notdown");
   assert.equal(serializeNative(session.snapshot.doc, config()), source);
   assert(!enabled(config({ notdown_callouts: false }), "notion_callouts"));
-  assert.equal(parseNative(objectSamples.tabs, config({ notion_tabs: false })).firstChild!.type.name, "opaque_block");
+  assert.equal(editorKind(parseNative(objectSamples.tabs, config({ notion_tabs: false })).firstChild!), "opaque_block");
 });
 
 test("Notdown Lab preview uses its native defaults and honors explicit block overrides", async () => {

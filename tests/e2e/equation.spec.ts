@@ -1,10 +1,10 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { expectSource } from "./source-helper";
 
-async function open(page: Page, request: APIRequestContext, body = "") {
+async function open(page: Page, request: APIRequestContext, body = "", variant = "notion-markdown") {
   const response = await request.post("/api/pages", { data: {
     title: "Math block editing", body, bodyFormat: "notion-markdown",
-    syntax: { version: 1, variant: "notion-markdown", extensions: {} },
+    syntax: { version: 1, variant, extensions: {} },
   } });
   expect(response.status()).toBe(201);
   const note = await response.json();
@@ -13,6 +13,76 @@ async function open(page: Page, request: APIRequestContext, body = "") {
   await expect(page.locator(".pm-document")).toBeVisible();
   return note;
 }
+
+for (const variant of ["notdown", "notion-markdown"]) {
+  test(`typed inline math renders, reverts and persists in ${variant}`, async ({ page, request }) => {
+    const note = await open(page, request, "", variant);
+    const editor = page.locator(".pm-document");
+    const math = editor.locator(".pm-inline-math");
+    await editor.click();
+    await page.keyboard.type("Before $x^2");
+    await expect(math).toHaveCount(0);
+    await page.keyboard.type("$");
+    await expect(math.locator(".katex")).toHaveCount(1);
+    await expect(math.locator("annotation")).toHaveText("x^2");
+    await page.keyboard.press("Backspace");
+    await expect(math).toHaveCount(0);
+    await expect(editor.locator(":scope > p")).toHaveText("Before $x^2$");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type("$ after");
+    await expect(math.locator("annotation")).toHaveText("x^2");
+    await page.keyboard.press("Control+s");
+    await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body)
+      .toBe("Before $x^2$ after");
+    await page.keyboard.press("Control+e");
+    await expectSource(page, /Before \$x\^2\$ after/);
+    await page.keyboard.press("Control+e");
+    await expect(math.locator("annotation")).toHaveText("x^2");
+    await page.reload();
+    await expect(math.locator("annotation")).toHaveText("x^2");
+  });
+
+  test(`standalone dollars and Enter open a math block in ${variant}`, async ({ page, request }) => {
+    const note = await open(page, request, "", variant);
+    const editor = page.locator(".pm-document");
+    await editor.click();
+    await page.keyboard.type("$$");
+    await expect(editor.locator(".pm-equation")).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    const input = page.getByRole("textbox", { name: "Equation content" });
+    await expect(editor.locator(".pm-equation")).toHaveCount(1);
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("");
+    await input.press("Escape");
+    await page.keyboard.press("Control+z");
+    await expect(editor.locator(".pm-equation")).toHaveCount(0);
+    await expect(editor.locator(":scope > p")).toHaveText("$$");
+    // Shared source history restores the paragraph; place the caret after $$.
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await expect(input).toBeFocused();
+    await page.keyboard.type("x^2+y^2");
+    await input.press("Enter");
+    await expect(editor.locator(".pm-equation annotation")).toHaveText("x^2+y^2");
+    await page.keyboard.press("Control+s");
+    await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body)
+      .toContain("$$\nx^2+y^2\n$$");
+    await page.reload();
+    await expect(editor.locator(".pm-equation annotation")).toHaveText("x^2+y^2");
+  });
+}
+
+test("Shift Enter after dollars keeps a text line break", async ({ page, request }) => {
+  await open(page, request);
+  const editor = page.locator(".pm-document");
+  await editor.click();
+  await page.keyboard.type("$$");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("literal");
+  await expect(editor.locator(".pm-equation")).toHaveCount(0);
+  await expect(editor.locator(":scope > p")).toHaveText("$$literal");
+  await expect(editor.locator(":scope > p > br")).toHaveCount(1);
+});
 
 test("inserting math opens an anchored editor, previews live and persists through Done and reload", async ({ page, request }) => {
   const errors: string[] = [];

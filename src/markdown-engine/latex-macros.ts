@@ -1,3 +1,4 @@
+import { createEditorNode, editorKind } from "../document/node-identity";
 import type MarkdownIt from "markdown-it";
 import type { Node as PMNode } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
@@ -18,7 +19,7 @@ function definitionEnd(text: string): number {
 }
 export function withLatexMacros(node: PMNode, prefix: { value: string }): PMNode {
   if (node.attrs.data?.latexDefinition) { prefix.value += node.attrs.raw + "\n"; return node; }
-  if (["inline_math", "equation"].includes(node.type.name)) return node.type.create({ ...node.attrs, latexPrefix: prefix.value }, node.content, node.marks);
+  if (["inline_math", "equation"].includes(editorKind(node))) return node.type.create({ ...node.attrs, latexPrefix: prefix.value }, node.content, node.marks);
   if (node.isLeaf) return node;
   const children: PMNode[] = []; node.forEach(n => children.push(withLatexMacros(n, prefix)));
   return node.type.create(node.attrs, children, node.marks);
@@ -32,7 +33,7 @@ export function installLatexMacros(md: MarkdownIt, config: SyntaxConfig) {
     if (silent) return true;
     const next = start + tail.slice(0, size).split("\n").length;
     const raw = tail.slice(0, size), t = s.push("source_node", "", 0); t.block = true; t.map = [start, next];
-    t.meta = { node: schema.nodes.syntax_block.create({ kind: "raw", raw, config, data: { format: "tex", code: raw, latexDefinition: true } }) };
+    t.meta = { node: createEditorNode(schema, "syntax_block", { kind: "raw", raw, config, data: { format: "tex", code: raw, latexDefinition: true } }) };
     s.line = next; return true;
   }, { alt: ["paragraph", "reference", "blockquote", "list"] });
   md.core.ruler.push("latex_macro_scope", s => {
@@ -40,7 +41,7 @@ export function installLatexMacros(md: MarkdownIt, config: SyntaxConfig) {
     for (const t of s.tokens) {
       if (t.meta?.node) t.meta.node = withLatexMacros(t.meta.node, prefix);
       for (const child of t.children || []) {
-        if (child.type === "nfm_math") { child.type = "source_inline"; child.meta = { node: schema.nodes.inline_math.create({ value: child.content, latexPrefix: prefix.value }) }; }
+        if (child.type === "nfm_math") { child.type = "source_inline"; child.meta = { node: schema.nodes["inline.inline_math"].create({ value: child.content, latexPrefix: prefix.value }) }; }
         else if (child.meta?.node) child.meta.node = withLatexMacros(child.meta.node, prefix);
       }
     }
@@ -53,7 +54,7 @@ export function latexMacroEditing() {
     let prefix = ""; const tr = state.tr;
     state.doc.descendants((node, pos) => {
       if (node.attrs.data?.latexDefinition) prefix += node.attrs.raw + "\n";
-      if (["inline_math", "equation"].includes(node.type.name) && node.attrs.latexPrefix !== prefix)
+      if (["inline_math", "equation"].includes(editorKind(node)) && node.attrs.latexPrefix !== prefix)
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, latexPrefix: prefix });
     });
     return tr.docChanged ? tr : null;

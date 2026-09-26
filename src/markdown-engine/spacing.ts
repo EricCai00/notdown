@@ -29,7 +29,7 @@ export function editableBlankParagraphs(doc: Node): Node {
         : base;
       const nextBreak = breaks[hasPrevious ? 2 * i + 2 : 2 * i];
       const stop = nextBreak ? base + nextBreak.index! : finish;
-      const paragraph = schema.nodes.paragraph.create();
+      const paragraph = schema.nodes["block.paragraph"].create();
       const key = gaps.length;
       gaps.push(source.slice(end, start));
       nodes.push(

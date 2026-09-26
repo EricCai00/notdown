@@ -10,6 +10,9 @@ import { editorSchema as schema } from "../../src/document/editor-schema";
 import { executeRMarkdown, rMarkdownCapabilities } from "../../server/rmarkdown";
 import { prepareMarkdownImport } from "../../server/markdown-import";
 import { createApp } from "../../server/app";
+import { isRChunkHeader } from "../../src/markdown-engine/rmarkdown";
+import { EditorState, TextSelection } from "prosemirror-state";
+import { codeHighlighting } from "../../src/editor/code-highlighting";
 
 const config: SyntaxConfig = { version: 1, variant: "rmarkdown", extensions: {} };
 const source = '---\ntitle: "R report"\nparams:\n  n: 3\nunknown: keep\n---\n\n```{r setup, include=FALSE}\nx <- params$n + 1\n```\n\nAnswer: `r x`.\n\n```{r table, echo=FALSE}\nknitr::kable(data.frame(value=x))\n```\n';
@@ -23,11 +26,11 @@ test("R Markdown has Pandoc defaults, editable R chunks and exact source preserv
     assert.equal(serializeNative(doc, config), raw);
     const nodes: any[] = [];
     doc.forEach(node => nodes.push(node));
-    const index = nodes.findIndex(node => node.attrs.rChunk);
+    const index = nodes.findIndex(node => node.type.name === "block.executable_chunk");
     assert.ok(index >= 0);
-    assert.equal(nodes[index].attrs.params, "{r setup, include=FALSE}");
-    nodes[index] = schema.nodes.code_block.create(nodes[index].attrs, schema.text("x <- params$n + 2"));
-    const changed = serializeNative(doc.copy(schema.nodes.doc.create(null, nodes).content), config);
+    assert.equal(nodes[index].attrs.header, "{r setup, include=FALSE}");
+    nodes[index] = schema.nodes["block.executable_chunk"].create(nodes[index].attrs, schema.text("x <- params$n + 2"));
+    const changed = serializeNative(doc.copy(schema.nodes["doc"].create(null, nodes).content), config);
     assert.match(changed, /\{r setup, include=FALSE\}/);
     assert.ok(changed.includes("unknown: keep"));
     assert.ok(changed.includes("Answer: `r x`."));
@@ -40,14 +43,85 @@ test("R Markdown has Pandoc defaults, editable R chunks and exact source preserv
 test("R headers keep expression-valued and unknown options, fenced examples stay inert", () => {
   const raw = '```{r test, fig.dim=c(4, 3), eval=exists("x"), custom=list(a="}")}\n1 + 1\n```\n\n````markdown\n```{r}\nstop("example")\n```\n````\n';
   const doc = parseNative(raw, config);
-  assert.equal(doc.firstChild?.attrs.rChunk, true);
-  assert.equal(doc.lastChild?.attrs.rChunk, false);
+  assert.equal(doc.firstChild?.type.name, "block.executable_chunk");
+  assert.equal(doc.lastChild?.type.name, "block.code_block");
   assert.equal(serializeNative(doc, config), raw);
   for (const variant of ["gfm", "notion-markdown", "markdown"] as const)
-    assert.notEqual(parseNative(raw, { ...config, variant }).firstChild?.attrs.rChunk, true);
-  assert.equal(parseNative('```{r}\n1\n```', { ...config, variant: "notdown" }).firstChild?.attrs.rChunk, true);
+    assert.notEqual(parseNative(raw, { ...config, variant }).firstChild?.type.name, "block.executable_chunk");
+  assert.equal(parseNative('```{r}\n1\n```', { ...config, variant: "notdown" }).firstChild?.type.name, "block.executable_chunk");
   const unknown = parseNative('```{unknown-engine custom, value=list(a=1)}\noriginal\n```', config);
   assert.equal(unknown.firstChild?.attrs.params, "{unknown-engine custom, value=list(a=1)}");
+});
+
+test("inline R is a source-preserving expression, distinct from verbatim code and other dialects", () => {
+  const raw = 'The answer is **`r  sprintf("%0.2f", 1 / 3)  `**; example `` `r x` ``; ordinary `round(x)`.';
+  for (const variant of ["rmarkdown", "notdown"] as const) {
+    const dialect = { ...config, variant };
+    const doc = parseNative(raw, dialect);
+    const expressions: any[] = [];
+    doc.descendants(node => { if (node.type.name === "inline.executable_expression") expressions.push(node); });
+    assert.equal(expressions.length, 1, variant);
+    assert.equal(expressions[0].attrs.raw, '`r  sprintf("%0.2f", 1 / 3)  `');
+    assert.ok(expressions[0].marks.some((mark: any) => mark.type.name === "strong"));
+    // Editing adjacent prose must not normalize expression whitespace or execute it.
+    const paragraph = doc.firstChild!;
+    assert.equal(serializeNative(doc, dialect), raw);
+    const nodes: any[] = [];
+    paragraph.forEach(node => nodes.push(node));
+    nodes[0] = schema.text("Updated: ");
+    const edited = doc.copy(schema.nodes.doc.create(null, paragraph.copy(schema.nodes["block.paragraph"].create(null, nodes).content)).content);
+    assert.match(serializeNative(edited, dialect), /`r  sprintf\("%0.2f", 1 \/ 3\)  `/);
+  }
+  for (const variant of ["gfm", "markdown", "notion-markdown"] as const) {
+    parseNative(raw, { ...config, variant }).descendants(node => { assert.notEqual(node.type.name, "inline.executable_expression"); });
+  }
+  for (const literal of ['`r`', '`rust x`', '``r x``', '`r `', '```r\n1 + 1\n```']) {
+    parseNative(literal, config).descendants(node => { assert.notEqual(node.type.name, "inline.executable_expression"); });
+  }
+  assert.equal(isRChunkHeader('{r, fig.dim=c(4, 3), unknown=list(a="}")}'), true);
+  assert.equal(isRChunkHeader('{r\necho=FALSE}'), false);
+  assert.equal(isRChunkHeader('{r, label=`x`}'), false);
+});
+
+test("inline R text edits preserve source delimiters, adjacent prose and live highlights", () => {
+  const raw = 'Before `r  x + 1  ` after.\r\n\r\n```{r, custom=list(a=1)}\nx <- 41\n```'.replace(/(?<!\r)\n/g, "\r\n");
+  const doc = parseNative(raw, config);
+  let pos = -1;
+  doc.descendants((node, position) => { if (node.type.name === "inline.executable_expression") pos = position; });
+  const expression = doc.nodeAt(pos)!;
+  assert.equal(expression.isAtom, false);
+  assert.equal(expression.textContent, "x + 1  ");
+  let state = EditorState.create({ doc, selection: TextSelection.create(doc, pos + 1), plugins: [codeHighlighting()] });
+  state = state.apply(state.tr.insertText("2", pos + 5, pos + 6));
+  assert.equal(state.doc.nodeAt(pos)!.textContent, "x + 2  ");
+  const saved = serializeNative(state.doc, config);
+  assert.equal(saved, raw.replace("x + 1", "x + 2"));
+  assert.equal(parseNative(saved, config).nodeAt(pos)!.textContent, "x + 2  ");
+  const decorations = state.plugins[0].props.decorations!.call(state.plugins[0], state) as any;
+  assert.ok(decorations.find(pos, pos + expression.nodeSize).some((item: any) => item.type.attrs.class.includes("pm-code-number")));
+});
+
+test("real R: evaluation and visibility options have distinct effects", { timeout: 60_000 }, async t => {
+  if (!(await rMarkdownCapabilities()).available) { t.skip("R is not installed"); return; }
+  const result = await executeRMarkdown({ source: [
+    '```{r setup, include=FALSE}', 'hidden_value <- 41', 'cat("hidden-output")', '```',
+    '', 'Value: `r hidden_value + 1`.', '',
+    '```{r skip, eval=FALSE}', 'stop("unevaluated-source")', '```', '',
+    '```{r output, echo=FALSE}', 'cat("visible-output")', '```', '',
+    '```{r quiet, results="hide", message=FALSE, warning=FALSE}',
+    'cat("hidden-result")', 'message("hidden-message")', 'warning("hidden-warning")', '```', '',
+    '```{r body, echo=TRUE}', '#| echo: false', 'cat("body-option-result")', '```', '',
+    '```{r asis, echo=FALSE, results="asis"}', 'cat("**rich-result**")', '```',
+  ].join('\n') });
+  assert.match(result.html, /Value: 42/);
+  assert.doesNotMatch(result.html, /hidden_value|hidden-output/);
+  assert.match(result.html, /unevaluated-source/);
+  assert.match(result.html, /<strong>rich-result<\/strong>/);
+  assert.match(result.html, /visible-output/);
+  assert.match(result.html, /body-option-result/);
+  // Hidden results/messages/warnings occur only once, in echoed source.
+  for (const marker of ["hidden-result", "hidden-message", "hidden-warning", "visible-output", "body-option-result"])
+    assert.equal(result.html.split(marker).length - 1, 1, marker);
 });
 
 test("Rmd folder import selects R Markdown and retains YAML and code bytes", () => {
@@ -107,5 +181,7 @@ test("R API rejects foreign origins and invalid requests without changing vault 
   assert.equal(hostile.status, 403);
   const invalid = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: 3 }) });
   assert.equal(invalid.status, 400);
+  const notebook = await fetch(url.replace(/run$/, "notebook"), { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(notebook.status, 400, "Notebook route must exist in the running backend");
   assert.deepEqual(await fs.readdir(directory), []);
 });

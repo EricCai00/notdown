@@ -1,3 +1,4 @@
+import { isEditorKind } from "../../document/node-identity";
 import type { Page } from "../../shared/types";
 import { parseNative } from "../../markdown-engine/codec";
 import { defaultSyntax } from "../../markdown-engine/config";
@@ -7,7 +8,7 @@ export function pageReminders(page: Page): Reminder[] {
   const result: Reminder[] = [];
   if (page.syntax?.variant !== "notdown") return result;
   parseNative(page.body, page.syntax || defaultSyntax(page.bodyFormat)).descendants((node, pos) => {
-    if (node.type.name !== "mention" || node.attrs.kind !== "date") return;
+    if (!isEditorKind(node, "mention") || node.attrs.kind !== "date") return;
     const value = node.attrs.nfmAttrs.reminder;
     if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(value)) return;
     const at = Date.parse(value); if (!Number.isFinite(at)) return;

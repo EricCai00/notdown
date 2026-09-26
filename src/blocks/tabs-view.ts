@@ -118,7 +118,7 @@ export class TabsView implements NodeView {
       add.addEventListener("click", () => {
         const pos = this.getPos(); if (pos === undefined || !this.view.editable) return;
         const index = this.node.childCount;
-        const child = this.node.type.schema.nodes.tab.create({ title: `Tab ${index + 1}` }, this.node.type.schema.nodes.paragraph.create());
+        const child = this.node.type.schema.nodes["structure.tab"].create({ title: `Tab ${index + 1}` }, this.node.type.schema.nodes["block.paragraph"].create());
         const tr = closeHistory(this.view.state.tr).insert(pos + this.node.nodeSize - 1, child)
           .setNodeMarkup(pos, undefined, { ...this.node.attrs, active: index });
         this.view.dispatch(tr); this.focusTab(index);

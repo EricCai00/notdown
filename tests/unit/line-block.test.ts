@@ -1,3 +1,4 @@
+import { editorKind } from "../../src/document/node-identity";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorState, TextSelection } from "prosemirror-state";
@@ -25,9 +26,9 @@ test("Enter splits a line in place and retains inline marks", () => {
   assert.equal(block.child(0).textContent, "Alpha");
   assert.equal(block.child(1).textContent, "Beta");
   assert.equal(block.child(2).textContent, "Omega");
-  assert.equal(block.child(0).firstChild!.marks[0].type.name, "strong");
-  assert.equal(block.child(1).firstChild!.marks[0].type.name, "strong");
-  assert.equal(next.selection.$from.parent.type.name, "line");
+  assert.equal(editorKind(block.child(0).firstChild!.marks[0]), "strong");
+  assert.equal(editorKind(block.child(1).firstChild!.marks[0]), "strong");
+  assert.equal(editorKind(next.selection.$from.parent), "line");
   assert.equal(serializeNative(next.doc, config), "| **Alpha**\n| **Beta**\n| Omega");
 });
 
@@ -40,28 +41,27 @@ test("two Enters at the end create a paragraph without a trailing empty line", (
   const twice = enter(once);
   assert.equal(twice.doc.childCount, 2);
   assert.equal(twice.doc.firstChild!.childCount, 1);
-  assert.equal(twice.selection.$from.parent.type.name, "paragraph");
+  assert.equal(editorKind(twice.selection.$from.parent), "paragraph");
   const typed = twice.apply(twice.tr.insertText("Outside"));
   assert.equal(serializeNative(typed.doc, config), "| Alpha\n\nOutside");
 });
 
 test("exiting an empty line preserves the surrounding lines, marks and block attributes", () => {
   for (const texts of [["", "After"], ["Before", "", "After"], [""]]) {
-    const block = schema.nodes.line_block.create({ color: "blue", nfmAttrs: { custom: "keep" } },
-      texts.map(text => schema.nodes.line.create(null, text ? schema.text(text, [schema.marks.em.create()]) : null)));
-    const doc = schema.nodes.doc.create(null, block);
+    const block = schema.nodes["block.line_block"].create({ color: "blue", nfmAttrs: { custom: "keep" } }, texts.map(text => schema.nodes["structure.line"].create(null, text ? schema.text(text, [schema.marks.em.create()]) : null)));
+    const doc = schema.nodes["doc"].create(null, block);
     const index = texts.indexOf("");
     const pos = 2 + texts.slice(0, index).reduce((sum, text) => sum + text.length + 2, 0);
     const next = enter(EditorState.create({ doc, selection: TextSelection.create(doc, pos) }));
-    assert.equal(next.selection.$from.parent.type.name, "paragraph");
+    assert.equal(editorKind(next.selection.$from.parent), "paragraph");
     const remaining: string[] = [];
     next.doc.forEach(node => {
-      if (node.type.name !== "line_block") return;
+      if (editorKind(node) !== "line_block") return;
       assert.equal(node.attrs.color, "blue");
       assert.deepEqual(node.attrs.nfmAttrs, { custom: "keep" });
       node.forEach(line => {
         remaining.push(line.textContent);
-        assert.equal(line.firstChild!.marks[0].type.name, "em");
+        assert.equal(editorKind(line.firstChild!.marks[0]), "em");
       });
     });
     assert.deepEqual(remaining, texts.filter(Boolean));

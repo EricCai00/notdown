@@ -1,5 +1,7 @@
 # Markdown 测试文档入口
 
+2026-09-26 新增 [Pandoc 引文测试](pandoc-citations.md)：包含文档内 YAML 文献数据、组合引用、复杂定位、作者式引用和脚注内引用。在 Markdown Lab 选择 **Pandoc Markdown** 可直接预览作者年份与参考文献列表。
+
 2026-09-24 新增 [R Markdown 示例](rmarkdown.Rmd)：包含 YAML 参数、顺序代码块、行内 R、表格、图形、`eval=FALSE` 和中文结果。需选择 R Markdown 方言后手动运行；配置见 [R Markdown](../features/R-MARKDOWN.md)。它不属于下方 2026-09-23 的历史 HTML 审计快照。
 
 ## 每个方言一份：官方语法测试

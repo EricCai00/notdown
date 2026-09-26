@@ -1,6 +1,12 @@
 # Markdown 正文格式 v0.4：方言配置与 Notion Enhanced Markdown
 
-2026-09-24 R Markdown：新增 `syntax.variant: rmarkdown`，复用 Pandoc Markdown 规则并优先保留 knitr `{r ...}` 代码块及行内 R 原文。显式运行使用本机 R/knitr/rmarkdown，结果只作为临时 HTML 预览，不写回正文或 metadata；导入 `.Rmd` 自动选择该方言。详见 [R Markdown](features/R-MARKDOWN.md)。
+2026-09-26 行内脚注：启用 `inline_notes` 时，Pandoc `^[…]` 在页面视图投影为编号引用和单段底部注释，与 `[^id]` 共用编号、预览和跳转；保存仍还原原位置的 `^[…]`。跨行正文与行内链接可解析；页面编辑拒绝扩展为多个段落或块。`inlineNote` 与生成的引用标识仅用于可恢复的编辑器投影，不写入文件；方言边界和已有原文保留规则不变。详见[脚注说明](features/FOOTNOTES.md)。
+
+2026-09-26 图片交互：沿用 Markdown 图片及已有花括号属性载体，宽度复用 `width`。Notdown 为图片块补充 `align="left|center|right"` 和 `crop="x,y,w,h,ratio"`；前四项是相对原图的归一化裁剪矩形，第五项是原图宽高比。裁剪只改变呈现，不生成或覆盖附件。仅 `notdown` 且 `link_attributes` 开启时可通过工具栏写这些布局属性，其他方言不激活对齐／裁剪补充语义；`notion-markdown` 即使显式开启扩展也不新增这些语法。未修改原文、图片 URL/title、未知属性和代码围栏保留；调整通过文档事务和既有 CAS 链路保存，不批量迁移。详见[图片控件](features/INLINE-OBJECTS.md#image-controls)。
+
+2026-09-25 Quarto：新增 `syntax.variant: quarto`；Notdown 同时识别 Quarto 的 `{python}`、`{julia}`、`{ojs}` 可执行围栏和 `` `{language} expression` `` 行内表达式，分别使用 `block.executable_chunk` / `inline.executable_expression`。R 与这些语言共用同一种可执行块和行内表达式节点，继续使用已有 R 执行器。`#|` / `//|` 选项及未知语法原文保留，普通语言围栏不运行。Python/Julia 经 Jupyter kernel，OJS 使用隔离的 Observable 响应式模块；所有结果为窗口临时状态。仍保存 `.md`，支持 `.qmd` 导入，不迁移旧文件、不向正文注入应用 YAML。方言范围、依赖和未实现的发布功能见 [Quarto](features/QUARTO.md)。
+
+2026-09-25 R Markdown：`syntax.variant: rmarkdown` 复用 Pandoc Markdown 规则，knitr `{r ...}` 与行内 R 分别解析为统一的 `block.executable_chunk` / `inline.executable_expression` 类型，原 Markdown 语法和未知选项保留，两者均有 R 高亮。行内表达式为可编辑 `text*` 内容，原文属性只用于保留未修改的分隔符和空白；序列化使用当前表达式文本。显式运行使用本机 R/knitr/rmarkdown，Notebook 输出和 Knit 只读结果均不写回正文或 metadata；返回编辑恢复原始代码。导入 `.Rmd` 自动选择该方言。详见 [R Markdown](features/R-MARKDOWN.md)。
 
 2026-09-24 存储修订（覆盖下文应用 YAML 的历史说明）：完整 `pages/*.md` 是 API body 与源码模式内容；通用页面属性集中保存在 `vault/metadata.json`。旧应用 YAML 通过显式迁移流程移入统一 JSON，先完整备份再移除应用头部；后面的正文保持原字节。文档自己的 YAML / Pandoc title block 继续覆盖 JSON 默认值，不再生成或隐藏应用 YAML。版本、历史、冲突和中断恢复同时覆盖 Markdown 与对应 metadata。详见 [Vault metadata 契约](features/VAULT-METADATA.md)。
 

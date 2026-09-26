@@ -8,16 +8,13 @@ const link = s.marks.link.create({
   href: "https://example.com/old",
   title: "Title",
 });
-const doc = s.nodes.doc.create(
-  null,
-  s.nodes.paragraph.create(null, [
+const doc = s.nodes["doc"].create(null, s.nodes["block.paragraph"].create(null, [
     s.text("before "),
     s.text("a ", [link]),
     s.text("bold", [link, s.marks.strong.create()]),
     s.text(" c", [link, s.marks.em.create()]),
     s.text(" after"),
-  ]),
-);
+  ]));
 const stateAt = (from: number, to = from) =>
   EditorState.create({ doc, selection: TextSelection.create(doc, from, to) });
 
@@ -78,13 +75,10 @@ test("neighboring distinct links do not merge, including same href with differen
     href: "https://example.com",
     title: "two",
   });
-  const value = s.nodes.doc.create(
-    null,
-    s.nodes.paragraph.create(null, [
+  const value = s.nodes["doc"].create(null, s.nodes["block.paragraph"].create(null, [
       s.text("left", [first]),
       s.text("right", [second]),
-    ]),
-  );
+    ]));
   const at = (from: number, to = from) =>
     EditorState.create({
       doc: value,
@@ -104,9 +98,9 @@ test("neighboring distinct links do not merge, including same href with differen
 });
 
 test("matching link marks in different paragraphs never form one range", () => {
-  const value = s.nodes.doc.create(null, [
-    s.nodes.paragraph.create(null, s.text("one", [link])),
-    s.nodes.paragraph.create(null, s.text("two", [link])),
+  const value = s.nodes["doc"].create(null, [
+    s.nodes["block.paragraph"].create(null, s.text("one", [link])),
+    s.nodes["block.paragraph"].create(null, s.text("two", [link])),
   ]);
   const state = EditorState.create({
     doc: value,

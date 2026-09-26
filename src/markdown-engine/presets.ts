@@ -8,6 +8,7 @@ const common = flags("raw_html backtick_code_blocks fenced_code_blocks all_symbo
 const gfm = { ...common, ...flags("pipe_tables task_lists strikeout autolink_bare_uris") };
 const original = flags("raw_html shortcut_reference_links spaced_reference_links");
 export const dialectDefaults: Record<string, Record<string, boolean>> = {
+  quarto: { ...snapshot.variants.markdown, yaml_metadata_block: true },
   rmarkdown: { ...snapshot.variants.markdown, yaml_metadata_block: true },
   "notion-markdown": flags("strikeout task_lists tex_math_dollars notion_columns notion_callouts notion_toggles notion_tables notion_pages notion_mentions notion_media notion_databases notion_synced notion_toc notion_nesting notion_colors notion_underline"),
   commonmark: common,
@@ -35,7 +36,7 @@ export const localObjectPlugins: Record<string, string> = {
 // It does not change the upstream preset or imply support for Notion cloud APIs.
 dialectDefaults["notion-markdown"] = flags("strikeout task_lists tex_math_dollars notion_columns notion_callouts notion_toggles notion_tables notion_pages notion_mentions notion_media notion_databases notion_synced notion_toc notion_nesting notion_colors notion_underline");
 // Content extensions form a superset; competing lexical conventions (smart
-// punctuation, reversed wiki labels, literate code, etc.) remain opt-in.
+// punctuation, reversed wiki labels, backslash math, literate code, etc.) remain opt-in.
 export const notdownMarkdownDefaults = flags(`
   raw_html pipe_tables definition_lists footnotes line_blocks fenced_divs
   subscript superscript highlight comments alerts toc_directives diagrams
@@ -44,7 +45,7 @@ export const notdownMarkdownDefaults = flags(`
   inline_code_attributes inline_notes native_spans
   grid_tables simple_tables multiline_tables table_attributes table_captions mmd_tables
   abbreviations mmd_abbreviations mmd_citations citations critic_markup glossary
-  raw_attribute raw_tex tex_math_single_backslash tex_math_double_backslash tex_math_gfm
+  raw_attribute raw_tex tex_math_gfm
   example_lists fancy_lists yaml_metadata_block pandoc_title_block
   metadata_values metadata_variables html_embed markdown_attribute
   mmd_link_attributes mmd_header_identifiers implicit_header_references auto_identifiers
