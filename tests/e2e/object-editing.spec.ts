@@ -1,5 +1,10 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { openBlockProperties } from "./block-properties-helper";
+async function syncAction(page: Page, name: string) {
+  await page.locator(".pm-object-synced_block").hover();
+  await page.getByRole("button", { name: "Synced block options", exact: true }).click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
 async function open(page: Page, request: APIRequestContext, body: string, variant = "markdown") {
   const response = await request.post("/api/pages", { data: { title: "Local object editing", body, bodyFormat: ["notion-markdown", "notdown"].includes(variant) ? "notion-markdown" : "markdown", syntax: { version: 1, variant, extensions: { metadata_values: true, notion_tabs: true, notion_bookmark: true, notion_link_preview: true, notion_breadcrumb: true, notion_button: true, notion_meeting_notes: true, notion_ai_block: true, notion_html_document: true } } } });
   expect(response.status()).toBe(201);
@@ -23,9 +28,9 @@ test("abbreviation properties update its definition and survive undo and reopeni
 test("live synced refresh stops before replacing local edits", async ({ page, request }) => {
   const source = await (await request.post('/api/pages', { data: { title: 'Live source', body: '<synced_block id="live">\nFirst source\n</synced_block>', bodyFormat: 'notion-markdown', syntax: { version: 1, variant: 'notdown', extensions: {} } } })).json();
   await open(page, request, `<synced_block_reference url="#page/${source.id}#block=live">\nSnapshot\n</synced_block_reference>`, 'notdown');
-  await page.getByRole('button', { name: 'Refresh from source', exact: true }).click();
+  await syncAction(page, 'Refresh from source');
   const content = page.locator('.pm-object-synced_block .pm-object-content'); await expect(content).toHaveText('First source');
-  await page.getByRole('button', { name: 'Toggle live refresh', exact: true }).click();
+  await syncAction(page, 'Toggle live refresh');
   const properties = await openBlockProperties(page, page.locator('.pm-object-synced_block'));
   await properties.getByLabel('Source reference', { exact: true }).fill('#page/unsaved-target');
   const updated = await (await request.put(`/api/pages/${source.id}`, { data: { body: '<synced_block id="live">\nSecond source\n</synced_block>', baseRevision: source.revision } })).json();
@@ -80,16 +85,16 @@ test("definition items move independently and metadata fields preserve other val
 test("synced block publishes with its captured source revision and preserves concurrent source edits", async ({ page, request }) => {
   const source = await (await request.post("/api/pages", { data: { title: "Sync source", body: '<synced_block id="shared">\nSource text\n</synced_block>', bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: {} } } })).json();
   await open(page, request, `<synced_block_reference url="#page/${source.id}#block=shared">\nOld snapshot\n</synced_block_reference>`, "notdown");
-  await page.getByRole("button", { name: "Refresh from source", exact: true }).click();
+  await syncAction(page, "Refresh from source");
   const content = page.locator(".pm-object-synced_block .pm-object-content");
   await expect(content).toHaveText("Source text");
   await content.locator("p").click(); await page.keyboard.press("End"); await page.keyboard.type(" edited");
-  await page.getByRole("button", { name: "Publish to source", exact: true }).click();
+  await syncAction(page, "Publish to source");
   await expect.poll(async () => (await (await request.get(`/api/pages/${source.id}`)).json()).body).toContain("Source text edited");
   const latest = await (await request.get(`/api/pages/${source.id}`)).json();
   await request.put(`/api/pages/${source.id}`, { data: { body: '<synced_block id="shared">\nConcurrent source\n</synced_block>', baseRevision: latest.revision } });
   await content.locator("p").click(); await page.keyboard.press("End"); await page.keyboard.type(" local draft");
-  await page.getByRole("button", { name: "Publish to source", exact: true }).click();
+  await syncAction(page, "Publish to source");
   await expect(page.locator(".pm-object-synced_block output")).not.toContainText("Published");
   await expect.poll(async () => (await (await request.get("/api/conflicts")).json()).some((c: any) => c.pageId === source.id && c.proposed?.body.includes("local draft"))).toBe(true);
   expect((await (await request.get(`/api/pages/${source.id}`)).json()).body).toContain("Concurrent source");

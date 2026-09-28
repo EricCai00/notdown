@@ -1,5 +1,7 @@
 export interface Page {
-  pageEntryEvidence?: import("../document/page-entry-projection").PageEntryEvidence;
+  dataSourceId?: string;
+  databaseId?: string;
+  legacyIds?: string[];
   id: string;
   title: string;
   parent: string | null;

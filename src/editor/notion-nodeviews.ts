@@ -266,7 +266,7 @@ class MathView implements NodeView {
 
 export function notionNodeViews(supplemental: () => boolean = () => false, alertTitles: () => boolean = () => false): Record<string, NodeViewConstructor> {
   return {
-    columns: (node, view, getPos) => new ColumnsView(node, view, getPos, supplemental),
+    columns: (node, view, getPos) => new ColumnsView(node, view, getPos),
     callout: (node, view, getPos) => {
       if (node.attrs.syntaxForm !== "alert") return new CalloutView(node, view, getPos);
       return new AlertView(node, view, getPos, alertTitles);

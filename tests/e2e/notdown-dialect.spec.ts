@@ -21,7 +21,7 @@ test("Notdown switches on block defaults, preserves source, and saves overrides 
     inputs.map(input => input.getAttribute('data-extension')).sort(),
   )).toEqual(expect.arrayContaining([
     'notion_tabs', 'notion_bookmark', 'notion_link_preview', 'notion_breadcrumb',
-    'notion_button', 'notion_meeting_notes', 'notion_ai_block', 'notion_html_document', 'notion_web_embed',
+    'notion_button', 'notion_meeting_notes', 'notion_ai_block', 'notion_web_embed',
   ]));
   await expect(group.locator('.extension-choice').filter({ has: page.locator('input[data-extension="notion_tabs"]') }).locator('code')).toHaveText('notion_tabs');
   await page.keyboard.press('Control+s');

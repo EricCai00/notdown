@@ -338,7 +338,7 @@ test("uploaded fixture images and textarea render; inline HTML hides tags in Typ
   await expect(root.locator('.pm-html-inline').nth(1)).toHaveText('PROBE noembed text');
 });
 
-test("Typora comparison links are visible and open with Ctrl-click; parentheses stay prose", async ({ page, request }) => {
+test("Typora comparison links are visible and open with a left click; parentheses stay prose", async ({ page, request }) => {
   await open(page, request, '<https://example.com/angle>\n\n<address@example.com>\n\n[ordinary](https://example.com/ordinary)\n\n[reference][ref]\n\n[ref]: https://example.com/ref\n\nhttps://example.com/bare\n\n1) first\n2) second\n\nfirst line\nsecond line\n\nType here', "typora");
   const root = page.locator(".pm-document");
   await expect(root.locator("a")).toHaveCount(5);
@@ -350,11 +350,14 @@ test("Typora comparison links are visible and open with Ctrl-click; parentheses 
     (window as any).__openedLinks = [];
     window.open = ((...args: any[]) => { (window as any).__openedLinks.push(args); return null; }) as typeof window.open;
   });
-  const ordinary = root.getByRole("link", { name: "ordinary", exact: true });
-  await ordinary.click();
-  expect(await page.evaluate(() => (window as any).__openedLinks)).toEqual([]);
-  await ordinary.click({ modifiers: ["Control"] });
-  expect(await page.evaluate(() => (window as any).__openedLinks)).toEqual([["https://example.com/ordinary", "_blank", "noopener,noreferrer"]]);
+  const opened: string[][] = [];
+  for (const link of await root.locator("a").all()) {
+    const href = await link.getAttribute("href");
+    await expect(link).toHaveAttribute("title", `${href} · Click to open link`);
+    await link.click();
+    opened.push([href!, "_blank", "noopener,noreferrer"]);
+    expect(await page.evaluate(() => (window as any).__openedLinks)).toEqual(opened);
+  }
   const tail = root.locator("p").filter({ hasText: "Type here" });
   await tail.click();
   await page.keyboard.press("Home");

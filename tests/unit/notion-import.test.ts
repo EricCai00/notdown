@@ -120,7 +120,7 @@ test("API Enhanced Markdown stays byte-exact, pagination and nested descendants 
   const existing = await vault.create({ title: "Keep", body: "Existing" });
   await vault.importBatch(plan);
   const saved = await vault.get(plan.pages[0].id);
-  assert.deepEqual(new Set(saved.pageEntryEvidence?.childTargets), new Set(plan.pages.slice(1).map(p => p.id)));
+  assert.deepEqual(new Set((await vault.list()).filter(p => p.parent === saved.id).map(p => p.id)), new Set(plan.pages.slice(1).map(p => p.id)));
   assert.equal(saved.body, notionSource);
   assert.equal(saved.syntax?.variant, "notion-markdown");
   assert.equal((await vault.get(existing.id)).revision, existing.revision);
@@ -162,13 +162,72 @@ test("single-page import skips hierarchy requests and identical snapshots have s
   );
   assert.equal(first.pages.length, 1);
   assert.equal(first.id, second.id);
+  assert.match(first.pages[0].id, /^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
+  assert.equal(first.pages[0].id, second.pages[0].id);
+  assert.equal((first.pages[0].metadata.notionImport as any).batchId, first.id);
   assert.ok(calls.every((p) => p.startsWith("/v1/pages/")));
 });
 
-test("truncated, inaccessible, malformed and ambiguous-metadata responses never produce importable plans", async () => {
+test("unknown blocks warn but allow preview and import, including responses also marked truncated", async (t) => {
+  for (const truncated of [false, true]) {
+    const fixture = notionFixture();
+    const app = createApp({
+      vaultPath: await temporary(t),
+      notionImportTransport: {
+        wait,
+        fetch: async (input, init) => {
+          const response = await fixture(input, init);
+          return String(input).endsWith(`/pages/${notionRoot}/markdown`)
+            ? Response.json({ ...(await response.json()), truncated, unknown_block_ids: [notionChild] })
+            : response;
+        },
+      },
+    });
+    await app.locals.vault.init();
+    const server = app.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    t.after(async () => {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      app.locals.closeRNotebook();
+    });
+    const base = `http://127.0.0.1:${(server.address() as import("node:net").AddressInfo).port}/api`;
+    const response = await fetch(`${base}/notion/import/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    assert.equal(response.status, 200);
+    const preview = await response.json();
+    assert.equal(preview.pages, 3);
+    assert.equal(preview.documents[0].source, notionSource);
+    const warning = preview.warnings.find((w: string) => w.includes("unknown_block_ids"));
+    assert.ok(warning?.includes(notionRoot));
+    assert.match(warning, /1 block\(s\).*content may be incomplete/);
+    assert.equal(warning.includes("marked this response as truncated"), truncated);
+    assert.equal((await app.locals.vault.list()).length, 0);
+    const committed = await fetch(`${base}/import/commit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: preview.id }),
+    });
+    assert.equal(committed.status, 200);
+    assert.equal((await app.locals.vault.get(preview.documents[0].id)).body, notionSource);
+    const archiveDir = path.join(app.locals.vault.vaultPath, ".history/imports", preview.id);
+    const manifest = JSON.parse(await fs.readFile(path.join(archiveDir, "manifest.json"), "utf8"));
+    assert.ok(manifest.warnings.includes(warning));
+    const archivedResponses = await Promise.all(manifest.originals
+      .filter((file: { path: string }) => file.path.startsWith("api/"))
+      .map(async (file: { archive: string }) => JSON.parse(await fs.readFile(path.join(archiveDir, file.archive), "utf8"))));
+    const markdownResponse = archivedResponses.find(value => value.object === "page_markdown" && value.id === notionRoot);
+    assert.deepEqual(markdownResponse.unknown_block_ids, [notionChild]);
+    assert.equal(markdownResponse.truncated, truncated);
+  }
+});
+
+test("truncation without unknown blocks, inaccessible pages, malformed and ambiguous-metadata responses never produce importable plans", async () => {
   for (const overrides of [
     { truncated: true },
-    { unknown_block_ids: [notionChild] },
     { markdown: null },
     { id: notionChild },
     { markdown: "---\ntitle: Wrong\n---\nBody" },

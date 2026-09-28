@@ -4,6 +4,7 @@ import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "../document/editor-schema";
 import { enabled, type SyntaxConfig } from "./config";
 import { readAttributes, writeAttributes } from "./attributes";
+import { readTableColumnWidths } from "../document/table-width-attributes";
 
 type Cell = { raw: string; colspan: number; rowspan: number; align: string };
 type Row = { cells: Cell[]; header: boolean };
@@ -89,9 +90,9 @@ export function installPandocTables(md: MarkdownIt, config: SyntaxConfig, parse:
     } else return false;
     let attributes: Record<string, string> = {};
     let tail = next; while (tail < end && s.isEmpty(tail)) tail++;
-    if (enabled(config, "table_captions")) {
+    if (enabled(config, "table_captions") || enabled(config, "table_attributes")) {
       const m = /^(?:Table:|:)\s+(.+)$/.exec(line(tail));
-      if (m) { caption = m[1]; captionSide = "bottom"; next = tail + 1; }
+      if (m && (enabled(config, "table_captions") || /^\{[^{}]+\}$/.test(m[1]))) { caption = m[1]; captionSide = "bottom"; next = tail + 1; }
     }
     if (enabled(config, "table_attributes")) {
       const m = /\s*\{([^{}]+)\}$/.exec(caption);
@@ -102,7 +103,7 @@ export function installPandocTables(md: MarkdownIt, config: SyntaxConfig, parse:
     const children = rows.map(row => schema.nodes["structure.table_row"].create({ header: row.header }, row.cells.map(cell => schema.nodes["structure.table_cell"].create({ colspan: cell.colspan, rowspan: cell.rowspan, nfmAttrs: cell.align ? { align: cell.align } : {} }, parse(cell.raw, s.env).content))));
     if (caption) children.unshift(schema.nodes["structure.table_caption"].create(null, parse(caption, s.env).firstChild?.content));
     const token = s.push("source_node", "", 0); token.block = true; token.map = [start, next];
-    token.meta = { node: schema.nodes["block.table"].create({ syntaxForm, captionSide, markdownAttrs: attributes, captionId: attributes.id || "", nfmAttrs: { "header-row": String(rows[0]?.header || false) } }, children) };
+    token.meta = { node: schema.nodes["block.table"].create({ syntaxForm, captionSide, markdownAttrs: attributes, captionId: attributes.id || "", nfmAttrs: { "header-row": String(rows[0]?.header || false) }, widths: config.variant === "notdown" ? (readTableColumnWidths(attributes["tbl-colwidths"], Math.max(0, ...rows.map(row => row.cells.reduce((n, cell) => n + cell.colspan, 0)))) ?? []).map(String) : [] }, children) };
     s.line = next; return true;
   }, { alt: ["paragraph", "reference", "blockquote", "list"] });
 }
@@ -133,7 +134,7 @@ export function writeGridTable(table: PMNode, write: (node: PMNode) => string) {
     output.push(border(r));
   }
   if(caption) { const value = "Table: " + write(caption) + writeAttributes(table.attrs.markdownAttrs); if(table.attrs.captionSide === "top") output.unshift(value,""); else output.push("",value); }
-  else if (Object.keys(table.attrs.markdownAttrs || {}).length) output.push(writeAttributes(table.attrs.markdownAttrs).trim());
+  else if (Object.keys(table.attrs.markdownAttrs || {}).length) output.push("", ":" + writeAttributes(table.attrs.markdownAttrs));
   return output.join("\n");
 }
 export function writeSimpleTable(table: PMNode, write: (node: PMNode) => string): string {
@@ -157,6 +158,6 @@ export function writeSimpleTable(table: PMNode, write: (node: PMNode) => string)
   });
   if(multiline) output.push(full);
   if(caption) { const v="Table: "+write(caption) + writeAttributes(table.attrs.markdownAttrs); if(table.attrs.captionSide==="top") output.unshift(v,""); else output.push("",v); }
-  else if (Object.keys(table.attrs.markdownAttrs || {}).length) output.push(writeAttributes(table.attrs.markdownAttrs).trim());
+  else if (Object.keys(table.attrs.markdownAttrs || {}).length) output.push("", ":" + writeAttributes(table.attrs.markdownAttrs));
   return output.join("\n");
 }

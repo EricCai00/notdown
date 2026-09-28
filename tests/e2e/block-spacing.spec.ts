@@ -3,7 +3,7 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 const button = '<button label="Add a note" action="insert-text" target="New note"/>';
 const breadcrumb = '<breadcrumb/>';
 const inner = `First inner paragraph\n\n${breadcrumb}\n\n${button}\n\nLast inner paragraph`;
-const syntax = { version: 1, variant: "notion-markdown", extensions: { notion_button: true, notion_breadcrumb: true, notion_tabs: true } };
+const syntax = { version: 1, variant: "notdown", extensions: { notion_button: true, notion_breadcrumb: true, notion_tabs: true } };
 async function open(page: Page, request: APIRequestContext, body: string) {
   const note = await (await request.post("/api/pages", { data: { title: "Block spacing", body, bodyFormat: "notion-markdown", syntax } })).json();
   await page.goto(`/#page/${note.id}`);
@@ -36,7 +36,7 @@ test("compact blocks have equal spacing in either order, including marquee selec
 
 test("headings and surfaces keep symmetric spacing while lists and table cells remain compact", async ({ page, request }) => {
   await open(page, request, `Paragraph\n\n${button}\n\n## Heading\n\nAfter heading\n\n<callout>\nA callout\n</callout>\n\nAfter callout\n\n${["```text", "Code", "```"].join("\n")}\n\nAfter code\n\n| A | B |\n| --- | --- |\n| C | D |\n\nAfter table\n\n- First item\n- Second item\n\nAfter list`);
-  expect(await gaps(page, ".pm-document > *")).toEqual([4, 16, 4, 12, 12, 12, 12, 12, 12, 4, 4]);
+  expect(await gaps(page, ".pm-document > *")).toEqual([4, 16, 4, 12, 12, 12, 12, 28, 28, 4, 4]);
   expect(await gaps(page, ".pm-document > ul > li")).toEqual([0]);
   await expect(page.locator(".pm-table td p").first()).toHaveCSS("margin-top", "0px");
   await page.locator(".pm-document").screenshot({ path: "test-results/block-spacing-surfaces.png" });

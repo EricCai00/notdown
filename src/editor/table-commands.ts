@@ -1,8 +1,9 @@
 import { isEditorKind } from "../document/node-identity";
-import { Plugin, TextSelection, type Command } from "prosemirror-state";
+import { syncTableWidthAttributes } from "../document/table-width-attributes";
+import { TextSelection, type Command } from "prosemirror-state";
 import { canConvertNotionTable } from "../document/notdown-boundary";
 import type { Node as PMNode } from "prosemirror-model";
-import { TableSelection, selectTableCells } from "./table-selection";
+import { TableSelection, tableMap } from "./table-selection";
 
 export type TableAction = "row-before" | "row-after" | "column-before" | "column-after" | "row-up" | "row-down" | "column-left" | "column-right" | "delete-row" | "delete-column" | "merge-right" | "merge-down" | "merge-selection" | "split" | "caption";
 type Cell = { node: PMNode; r: number; c: number; h: number; w: number };
@@ -98,32 +99,14 @@ export function editTable(action: TableAction, complexEncoding: string | null = 
     // Use existing Markdown table encodings for spans; NFM does not define them.
     const syntaxForm = (complex || caption && table.attrs.syntaxForm === "notion") && ["pipe", "simple", "multiline", "notion"].includes(table.attrs.syntaxForm) ? complexEncoding || table.attrs.syntaxForm : table.attrs.syntaxForm;
     if (syntaxForm !== table.attrs.syntaxForm && !canConvertNotionTable(table)) return false;
-    const next = table.type.create({ ...table.attrs, syntaxForm, widths, columnAttrs }, caption ? [caption, ...result] : result);
+    const next = table.type.create(syncTableWidthAttributes({ ...table.attrs, syntaxForm, columnAttrs }, widths), caption ? [caption, ...result] : result);
     if (dispatch) {
       const tr = state.tr.replaceWith(pos, pos + table.nodeSize, next);
-      tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos + 3, tr.doc.content.size))));
+      const map = tableMap(tr.doc, pos);
+      const cell = map.grid[0]?.[0];
+      tr.setSelection(TextSelection.near(tr.doc.resolve(action === "caption" || !cell ? Math.min(pos + 3, tr.doc.content.size) : cell.pos + 1)));
       dispatch(tr.scrollIntoView());
     }
     return true;
   };
-}
-export function tableControls(canCommand: (name: string) => boolean = () => true) {
-  return new Plugin({ view(view) {
-    const toolbar = document.createElement("div"); toolbar.className = "pm-table-tools"; toolbar.setAttribute("aria-label", "Table editing");
-    const buttons: { button: HTMLButtonElement; action: TableAction }[] = [];
-    const encoding = () => canCommand("table_grid") ? "grid" : canCommand("table_mmd") ? "mmd" : null;
-    for (const axis of ["row", "column", "table"] as const) {
-      const button = document.createElement("button"); button.type = "button"; button.textContent = "Select " + axis;
-      button.onmousedown = event => event.preventDefault(); button.onclick = () => { const selection = selectTableCells(view.state, axis); if (selection) view.dispatch(view.state.tr.setSelection(selection)); view.focus(); }; toolbar.append(button);
-    }
-    toolbar.title = "Shift-click another cell to select a rectangle. Copy/paste uses tab-separated cells.";
-    for (const [action, label] of Object.entries({ "row-before": "Row before", "row-after": "Add row", "column-before": "Column before", "column-after": "Add column", "row-up": "Move row up", "row-down": "Move row down", "column-left": "Move column left", "column-right": "Move column right", "delete-row": "Delete row", "delete-column": "Delete column", "merge-selection": "Merge selection", "merge-right": "Merge right", "merge-down": "Merge down", split: "Split cell", caption: "Add caption" })) {
-      const button = document.createElement("button"); button.type = "button"; button.textContent = label;
-      button.onmousedown = e => e.preventDefault(); button.onclick = () => { editTable(action as TableAction, encoding())(view.state, view.dispatch); view.focus(); };
-      toolbar.append(button); buttons.push({ button, action: action as TableAction });
-    }
-    view.dom.parentElement!.append(toolbar);
-    const update = () => { let active = false; for (const { button, action } of buttons) { const available = view.editable && (action !== "caption" || canCommand("table_caption")) && editTable(action, encoding())(view.state); button.disabled = !available; active ||= available; } toolbar.hidden = !active; };
-    update(); return { update, destroy() { toolbar.remove(); } };
-  } });
 }

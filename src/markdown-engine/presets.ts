@@ -29,12 +29,14 @@ export const localObjectPlugins: Record<string, string> = {
   tabs: "notion_tabs", tab: "notion_tabs", web_bookmark: "notion_bookmark",
   link_preview: "notion_link_preview", link_mention: "notion_link_preview", breadcrumb: "notion_breadcrumb", button: "notion_button",
   meeting_notes: "notion_meeting_notes", ai_block: "notion_ai_block",
-  html_embed: "notion_html_document", embed_web_contents: "notion_web_embed",
+  web_embed: "notion_web_embed",
 };
 
 // Notdown inherits the Notion codec's syntax and adds our block encodings.
 // It does not change the upstream preset or imply support for Notion cloud APIs.
 dialectDefaults["notion-markdown"] = flags("strikeout task_lists tex_math_dollars notion_columns notion_callouts notion_toggles notion_tables notion_pages notion_mentions notion_media notion_databases notion_synced notion_toc notion_nesting notion_colors notion_underline");
+dialectDefaults["notion-markdown"].notion_tabs = true;
+dialectDefaults["notion-markdown"].notion_meeting_notes = true;
 // Content extensions form a superset; competing lexical conventions (smart
 // punctuation, reversed wiki labels, backslash math, literate code, etc.) remain opt-in.
 export const notdownMarkdownDefaults = flags(`

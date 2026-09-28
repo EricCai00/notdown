@@ -88,6 +88,18 @@ export function createApp(options: {
     };
 
   const files=syntaxFiles(vault);
+  app.get("/api/databases", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.list()); }));
+  app.post("/api/databases", route(async (req, res) => res.status(201).json(await vault.databases.create(req.body))));
+  app.get("/api/databases/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.get(String(req.params.id))); }));
+  app.put("/api/databases/:id", route(async (req, res) => res.json(await vault.databases.updatePresentation(String(req.params.id), req.body))));
+  app.put("/api/databases/:id/icon", route(async (req, res) => res.json(await vault.databases.updateIcon(String(req.params.id), req.body))));
+  app.get("/api/data-sources/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.getSource(String(req.params.id))); }));
+  app.put("/api/data-sources/:id", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.updateSource(String(req.params.id), input, baseRevision)); }));
+  app.put("/api/database-views/:id", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.updateView(String(req.params.id), input, baseRevision)); }));
+  app.post("/api/databases/:id/views", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.status(201).json(await vault.databases.createView(String(req.params.id), input, baseRevision)); }));
+  app.post("/api/data-sources/:id/records", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.status(201).json(await vault.databases.createRecord(String(req.params.id), input, baseRevision)); }));
+  app.put("/api/data-sources/:id/records/:pageId", route(async (req, res) => res.json(await vault.databases.updateCell(String(req.params.id), String(req.params.pageId), req.body ?? {}))));
+  app.post("/api/data-sources/:id/records/:pageId/remove", route(async (req, res) => res.json(await vault.databases.removeRecord(String(req.params.id), String(req.params.pageId), req.body?.baseRevision, req.body?.schemaRevision))));
   const runtimeSettings = async () => (await vault.runtimeSettings.get()).settings;
   const notebook = new RNotebook(runtimeSettings);
   const quarto = new QuartoNotebook(runtimeSettings);
@@ -232,7 +244,7 @@ export function createApp(options: {
         vaultPath: vault.vaultPath,
         storage: "markdown",
         sync: "local-only",
-        capabilities: { pageActions: 1, sidebarDrag: 1, systemRecycleBin: process.platform === "win32" || !!options.recycleFile },
+        capabilities: { pageActions: 1, sidebarDrag: 1, databases: 1, systemRecycleBin: process.platform === "win32" || !!options.recycleFile },
       });
     }),
   );
@@ -287,7 +299,7 @@ export function createApp(options: {
     route(async (req, res) => {
       const { baseRevision, ...input } = req.body ?? {};
       return res.json(
-        await vault.update(String(req.params.id), input, baseRevision),
+        await vault.update(String(req.params.id), input, baseRevision, req.body?.schemaRevision),
       );
     }),
   );
@@ -300,7 +312,7 @@ export function createApp(options: {
     route(async (req, res) => {
       const { baseRevision, ...input } = req.body ?? {};
       return res.json(
-        await vault.resolveConflict(String(req.params.id), input, baseRevision),
+        await vault.resolveConflict(String(req.params.id), input, baseRevision, req.body?.schemaRevision),
       );
     }),
   );
@@ -355,13 +367,13 @@ export function createApp(options: {
       dotfiles: "deny",
       index: false,
       setHeaders(res, file) {
-        // Browser-active documents are downloaded. Uploaded names cannot select an executable suffix.
+        // HTML previews remain sandboxed even when opened outside the editor.
         if (
-          !/\.(png|jpe?g|gif|webp|avif|mp3|ogg|wav|m4a|mp4|webm|pdf)$/i.test(file)
+          !/\.(png|jpe?g|gif|webp|avif|mp3|ogg|wav|m4a|mp4|webm|pdf|html?)$/i.test(file)
         ) {
           res.setHeader("Content-Disposition", "attachment");
         }
-        res.setHeader("Content-Security-Policy", /\.pdf$/i.test(file) ? "default-src 'none'; script-src 'none'; object-src 'self'" : "default-src 'none'; sandbox");
+        res.setHeader("Content-Security-Policy", /\.html?$/i.test(file) ? "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox" : /\.pdf$/i.test(file) ? "default-src 'none'; script-src 'none'; object-src 'self'" : "default-src 'none'; sandbox");
         res.setHeader("X-Content-Type-Options", "nosniff");
       },
     }),

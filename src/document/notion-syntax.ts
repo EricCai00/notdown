@@ -50,7 +50,7 @@ export function attributesXml(attrs: TagAttributes): string {
   return Object.entries(attrs)
     .filter(
       ([key, value]) =>
-        /^[a-zA-Z][\w-]*$/.test(key) && value !== undefined && value !== "",
+        /^[a-zA-Z][\w-]*$/.test(key) && value !== undefined && (value !== "" || key === "ratio" || key === "width"),
     )
     .map(([key, value]) => ` ${key}="${escapeXml(value)}"`)
     .join("");
@@ -80,7 +80,7 @@ export function safeReference(value: string): string {
   const clean = value.trim();
   if (
     /[\u0000-\u001f\u007f]/.test(clean) ||
-    /^(?:javascript|vbscript|data|file):/i.test(clean)
+    /^(?:javascript|vbscript|data|file|file-upload):/i.test(clean) || /^\{\{.*\}\}$/.test(clean)
   )
     return "";
   return clean;

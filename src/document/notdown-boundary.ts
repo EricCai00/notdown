@@ -1,27 +1,32 @@
 import { editorKind, isEditorKind } from "./node-identity";
 import type { Node as PMNode } from "prosemirror-model";
+import { notionInline } from "./notion-markdown";
 
 export const hasOfficialDateTime = (node: PMNode) =>
   isEditorKind(node, "mention") && node.attrs.kind === "date" &&
-  (Object.hasOwn(node.attrs.nfmAttrs, "startTime") || Object.hasOwn(node.attrs.nfmAttrs, "timeZone"));
+    (Object.hasOwn(node.attrs.nfmAttrs, "startTime") || Object.hasOwn(node.attrs.nfmAttrs, "endTime") || Object.hasOwn(node.attrs.nfmAttrs, "timeZone"));
 
 /** Notion properties missing from the documented enhanced Markdown format.
  * Unknown source is retained; these properties only acquire semantics in Notdown. */
 export const supplementalAttributes: Record<string, readonly string[]> = {
+  notion_embed: ["width", "height", "align", "title"],
   code_block: ["caption"],
-  child_page: ["role"],
   column: ["width-ratio"],
   heading: ["open"],
   toggle_block: ["open"],
   mention: ["reminder", "reminder-offset", "date-format", "time-format", "time-zone"],
-  synced_block: ["id", "source-revision", "snapshot-hash", "auto-refresh"],
+  synced_block: ["id", "source-revision", "snapshot-hash", "auto-refresh", "auto-sync"],
+  meeting_notes: ["meeting-config"],
 };
 
 export function hasSupplementalAttributes(node: PMNode): boolean {
+  if (isEditorKind(node, "meeting_notes") && node.attrs.syntaxForm === "notion" &&
+      notionInline(String(node.attrs.title || "")).some(hasSupplementalAttributes)) return true;
+  if (node.type.name === "block.link_to_page") return true;
   if (node.marks.some(mark => isEditorKind(mark, "color") &&
       (mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color")))) return true;
   if (isEditorKind(node, "table") && node.attrs.syntaxForm === "notion" &&
-      ((node.attrs.widths || []).some(Boolean) || (node.attrs.columnAttrs || []).some((attrs: Record<string, unknown>) => Object.keys(attrs).some(key => key !== "color")))) return true;
+      (node.attrs.columnAttrs || []).some((attrs: Record<string, unknown>) => Object.keys(attrs).some(key => !["color", "width"].includes(key)))) return true;
   if (isEditorKind(node, "mention") && node.attrs.kind === "date" &&
       [node.attrs.nfmAttrs?.start, node.attrs.nfmAttrs?.end].some(value => typeof value === "string" && value.includes("T"))) return true;
   return (supplementalAttributes[editorKind(node)] || []).some(key =>

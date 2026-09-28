@@ -1,4 +1,4 @@
-import { editorKind } from "../../src/document/node-identity";
+import { editorKind, nodeName } from "../../src/document/node-identity";
 import { localObjectPlugins } from "../../src/markdown-engine/presets";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -23,8 +23,8 @@ for (const [name, sample] of Object.entries(objectSamples)) test(`${name} is edi
     const source = sample.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
     let state = EditorState.create({ doc: parseNative(source, config) }); state.doc.check();
     assert.equal(editorKind(state.doc.firstChild!), name);
-    assert.equal(resolveContentObject(state.doc.firstChild!)?.id, "block." + name);
-    assert.equal(contentObject("block." + name)?.status, "implemented");
+    assert.equal(resolveContentObject(state.doc.firstChild!)?.id, nodeName(name));
+    assert.equal(contentObject(nodeName(name))?.status, "implemented");
     assert.equal(serializeNative(state.doc, config), source);
     state = state.apply(state.tr.setNodeMarkup(0, undefined, { ...state.doc.firstChild!.attrs, nfmAttrs: { ...state.doc.firstChild!.attrs.nfmAttrs, custom: "keep" } }));
     const result = serializeNative(state.doc, config), reopened = parseNative(result, config);

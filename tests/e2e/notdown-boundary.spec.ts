@@ -8,7 +8,7 @@ test("official Notion editing cannot write supplemental toggle, column, date or 
   await page.goto(`/#page/${note.id}`);
   await page.locator('.pm-toggle-chevron').click();
   await expect(page.locator('.pm-toggle-chevron')).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('.pm-column-resizer').first()).toBeHidden();
+  await expect(page.locator('.pm-column-resizer').first()).toBeVisible();
   await page.locator('.pm-document [data-mention-kind="date"]').dblclick();
   await expect(page.getByRole('textbox', { name: 'Start time', exact: true })).toHaveValue('12:30');
   await expect(page.getByText('Reminder date and time', { exact: true })).toHaveCount(0);

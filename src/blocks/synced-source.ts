@@ -11,6 +11,9 @@ export function syncedSource(url: string) {
 }
 export function findSyncedSource(page: Page, id: string): { doc: PMNode; node: PMNode; pos: number } {
   const doc = parseNative(page.body, page.syntax || defaultSyntax(page.bodyFormat));
+  return findSyncedSourceInDoc(doc, id);
+}
+export function findSyncedSourceInDoc(doc: PMNode, id: string): { doc: PMNode; node: PMNode; pos: number } {
   let found: { doc: PMNode; node: PMNode; pos: number } | undefined;
   doc.descendants((node, pos) => {
     if (isEditorKind(node, "synced_block") && node.attrs.nfmAttrs.id === id && !node.attrs.reference) {

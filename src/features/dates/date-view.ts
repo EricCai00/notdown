@@ -78,6 +78,14 @@ export function renderDateSuggestions(
   return choices;
 }
 
+/** Bind the same mention UI to a date stored in a container title. */
+export interface DateMentionBinding {
+  supplemental: () => boolean;
+  write: (original: PMNode, attrs: DateAttributes, firstWrite: boolean) => boolean;
+  clear: (original: PMNode) => void;
+  finish: () => void;
+}
+
 export class DateMentionView implements NodeView {
   dom = document.createElement("span");
   private panel?: HTMLDivElement;
@@ -93,6 +101,7 @@ export class DateMentionView implements NodeView {
     private node: PMNode,
     private view: EditorView,
     private getPos: () => number | undefined,
+    private binding?: DateMentionBinding,
   ) {
     this.dom.contentEditable = "false";
     this.dom.tabIndex = 0;
@@ -223,7 +232,7 @@ export class DateMentionView implements NodeView {
       this.finish();
     };
     const paint = () => {
-      choices = renderDateSuggestions(panel, input.value, active, choose);
+      choices = renderDateSuggestions(panel, input.value, active, choose, this.binding?.supplemental() ?? true);
       this.position();
     };
     input.oninput = () => {
@@ -259,6 +268,16 @@ export class DateMentionView implements NodeView {
     input.focus();
   }
   private set(changes: DateAttributes) {
+    if (this.binding) {
+      if (!this.view.editable) { this.close(); return; }
+      this.writing = true;
+      try {
+        const attrs = updateDateAttributes(this.node.attrs.nfmAttrs, changes);
+        if (!this.binding.write(this.node, attrs, this.firstWrite)) this.close();
+        else this.firstWrite = false;
+      } finally { this.writing = false; }
+      return;
+    }
     const pos = this.getPos();
     if (
       pos === undefined ||
@@ -518,7 +537,7 @@ export class DateMentionView implements NodeView {
     });
     drawDays();
     panel.append(error);
-    this.selectRow(
+    if (this.binding?.supplemental() ?? true) this.selectRow(
       "Remind",
       attrs["reminder-offset"] || (attrs.reminder ? "custom" : "none"),
       [
@@ -553,7 +572,8 @@ export class DateMentionView implements NodeView {
       this.target = checked ? "end" : "start";
       this.buildCalendar();
     });
-    this.toggle("Include time", includeTime, (checked) => {
+    const supplemental = this.binding?.supplemental() ?? true;
+    if (supplemental) this.toggle("Include time", includeTime, (checked) => {
       const current = this.node.attrs.nfmAttrs,
         changes: DateAttributes = {};
       for (const field of ["start", "end"])
@@ -577,7 +597,7 @@ export class DateMentionView implements NodeView {
     details.className = "pm-date-formats";
     details.open = formatsOpen;
     details.append(summary);
-    panel.append(details);
+    if (supplemental) panel.append(details);
     this.selectRow(
       "Date format",
       attrs["date-format"] || "relative",
@@ -643,6 +663,11 @@ export class DateMentionView implements NodeView {
     footer.className = "pm-date-footer";
     footer.append(
       this.button("Clear date", () => {
+        if (this.binding) {
+          this.close();
+          if (this.view.editable) this.binding.clear(this.node);
+          return;
+        }
         const pos = this.getPos();
         if (pos === undefined || this.view.state.doc.nodeAt(pos) !== this.node)
           return;
@@ -715,6 +740,7 @@ export class DateMentionView implements NodeView {
   }
   private finish() {
     this.close();
+    if (this.binding) { this.binding.finish(); return; }
     const pos = this.getPos();
     if (pos !== undefined && this.view.state.doc.nodeAt(pos) === this.node)
       this.view.dispatch(

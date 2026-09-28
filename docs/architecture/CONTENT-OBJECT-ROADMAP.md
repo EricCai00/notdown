@@ -1,5 +1,7 @@
 # Notdown 对象统一与实现 Roadmap
 
+2026-09-27 修订：HTML embed 与 Web embed 合并为 `block.web_embed`，同时承载内嵌 HTML、URL 与 Typora iframe 编码。当前目录 79 项（41 block、2 metadata、32 inline、4 character）；以下历史数量以本次修订为准。
+
 2026-09-23 修订：Raw Source 不再是独立对象。`{=html}` 合并到 HTML block / Inline HTML，其他格式和 raw TeX 归入 Unsupported；全部保留原编码和可恢复源码。当前目录共 78 项（41 block、2 metadata、31 inline、4 character），下文旧数量与归类以此为准。
 
 2026-09-22。原 80 项对象清单加上用户要求的 Inline raw source，共 81 项：43 个 block、2 个 metadata、32 个 inline、4 个 character。对象身份独立于 Markdown 写法和 ProseMirror 节点；单一 ProseMirror 文档与原有 codec 继续工作，Markdown 文件仍是正文真相。
@@ -43,8 +45,7 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | block.pdf | PDF; PDF file | media_block.pdf (reference; notion_media) | implemented / P2 | Editable PDF attachment URL/caption, an embedded browser PDF viewer for local files and an Open PDF fallback link. |
 | block.file | File; attachment | media_block.file (reference; notion_media) | implemented / P2 | Editable attachment URL and caption with a download link; binary contents stay in the attachment. |
 | block.file_transclusion | File transclusion; file inclusion; embedded file; inline file transclusion | syntax.transclusion (source; transclusion); syntax_inline.transclusion (source; transclusion) | implemented / P2 | Editable block/inline inclusion references and recursive local previews, with file-change refresh and cycle/path/size checks. Included source remains a separate file. |
-| block.embed_web_contents | Embed web contents; embed; embedded page; iframe | syntax.embed (source; html_embed) | implemented / P2 | Editable URL iframe in an isolated preview. Availability depends on the remote site's embedding policy. |
-| block.html_embed | HTML embed; HTML document embed | html_embed (direct) | implemented / P3 | Editable HTML document in a sandboxed iframe, saved with the page. Scripts are disabled. |
+| block.web_embed | Embed contents; web embed; HTML embed; HTML document embed; iframe | web_embed / html_embed (direct); syntax.embed (source) | implemented / P2 | One PM node retaining URL, saved HTML and Typora iframe encodings. HTML scripts are disabled; remote previews depend on the destination's embedding policy. |
 | block.link_preview | Link preview | link_preview (direct) | implemented / P3 | Editable URL, title, description and image metadata. Local card content is preserved with the page. |
 | block.web_bookmark | Web bookmark; bookmark | web_bookmark (direct) | implemented / P3 | Editable URL, title, description and image metadata. Local card content is preserved with the page. |
 | block.bullet_list_item | Bullet list item; unordered list item; bulleted list | bullet_list_item (direct) | implemented / P0 |  |
@@ -55,8 +56,8 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | block.example_list_item | Example list item; example list | example_list_item (direct; example_lists) | implemented / P3 | Native editable structure with source-preserving parsing and serialization. |
 | block.table_of_contents | Table of contents; TOC; table of contents directive | table_of_contents.notion (direct; notion_toc); table_of_contents.directive (direct; toc_directives) | implemented / P1 | One generated directory with source-specific encoding and heading ranges. |
 | block.block_comment | Block comment; hidden comment; hidden comments | syntax.comment (source; comments) | implemented / P2 | Editable Markdown source comments, retained on disk and omitted from rendered output. |
-| block.link_to_page | Link to page; page reference | child_page (reference; notion_pages) | implemented / P2 | Explicit block reference to an existing page; insertion and navigation do not change the target's parent. |
-| block.child_page | Child page; page | child_page (reference; notion_pages) | implemented / P2 | Creating a child creates a page resource with its parent and writes an explicit role=child reference. Page metadata is the authority for ownership; legacy untyped references remain links. |
+| block.link_to_page | Link to page; page reference | child_page (reference; notion_pages) | implemented / P2 | Notdown-only page-link tag; can target a direct child without becoming a Child page block. Does not change ownership. |
+| block.child_page | Child page; page | child_page (reference; notion_pages) | implemented / P2 | Official page tag. Creation also creates a page resource; parsing existing source never moves resources. Tag identity does not derive from parent metadata. |
 | block.breadcrumb | Breadcrumb | breadcrumb (direct) | implemented / P3 | Editable ordered page references with titles resolved from the local page list. |
 | block.columns | Columns; column list; two columns | columns (direct; notion_columns) | implemented / P0 |  |
 | block.tabs | Tabs; tab group | tabs (direct) | implemented / P3 | Editable tab titles and bodies, active tab selection, adding, removing and reordering tabs; all changes are undoable. |

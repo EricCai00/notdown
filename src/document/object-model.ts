@@ -1,11 +1,13 @@
 import type { NodeSpec, MarkSpec, DOMOutputSpec } from "prosemirror-model";
 import { domAttributes } from "../markdown-engine/attributes";
+import { safeReference } from "./notion-syntax";
+import { embedSource, isHtmlAsset } from "./embed-source";
 
 const attrs = (values: Record<string, unknown>) => Object.fromEntries(Object.entries(values).map(([name, value]) => [name, { default: value }]));
 export const objectTags: Record<string, string> = {
   tabs: "tabs", tab: "tab", bookmark: "web_bookmark", "link-preview": "link_preview",
   breadcrumb: "breadcrumb", button: "button", "meeting-notes": "meeting_notes", "ai-block": "ai_block",
-  "html-embed": "html_embed", "web-embed": "embed_web_contents", figure: "image_block",
+  "web-embed": "web_embed", figure: "image_block",
 };
 export const objectFields: Record<string, Record<string, string>> = {
   tabs: { active: "Active tab" }, tab: { title: "Tab title" },
@@ -16,8 +18,10 @@ export const objectFields: Record<string, Record<string, string>> = {
   button: { label: "Label" }, // Uses the dedicated step editor, not generic string fields.
   meeting_notes: { title: "Meeting title", audio: "Audio attachment", language: "Language" },
   ai_block: { prompt: "Prompt", model: "Model (blank uses settings)" },
-  html_embed: { html: "HTML document" },
-  embed_web_contents: { url: "Embed URL", title: "Title" },
+  web_embed: { url: "Embed URL", title: "Title", caption: "Caption" },
+  notion_embed: { src: "HTML attachment URL", caption: "Caption" },
+  folder: { url: "Folder URL", label: "Title" },
+  database: { url: "Database URL", dataSourceUrl: "Data source URL", label: "Title", icon: "Icon" },
   image_block: { src: "Image URL", alt: "Alternative text", caption: "Caption", title: "Title" },
   media_block: { src: "Attachment URL", caption: "Caption" },
   unknown_block: { url: "Source reference", alt: "Description" },
@@ -35,8 +39,8 @@ export function objectNodeSpecs(block: (spec: NodeSpec) => NodeSpec): Record<str
       ["p", n.attrs.description], ["figcaption", n.attrs.caption]],
   });
   return {
-    tabs: block({ group: "block", content: "tab+", defining: true, isolating: true, attrs: attrs({ active: 0 }), toDOM: () => ["div", { class: "pm-tabs" }, 0] }),
-    tab: block({ content: "block+", defining: true, isolating: true, attrs: attrs({ title: "Tab" }), toDOM: n => ["section", { class: "pm-tab", "data-title": n.attrs.title }, 0] }),
+    tabs: block({ group: "block", content: "tab+", defining: true, isolating: true, attrs: attrs({ active: 0, syntaxForm: "local" }), toDOM: () => ["div", { class: "pm-tabs" }, 0] }),
+    tab: block({ content: "block+", defining: true, isolating: true, attrs: attrs({ title: "Tab", syntaxForm: "local" }), toDOM: n => ["section", { class: "pm-tab", "data-title": n.attrs.title }, 0] }),
     web_bookmark: card("web_bookmark"), link_preview: card("link_preview"),
     link_mention: { inline: true, group: "inline", atom: true, selectable: true,
       attrs: attrs({ url: "", label: "", nfmAttrs: {} }),
@@ -45,10 +49,13 @@ export function objectNodeSpecs(block: (spec: NodeSpec) => NodeSpec): Record<str
     },
     breadcrumb: block({ group: "block", atom: true, attrs: attrs({ path: "" }), toDOM: n => ["nav", { class: "pm-breadcrumb", "aria-label": "Breadcrumb" }, ...String(n.attrs.path).split("\n").filter(Boolean).map(id => ["a", { href: "#page/" + encodeURIComponent(id) }, id] as DOMOutputSpec)] }),
     button: block({ group: "block", atom: true, attrs: attrs({ label: "Button", icon: "", variant: "default", actions: "", action: "insert-text", target: "" }), toDOM: n => ["button", { type: "button", class: "pm-action-button", "data-variant": n.attrs.variant }, ["span", { "aria-hidden": "true" }, n.attrs.icon], ["span", n.attrs.label]] }),
-    meeting_notes: block({ group: "block", content: "block+", defining: true, isolating: true, attrs: attrs({ title: "Meeting notes", audio: "", language: "", transcript: "" }), toDOM: n => ["section", { class: "pm-meeting-notes" }, ["h3", n.attrs.title], ["div", 0]] }),
-    ai_block: block({ group: "block", content: "block+", defining: true, isolating: true, attrs: attrs({ prompt: "", model: "" }), toDOM: () => ["section", { class: "pm-ai-block" }, 0] }),
-    html_embed: block({ group: "block", atom: true, attrs: attrs({ html: "" }), toDOM: n => ["iframe", { class: "pm-html-embed", sandbox: "", referrerpolicy: "no-referrer", srcdoc: n.attrs.html, title: "HTML document" }] }),
-    embed_web_contents: block({ group: "block", atom: true, attrs: attrs({ url: "", title: "" }), toDOM: n => ["iframe", { src: /^https?:\/\//i.test(n.attrs.url) ? n.attrs.url : "", title: n.attrs.title || "Web embed", sandbox: "allow-scripts allow-forms allow-presentation", referrerpolicy: "no-referrer" }] }),
+    meeting_notes: block({ group: "block", content: "(block | meeting_section)+", defining: true, isolating: true, attrs: attrs({ title: "Meeting notes", audio: "", language: "", transcript: "", syntaxForm: "local" }), toDOM: n => ["section", { class: "pm-meeting-notes" }, ["h3", n.attrs.title], ["div", 0]] }),
+    meeting_section: block({ content: "block+", defining: true, isolating: true, attrs: attrs({ section: "notes" }), toDOM: n => ["section", { class: "pm-meeting-section", "data-section": n.attrs.section }, ["strong", n.attrs.section], ["div", 0]] }),
+    ai_block: block({ group: "block", content: "block+", defining: true, isolating: true, attrs: attrs({ prompt: "", model: "", generate: "", using: "", context: "", search: "" }), toDOM: () => ["section", { class: "pm-ai-block" }, 0] }),
+    web_embed: block({ group: "block", atom: true, attrs: attrs({ url: "", title: "", caption: "", width: "", height: "", align: "" }), toDOM: n => ["iframe", { src: embedSource(n.attrs.url), title: n.attrs.title || "Web embed", sandbox: isHtmlAsset(n.attrs.url) ? "" : "allow-scripts allow-forms allow-presentation", referrerpolicy: "no-referrer" }] }),
+    notion_embed: block({ group: "block", atom: true, attrs: attrs({ src: "", caption: "" }), toDOM: n => ["figure", { class: "pm-notion-embed" }, ["iframe", { src: embedSource(n.attrs.src) || null, sandbox: "", referrerpolicy: "no-referrer", title: n.attrs.caption || "HTML attachment" }], ["figcaption", n.attrs.caption]] }),
+    folder: block({ group: "block", atom: true, attrs: attrs({ url: "", label: "" }), toDOM: n => ["a", { class: "pm-notion-folder", href: safeReference(n.attrs.url) || null, rel: "noopener noreferrer" }, n.attrs.label || n.attrs.url || "Folder"] }),
+    database: block({ group: "block", atom: true, attrs: attrs({ url: "", dataSourceUrl: "", label: "", icon: "", inline: false, wiki: false }), toDOM: n => ["a", { class: "pm-notion-database", href: safeReference(n.attrs.url || n.attrs.dataSourceUrl), rel: "noopener noreferrer" }, n.attrs.label || "Database reference"] }),
     image_block: block({ group: "block", atom: true, draggable: true, attrs: attrs({ src: "", alt: "", caption: "", title: "" }), toDOM: n => ["figure", { class: "pm-image-block" }, ["img", { src: safeUrl(n.attrs.src), alt: n.attrs.alt, title: n.attrs.title }], ["figcaption", n.attrs.caption]] }),
     example_list: block({ group: "block", content: "example_list_item+", attrs: attrs({ start: 1 }), toDOM: n => ["ol", { start: n.attrs.start, class: "pm-example-list" }, 0] }),
     example_list_item: block({ content: "paragraph block*", defining: true, attrs: attrs({ label: "", number: 1, referenceId: null }), toDOM: n => ["li", { "data-example-label": n.attrs.label, id: n.attrs.referenceId, value: n.attrs.number }, 0] }),
@@ -62,12 +69,11 @@ export const objectMarkSpecs: Record<string, MarkSpec> = {
   small_caps: { attrs: attrs({ attributes: { class: "smallcaps" }, syntaxForm: "bracketed" }), parseDOM: [{ tag: "span.smallcaps", getAttrs: dom => ({ attributes: Object.fromEntries([...dom.attributes].map(a => [a.name, a.value])), syntaxForm: "html" }) }, { style: "font-variant=small-caps" }], toDOM: m => ["span", { ...domAttributes(m.attrs.attributes), class: "smallcaps " + (domAttributes(m.attrs.attributes).class || ""), style: "font-variant:small-caps" }, 0] },
 };
 export const objectSamples: Record<string, string> = {
-  embed_web_contents: '<web-embed url="https://example.com"/>',
+  web_embed: '<web-embed url="https://example.com"/>',
   tabs: '<tabs active="0">\n<tab title="First">\nFirst tab content\n</tab>\n<tab title="Second">\nSecond tab content\n</tab>\n</tabs>',
   web_bookmark: '<bookmark url="https://example.com" title="Example" description="Bookmark description" caption=""/>',
   link_preview: '<link-preview url="https://example.com" title="Example" description="Link description"/>',
   breadcrumb: '<breadcrumb path=""/>', button: '<button label="New task" icon="＋" actions="[{&quot;type&quot;:&quot;insert-blocks&quot;,&quot;position&quot;:&quot;below&quot;,&quot;content&quot;:&quot;- [ ] New task&quot;}]"/>',
   meeting_notes: '<meeting-notes title="Meeting notes" audio="">\nWrite meeting notes here.\n</meeting-notes>',
   ai_block: '<ai-block prompt="Summarize the following text" model="">\nWrite text to summarize here.\n</ai-block>',
-  html_embed: '<html-embed>\n&lt;!doctype html&gt;&lt;html&gt;&lt;body&gt;&lt;h1&gt;Embedded document&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;\n</html-embed>',
 };

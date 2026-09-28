@@ -45,6 +45,8 @@ type Row = [
 // carrier@switch+switch:editing; alternatives are separated by semicolons.
 const rows: Record<ContentCategory, Row[]> = {
   block: [
+    ["folder", "Folder reference", "Notion folder", "leaf", "implemented", "P2", "folder@notion_pages:reference", "Official folder reference with editable URL/title. Local navigation only; does not create or move a Notion folder."],
+    ["database", "Database reference", "linked database;wiki database", "leaf", "implemented", "P2", "database@notion_databases:reference", "Official database/data-source reference with retained inline/wiki/icon properties. Local host references open vault databases or embed editable tables; remote references remain links. The Markdown stores only the reference, never records or view definitions. No cloud operations."],
     ["executable_chunk", "Executable Chunk", "Quarto;R Markdown;knitr;R;Python;Julia;OJS", "text", "implemented", "P1", "executable_chunk:direct", "One executable cell for all supported languages; R Markdown supports R, Quarto and Notdown support R/Python/Julia/OJS. Separate language sessions, temporary output."],
     [
       "paragraph",
@@ -230,24 +232,14 @@ const rows: Record<ContentCategory, Row[]> = {
       "File inclusion supports block and inline placement, e.g. Before {{fragment.txt}} after. Upstream MultiMarkdown expands markers before parsing, without a line-boundary restriction. Notdown provides sandboxed read-only local text previews; no synchronized editing or unrestricted preprocessing.",
     ],
     [
-      "embed_web_contents",
-      "Embed web contents",
-      "embed;web embed;embedded page;iframe;网页嵌入",
+      "web_embed",
+      "Web embed",
+      "embed;web embed;HTML embed;HTML document embed;embedded page;iframe;网页嵌入",
       "leaf",
       "partial",
       "P2",
       "syntax.embed@html_embed:source",
       "Isolated URL iframe; the remote site may refuse embedding.",
-    ],
-    [
-      "html_embed",
-      "HTML embed",
-      "HTML document embed",
-      "leaf",
-      "planned",
-      "P3",
-      "",
-      "HTML document import and isolated preview are not implemented.",
     ],
     ["link_preview", "Link preview", "github;onedrive", "leaf", "planned", "P3", ""],
     [
@@ -344,7 +336,7 @@ const rows: Record<ContentCategory, Row[]> = {
       "partial",
       "P2",
       "child_page@notion_pages:reference",
-      "Block page reference; existing payloads do not encode ownership separately.",
+      "Notdown-only page-link block; target ownership does not determine the block type.",
     ],
     [
       "child_page",
@@ -431,6 +423,7 @@ const rows: Record<ContentCategory, Row[]> = {
     ],
   ],
   inline: [
+    ["mention_agent", "Agent mention", "Notion agent", "inline", "implemented", "P2", "mention_agent@notion_mentions:reference", "Official agent reference, retaining its URL and label; does not run a Notion agent."],
     ["executable_expression", "Executable Expression", "Quarto inline", "text", "implemented", "P1", "executable_inline:source", "One inline expression for all supported languages, preserving legacy R delimiters and temporary execution results."],
     [
       "code_span",
@@ -779,22 +772,24 @@ const byId = new Map(
 export const contentObject = (id: string) => byId.get(id);
 for (const name of Object.keys(objectSamples)) {
   if (!localObjectPlugins[name]) continue;
-  const object = byId.get("block." + name)!;
+  const object = byId.get(nodeName(name))!;
   object.adapters = [{ carrier: name, extensions: [localObjectPlugins[name]], editing: "direct" }, ...object.adapters];
   object.status = "implemented";
   object.note = ({
     web_bookmark: "Empty bookmark and URL popover; paste as Bookmark. Fetches public webpage title, description, icon and cover on creation or manual refresh; metadata is saved in Markdown. Failed requests retain the link. Edit properties, caption and link; undo and redo. Login-only or script-rendered pages may need manual details.",
     link_preview: "GitHub repository, issue, PR and code previews; OneDrive / SharePoint file thumbnails and metadata. Paste as link, inline mention or preview. Remote refresh never changes Markdown. Private content requires a local token; OAuth sign-in and automatic token renewal are not implemented.",
     ai_block: "Editable prompt and result; Generate calls the configured OpenAI-compatible service. Delayed results never replace concurrent edits.",
-    meeting_notes: "Editable meeting notes and audio path; Transcribe uses the configured OpenAI-compatible service and stores the editable transcript.",
+    meeting_notes: "Official title-first meeting notes preserve summary, notes and transcript sections. Legacy Notdown audio properties can use the configured transcription service.",
     button: "Click to run; hover to configure name, icon, style and ordered actions. Insert Markdown blocks in four positions, confirm, or open a page/URL. One undo per run; legacy actions preserved. Database/cloud actions are not supported.",
     tabs: "Editable tab titles and bodies, active tab selection, adding, removing and reordering tabs; all changes are undoable.",
-    html_embed: "Upload or drop an HTML file, or enter HTML code directly. Editable sandboxed preview saved with the page; scripts are disabled.",
-    embed_web_contents: "Insert an empty web embed and enter an HTTP(S) URL. Editable isolated preview; remote sites may refuse embedding.",
+    web_embed: "Embed an HTTP(S) URL or upload/drop an HTML file into assets. Markdown stores the file reference; scripts are disabled for local HTML.",
     image_block: "Editable image URL, alternative text, title and separate caption.",
     breadcrumb: "Clickable page icons and titles from the vault's root page to the current page, following its parent hierarchy.",
   } as Record<string, string>)[name] || "Editable URL, title, description and image metadata. Local card content is preserved with the page.";
 }
+// Completion describes the local object contract, independently of a dialect's
+byId.get("block.web_embed")!.adapters.push({ carrier: "notion_embed", extensions: ["notion_media"], editing: "direct" });
+
 // Completion describes the local object contract, independently of a dialect's
 // full upstream language or an external service account being configured.
 for (const [id, note] of Object.entries({
@@ -816,11 +811,11 @@ for (const [id, note] of Object.entries({
   "block.html_block": "Bare HTML and {=html} raw source share a sanitized HTML preview and source editor, retaining their original encoding. HTML embed remains a separate document object.",
   "block.pdf": "Separate PDF insertion with a local browser PDF preview, editable URL/caption and a fallback link; no custom PDF reader.",
   "block.file_transclusion": "Editable block/inline inclusion references and recursive local previews, with file-change refresh and cycle/path/size checks. Included source remains a separate file.",
-  "block.embed_web_contents": "Editable URL iframe in an isolated preview. Availability depends on the remote site's embedding policy.",
+  "block.web_embed": "One embed node for remote URLs, HTML assets and Typora iframes. Uploaded HTML is saved in assets and Markdown stores only the URL. Local HTML scripts are disabled; remote URLs depend on the site's embedding policy.",
   "block.block_comment": "Editable Markdown source comments, retained on disk and omitted from rendered output.",
-  "block.link_to_page": "Explicit block reference to an existing page; insertion and navigation do not change the target's parent.",
-  "block.child_page": "Creating a child creates a page resource with its parent. Page metadata controls ownership; the supplemental role=child marker is only written in Notdown.",
-  "block.synced_block": "Official tags preserve references and snapshots. In Notdown only: local source IDs, refresh/publish and optional live refresh that pauses on local edits. Publishing uses the captured source revision and preserves CAS conflicts. No cross-device sync.",
+  "block.link_to_page": "Notdown <page-link> is an explicit block reference, including to a direct child. Insertion and navigation do not change the target's parent. Official Notion Markdown has no Link to page carrier.",
+  "block.child_page": "Official <page> represents a Child page block. Creating one creates a page resource with its parent; parsing existing source never changes resource ownership.",
+  "block.synced_block": "Official tags preserve references and snapshots. In Notdown only: copy synced references, list locations, unsync copies, same-page editing and automatic local refresh/publish for new copies. Legacy snapshots keep manual controls. Publishing uses the captured revision; conflicts pause sync and remain recoverable. No cloud or cross-device sync.",
   "metadata.yaml_front_matter": "Page properties include a cover field. Body YAML/MMD have field and source editors and never overwrite page YAML. MMD remains restricted plain-text metadata, not full YAML.",
   "metadata.pandoc_title_block": "Title, author and date fields, continuation lines and source editing retain the Pandoc title-block encoding separately from page YAML.",
   "inline.internal_link": "Unified page and location references: Notion page mentions, Wiki links, Markdown file and fragment links. Location targets include headings, Obsidian block IDs (including list items), and supported anchors. Syntax remains dialect-specific.",
@@ -842,6 +837,7 @@ export function getContentCapabilities(id: string, config: SyntaxConfig) {
   const adapters =
     object?.adapters.filter(
       (adapter) =>
+        (id !== "block.link_to_page" || config.variant === "notdown") &&
         (!(["block.executable_chunk", "inline.executable_expression"].includes(id)) || ["rmarkdown", "quarto", "notdown"].includes(config.variant)) &&
         !(config.variant === "notion-markdown" && ["inline.image", "inline.autolink"].includes(id)) &&
         adapter.extensions.every((flag) => enabled(config, flag)),
@@ -856,6 +852,7 @@ export function getContentCapabilities(id: string, config: SyntaxConfig) {
 
 /** Supporting nodes are deliberately not additional product block types. */
 export const implementationRoles: Record<string, string> = {
+  meeting_section: "Meeting summary, notes or transcript section",
   doc: "Document root",
   text: "Text storage",
   nested_block: "Parent/children wrapper",
@@ -972,7 +969,8 @@ const commandObjects: Record<string, string> = {
   comment: "block.block_comment",
   inline_comment: "inline.inline_comment",
   transclusion: "block.file_transclusion",
-  embed: "block.embed_web_contents",
+  embed: "block.web_embed",
+  html_embed: "block.web_embed",
   html: "block.html_block",
   definitions: "block.definition_list_item",
   footnote: "inline.footnote",
@@ -984,7 +982,7 @@ export function contentCommand(command: string, config?: SyntaxConfig) {
   const level = /^heading([1-6])$/.exec(command)?.[1];
   return {
     object,
-    label: object ? object.name + (level ? ` ${level}` : "") : undefined,
+    label: command === "html_embed" ? "HTML embed" : object ? object.name + (level ? ` ${level}` : "") : undefined,
     aliases: object?.aliases || [],
     enabled: !config || commandEnabled(config, command),
   };

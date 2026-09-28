@@ -1,13 +1,22 @@
 # Notdown 自定义正文语法审计与整改
 
+2026-09-27 修订：`html-embed` 与 `notion_html_document` 已移除；HTML 上传统一为 `web-embed` 的 assets 文件引用，显式迁移提取旧正文。下表相关行仅为历史审计。
+
 ## 最新决定与已落实边界
+
+2026-09-27 会议卡片修订：复用官方 title-first `<meeting-notes>` 与分区结构、日期和联系人提及；仅 Notdown 增加 `meeting-config` 块属性，补充语言、音频、摘要指令及菜单偏好。配置未知字段保留，官方方言不启用该属性；位置链接复用既有 Obsidian 块锚点，不新增链接协议。详见[会议笔记](../features/MEETING-NOTES.md)。
+
+2026-09-27 同步块交互修订：新增仅 Notdown 生效的 `auto-sync`，复用官方同步块／引用标签，补足本地自动发布、刷新及副本复制行为；不新增标签，不迁移旧快照。实现移至 [synced-block-view.ts](../../src/blocks/synced-block-view.ts)，仍使用已捕获版本的 CAS，冲突暂停并保留双方内容。官方 variant 将补充属性按原文保留，不启用本地同步。详见[同步块说明](../features/SYNCED-BLOCKS.md)。
+
+2026-09-27 后续修订：已核实官方 MCP Enhanced Markdown 完整规范并实现其明确语法；Tabs 不再整体列为私有，Meeting notes 的完整分区结构也已支持。表格 col width、date endTime 等同样属于官方边界。旧本地属性仍仅限 Notdown，MCP 支持不等于 REST 写入端点认证。详见[更新后的语法及边界](../reference/NOTION-MCP-SYNTAX.md)。下面的 2026-09-23 状态与旧验证数字保留为历史记录，由本次修订覆盖相冲突的结论。
 
 2026-09-23，用户修订了原先“完全不允许自定义”的要求。Notdown 集合已有 Markdown 方言与 Notion。自定义正文语法仅用于补足官方 Enhanced Markdown 不支持的 Notion block、已有 block 的属性、inline 和 style，且只能在 `syntax.variant: notdown` 启用；`notion-markdown` 仅启用官方文档定义的语法，显式扩展开关也不能越过此边界。能用已有方言表达的内容复用该方言，不能另造重复协议。旧文件和未知字段必须可恢复保留，不批量迁移用户内容。
 
 | 处理 | 内容 |
 | --- | --- |
 | 保留，仅 Notdown | Tabs、Bookmark、Link preview（含 inline）、Breadcrumb、Button、Meeting notes 补充属性、AI block、HTML document、Web embed，共九组开关。其他 variant 的旧配置、别名或显式 true 不能启用它们。 |
-| 保留，仅 Notdown | page role=child（所有权仍以页面元数据为准）；column width-ratio；日期 reminder/reminder-offset/date-format/time-format/time-zone 与 ISO start/end；折叠 open；synced 的本地 id/revision/hash/auto-refresh。官方 variant 遇到这些已知补充属性保留整个块原文，避免启用行为。 |
+| 保留，仅 Notdown | column width-ratio（旧写法兼容）；日期 reminder/reminder-offset/date-format/time-format/time-zone 与 ISO start/end；折叠 open；synced 的本地 id/revision/hash/auto-refresh。官方 variant 遇到这些已知补充属性保留整个块原文，避免启用行为。 |
+| 2026-09-27 页面块修正 | 官方 page 标签专用于 Child page；新增仅 Notdown 启用的 page-link 标签补足 Link to page。两者可以指向同一个子页，不能按 parent 推断类型。旧 role 仅作未知属性保留，新入口不写。官方 unknown 可在 Notdown 导入时依据 Block API 真实类型恢复，原始数据归档；官方方言保留占位。 |
 | 删除重复协议 | local_figure 退出扩展注册与插入入口；Image block 示例使用 Pandoc 独立图片和 link_attributes 的 alt。旧 figure 原文仍可恢复，独立图片 alt 为空时不误判 implicit figure。 |
 | 停止生成并停用 | :::nest/:::children/:::endnest、:::columns/:::column、::page；新内容用官方 Tab 嵌套、columns、page/mention-page。旧解析函数仅供旧源恢复，当前 variant 中只显示可恢复源码。 |
 | 删除重复插件 | Lab notdown-bookmark；旧保存的 bookmark 插件配置无行为，围栏按普通代码展示，示例改为普通链接。 |

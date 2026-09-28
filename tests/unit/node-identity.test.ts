@@ -117,7 +117,7 @@ test("shared object IDs retain distinct encodings and replace incompatible node 
   assert.equal(updates, 1);
 });
 
-test("dotted IDs preserve structural constraints and unknown Agent source", () => {
+test("dotted IDs preserve structural constraints and official Agent source", () => {
   const doc = parseNative(
     '- Parent\n  - Child\n\n<mention-agent url="agent://x" future="keep">Helper</mention-agent>\n',
     config,
@@ -129,5 +129,5 @@ test("dotted IDs preserve structural constraints and unknown Agent source", () =
     serializeNative(doc, config),
     /<mention-agent url="agent:\/\/x" future="keep">Helper<\/mention-agent>/,
   );
-  assert.equal(schema.nodes["inline.mention_agent"], undefined);
+  assert.equal(doc.child(1).firstChild!.type.name, "inline.mention_agent");
 });

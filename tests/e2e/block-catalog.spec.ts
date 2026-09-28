@@ -36,7 +36,7 @@ test("Block Explorer browses registered blocks, previews, variants and extension
   await expect(
     page.getByRole("heading", { name: "Block Explorer" }),
   ).toBeVisible();
-  await expect(page.locator("[data-entry]")).toHaveCount(80);
+  await expect(page.locator("[data-entry]")).toHaveCount(82);
   await expect(page.locator('[data-entry="block.raw_tex"]')).toHaveCount(0);
   await expect(page.locator(".catalog-preview .pm-document")).toContainText(
     "A paragraph",
@@ -195,7 +195,7 @@ test("extension source filters, reference-only syntax and filtered return paths 
   await page
     .getByRole("combobox", { name: "Extension source" })
     .selectOption("notion");
-  await expect(page.locator(".catalog-results article")).toHaveCount(22);
+  await expect(page.locator(".catalog-results article")).toHaveCount(21);
   await page.getByRole("searchbox").fill("notion_underline");
   await expect(page.locator(".catalog-results article")).toHaveCount(1);
   await expect(detail.locator(":scope > h2")).toHaveText(

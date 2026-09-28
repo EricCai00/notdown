@@ -16,7 +16,7 @@ export class DocumentSession {
   private lastOrigin = "";
   private lastTime = 0;
   private lastEdit: { from: number; to: number; kind: string } | undefined;
-  constructor(source: string, config: SyntaxConfig, private readonly projectDocument: (doc: PMNode) => PMNode = doc => doc) {
+  constructor(source: string, config: SyntaxConfig) {
     this.snapshot = {
       source,
       config: structuredClone(normalizeSyntax(config)),
@@ -24,7 +24,7 @@ export class DocumentSession {
     };
   }
   parse(source: string, config = this.snapshot.config) {
-    return this.projectDocument(parseNative(source, config));
+    return parseNative(source, config);
   }
   breakHistory() {
     this.lastTime = 0;

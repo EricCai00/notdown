@@ -103,6 +103,7 @@ test("Notdown keeps Markdown attributes, HTML, references, space lists and expli
 test("every insertion has a registered icon and group; disabled commands are absent", () => {
   const items = insertMenuItems(config);
   assert.equal(items.find(item => item[0] === "tabs")?.[5], "Notion advanced");
+  assert.equal(items.find(item => item[0] === "html_embed")?.[2], "HTML embed");
   assert.equal(items.find(item => item[0] === "html_embed")?.[5], "Notion embeds");
   assert.equal(items.find(item => item[0] === "embed")?.[5], "Notion embeds");
   assert.equal(items.find(item => item[0] === "footnote")?.[5], "Markdown inline");

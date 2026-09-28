@@ -27,13 +27,13 @@ const config = (
   extensions: Record<string, boolean> = {},
 ): SyntaxConfig => ({ version: 1, variant, extensions });
 test("target inventory merges raw HTML and preserves other formats as unsupported", () => {
-  assert.equal(contentObjects.length, 80);
-  assert.equal(new Set(contentObjects.map((o) => o.id)).size, 80);
+  assert.equal(contentObjects.length, 82);
+  assert.equal(new Set(contentObjects.map((o) => o.id)).size, 82);
   assert.deepEqual(
     ["block", "metadata", "inline", "character"].map(
       (c) => contentObjects.filter((o) => o.category === c).length,
     ),
-    [42, 2, 32, 4],
+    [43, 2, 33, 4],
   );
   for (const object of contentObjects) {
     assert.equal(object.id.split(".")[0], object.category);
@@ -66,7 +66,7 @@ test("target inventory merges raw HTML and preserves other formats as unsupporte
   );
   assert.equal(
     getContentCapabilities("block.tabs", config("notion-markdown")).available,
-    false,
+    true,
   );
   assert.equal(
     getContentCapabilities(

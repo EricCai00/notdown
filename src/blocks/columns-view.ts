@@ -19,7 +19,6 @@ export class ColumnsView implements NodeView {
     private node: PMNode,
     private view: EditorView,
     private getPos: () => number | undefined,
-    private supplemental: () => boolean = () => false,
   ) {
     this.contentDOM.className = "pm-columns-content";
     this.dom.append(this.contentDOM);
@@ -109,7 +108,7 @@ export class ColumnsView implements NodeView {
       const left = columns[index]?.getBoundingClientRect(),
         right = columns[index + 1]?.getBoundingClientRect();
       handle.hidden =
-        !this.supplemental() || !this.view.editable || !left || !right || right.left <= left.left;
+        !this.view.editable || !left || !right || right.left <= left.left;
       if (left && right) {
         handle.style.left = `${(left.right + right.left) / 2 - rect.left}px`;
         handle.setAttribute(
@@ -125,7 +124,7 @@ export class ColumnsView implements NodeView {
   private commit(widths: number[]) {
     const pos = this.getPos();
     if (
-      !this.supplemental() || !this.view.editable ||
+      !this.view.editable ||
       pos === undefined ||
       this.view.state.doc.nodeAt(pos) !== this.node
     )
@@ -135,7 +134,7 @@ export class ColumnsView implements NodeView {
   }
 
   private startDrag(event: PointerEvent, index: number) {
-    if (!this.supplemental() || event.button !== 0 || !this.view.editable) return;
+    if (event.button !== 0 || !this.view.editable) return;
     event.preventDefault();
     event.stopPropagation();
     this.cancelDrag?.();

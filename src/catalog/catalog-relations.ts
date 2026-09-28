@@ -16,7 +16,7 @@ import {
 
 export const catalogObjects = contentObjects;
 import { extensionCategory } from "./extension-categories";
-import { notionFeatureOrigins, localEncodingNote } from "./extension-feature-origins";
+import { notionFeatureOrigins, localEncodingNote, notionMcpSyntax, notionMcpSpecUrl } from "./extension-feature-origins";
 export { extensionCategories, type ExtensionCategory } from "./extension-categories";
 export interface Reference {
   label: string;
@@ -112,7 +112,7 @@ export const variantReferences: Record<Dialect, Reference[]> = {
 export const extensionNames: Record<string, { label: string; note: string }> = {
   notion_columns: {
     label: "Notion column tags",
-    note: "Official columns tags. Resizable width-ratio properties are supplemental and Notdown-only. Retired :::columns directives are preserved as raw source.",
+    note: "Official columns tags support percentage ratio attributes and resizing. Legacy width-ratio fractions are read in Notdown; resizing writes ratio only. Retired :::columns directives are preserved as raw source.",
   },
   notion_callouts: {
     label: "Notion callout tags",
@@ -128,7 +128,7 @@ export const extensionNames: Record<string, { label: string; note: string }> = {
   },
   notion_pages: {
     label: "Notion page references",
-    note: "Official page blocks and mentions. Supplemental role=child is Notdown-only; ownership remains page metadata. Retired ::page directives are raw source.",
+    note: "Official <page> is Child page and <mention-page> is inline. Only Notdown enables the supplemental <page-link> for Link to page, including links to direct children. Block type never derives from parent metadata; retired ::page directives remain raw source.",
   },
   notion_mentions: {
     label: "Notion mentions and citations",
@@ -247,10 +247,10 @@ export const catalogExtensions = workbook.rows.map((row, index) => {
   };
 }).concat(extensions.filter(e => !workbook.rows.some(row => canonicalExtensionId(row[0]!) === e.id)).map(e => ({
   id: e.id, legacyId: Object.keys(legacyLocalExtensionIds).find(key => legacyLocalExtensionIds[key] === e.id) ?? "", label: e.label, oldLabel: e.label, description: e.description,
-  category: extensionCategory(e.id), sourceLabel: notionFeatureOrigins[e.id] ? "Notion feature / Notdown local encoding" : notionAnchors[e.id] ? "Notion enhanced Markdown" : "Notdown blocks and extensions", sourceRange: "",
+  category: extensionCategory(e.id), sourceLabel: notionMcpSyntax[e.id] ? "Notion MCP specification" : notionFeatureOrigins[e.id] ? "Notion feature / Notdown local encoding" : notionAnchors[e.id] ? "Notion enhanced Markdown" : "Notdown blocks and extensions", sourceRange: "",
   workbookStates: Object.fromEntries(dialects.map(v => [v.id, "—"])) as Record<Dialect, string>,
-  workbookRegistration: "", status: "registered", namingNote: notionFeatureOrigins[e.id] ? localEncodingNote + " " + notionFeatureOrigins[e.id].note : extensionNames[e.id]?.note ?? "Local adapter; upstream dialect defaults are independent.",
-  references: notionFeatureOrigins[e.id] ? [ref(notionFeatureOrigins[e.id].label, notionFeatureOrigins[e.id].url)] : notionAnchors[e.id] ? [ref("Notion enhanced Markdown", notion + "#" + notionAnchors[e.id])] : e.id === "display_math" ? [ref("Typora math blocks", typora + "#math-blocks")] : productReferences[e.id] ?? [],
+  workbookRegistration: "", status: "registered", namingNote: notionMcpSyntax[e.id] || (notionFeatureOrigins[e.id] ? localEncodingNote + " " + notionFeatureOrigins[e.id].note : extensionNames[e.id]?.note ?? "Local adapter; upstream dialect defaults are independent."),
+  references: notionMcpSyntax[e.id] ? [ref("Notion MCP specification", notionMcpSpecUrl)] : notionFeatureOrigins[e.id] ? [ref(notionFeatureOrigins[e.id].label, notionFeatureOrigins[e.id].url)] : notionAnchors[e.id] ? [ref("Notion enhanced Markdown", notion + "#" + notionAnchors[e.id])] : e.id === "display_math" ? [ref("Typora math blocks", typora + "#math-blocks")] : productReferences[e.id] ?? [],
 }))).sort((a, b) => Number(a.status === "out-of-scope") - Number(b.status === "out-of-scope"));
 export type CatalogExtension = (typeof catalogExtensions)[number];
 export const catalogExtension = (id: string) =>

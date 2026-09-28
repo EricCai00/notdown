@@ -251,7 +251,7 @@ export function markdownRules(
       new InputRule(
         /(?<!\\)\[\[([^\[\]\n]+)\]\]$/,
         (state, match, start, end) => {
-          if (!allow("link") || /\ufffc/.test(match[1])) return null;
+          if (!(allow("wiki_syntax") || allow("mention")) || /\ufffc/.test(match[1])) return null;
           const separator = match[1].indexOf("|");
           const target = (
             separator < 0 ? match[1] : match[1].slice(0, separator)

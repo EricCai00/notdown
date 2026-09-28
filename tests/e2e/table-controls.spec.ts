@@ -1,0 +1,383 @@
+import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+
+const body = "Before the table.\n\n| Name | Content |\n| --- | --- |\n| Alpha | First |\n| Beta | Second |\n\nAfter the table.";
+async function open(page: Page, request: APIRequestContext, variant = "notdown", content = body) {
+  const response = await request.post("/api/pages", { data: { title: "Table controls", body: content, bodyFormat: variant === "notdown" ? "notion-markdown" : "markdown", syntax: { version: 1, variant, extensions: {} } } });
+  expect(response.status()).toBe(201);
+  const note = await response.json(); await page.goto(`/#page/${note.id}`);
+  await expect(page.locator(".pm-document table").first()).toBeVisible(); return note;
+}
+
+test("row and column handles edit the hovered target, append at edges and persist", async ({ page, request }) => {
+  const note = await open(page, request);
+  const table = page.locator(".pm-document table");
+  await expect(page.locator('.pm-table-tools[aria-label="Table editing"]')).toHaveCount(0);
+  await table.locator("tr").nth(1).locator("td").first().click();
+  await page.getByRole("button", { name: "Column actions", exact: true }).hover();
+  const preview = (await table.boundingBox())!;
+  await page.screenshot({ path: "test-results/table-column-grip.png", clip: { x: preview.x - 18, y: preview.y - 18, width: preview.width + 42, height: preview.height + 42 } });
+  await page.getByRole("button", { name: "Row actions", exact: true }).hover();
+  await page.screenshot({ path: "test-results/table-row-grip.png", clip: { x: preview.x - 18, y: preview.y - 18, width: preview.width + 42, height: preview.height + 42 } });
+  await table.locator("tr").nth(2).locator("td").first().hover();
+  await page.getByRole("button", { name: "Hovered row actions", exact: true }).click();
+  await expect(page.locator(".pm-selected-cell")).toHaveText(["Beta", "Second"]);
+  const tableBounds = (await table.boundingBox())!, menuBounds = (await page.getByRole("menu", { name: "Row actions" }).boundingBox())!;
+  const clipTop = Math.max(0, Math.min(tableBounds.y - 32, menuBounds.y - 8));
+  await page.screenshot({ path: "test-results/table-row-menu.png", clip: { x: tableBounds.x - 36, y: clipTop, width: tableBounds.width + 62, height: Math.max(menuBounds.y + menuBounds.height, tableBounds.y + tableBounds.height + 24) - clipTop + 8 } });
+  await page.getByRole("menuitem", { name: "Move row up", exact: true }).click();
+  await expect(table.locator("tr").nth(1)).toContainText("Beta");
+  await page.keyboard.press("Control+z");
+  await expect(table.locator("tr").nth(1)).toContainText("Alpha");
+  await table.locator("td").first().click();
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  await expect(table.locator("tr")).toHaveCount(4);
+  await expect(table.locator("tr").nth(2)).toContainText("Beta");
+  await expect(table.locator("tr").last()).toHaveText("");
+  await page.getByRole("button", { name: "Add column", exact: true }).click();
+  await expect(table.locator("tr").first().locator("th,td")).toHaveCount(3);
+  await table.locator("tr").first().locator("th,td").nth(1).click();
+  await page.getByRole("button", { name: "Column actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Insert column left", exact: true }).click();
+  await expect(table.locator("tr").first().locator("th,td")).toHaveText(["Name", "", "Content", ""]);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Alpha");
+  await page.reload();
+  await expect(table.locator("tr")).toHaveCount(4);
+  await expect(table.locator("tr").first().locator("th,td")).toHaveText(["Name", "", "Content", ""]);
+  await table.locator("td").first().click();
+  await page.screenshot({ path: "test-results/table-controls.png" });
+});
+
+test("rectangular drag selection has one centered cell tick and independent hovered axis ticks", async ({ page, request }) => {
+  await open(page, request, "notdown", "| A | B | C |\n| --- | --- | --- |\n| D | E | F |\n| G | H | I |\n| J | K | L |\n\nAfter.");
+  const cells = page.locator(".pm-document table :is(td,th)");
+  const first = (await cells.first().boundingBox())!, last = (await cells.nth(7).boundingBox())!;
+  await page.mouse.move(first.x + 25, first.y + 20); await page.mouse.down();
+  await page.mouse.move(last.x + 25, last.y + 20, { steps: 8 }); await page.mouse.up();
+  await expect(page.locator(".pm-selected-cell")).toHaveCount(6);
+  await cells.nth(4).hover();
+  const handle = page.getByRole("button", { name: "Cell actions", exact: true });
+  await expect(handle).toHaveCount(1); await expect(handle).toBeVisible();
+  await expect(handle.locator("svg")).toHaveCSS("opacity", "0");
+  expect(await handle.evaluate(el => getComputedStyle(el, "::before").height)).toBe("8px");
+  const box = (await handle.boundingBox())!;
+  expect(Math.abs(box.x + box.width / 2 - (last.x + last.width))).toBeLessThan(2);
+  expect(Math.abs(box.y + box.height / 2 - (first.y + last.y + last.height) / 2)).toBeLessThan(2);
+  await expect(page.getByRole("button", { name: "Hovered row actions", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hovered column actions", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Row actions", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Column actions", exact: true })).toBeVisible();
+  await page.screenshot({ path: "test-results/table-selection-ticks.png", clip: { x: first.x - 24, y: first.y - 32, width: first.width * 3 + 48, height: first.height * 4 + 64 } });
+  await handle.hover(); await expect(handle.locator("svg")).toHaveCSS("opacity", "1");
+  await handle.click(); await expect(page.locator(".pm-selected-cell")).toHaveCount(6);
+  await page.getByRole("menuitem", { name: "Clear contents", exact: true }).click();
+  await expect(cells.nth(7)).toHaveText(""); await expect(cells.nth(8)).toHaveText("I");
+  await page.keyboard.press("Control+z"); await expect(cells.nth(7)).toHaveText("H");
+});
+
+test("edge drag previews continuous counts, cancels safely, and commits with one undo", async ({ page, request }) => {
+  const note = await open(page, request, "markdown_mmd", "[Caption][stable]\n" + body.split("\n\n")[1]);
+  const table = page.locator(".pm-document table"), addRow = page.getByRole("button", { name: "Add row", exact: true });
+  await table.locator("td").first().click(); await table.locator("td").first().hover();
+  await expect(addRow).toHaveCSS("opacity", "0");
+  await addRow.hover(); await expect(addRow).toHaveCSS("opacity", "1");
+  const rowHeight = (await table.locator("tr").first().boundingBox())!.height;
+  let bar = (await addRow.boundingBox())!, x = bar.x + bar.width / 2, y = bar.y + bar.height / 2;
+  await page.mouse.down(); await page.mouse.move(x, y + rowHeight * 2, { steps: 6 });
+  await expect(page.locator(".pm-table-resize-count")).toHaveText("2 × 5");
+  await expect(table.locator("tr")).toHaveCount(3);
+  await page.screenshot({ path: "test-results/table-drag-resize.png" });
+  await page.mouse.up(); await expect(table.locator("tr")).toHaveCount(5);
+  await page.keyboard.press("Control+z"); await expect(table.locator("tr")).toHaveCount(3);
+  await addRow.hover(); bar = (await addRow.boundingBox())!; x = bar.x + bar.width / 2; y = bar.y + bar.height / 2;
+  await page.mouse.down(); await page.mouse.move(x, y - rowHeight * 2, { steps: 6 });
+  await expect(page.locator(".pm-table-resize-count")).toHaveText("2 × 1");
+  await page.mouse.move(x, y, { steps: 6 }); await page.mouse.up();
+  await expect(table.locator("td")).toHaveText(["Alpha", "First", "Beta", "Second"]);
+  await addRow.hover(); bar = (await addRow.boundingBox())!;
+  await page.mouse.down(); await page.mouse.move(bar.x + bar.width / 2, bar.y - rowHeight + 9, { steps: 6 });
+  await page.keyboard.press("Escape"); await page.mouse.up();
+  await expect(table.locator("tr")).toHaveCount(3); await expect(page.locator(".pm-table-resize-count")).toBeHidden();
+  await addRow.hover(); bar = (await addRow.boundingBox())!;
+  await page.mouse.down(); await page.mouse.move(bar.x + bar.width / 2, bar.y - rowHeight + 9, { steps: 6 }); await page.mouse.up();
+  await expect(table.locator("tr")).toHaveCount(2);
+  await page.keyboard.press("Control+z"); await expect(table.locator("tr")).toHaveCount(3);
+  const addColumn = page.getByRole("button", { name: "Add column", exact: true });
+  await addColumn.hover(); bar = (await addColumn.boundingBox())!;
+  await page.mouse.down(); await page.mouse.move(bar.x + 9 + 120, bar.y + bar.height / 2, { steps: 6 });
+  await expect(page.locator(".pm-table-resize-count")).toHaveText("3 × 3");
+  await page.mouse.up(); await expect(table.locator("th")).toHaveCount(3);
+  await page.keyboard.press("Control+z"); await expect(table.locator("th")).toHaveCount(2);
+  await addColumn.hover(); bar = (await addColumn.boundingBox())!;
+  await page.mouse.down(); await page.mouse.move(bar.x + 9 - 120, bar.y + bar.height / 2, { steps: 6 }); await page.mouse.up();
+  await expect(table.locator("th")).toHaveCount(1);
+  await page.keyboard.press("Control+z"); await expect(table.locator("td")).toHaveText(["Alpha", "First", "Beta", "Second"]);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("[Caption][stable]");
+  await page.reload(); await expect(table.locator("tr")).toHaveCount(3);
+});
+
+test("cell color menu persists official colors and clear keeps table structure", async ({ page, request }) => {
+  const source = '<table header-row="true">\n<tr><td>Name</td><td>Content</td></tr>\n<tr><td>Alpha</td><td>First</td></tr>\n<tr><td>Beta</td><td>Second</td></tr>\n</table>';
+  const note = await open(page, request, "notdown", source);
+  const cells = page.locator(".pm-document table td");
+  await cells.nth(3).click();
+  await page.getByRole("button", { name: "Cell actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Color", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Blue background", exact: true }).click();
+  await expect(cells.nth(3)).toHaveCSS("background-color", "rgb(231, 243, 248)");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('color="blue_bg"');
+  await page.reload(); await expect(cells.nth(3)).toHaveCSS("background-color", "rgb(231, 243, 248)");
+  await cells.nth(3).click(); await page.getByRole("button", { name: "Cell actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Color", exact: true }).click();
+  const regions = await page.locator('.pm-document table, .pm-table-menu:not([hidden])').evaluateAll(elements => elements.map(element => { const r = element.getBoundingClientRect(); return { x: r.left, y: r.top, right: r.right, bottom: r.bottom }; }));
+  const left = Math.max(0, Math.min(...regions.map(r => r.x)) - 16), top = Math.max(0, Math.min(...regions.map(r => r.y)) - 24);
+  await page.screenshot({ path: "test-results/table-cell-color-menu.png", clip: { x: left, y: top, width: Math.min(1440, Math.max(...regions.map(r => r.right)) + 4) - left, height: Math.min(1000, Math.max(...regions.map(r => r.bottom)) + 8) - top } });
+  await page.keyboard.press("Escape");
+  await page.getByRole("menuitem", { name: "Clear contents", exact: true }).click();
+  await expect(cells).toHaveCount(6); await expect(cells.nth(3)).toHaveText("");
+  await page.keyboard.press("Control+z"); await expect(cells.nth(3)).toHaveText("First");
+});
+
+test("MMD menus search, duplicate, align, merge and split while keeping the caption", async ({ page, request }) => {
+  const note = await open(page, request, "markdown_mmd", "[Table caption][stable]\n" + body.split("\n\n")[1]);
+  const table = page.locator(".pm-document table");
+  await table.locator("td").first().click();
+  await page.getByRole("button", { name: "Row actions", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search table actions" }).fill("duplicate");
+  await page.keyboard.press("Enter");
+  await expect(table.locator("tr")).toHaveCount(4);
+  await table.locator("td").first().click();
+  await page.getByRole("button", { name: "Column actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Align column right", exact: true }).click();
+  await expect(table.locator("th").first()).toHaveCSS("text-align", "right");
+  await table.locator("td").first().click();
+  await page.getByRole("button", { name: "Cell actions", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Color", exact: true })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("menuitem", { name: "Merge right", exact: true }).click();
+  await expect(table.locator('[colspan="2"]')).toHaveCount(1);
+  await table.locator('[colspan="2"]').click();
+  await page.getByRole("button", { name: "Cell actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Split cell", exact: true }).click();
+  await expect(table.locator('[colspan="2"]')).toHaveCount(0);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("[Table caption][stable]");
+  await page.reload(); await expect(table.locator("tr")).toHaveCount(4); await expect(table.locator("caption")).toHaveText("Table caption");
+});
+
+test("keyboard menus preserve cell text; rectangular merge, split and undo remain available", async ({ page, request }) => {
+  await open(page, request);
+  const table = page.locator(".pm-document table"), cells = table.locator("td,th");
+  await cells.first().click();
+  await page.keyboard.press("Alt+F10");
+  const menu = page.getByRole("menu", { name: "Table options" });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("searchbox")).toBeFocused();
+  await page.keyboard.press("ArrowDown"); await page.keyboard.press("ArrowDown"); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
+  await expect(page.locator(".pm-selected-cell")).toHaveCount(6);
+  await page.getByRole("button", { name: "Merge selection", exact: true }).click();
+  await expect(cells).toHaveCount(1); await expect(cells.first()).toHaveAttribute("rowspan", "3");
+  await page.getByRole("button", { name: "Split cell", exact: true }).click();
+  await expect(cells).toHaveCount(6);
+  await page.keyboard.press("Control+z"); await expect(cells).toHaveCount(1);
+  await page.keyboard.press("Control+z"); await expect(cells).toHaveCount(6);
+  await cells.nth(2).click(); await cells.nth(5).click({ modifiers: ["Shift"] });
+  await expect(page.locator(".pm-selected-cell")).toHaveCount(4);
+  await page.screenshot({ path: "test-results/table-selection-controls.png" });
+  await page.getByRole("button", { name: "Table options", exact: true }).click();
+  await page.keyboard.press("Escape"); await expect(menu).toBeHidden();
+  await expect(page.locator(".pm-selected-cell")).toHaveCount(4);
+  await cells.nth(2).click();
+  await page.keyboard.press("Alt+F10"); await page.keyboard.press("Enter");
+  await expect(page.getByRole("menu", { name: "Row actions" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(table.locator("tr")).toHaveCount(4);
+  await page.keyboard.press("Control+z"); await expect(table.locator("tr")).toHaveCount(3);
+  await page.locator(".pm-document > p").last().click();
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".pm-table-controls")).toBeHidden();
+});
+
+test("deletion targets the hovered table and floating menus stay inside the scrolling pane", async ({ page, request }) => {
+  const second = "| Other | Keep |\n| --- | --- |\n| Gamma | Third |";
+  await open(page, request, "notdown", `${body}\n\n${second}\n\n${Array.from({ length: 35 }, (_, i) => `Following paragraph ${i}.`).join("\n\n")}`);
+  const tables = page.locator(".pm-document table");
+  await tables.first().locator("td").first().click();
+  await tables.nth(1).locator("td").first().hover();
+  await page.getByRole("button", { name: "Row actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete row", exact: true }).click();
+  await expect(tables.first().locator("tr")).toHaveCount(3);
+  await expect(tables.nth(1).locator("tr")).toHaveCount(1);
+  await page.keyboard.press("Control+z");
+  await expect(tables.nth(1).locator("tr")).toHaveCount(2);
+  await tables.nth(1).locator("td").last().click();
+  await page.getByRole("button", { name: "Column actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete column", exact: true }).click();
+  await expect(tables.nth(1).locator("td")).toHaveCount(1);
+  await expect(tables.first().locator("td")).toHaveCount(4);
+  await page.keyboard.press("Control+z");
+  await page.setViewportSize({ width: 760, height: 650 });
+  await tables.first().locator("td").first().click();
+  await page.getByRole("button", { name: "Table options", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "Table options" });
+  const bounds = (await menu.boundingBox())!;
+  expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(760);
+  expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(650);
+  await page.locator(".pm-document > p").last().scrollIntoViewIfNeeded();
+  await expect(menu).toBeHidden();
+  await expect(page.locator(".pm-table-controls")).toBeHidden();
+});
+
+test("restricted dialects explain disabled merges and view switching removes floating controls", async ({ page, request }) => {
+  await open(page, request, "gfm");
+  await page.locator(".pm-document table th").first().click();
+  await page.getByRole("button", { name: "Table options", exact: true }).click();
+  const merge = page.getByRole("menuitem", { name: "Merge right", exact: true });
+  await expect(merge).toHaveAttribute("aria-disabled", "true");
+  await expect(merge).toHaveAttribute("title", /dialect/);
+  await page.keyboard.press("Escape");
+  await page.locator('[data-mode="split"]').click();
+  await page.locator(".pm-document table th").first().click();
+  await page.getByRole("button", { name: "Table options", exact: true }).click();
+  const bounds = await page.getByRole("menu", { name: "Table options" }).boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(1440);
+  await page.locator('[data-mode="source"]').click();
+  await expect(page.locator(".pm-table-controls:visible")).toHaveCount(0);
+});
+
+test("cell tick requires a caret or selection; hovering another table only shows axis controls", async ({ page, request }) => {
+  await open(page, request, "notdown", body + "\n\n| Other | Table |\n| --- | --- |\n| Unselected | Cell |");
+  const tables = page.locator(".pm-document table"), handle = page.getByRole("button", { name: "Cell actions", exact: true });
+  await page.locator(".pm-document > p").first().click();
+  await tables.first().locator("td").first().hover();
+  await expect(handle).toBeHidden(); await expect(page.locator(".pm-table-target-outline")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Row actions", exact: true })).toBeVisible();
+  await tables.first().locator("td").first().click(); await expect(handle).toBeVisible();
+  const before = (await handle.boundingBox())!;
+  await tables.first().locator("td").last().hover();
+  expect((await handle.boundingBox())!.y).toBe(before.y);
+  await tables.nth(1).locator("td").first().hover(); await expect(handle).toBeHidden();
+  await tables.nth(1).locator("td").first().click(); await expect(handle).toBeVisible();
+});
+
+test("native column boundaries resize, cancel and undo independently of the cell menu; widths persist", async ({ page, request }) => {
+  const source = 'Before.\n\n<table header-row="true" custom="keep">\n<colgroup><col color="red" future="keep"/><col/><col/></colgroup>\n<tr><td>A</td><td>B</td><td>C</td></tr>\n<tr><td>D</td><td>E</td><td>F</td></tr>\n</table>\n\nAfter.';
+  const note = await open(page, request, "notdown", source);
+  const table = page.locator(".pm-document table"), cells = table.locator("td"), separator = page.getByRole("separator", { name: "Resize column 1", exact: true });
+  await cells.first().click();
+  const original = (await cells.first().boundingBox())!.width, third = (await cells.nth(2).boundingBox())!.width;
+  let line = (await separator.boundingBox())!;
+  await page.mouse.move(line.x + 3, line.y + 7); await page.mouse.down();
+  await page.mouse.move(line.x + 83, line.y + 7, { steps: 6 });
+  await expect(page.locator(".pm-table-width-guide")).toBeVisible();
+  await page.keyboard.press("Escape"); await page.mouse.up();
+  expect(Math.abs((await cells.first().boundingBox())!.width - original)).toBeLessThan(2);
+  line = (await separator.boundingBox())!;
+  await page.mouse.move(line.x + 3, line.y + 7); await page.mouse.down();
+  await page.mouse.move(line.x + 83, line.y + 7, { steps: 6 }); await page.mouse.up();
+  await expect.poll(async () => (await cells.first().boundingBox())!.width).toBeGreaterThan(original + 70);
+  expect(Math.abs((await cells.nth(2).boundingBox())!.width - third)).toBeLessThan(3);
+  await expect(page.getByRole("menu", { name: "Cell actions", exact: true })).toBeHidden();
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => Math.abs((await cells.first().boundingBox())!.width - original)).toBeLessThan(2);
+  await cells.first().click();
+  await separator.focus(); await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await cells.first().boundingBox())!.width).toBeGreaterThan(original + 15);
+  const savedWidth = (await cells.first().boundingBox())!.width;
+  await cells.first().click(); await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('width="');
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).toContain('future="keep"'); expect(saved).toContain('color="red"');
+  await page.reload(); await expect.poll(async () => Math.abs((await cells.first().boundingBox())!.width - savedWidth)).toBeLessThan(2);
+  await cells.first().click();
+  const bounds = (await table.boundingBox())!;
+  await page.screenshot({ path: "test-results/table-column-width.png", clip: { x: bounds.x - 24, y: bounds.y - 32, width: bounds.width + 48, height: bounds.height + 64 } });
+});
+
+test("column width previews preserve default, left, center and right alignment", async ({ page, request }) => {
+  await open(page, request, "notdown", '| Default | Left | Center | Right |\n| --- | :--- | :---: | ---: |\n| One | Two | Three | Four |');
+  const table = page.locator(".pm-document table"), preview = page.locator(".pm-table-resize-preview:visible table");
+  const alignments = ["left", "left", "center", "right"];
+  const checkAlignment = async (target: typeof table) => {
+    for (let i = 0; i < alignments.length; i++) {
+      await expect(target.locator("th").nth(i)).toHaveCSS("text-align", alignments[i]);
+      await expect(target.locator("td").nth(i)).toHaveCSS("text-align", alignments[i]);
+    }
+  };
+  for (const mode of ["document", "split"]) {
+    await page.locator(`button[data-mode="${mode}"]`).click();
+    await table.locator("td").first().click();
+    await checkAlignment(table);
+    const originalWidth = (await table.locator("th").first().boundingBox())!.width;
+    const separator = page.getByRole("separator", { name: "Resize column 1", exact: true });
+    for (const cancel of [true, false]) {
+      const line = (await separator.boundingBox())!;
+      await page.mouse.move(line.x + 3, line.y + 7); await page.mouse.down();
+      await page.mouse.move(line.x + 33, line.y + 7, { steps: 6 });
+      await expect(preview).toBeVisible();
+      await checkAlignment(preview);
+      if (cancel) await page.keyboard.press("Escape");
+      await page.mouse.up();
+      await expect(preview).toHaveCount(0);
+      await checkAlignment(table);
+    }
+    await expect.poll(async () => (await table.locator("th").first().boundingBox())!.width).toBeGreaterThan(originalWidth + 20);
+  }
+});
+
+test("MMD column resizing is view-only and preserves source and spans", async ({ page, request }) => {
+  const source = '[Caption][stable]\n| A | B | C |\n| --- | --- | --- |\n| Wide || Last |\n| D | E | F |';
+  const note = await open(page, request, "markdown_mmd", source);
+  const originalBody = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  const table = page.locator(".pm-document table"), first = table.locator("th").first();
+  await first.click(); const initial = (await first.boundingBox())!.width;
+  const separator = page.getByRole("separator", { name: "Resize column 1", exact: true });
+  await expect(separator).toHaveAttribute("title", /editing view only/);
+  const line = (await separator.boundingBox())!;
+  await page.mouse.move(line.x + 3, line.y + 7); await page.mouse.down();
+  await page.mouse.move(line.x + 63, line.y + 7, { steps: 6 }); await page.mouse.up();
+  await expect.poll(async () => (await first.boundingBox())!.width).toBeGreaterThan(initial + 50);
+  await expect(table.locator('[colspan="2"]')).toHaveCount(1);
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => Math.abs((await first.boundingBox())!.width - initial)).toBeLessThan(2);
+  await page.keyboard.press("Control+Shift+z");
+  await expect.poll(async () => (await first.boundingBox())!.width).toBeGreaterThan(initial + 50);
+  await page.keyboard.press("Control+s");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(originalBody);
+  await page.reload();
+  await expect.poll(async () => Math.abs((await first.boundingBox())!.width - initial)).toBeLessThan(2);
+  await expect(table.locator("caption")).toHaveText("Caption");
+});
+
+test("Notdown saves tbl-colwidths with MMD captions and merged cells", async ({ page, request }) => {
+  const source = '[Caption][stable]\n| A | B | C |\n| --- | --- | --- |\n| Wide || Last |\n| D | E | F |\n\n: {tbl-colwidths="[30,40,30]" future="keep"}';
+  const note = await open(page, request, "notdown", source);
+  const table = page.locator('.pm-document table'), first = table.locator('th').first();
+  await expect(table.locator('caption')).toHaveText('Caption');
+  let bounds = (await table.boundingBox())!;
+  await expect.poll(async () => (await first.boundingBox())!.width / bounds.width).toBeCloseTo(0.3, 2);
+  await first.click();
+  const separator = page.getByRole('separator', { name: 'Resize column 1', exact: true });
+  await expect(separator).toHaveAttribute('title', 'Drag to resize column');
+  const line = (await separator.boundingBox())!;
+  await page.mouse.move(line.x + 3, line.y + 7); await page.mouse.down();
+  await page.mouse.move(line.x + 63, line.y + 7, { steps: 6 }); await page.mouse.up();
+  const width = (await first.boundingBox())!.width;
+  expect(width / bounds.width).toBeGreaterThan(0.37);
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).not.toContain('tbl-colwidths="[30,40,30]"');
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).toContain('tbl-colwidths='); expect(saved).toContain('future="keep"'); expect(saved).toContain('[Caption][stable]');
+  await page.reload();
+  await expect(table.locator('[colspan="2"]')).toHaveCount(1);
+  await expect.poll(async () => Math.abs((await first.boundingBox())!.width - width)).toBeLessThan(2);
+  await first.click(); await page.getByRole('button', { name: 'Add column', exact: true }).click();
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => {
+    const text = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+    const value = /tbl-colwidths="([^\"]+)"/.exec(text)?.[1]; return value ? JSON.parse(value).length : 0;
+  }).toBe(4);
+  await page.reload(); await expect(table.locator('th')).toHaveCount(4);
+});

@@ -1,5 +1,19 @@
 # Markdown 正文格式 v0.4：方言配置与 Notion Enhanced Markdown
 
+2026-09-27 表格列宽：Notdown 的 Markdown 表格支持 `: {tbl-colwidths="[30,70]"}`，使用 Pandoc 的表格属性容器与 Quarto 的显式相对列宽数组，来源为 [Quarto Column Widths](https://quarto.org/docs/authoring/tables.html#column-widths)。数组长度须等于逻辑列数，每项须为有限正数；按比例呈现，拖动后归一化为百分比并保存到正文。仅当 Notdown 的 `table_attributes` 启用时新写该属性；官方 Notion 表格仍使用原生 `<col width>`。MMD 的 `[题注][ID]`、题注位置、合并单元格及未知属性保留，属性独立成行时不会创建空题注或覆盖原题注。未改内容原文保留；非法、数量不匹配及 `auto`／布尔值目前仅原文保留，不赋予列宽布局语义。增删、复制、移动列和拖动行列数量时同步有效列宽数组；不批量迁移文件，纯 MMD／GFM 等其他方言不新增该扩展语义。
+
+2026-09-27 嵌入入口区分修订（覆盖下文“独立 HTML 插入入口已移除”的说明）：HTML embed 新建使用官方 `<embed src="assets/…html">说明</embed>`，上传与替换只选择 HTML 文件；Web embed 新建使用 `<web-embed url="…"/>`，只接受 HTTP(S) 网址。二者共享节点类型但保留各自表示。Notdown 可为 HTML `<embed>` 补充 title/width/height/align；这些属性仅在 Notdown 启用，官方 notion-markdown 遇到扩展属性时保留原始源码而不赋予布局语义。已有 HTML 附件 `<web-embed>` 不批量迁移，继续按原载体写回。旧内联正文 `<html-embed>` 不恢复。
+
+2026-09-27 嵌入展示修订：Notdown `<web-embed>` 增加可选 `caption`、`width`、`height`、`align`，沿用现有 XML 属性编码；width 为像素或百分比，height 为像素，align 为 left/center/right。标题 `title` 用于 HTML 文件名，上传时填入原始文件名。属性与未知字段保留，不批量改写已有页面。官方 `<embed>` 的说明仍写入标签正文，不新增布局属性；Typora `<iframe>` 的调整仅写原生 width/height。交互激活、菜单、全屏均为临时视图状态，不写入 Markdown，也不更改沙箱权限。
+
+2026-09-27 AI block：Notdown 专用 `<ai-block>` 沿用 prompt/model 属性，增加可选 generate、using、context、search 配置。context 与 prompt 内提及复用已有 mention-page/user/date 语法，作为 XML 转义的属性文本保存；未知字段与旧正文保留。官方 notion-markdown 不启用。详见 [AI block 契约](features/AI-BLOCKS.md)。
+
+2026-09-27 MCP 规范修订：官方边界包含公开网页与 `notion://docs/enhanced-markdown-spec` 的明确语法。Notdown / Notion Markdown 同时支持标题首行式 Tabs、分区 Meeting notes、HTML 附件 `<embed>`、Folder/Database 引用、Agent 提及、表格 col width、日期 endTime、同步 notice，以及两种 dollar 行内公式、代码内 br、压缩 URL 引用。下文旧的“Agent/Database 已移除”及“Tabs 仅本地”记录由本次修订替代。[完整语法与实现边界](reference/NOTION-MCP-SYNTAX.md)。
+
+2026-09-27 嵌入文件修订（覆盖下文旧 HTML 嵌入说明）：取消 `<html-embed>` 标签及独立 HTML 插入入口，统一使用 `<web-embed url="…"/>`。上传／拖放的 HTML 通过 `createVault.uploadAsset` 保存到 `vault/assets/*.html`，正文只写 `assets/…html` 引用，不内联代码。本地附件预览禁用脚本与同源权限；HTTP(S) 预览维持远端沙箱策略。Typora `<iframe>` 和官方 Notion `<embed>` 保留原生编码；自定义 `web-embed` 仅限 Notdown。已有文件可显式执行 `node --import tsx scripts/migrate-html-embeds.ts <vault-directory> --apply`：旧正文提取到附件，页面按 `baseRevision` 更新并保存历史，冲突保留分支且不强制重试；跳过代码围栏、缩进代码和未知原始 HTML 容器，异常边界停止。未知属性保留，旧 `url` 属性若与新附件引用冲突则转存 `data-html-embed-url`（重名追加 `-original`）。不提供旧标签运行时兼容；未迁移的旧标签按普通未知源码处理。HTML 相对资源与 Notion HTML 文件下载尚未实现。
+
+2026-09-27 页面入口修正：官方 `<page url="…">标题</page>` 直接解析为 `block.child_page`；Notdown 专用 `<page-link url="…">标题</page-link>` 解析为 `block.link_to_page`，即使两者指向同一个直接子页也不会混淆。父子关系不再决定块类型，解析不创建或移动资源。`<mention-page>` 保持行内提及。官方 `notion-markdown` 不启用 `page-link`，显式开关也不能越界；原有 `<unknown>` 保留，不用其源块 URL 猜测目标页。旧 `role` 仅作为未知属性保留，不批量迁移用户文件。Notdown 导入可按 Block API 的真实类型恢复支持的 unknown 块，完整原始 Markdown 和 JSON 同时归档，详见[导入说明](features/NOTION-IMPORT.md)。
+
 2026-09-26 行内脚注：启用 `inline_notes` 时，Pandoc `^[…]` 在页面视图投影为编号引用和单段底部注释，与 `[^id]` 共用编号、预览和跳转；保存仍还原原位置的 `^[…]`。跨行正文与行内链接可解析；页面编辑拒绝扩展为多个段落或块。`inlineNote` 与生成的引用标识仅用于可恢复的编辑器投影，不写入文件；方言边界和已有原文保留规则不变。详见[脚注说明](features/FOOTNOTES.md)。
 
 2026-09-26 图片交互：沿用 Markdown 图片及已有花括号属性载体，宽度复用 `width`。Notdown 为图片块补充 `align="left|center|right"` 和 `crop="x,y,w,h,ratio"`；前四项是相对原图的归一化裁剪矩形，第五项是原图宽高比。裁剪只改变呈现，不生成或覆盖附件。仅 `notdown` 且 `link_attributes` 开启时可通过工具栏写这些布局属性，其他方言不激活对齐／裁剪补充语义；`notion-markdown` 即使显式开启扩展也不新增这些语法。未修改原文、图片 URL/title、未知属性和代码围栏保留；调整通过文档事务和既有 CAS 链路保存，不批量迁移。详见[图片控件](features/INLINE-OBJECTS.md#image-controls)。
@@ -149,7 +163,11 @@ Notdown 的 **GitHub-style Alert** 直接插入 `> [!NOTE]`，不显示插入表
 
 插入菜单提供两栏，解析接受两栏以上及嵌套分栏；窄屏纵向排列。列间分隔线可用鼠标拖动调宽，只改变相邻两列，松开后提交一次可撤销事务；Esc 取消，双击恢复该组等宽，聚焦分隔线后左右方向键微调。宽屏列宽随容器按比例变化，窄屏隐藏调宽控件但保留比例。
 
-列宽使用 **Notdown 本地属性** `<column width-ratio="0.35">` 写在正文，所有列均写比例、总和为 1（六位小数精度）。完整有效的比例按总和归一化显示；缺失、非数字、非有限值或不在 `(0,1)` 内时，整组按等宽显示，原值仍保留，直到用户主动调宽。未知属性和未改正文仍保留；HTML 预览／导出使用同一比例。Notion [Block API](https://developers.notion.com/reference/block#column-list-and-column) 的 `width_ratio` 支持列宽，但截至 2026-09-22，[官方 Notion-flavored Markdown 文档](https://developers.notion.com/guides/data-apis/enhanced-markdown#columns) 未定义列宽属性，因此不承诺本地 `width-ratio` 经 Notion Markdown API 无损往返。
+2026-09-27 列宽修订：Notion 官方 MCP 的 `notion://docs/enhanced-markdown-spec`（通过官方 `fetch` 获取）已定义 `<column ratio="50">`，`ratio` 是占总宽的百分比，省略时默认等宽，更新时应显式设置所有列。[公开 REST 文档的 Columns 示例](https://developers.notion.com/guides/data-apis/enhanced-markdown#columns) 当日仍未展示该属性；此处依据 MCP 规范补充支持，不宣称已验证云端写回。
+
+`notion-markdown` 与 `notdown` 均使用官方 `<column ratio="35">`。调宽时统一写所有列的 `ratio`，总和为 100（百分数四位小数，等价于比例六位小数精度）。完整有效的数值按总和归一化显示；缺失、非数字、非有限值或不在 `(0,100)` 内时，整组按等宽显示，原值仍保留，直到用户主动调宽。未知属性和未改正文保留；HTML 预览／导出使用同一比例。
+
+旧 `<column width-ratio="0.35">` 仅在 Notdown 兼容读取，取值范围 `(0,1)`，不再用于新写列宽；主动调宽时移除该组旧属性并写 `ratio`。同组存在 `ratio` 时优先使用官方编码，不混用两种单位。未修改文件不迁移；`notion-markdown` 仍将旧本地属性作为可恢复源码保存。
 
 `<page>` 为块级入口，`<mention-page>` 为行内引用。`url` 使用已有 `#page/<id>` 导航地址表示本地页，外部 URL 保留为外部引用。删除入口不会删除页面或改写 YAML 父子关系。光标进入页面链接时不展开源码。
 
@@ -226,9 +244,11 @@ $$
 <unknown url="https://www.notion.so/block-id" alt="bookmark"/>
 ```
 
-支持 user/page/database/data-source/date 提及，日期属性按原文保留。Mention agent 已移除：旧标签按字面文本或原始 HTML 保留，未修改内容继续复用原文；文本编辑后可以转义角括号，重新打开仍可恢复完整标签内容。数据库块未实现，`<database>` 只保留 Unsupported 原文。`synced_block` 与 `synced_block_reference` 保存本地内容快照和来源，尚未建立跨页或 Notion 云端联动。
+支持 user/page/database/data-source/date/agent 提及。数据库块保存现有数据库或数据源的引用及属性；本地 `url="#page/<host-id>"` 通过入口页的 `databaseId` 解析数据库，`inline="true"` 展示可编辑表格，非 inline 引用打开完整数据库。正文仍只保存引用，记录正文仍是页面 Markdown，字段、属性值和视图保存在知识库 metadata.json；远端引用不执行云端操作。`synced_block` 与 `synced_block_reference` 保存本地内容快照和来源，支持无 URL 的本体与引用的 notice，不代表 Notion 云端联动。
 
-既有 `<unknown>` 引用仍保留，不根据名称自动推断成书签或其他对象。未知标签、未闭合或非法容器保留原文，不解释为可执行 HTML。新的本地 bookmark、link-preview、breadcrumb、meeting-notes 等编码见 [本地对象与服务](./reference/LOCAL-OBJECTS.md)；会议转录可使用 Settings 配置的兼容服务。本地 People 通讯录已接入，协作成员及自定义 emoji 资源目录未接入。
+Notdown 本地同步复用上述标签及 `#page/PAGE_ID#block=BLOCK_ID` 引用；`id`、`source-revision`、`snapshot-hash`、`auto-refresh`、`auto-sync` 是仅 Notdown 生效的补充属性。新复制引用写 `auto-sync="true"`，旧文件不迁移。官方 `notion-markdown` 遇到这些属性保留整个块原文。来源更新必须携带已捕获版本，冲突暂停并保留双方内容；未打开页保留上次快照。见[同步块功能与边界](features/SYNCED-BLOCKS.md)。
+
+既有 `<unknown>` 引用仍保留，不根据名称自动推断成书签或其他对象。未知标签、未闭合或非法容器保留原文，不解释为可执行 HTML。新的本地 bookmark、link-preview、breadcrumb、meeting-notes 等编码见 [本地对象与服务](./reference/LOCAL-OBJECTS.md)；会议转录可使用 Settings 配置的兼容服务。会议卡片的 `meeting-config` JSON 属性仅在 Notdown 启用，保存语言、音频、摘要指令及当前会议的菜单偏好；官方方言保持会话配置，不写自定义属性，详见[会议笔记](features/MEETING-NOTES.md)。本地 People 通讯录已接入，协作成员及自定义 emoji 资源目录未接入。
 
 Enhanced Markdown 未修改时保留原文；编辑后未改动顶层子树保留原文，变更子树按规范序列化。旧格式转换会规范化缩进、围栏和分隔，完整旧版本保存在历史中。不承诺任意外部格式或整个 Notion 工作区无损互转。
 

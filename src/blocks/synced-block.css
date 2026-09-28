@@ -1,0 +1,68 @@
+.pm-content-object.pm-object-synced_block {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 8px 9px;
+  background: transparent;
+  min-width: 0;
+}
+.pm-editor .pm-document.ProseMirror .pm-content-object.pm-object-synced_block { margin-block-start: 52px; }
+.pm-content-object.pm-object-synced_block:is(:hover, :focus-within, .ProseMirror-selectednode, .pm-synced-menu-open, .pm-synced-error) {
+  border-color: #68452f;
+  box-shadow: 0 0 0 .5px #68452f;
+}
+.pm-object-synced_block > .pm-synced-toolbar {
+  position: absolute;
+  right: -5px;
+  bottom: calc(100% + 15px);
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  border: 1px solid var(--text, #37352f);
+  border-radius: 9px;
+  background: var(--surface, #fff);
+  color: #787774;
+  box-shadow: 0 1px 2px #0000000d;
+  z-index: 15;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .1s;
+  max-width: calc(100% + 10px);
+  font: 14px/1.4 var(--font-body, system-ui, sans-serif);
+}
+.pm-object-synced_block > .pm-synced-toolbar::after { content: ""; position: absolute; inset: 100% 0 -17px; }
+.pm-object-synced_block:is(:hover, :focus-within, .ProseMirror-selectednode, .pm-synced-menu-open) > .pm-synced-toolbar { visibility: visible; opacity: 1; }
+.pm-object-synced_block > .pm-synced-toolbar[hidden] { display: none; }
+.pm-object-synced_block .pm-synced-toolbar button {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font: inherit; color: inherit; background: transparent; border: 0; border-radius: 4px;
+  padding: 5px; margin: 0; height: 30px; cursor: pointer;
+}
+.pm-object-synced_block .pm-synced-toolbar button:hover { background: var(--hover, #efefed); }
+.pm-object-synced_block .pm-synced-toolbar button:focus-visible { outline: 2px solid #529cca; outline-offset: -2px; }
+.pm-object-synced_block .pm-synced-toolbar button:disabled { opacity: .45; cursor: default; }
+.pm-object-synced_block .pm-synced-toolbar svg { flex-shrink: 0; }
+.pm-object-synced_block .pm-synced-toolbar .pm-synced-locations { min-width: 0; padding-inline: 5px 9px; }
+.pm-synced-locations > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-object-synced_block .pm-synced-toolbar .pm-synced-copy { border-left: 1px solid var(--border, #e6e5e3); border-radius: 0; padding-inline: 7px; }
+.pm-synced-toolbar [data-tooltip] { position: relative; }
+.pm-synced-toolbar [data-tooltip]:is(:hover, :focus-visible)::before {
+  content: attr(data-tooltip); position: absolute; bottom: calc(100% + 8px); right: -5px;
+  background: #252525; color: white; font: 14px/1.4 system-ui; padding: 7px 10px;
+  border-radius: 7px; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 5px #0002;
+}
+.pm-object-synced_block .pm-synced-menu {
+  position: absolute; right: 0; top: calc(100% + 5px); z-index: 2;
+  width: 280px; max-width: min(320px, calc(100vw - 48px)); max-height: 320px; overflow: auto;
+  padding: 5px; border: 1px solid var(--border, #e4e4e2); border-radius: 8px;
+  background: var(--surface, white); box-shadow: 0 4px 18px #0002; color: var(--text, #37352f);
+}
+.pm-object-synced_block .pm-synced-menu :is(button, a) { display: flex; width: 100%; height: auto; min-height: 32px; justify-content: flex-start; padding: 6px 8px; text-align: left; text-decoration: none; border: 0; gap: 12px; font: 14px/1.4 system-ui; color: inherit; border-radius: 4px; }
+.pm-object-synced_block .pm-synced-menu a:hover { background: var(--hover, #efefed); }
+.pm-synced-menu a span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-synced-menu small { font: 12px/1.4 system-ui; color: var(--muted, #787774); }
+.pm-synced-menu > :is(small, p) { display: block; margin: 6px 8px; }
+.pm-synced-menu hr { border: 0; border-top: 1px solid var(--border, #e4e4e2); margin: 5px 0; }
+.pm-object-synced_block > :is(.pm-synced-status, .pm-synced-notice) { font: 12px/1.5 system-ui; color: var(--muted, #787774); margin-top: 6px; }
+.pm-object-synced_block.pm-synced-error > .pm-synced-status { color: #9b4231; }
+@media (hover: none) { .pm-object-synced_block > .pm-synced-toolbar { position: relative; right: auto; bottom: auto; width: fit-content; margin: 0 0 8px auto; visibility: visible; opacity: 1; } }

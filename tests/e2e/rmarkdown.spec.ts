@@ -24,6 +24,11 @@ async function run(page: Page) {
 async function insertR(page: Page, kind: "R Chunk" | "Inline R") {
   await page.keyboard.type("/");
   await page.locator(`[data-insert="${kind === "R Chunk" ? "executable_chunk" : "executable_inline"}"]`).click();
+  if (kind === "Inline R") {
+    await expect(page.getByLabel("Expression", { exact: true })).toHaveValue("");
+    await page.getByLabel("Expression", { exact: true }).fill("1 + 1");
+    await page.locator("#dialog").getByRole("button", { name: "Insert", exact: true }).click();
+  }
   await expect(page.getByRole("dialog", { name: "Choose execution language", exact: true })).toHaveCount(0);
 }
 

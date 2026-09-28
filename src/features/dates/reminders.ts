@@ -2,17 +2,24 @@ import { isEditorKind } from "../../document/node-identity";
 import type { Page } from "../../shared/types";
 import { parseNative } from "../../markdown-engine/codec";
 import { defaultSyntax } from "../../markdown-engine/config";
+import { notionInline } from "../../document/notion-markdown";
+import type { Node as PMNode } from "prosemirror-model";
 
 export type Reminder = { key: string; pageId: string; title: string; text: string; at: number };
 export function pageReminders(page: Page): Reminder[] {
   const result: Reminder[] = [];
   if (page.syntax?.variant !== "notdown") return result;
-  parseNative(page.body, page.syntax || defaultSyntax(page.bodyFormat)).descendants((node, pos) => {
+  const collect = (node: PMNode, position: string | number) => {
     if (!isEditorKind(node, "mention") || node.attrs.kind !== "date") return;
     const value = node.attrs.nfmAttrs.reminder;
     if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(value)) return;
     const at = Date.parse(value); if (!Number.isFinite(at)) return;
-    result.push({ key: `${page.id}:${pos}:${value}`, pageId: page.id, title: page.title, text: node.attrs.label || node.attrs.nfmAttrs.start || value, at });
+    result.push({ key: `${page.id}:${position}:${value}`, pageId: page.id, title: page.title, text: node.attrs.label || node.attrs.nfmAttrs.start || value, at });
+  };
+  parseNative(page.body, page.syntax || defaultSyntax(page.bodyFormat)).descendants((node, pos) => {
+    collect(node, pos);
+    if (isEditorKind(node, "meeting_notes") && node.attrs.syntaxForm === "notion")
+      notionInline(node.attrs.title).forEach((mention, index) => collect(mention, `${pos}:title:${index}`));
   });
   return result;
 }

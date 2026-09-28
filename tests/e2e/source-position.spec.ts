@@ -1,8 +1,8 @@
 import { test, expect, type Page, type APIRequestContext, type Locator } from "@playwright/test";
 
-async function open(page: Page, request: APIRequestContext, body: string, variant = "gfm") {
+async function open(page: Page, request: APIRequestContext, body: string, variant = "gfm", properties = {}) {
   const response = await request.post("/api/pages", { data: {
-    title: "Source position", body,
+    title: "Source position", body, properties,
     syntax: { version: 1, variant, extensions: {} },
   } });
   expect(response.status()).toBe(201);
@@ -11,6 +11,33 @@ async function open(page: Page, request: APIRequestContext, body: string, varian
   await page.goto("/");
   await expect(page.locator(".pm-document")).toBeVisible();
   return note;
+}
+
+for (const cover of [false, true]) {
+  for (const mode of ["source", "split"]) {
+    test(`${mode} opens below navigation on an empty page (cover: ${cover})`, async ({ page, request }) => {
+      await open(page, request, "", "gfm", cover ? { cover: "/page-covers/solid_red.png" } : {});
+      const expectWorkspaceAtTop = async () => {
+        await expect.poll(() => page.locator(".editing-toolbar").evaluate(toolbar =>
+          toolbar.getBoundingClientRect().top - document.querySelector("#main")!.getBoundingClientRect().top,
+        )).toBeCloseTo(0, 0);
+        const editor = await page.locator(".source-mount .cm-editor").boundingBox();
+        expect(editor!.height).toBeGreaterThanOrEqual(page.viewportSize()!.height * 0.7);
+        expect(editor!.y + editor!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+      };
+      // The top navigation menu works even when a cover puts the toolbar below the fold.
+      await page.getByLabel("Page options", { exact: true }).click();
+      await page.locator(`#page-options [data-view="${mode}"]`).click();
+      await expectWorkspaceAtTop();
+      await page.setViewportSize({ width: 1100, height: 820 });
+      await page.locator("#main").evaluate(main => main.scrollTo({ top: 0, behavior: "instant" }));
+      // Switching between Source and Split must also align the outer scroll position.
+      const next = mode === "source" ? "split" : "source";
+      await page.getByLabel("Page options", { exact: true }).click();
+      await page.locator(`#page-options [data-view="${next}"]`).click();
+      await expectWorkspaceAtTop();
+    });
+  }
 }
 
 async function scrollToReadingBlock(block: Locator) {

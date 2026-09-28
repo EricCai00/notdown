@@ -4,6 +4,7 @@ import { nodeName, editorNodeType } from "../document/node-identity";
 import { contentObjects, implementationRoles, resolveContentObject, type ContentObjectDefinition } from "../document/content-objects";
 import type { Node as PMNode } from "prosemirror-model";
 import { objectSamples } from "../document/object-model";
+import { isHtmlAsset } from "../document/embed-source";
 import { editorSchema } from "../document/editor-schema";
 import type { Dialect } from "../markdown-engine/config";
 
@@ -69,6 +70,7 @@ export const syntaxKinds: Record<string, string> = {
   definition: "Reference definition",
 };
 export function blockTypeLabel(node: PMNode, list?: PMNode): string {
+  if (node.type.name === "block.web_embed") return isEditorKind(node, "notion_embed") || isHtmlAsset(String(node.attrs.url || node.attrs.data?.src || "")) ? "HTML embed" : "Web embed";
   if (isEditorKind(node, "nested_block") && node.firstChild) return blockTypeLabel(node.firstChild, list);
   const object = resolveContentObject(node, { list });
   if (isEditorKind(node, "heading")) return (object?.name || "Heading") + " " + node.attrs.level;
@@ -107,7 +109,7 @@ const samples: Record<string, string> = {
   nested_block: "Parent\n\tChild",
   columns:
     "<columns>\n<column>\nLeft column\n</column>\n<column>\nRight column\n</column>\n</columns>",
-  child_page: '<page url="https://example.com/page">Example page</page>',
+  child_page: '<page-link url="https://example.com/page">Example link</page-link>',
   // Deliberately unknown directive syntax, not a valid Pandoc Div opener.
   // A negative example must remain bounded when followed by other samples.
   opaque_block: ':::unknown {custom="keep"}\nPreserved content\n:::',
@@ -190,7 +192,7 @@ export const implementationCatalog: CatalogEntry[] = Object.entries(editorSchema
         ? "Inline content"
         : "Blocks",
     sample: canonicalId === nodeName(id) ? samples[id] : undefined,
-    variant: ["executable_chunk", "executable_inline"].includes(id) ? "quarto" : ["r_chunk", "r_inline"].includes(id) ? "rmarkdown" : localObjectPlugins[id] ? "notdown" : notion.has(id) || id === "nested_block" ? "notion-markdown" : "typora",
+    variant: canonicalId === "block.link_to_page" ? "notdown" : ["executable_chunk", "executable_inline"].includes(id) ? "quarto" : ["r_chunk", "r_inline"].includes(id) ? "rmarkdown" : localObjectPlugins[id] ? "notdown" : notion.has(id) || id === "nested_block" ? "notion-markdown" : "typora",
     extensions: required[id],
     note: internal.has(id)
       ? "Part of a composite block; not an independently insertable page block."
@@ -346,8 +348,14 @@ const sampleAliases: Record<string, string> = {
   "block.pdf": "media:pdf", "block.file": "media:file",
 };
 const specificSamples: Record<string, Partial<CatalogEntry>> = {
+  "block.folder": { sample: '<folder url="https://www.notion.so/example">Folder</folder>', variant: "notion-markdown" },
+  "block.database": { sample: '<database data-source-url="collection://example" inline="true" wiki="false">Database</database>', variant: "notion-markdown" },
+  "inline.mention_agent": { sample: '<mention-agent url="agent://example">Agent</mention-agent>', variant: "notion-markdown" },
+  "block.tabs": { sample: '<tabs>\n\t<tab icon="📄">\n\t\tFirst\n\t\tFirst tab content\n\t</tab>\n\t<tab>\n\t\tSecond\n\t\tSecond tab content\n\t</tab>\n</tabs>', variant: "notion-markdown" },
+  "block.meeting_notes": { sample: '<meeting-notes>\n\tMeeting\n\t<notes>\n\t\tUser notes\n\t</notes>\n</meeting-notes>', variant: "notion-markdown" },
   "block.unsupported": { sample: samples.opaque_block, variant: "typora" },
-  "block.child_page": { sample: '<page url="#page/example" role="child">Example child</page>', variant: "notdown" },
+  "block.child_page": { sample: '<page url="#page/example">Example child</page>', variant: "notion-markdown" },
+  "block.link_to_page": { sample: '<page-link url="#page/example">Example link</page-link>', variant: "notdown" },
   "inline.citation": { sample: "A source [p. 12][#paper].\n\n[#paper]: Jane Doe. *Example book*. 2026.", variant: "markdown_mmd" },
   "inline.abbreviation": { sample: "[>MMD]\n\n[>MMD]: MultiMarkdown", variant: "markdown_mmd" },
   "inline.glossary": { sample: "[?codec]\n\n[?codec]: A reader and writer for a document format.", variant: "markdown_mmd" },

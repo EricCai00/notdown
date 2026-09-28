@@ -52,10 +52,10 @@ test("Notdown inherits all Notion defaults and enables additional Markdown conte
   }
   for (const command of ["toggle_heading", "callout", "table", "columns", "toc", "link", "color", "underline", ...Object.keys(localObjectPlugins)]) assert(commandEnabled(config(), command), command);
   assert.equal(variantsForObject("block.tabs").find(d => d.id === "notdown")?.status, "default");
-  assert.equal(variantsForObject("block.tabs").find(d => d.id === "notion-markdown")?.status, "unavailable");
+  assert.equal(variantsForObject("block.tabs").find(d => d.id === "notion-markdown")?.status, "default");
   const group = groupExtensions(extensions, "notdown").find(g => g.id === "other")!;
   const blocks = group.entries.filter(e => Object.values(localObjectPlugins).includes(e.id));
-  assert.equal(blocks.length, 9);
+  assert.equal(blocks.length, 6);
   assert(blocks.every(e => !e.label.startsWith("Local ")));
 });
 

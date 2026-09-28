@@ -27,7 +27,7 @@ export function objectProperties(parse: (source: string) => PMNode, supplemental
       const form = document.createElement("form"), output = document.createElement("output"); output.setAttribute("aria-live", "polite");
       const controls: Record<string, HTMLInputElement | HTMLTextAreaElement> = {};
       const visibleFields = isEditorKind(node, "mention") && node.attrs.kind === "date" && (!supplemental() || hasOfficialDateTime(node))
-        ? { "@start": "Start date", "@end": "End date", "@startTime": "Start time", "@timeZone": "Time zone" }
+        ? { "@start": "Start date", "@end": "End date", "@startTime": "Start time", "@endTime": "End time", "@timeZone": "Time zone" }
         : isEditorKind(node, "image") && imageCaption() && view.state.doc.resolve(pos).parent.childCount === 1
           ? { src: "Image URL", alt: "Caption" }
         : fields[editorKind(node)];

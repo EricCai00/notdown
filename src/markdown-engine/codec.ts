@@ -3,6 +3,8 @@ import { hasSupplementalAttributes, needsMarkdownTable, canConvertNotionTable } 
 import { encodeCodeCaption } from "../document/code-caption";
 import { objectTags } from "../document/object-model";
 import { localObjectPlugins } from "./presets";
+import { officialNotionObject } from "../document/notion-official-blocks";
+import { installNotionRichText } from "../document/notion-rich-text";
 import { isListItem } from "../document/list-items";
 import { normalizeExampleNumbering } from "../document/example-numbering";
 import { readObjectBlock, writeObjectBlock } from "../document/object-codec";
@@ -12,6 +14,7 @@ import { installDocumentOptions } from "./document-options";
 import { installLatexMacros } from "./latex-macros";
 import { installPandocTables, writeGridTable, writeSimpleTable } from "./pandoc-tables";
 import { multiMarkdownTable } from "../document/table-markdown";
+import { readTableColumnWidths } from "../document/table-width-attributes";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import type { Node as PMNode } from "prosemirror-model";
@@ -53,6 +56,7 @@ const children = (node: PMNode) => {
   return result;
 };
 const features: Record<string, string> = {
+  notion_embed: "notion_media", folder: "notion_pages", database: "notion_databases",
   columns: "notion_columns",
   column: "notion_columns",
   callout: "notion_callouts",
@@ -83,6 +87,7 @@ const tags = new Set([
   "table",
   "table_of_contents",
   "page",
+  "page-link",
   "database",
   "audio",
   "video",
@@ -93,7 +98,13 @@ const tags = new Set([
   "unknown",
 ]);
 
+function allowNotionObject(config: SyntaxConfig, name: string): boolean {
+  return name === "link_to_page"
+    ? config.variant === "notdown" && enabled(config, "notion_pages")
+    : config.variant === "notdown" && enabled(config, localObjectPlugins[name]);
+}
 function unavailable(node: PMNode, config: SyntaxConfig): boolean {
+  if (node.type.name === "block.link_to_page" && config.variant !== "notdown") return true;
   if (["executable_chunk", "executable_inline"].includes(editorKind(node)) && !(["quarto", "notdown"].includes(config.variant) || config.variant === "rmarkdown" && node.attrs.language === "r")) return true;
   if (isEditorKind(node, "image_block")) return true;
   if (isEditorKind(node, "code_block") &&
@@ -109,7 +120,7 @@ function unavailable(node: PMNode, config: SyntaxConfig): boolean {
     if (flag && !enabled(config, flag)) return true;
   }
   const localPlugin = localObjectPlugins[editorKind(node)];
-  if (localPlugin && !enabled(config, localPlugin)) return true;
+  if (localPlugin && (!enabled(config, localPlugin) || config.variant !== "notdown" && !officialNotionObject(node))) return true;
   const feature = isEditorKind(node, "callout") && node.attrs.syntaxForm === "alert"
     ? "alerts"
     : isEditorKind(node, "table_of_contents") && node.attrs.syntaxForm !== "notion"
@@ -393,7 +404,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
         state.pos += end;
         return true;
       }
-      const doc = parseNotionMarkdown(rest.slice(0, end), name => enabled(config, localObjectPlugins[name]));
+      const doc = parseNotionMarkdown(rest.slice(0, end), name => allowNotionObject(config, name));
       if (doc.childCount !== 1 || !isEditorKind(doc.firstChild, "paragraph"))
         return false;
       // Opting into a carrier must not opt into every feature of the Notion
@@ -450,7 +461,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
       const first = at(start).trim(),
         tag = openingTag(first);
       if (!tag || !tags.has(tag.tag)) return false;
-      const requirement = ({ columns: "notion_columns", column: "notion_columns", callout: "notion_callouts", details: "notion_toggles", table: "notion_tables", table_of_contents: "notion_toc", page: "notion_pages", database: "notion_databases", audio: "notion_media", video: "notion_media", file: "notion_media", pdf: "notion_media", synced_block: "notion_synced", synced_block_reference: "notion_synced" } as Record<string,string>)[tag.tag];
+      const requirement = ({ columns: "notion_columns", column: "notion_columns", callout: "notion_callouts", details: "notion_toggles", table: "notion_tables", table_of_contents: "notion_toc", page: "notion_pages", "page-link": "notion_pages", database: "notion_databases", audio: "notion_media", video: "notion_media", file: "notion_media", pdf: "notion_media", synced_block: "notion_synced", synced_block_reference: "notion_synced" } as Record<string,string>)[tag.tag];
       if (!requirement || !enabled(config, requirement)) return false;
       if (
         enabled(config, "raw_html") &&
@@ -496,7 +507,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
       const raw = state
         .getLines(start, finish, state.blkIndent, false)
         .replace(/\n$/, "");
-      let node = parseNotionMarkdown(raw, name => enabled(config, localObjectPlugins[name])).firstChild!;
+      let node = parseNotionMarkdown(raw, name => allowNotionObject(config, name)).firstChild!;
       if (
         (tag.tag === "table" && !enabled(config, "notion_tables")) ||
         unavailable(node, config)
@@ -517,7 +528,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
   md.block.ruler.before("html_block", "content_objects", (state, start, end, silent) => {
     if (state.sCount[start] - state.blkIndent >= 4) return false;
     const first = state.src.slice(state.bMarks[start] + state.tShift[start], state.eMarks[start]);
-    if (!/^<(?:tabs|bookmark|link-preview|breadcrumb|button|meeting-notes|ai-block|html-embed|web-embed|figure)(?:\s|\/?>)/.test(first)) return false;
+    if (!/^<(?:tabs|bookmark|link-preview|breadcrumb|button|meeting-notes|ai-block|web-embed|figure)(?:\s|\/?>)/.test(first)) return false;
     const objectName = objectTags[openingTag(first)?.tag || ""];
     if (!objectName || !enabled(config, localObjectPlugins[objectName])) return false;
     const lines = Array.from({ length: end }, (_, line) => state.src.slice(state.bMarks[line] + Math.min(state.tShift[line], state.blkIndent), state.eMarks[line]));
@@ -538,6 +549,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
   if (["quarto", "notdown"].includes(config.variant)) installQuarto(md);
   installGfm(md, config);
   if (parsers.size >= 16) parsers.delete(parsers.keys().next().value!);
+  if (usesNotionSyntax(config)) installNotionRichText(md, { citations: enabled(config, "notion_mentions"), math: enabled(config, "tex_math_dollars") });
   parsers.set(key, md);
   return md;
 }
@@ -602,10 +614,11 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
     }
     const readCaption = (text: string) => {
       const match = /^(?:Table:|:)\s+(.+)$/.exec(text);
-      if (!match || !enabled(config, "table_captions")) return false;
+      if (!match || !enabled(config, "table_captions") && !(enabled(config, "table_attributes") && /^\{[^{}]+\}$/.test(match[1]))) return false;
       let value = match[1];
       const attrs = /\s*\{([^{}]+)\}$/.exec(value);
-      if (attrs && enabled(config, "table_attributes")) { markdownAttrs = readAttributes(attrs[0].trim()); value = value.slice(0, attrs.index); }
+      if (attrs && enabled(config, "table_attributes")) { markdownAttrs = { ...markdownAttrs, ...readAttributes(attrs[0].trim()) }; value = value.slice(0, attrs.index); }
+      if (!value.trim()) return true;
       caption = schema.nodes["structure.table_caption"].create(null, parseInline(parser(config).parseInline(value, {})[0]?.children || []));
       captionId = markdownAttrs.id || captionId;
       return true;
@@ -617,10 +630,12 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
     }
     if (tokens[j + 1]?.type === "paragraph_open" && tokens[j + 2]?.type === "inline") {
       const text = tokens[j + 2].content;
-      if (readCaption(text)) captionSide = "bottom";
+      const previousCaption = caption;
+      const capturedCaption = readCaption(text);
+      if (capturedCaption) { if (caption !== previousCaption) captionSide = "bottom"; }
       else if (enabled(config, "table_attributes") && /^\{[^{}]+\}$/.test(text)) markdownAttrs = readAttributes(text);
       else { /* A following paragraph remains independent content. */ }
-      if (/^(?:Table:|:)\s+/.test(text) && captionSide === "bottom" || /^\{[^{}]+\}$/.test(text) && enabled(config, "table_attributes")) {
+      if (capturedCaption || /^\{[^{}]+\}$/.test(text) && enabled(config, "table_attributes")) {
         if (token.map && tokens[j + 1].map) token.map[1] = tokens[j + 1].map![1];
         j += 3;
       }
@@ -628,7 +643,7 @@ function tableNodes(tokens: Token[], config: SyntaxConfig, source: string): Toke
     token.type = "source_node";
     token.nesting = 0;
     token.meta = {
-      node: schema.nodes["block.table"].create({ nfmAttrs: { "header-row": String(rows[0]?.attrs.header || false) }, syntaxForm: enabled(config, "mmd_tables") ? "mmd" : "pipe", captionId, captionSide, markdownAttrs: { ...token.meta?.markdownAttrs, ...markdownAttrs } }, caption ? [caption, ...rows] : rows),
+      node: schema.nodes["block.table"].create({ nfmAttrs: { "header-row": String(rows[0]?.attrs.header || false) }, syntaxForm: enabled(config, "mmd_tables") ? "mmd" : "pipe", captionId, captionSide, markdownAttrs: { ...token.meta?.markdownAttrs, ...markdownAttrs }, widths: config.variant === "notdown" ? (readTableColumnWidths(markdownAttrs["tbl-colwidths"], Math.max(0, ...rows.map(row => row.content.content.reduce((n, cell) => n + Number(cell.attrs.colspan || 1), 0)))) ?? []).map(String) : [] }, caption ? [caption, ...rows] : rows),
     };
     result.push(token);
     i = j;
@@ -660,7 +675,7 @@ function parseNativeDocument(
       createEditorNode(schema, "opaque_block", { raw: source }),
     ]);
   if (usesNotionSyntax(config)) {
-    const doc = parseNotionMarkdown(source, name => enabled(config, localObjectPlugins[name]), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined);
+    const doc = parseNotionMarkdown(source, name => allowNotionObject(config, name), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined);
     const nodes = children(doc).map((node) =>
       unavailable(node, config)
         ? preserve(node, node.attrs.source ?? notionBlockMarkdown(node))
@@ -967,7 +982,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
       if (caption) {
         const line = "Table: " + inline(caption) + writeAttributes(node.attrs.markdownAttrs);
         if (node.attrs.captionSide === "top") rows.unshift(line, ""); else rows.push("", line);
-      } else if (Object.keys(node.attrs.markdownAttrs || {}).length) rows.push(writeAttributes(node.attrs.markdownAttrs).trim());
+      } else if (Object.keys(node.attrs.markdownAttrs || {}).length) rows.push("", ":" + writeAttributes(node.attrs.markdownAttrs));
       return rows.join("\n");
     }
     case "code_block":
@@ -985,7 +1000,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
 }
 export function serializeNative(doc: PMNode, config: SyntaxConfig): string {
   if (config.variant !== "notdown") doc.descendants(node => {
-    if (localObjectPlugins[editorKind(node)] || hasSupplementalAttributes(node) || config.variant === "notion-markdown" &&
+    if (localObjectPlugins[editorKind(node)] && !officialNotionObject(node) || hasSupplementalAttributes(node) || config.variant === "notion-markdown" &&
         (needsMarkdownTable(node) || isEditorKind(node, "code_block") && node.attrs.markdownAttrs?.caption !== undefined))
       throw new Error("Supplemental Notion content can only be written in the Notdown variant. Preserve the original source or switch variants.");
   });

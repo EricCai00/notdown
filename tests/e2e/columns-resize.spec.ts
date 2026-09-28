@@ -9,13 +9,13 @@ import { expectSource } from "./source-helper";
 
 const body =
   '<columns future="keep">\n\t<column extra="yes">\n\t\tLeft column\n\t</column>\n\t<column>\n\t\tRight column\n\t</column>\n</columns>\n\nTail';
-async function open(page: Page, request: APIRequestContext, source = body) {
+async function open(page: Page, request: APIRequestContext, source = body, variant = "notdown") {
   const response = await request.post("/api/pages", {
     data: {
       title: "Column resizing",
       body: source,
       bodyFormat: "notion-markdown",
-      syntax: { version: 1, variant: "notdown", extensions: {} },
+      syntax: { version: 1, variant, extensions: {} },
     },
   });
   expect(response.status()).toBe(201);
@@ -87,11 +87,12 @@ test("mouse resizing previews, saves Markdown, survives reload, and is one undo 
       async () =>
         (await (await request.get(`/api/pages/${note.id}`)).json()).body,
     )
-    .toContain("width-ratio=");
+    .toContain("ratio=");
   const saved = (await (await request.get(`/api/pages/${note.id}`)).json())
     .body;
   expect(saved).toContain('future="keep"');
   expect(saved).toContain('extra="yes"');
+  expect(saved).not.toContain('width-ratio=');
   await page.keyboard.press("Control+z");
   await expect
     .poll(async () => Math.abs((await widths(columns))[0] - before[0]))
@@ -151,7 +152,7 @@ test("typing and keyboard resizing preserve separate undo history and save toget
       async () =>
         (await (await request.get(`/api/pages/${note.id}`)).json()).body,
     )
-    .toMatch(/width-ratio=.*\n\t\tLeft column edited/);
+    .toMatch(/ratio=.*\n\t\tLeft column edited/);
 });
 
 test("Escape cancels preview, extreme drag clamps, and double click resets", async ({
@@ -200,4 +201,36 @@ test("three columns resize only neighbours and nested columns resize independent
   await drag(page, inner.locator(":scope > .pm-column-resizer"), 15);
   expect((await widths(inner))[0]).toBeGreaterThan(innerBefore[0] + 10);
   expect(Math.abs((await widths(outer))[0] - after[0])).toBeLessThan(1);
+});
+
+test("official NFM percentage columns render, resize, undo and reload", async ({ page, request }) => {
+  const source = body.replace('<column extra="yes">', '<column ratio="30" extra="yes">')
+    .replace('<column>', '<column ratio="70">');
+  const note = await open(page, request, source, "notion-markdown");
+  const columns = page.locator(".pm-document .note-columns");
+  const handle = columns.locator(":scope > .pm-column-resizer");
+  await expect(handle).toBeVisible();
+  const before = await widths(columns);
+  expect(before[0] / (before[0] + before[1])).toBeCloseTo(0.3, 3);
+  await expect(columns.locator('[data-ratio="30"]')).toHaveCount(1);
+  await drag(page, handle, 90);
+  expect((await widths(columns))[0]).toBeGreaterThan(before[0] + 80);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).not.toBe(source);
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).not.toContain("width-ratio=");
+  expect(saved).toContain('extra="yes"');
+  const ratios = [...saved.matchAll(/ratio="([\d.]+)"/g)].map(match => Number(match[1]));
+  expect(ratios).toHaveLength(2);
+  expect(ratios[0] + ratios[1]).toBeCloseTo(100, 6);
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(source);
+  await page.keyboard.press("Control+Shift+z");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(saved);
+  await page.reload();
+  await expect.poll(async () => (await widths(columns))[0]).toBeGreaterThan(before[0] + 80);
+  await page.locator('.editing-modes [data-mode="split"]').click();
+  await expectSource(page, saved);
 });

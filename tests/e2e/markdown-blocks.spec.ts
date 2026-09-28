@@ -290,9 +290,11 @@ test("Slash inserts the five new block types and respects disabled extensions", 
     await page.keyboard.press("ArrowUp");
     await page.keyboard.type("/");
     await page.locator(`[data-insert="${command}"]`).click();
-    if (command === "footnote") {
-      await page.getByRole("textbox", { name: "Footnote text" }).fill("Footnote text.");
-      await page.getByRole("button", { name: "Insert reference", exact: true }).click();
+    if (command === "definitions") {
+      await expect(page.getByLabel("Term", { exact: true })).toHaveValue("");
+      await page.getByLabel("Term", { exact: true }).fill("My term");
+      await page.getByLabel("Definition", { exact: true }).fill("My definition");
+      await page.locator("#dialog").getByRole("button", { name: "Insert", exact: true }).click();
     }
     await expect(page.locator(selector)).toHaveCount(1);
   }
@@ -305,7 +307,7 @@ test("Slash inserts the five new block types and respects disabled extensions", 
   await page.keyboard.press("Control+s");
   await expect.poll(() => saved(request, note.id)).toMatch(/Tail[\s\S]*<div>/);
   await page.reload();
-  await expect(page.locator(".pm-html-preview h2")).toHaveText("HTML heading");
+  await expect(page.locator(".pm-html-preview")).toHaveText("");
   await page.locator(".syntax-options summary").click();
   await page.locator('[data-extension="definition_lists"]').uncheck();
   await page.locator(".syntax-options summary").click();

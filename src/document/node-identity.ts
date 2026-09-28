@@ -50,6 +50,7 @@ export const nodeNames: Record<string, string> = {
   hard_break: "character.line_break",
   mention: "inline.mention_page_or_data_source",
   mention_person: "inline.mention_person",
+  mention_agent: "inline.mention_agent",
   date_or_reminder: "inline.date_or_reminder",
   inline_math: "inline.inline_math",
   citation: "inline.citation",
@@ -62,8 +63,11 @@ export const nodeNames: Record<string, string> = {
   button: "block.button",
   meeting_notes: "block.meeting_notes",
   ai_block: "block.ai_block",
-  html_embed: "block.html_embed",
-  embed_web_contents: "block.embed_web_contents",
+  web_embed: "block.web_embed",
+  notion_embed: "block.web_embed",
+  folder: "block.folder",
+  database: "block.database",
+  meeting_section: "structure.meeting_section",
   image_block: "block.image_block",
   example_list_item: "block.example_list_item",
   nested_block: "structure.nested_block",
@@ -90,7 +94,7 @@ export const nodeNames: Record<string, string> = {
 /** Codec representation names are not schema node names or persisted object IDs. */
 const sourceBlockNames: Record<string, string> = {
   diagram: "block.diagram",
-  embed: "block.embed_web_contents",
+  embed: "block.web_embed",
   figure: "block.image_block",
   comment: "block.block_comment",
   transclusion: "block.file_transclusion",
@@ -161,6 +165,8 @@ export function editorNodeType(
     kind =
       attrs?.kind === "user"
         ? "mention_person"
+        : attrs?.kind === "agent"
+          ? "mention_agent"
         : attrs?.kind === "date"
           ? "date_or_reminder"
           : "mention";
@@ -170,8 +176,6 @@ export function editorNodeType(
   )
     kind = attrs!.type;
   else if (kind === "heading" && attrs?.toggle) kind = "toggle_heading";
-  else if (kind === "child_page" && attrs?.nfmAttrs?.role === "child")
-    kind = "owned_page";
   const type = schema.nodes[id || nodeName(kind)];
   if (!type) throw new RangeError("Unknown editor node: " + kind);
   return type;
@@ -203,12 +207,13 @@ export function namedNodeSpecs(
 ): Record<string, NodeSpec> {
   const variants: Record<string, [string, Record<string, unknown>]> = {
     mention_person: ["mention", { kind: "user" }],
+    mention_agent: ["mention", { kind: "agent" }],
     date_or_reminder: ["mention", { kind: "date" }],
     audio: ["media_block", { type: "audio" }],
     video: ["media_block", { type: "video" }],
     pdf: ["media_block", { type: "pdf" }],
     toggle_heading: ["heading", { toggle: true }],
-    owned_page: ["child_page", { nfmAttrs: { role: "child" } }],
+    owned_page: ["child_page", {}],
   };
   const result: Record<string, NodeSpec> = {};
   const add = (id: string, kind: string, spec: NodeSpec) => {

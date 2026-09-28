@@ -1,7 +1,10 @@
 import { createEditorNode, editorKind, isEditorKind } from "./node-identity";
 import MarkdownIt from "markdown-it";
+import { installNotionRichText } from "./notion-rich-text";
+import { readOfficialNotionBlock, writeOfficialNotionBlock } from "./notion-official-blocks";
 import { rChunkMarkdown } from "../markdown-engine/rmarkdown";
 import imageRule from "markdown-it/lib/rules_inline/image.mjs";
+import linkRule from "markdown-it/lib/rules_inline/link.mjs";
 import { readObjectBlock, writeObjectBlock } from "./object-codec";
 import { multiMarkdownTable } from "./table-markdown";
 import type Token from "markdown-it/lib/token.mjs";
@@ -27,12 +30,39 @@ import {
 } from "./notion-syntax.js";
 
 const md = new MarkdownIt({ html: false, linkify: false });
+export interface NotionInlineLink { from: number; to: number; href: string }
+// Collect source spans with the same inline grammar used by the editor. In
+// particular, code, math, images and mention labels must not become links.
+md.inline.ruler.at("link", (state, silent) => {
+  const from = state.pos, tokenStart = state.tokens.length;
+  if (!linkRule(state, silent)) return false;
+  if (!silent && state.env.notionLinks) {
+    const token = state.tokens.slice(tokenStart).find(token => token.type === "link_open");
+    if (token) state.env.notionLinks.push({
+      from: from + (state.env.notionOffset ?? 0),
+      to: state.pos + (state.env.notionOffset ?? 0),
+      href: token.attrGet("href") || "",
+    });
+  }
+  return true;
+});
+export function notionInlineLinks(source: string): NotionInlineLink[] {
+  const notionLinks: NotionInlineLink[] = [];
+  md.parseInline(source, { notionLinks });
+  return notionLinks;
+}
 // Enhanced Markdown documents links explicitly, and images as media blocks.
 // Consume inline image syntax as a whole so it cannot fall through to a link.
 md.disable("autolink");
 md.inline.ruler.at("image", (state, silent) => {
   const start = state.pos;
-  if (!imageRule(state, silent)) return false;
+  const links = state.env.notionLinks;
+  let matched: boolean;
+  try {
+    state.env.notionLinks = undefined;
+    matched = imageRule(state, silent);
+  } finally { state.env.notionLinks = links; }
+  if (!matched) return false;
   if (!silent && !state.env.mediaImage) {
     const token = state.tokens[state.tokens.length - 1];
     token.type = "text";
@@ -54,7 +84,7 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
   if (
     !tag ||
     (tag.tag !== "span" &&
-      !/^mention-(?:page|user|database|data-source|date|link)$/.test(tag.tag))
+      !/^mention-(?:page|user|database|data-source|agent|date|link)$/.test(tag.tag))
   )
     return false;
   let finish = tag.length,
@@ -89,25 +119,15 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
     token.content = decodeXml(content);
     if (tag.tag === "span") {
       token.meta = tag.attrs;
-      token.children = md.parseInline(content, { ...state.env, mediaImage: false })[0]?.children ?? [];
+      token.children = md.parseInline(content, { ...state.env, mediaImage: false,
+        notionOffset: (state.env.notionOffset ?? 0) + state.pos + tag.length,
+      })[0]?.children ?? [];
     } else token.meta = { kind: tag.tag.slice(8), attrs: tag.attrs };
   }
   state.pos += finish;
   return true;
 });
-md.inline.ruler.before("escape", "notion_math_citation", (state, silent) => {
-  const rest = state.src.slice(state.pos);
-  const citation = /^\[\^([a-z][a-z\d+.-]*:[^\]\s<>]+)\]/i.exec(rest);
-  const equation = /^\$([^$\r\n]+)\$/.exec(rest);
-  const match = citation || equation;
-  if (!match) return false;
-  if (!silent) {
-    const token = state.push(citation ? "nfm_citation" : "nfm_math", "", 0);
-    token.content = match[1];
-  }
-  state.pos += match[0].length;
-  return true;
-});
+installNotionRichText(md);
 // [[...]] remains an input convenience and a legacy reader, never new output.
 md.inline.ruler.before("link", "legacy_page_mention", (state, silent) => {
   if (!state.env.legacyWiki) return false;
@@ -170,6 +190,30 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     offsets.push(match.index! + match[0].length);
   const depthAt = (line: number) => lines[line]?.match(/^\t*/)?.[0].length ?? 0;
   const textAt = (line: number) => (lines[line] ?? "").slice(depthAt(line));
+  const fenceAt = (line: number) => /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(textAt(line));
+  const fenceEnds = new Map<number, number>();
+  function fenceEnd(from: number, end: number): number {
+    const fence = fenceAt(from);
+    if (!fence) return end;
+    if (!fenceEnds.has(from)) {
+      const closing = new RegExp(`^ {0,3}${fence[1][0]}{${fence[1].length},}[ \\t]*$`);
+      let close = from + 1;
+      while (close < lines.length &&
+        !(depthAt(close) === depthAt(from) && closing.test(textAt(close)))) close++;
+      fenceEnds.set(from, close);
+    }
+    return Math.min(fenceEnds.get(from)!, end);
+  }
+  // The API can indent just the fences, leaving their literal body at column
+  // zero. A code body must never terminate its parent's child range.
+  function childrenEnd(from: number, end: number, parentLevel: number): number {
+    let cursor = from;
+    while (cursor < end && (!lines[cursor].trim() || depthAt(cursor) > parentLevel)) {
+      const close = fenceAt(cursor) ? fenceEnd(cursor, end) : end;
+      cursor = close < end ? close + 1 : cursor + 1;
+    }
+    return cursor;
+  }
   const raw = (from: number, to: number) =>
     source
       .slice(offsets[from] ?? source.length, offsets[to] ?? source.length)
@@ -198,25 +242,13 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         .join("\n"),
     });
   function closeTag(from: number, end: number, name: string): number {
-    let depth = 1,
-      fence = "",
-      length = 0;
+    let depth = 1;
     for (let line = from + 1; line < end; line++) {
       const text = textAt(line).trim();
-      const code = /^(`{3,}|~{3,})(.*)$/.exec(text);
-      if (fence) {
-        if (
-          code &&
-          code[1][0] === fence &&
-          code[1].length >= length &&
-          !code[2].trim()
-        )
-          fence = "";
-        continue;
-      }
-      if (code) {
-        fence = code[1][0];
-        length = code[1].length;
+      if (fenceAt(line)) {
+        const close = fenceEnd(line, end);
+        if (close === end) return -1;
+        line = close;
         continue;
       }
       if (text === `</${name}>` && --depth === 0) return line;
@@ -231,9 +263,12 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     return -1;
   }
   function inside(from: number, to: number, fallback: number): PMNode[] {
-    const levels = lines
-      .slice(from, to)
-      .flatMap((line, index) => (line.trim() ? [depthAt(from + index)] : []));
+    const levels: number[] = [];
+    for (let cursor = from; cursor < to; cursor++) {
+      if (lines[cursor].trim()) levels.push(depthAt(cursor));
+      const close = fenceAt(cursor) ? fenceEnd(cursor, to) : to;
+      if (close < to) cursor = close;
+    }
     return sequence(from, to, levels.length ? Math.min(...levels) : fallback);
   }
   function one(
@@ -249,24 +284,24 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
   } {
     const text = textAt(from);
     if (extra) return { node: extra.node, next: from + extra.lines };
-    const object = /^<(?:tabs|bookmark|link-preview|breadcrumb|button|meeting-notes|ai-block|html-embed|web-embed|figure)(?:\s|\/?>)/.test(text)
+    const official = /^<(?:tabs|meeting-notes|embed|folder|database)(?:\s|\/?>)/.test(text)
+      ? readOfficialNotionBlock(lines.map(line => line.slice(level)), from, end, raw => parseNotionMarkdown(raw, allowObject, extensions)) : undefined;
+    if (official) return official;
+    const object = /^<(?:tabs|bookmark|link-preview|breadcrumb|button|meeting-notes|ai-block|web-embed|figure)(?:\s|\/?>)/.test(text)
       ? readObjectBlock(lines.map(line => line.slice(level)), from, end, raw => parseNotionMarkdown(raw, allowObject, extensions)) : undefined;
     if (object) return (isEditorKind(object.node, "opaque_block") || allowObject(editorKind(object.node))) ? object : {
       node: createEditorNode(schema, "opaque_block", { raw: lines.slice(from, object.next).map(line => line.slice(level)).join("\n") }), next: object.next,
     };
-    const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(text);
+    const fence = fenceAt(from);
     if (fence) {
-      let close = from + 1;
-      for (; close < end; close++) {
-        const candidate = new RegExp(
-          `^${fence[1][0]}{${fence[1].length},}[ \\t]*$`,
-        );
-        if (depthAt(close) === level && candidate.test(textAt(close))) break;
-      }
-      const value = lines
-        .slice(from + 1, close)
+      const close = fenceEnd(from, end);
+      const body = lines.slice(from + 1, close);
+      // Accept both the API's literal-body layout and our fully indented
+      // serialization. Never strip real code tabs from a literal-body block.
+      const indented = body.every(line => !line.trim() || line.startsWith("\t".repeat(level)));
+      const value = body
         .map((line) =>
-          line.startsWith("\t".repeat(level)) ? line.slice(level) : line,
+          indented && line.startsWith("\t".repeat(level)) ? line.slice(level) : line,
         )
         .join("\n");
       if (close === end) return { node: opaque(from, end), next: end };
@@ -342,6 +377,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       if (
         [
           "page",
+          "page-link",
           "database",
           "audio",
           "video",
@@ -352,9 +388,11 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         ].includes(tag.tag) &&
         (single || tag.selfClosing)
       ) {
-        if (tag.tag === "page")
+        if (tag.tag === "page-link" && !allowObject("link_to_page"))
+          return { node: opaque(from, next), next };
+        if (tag.tag === "page" || tag.tag === "page-link")
           return {
-            node: createEditorNode(schema, "child_page", {
+            node: createEditorNode(schema, tag.tag === "page" ? "owned_page" : "child_page", {
               ...attrs,
               target:
                 localPageTarget(tag.attrs.url || "") ?? tag.attrs.url ?? "",
@@ -402,7 +440,10 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       ) {
         if (close < 0) return { node: opaque(from, end), next: end };
         if (tag.tag === "table") {
-          const table = parseTable(body, attrs, notionInline, !extensions);
+          // A colgroup may start on the opening line. Retain it when an edit
+          // invalidates the preserved source, including unknown column attrs.
+          const tableBody = single ? body : trimmed.slice(tag.length) + "\n" + body;
+          const table = parseTable(tableBody, attrs, notionInline, !extensions);
           return { node: table || opaque(from, next), next };
         }
         let content = single
@@ -543,11 +584,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       if (depthAt(cursor) < level) break;
       const start = cursor;
       if (depthAt(cursor) > level) {
-        do cursor++;
-        while (
-          cursor < end &&
-          (!lines[cursor].trim() || depthAt(cursor) > level)
-        );
+        cursor = childrenEnd(cursor, end, level);
         result.push(withSource(opaque(start, cursor), start, cursor));
         continue;
       }
@@ -557,12 +594,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
       let nextContent = cursor;
       while (nextContent < end && !lines[nextContent].trim()) nextContent++;
       if (nextContent < end && depthAt(nextContent) > level) {
-        let finish = nextContent + 1;
-        while (
-          finish < end &&
-          (!lines[finish].trim() || depthAt(finish) > level)
-        )
-          finish++;
+        const finish = childrenEnd(nextContent, end, level);
         // Ordinary headings cannot acquire children or silently become toggles.
         if (!extensions && isEditorKind(node, "heading") && !node.attrs.toggle) {
           result.push(withSource(opaque(start, finish), start, finish));
@@ -734,6 +766,8 @@ function blocks(nodes: PMNode[]): string {
   return nodes.map(node => notionBlockMarkdown(node)).join("\n\n");
 }
 export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => string = notionBlockMarkdown, inline: (node: PMNode) => string = node => inlineMarkdown(node, true)): string {
+  const official = writeOfficialNotionBlock(node, write);
+  if (official !== undefined) return official;
   const blocks = (nodes: PMNode[]) => nodes.map(node => write(node)).join("\n\n");
   const object = writeObjectBlock(node, child => write(child));
   if (object !== undefined) return object;
@@ -816,8 +850,10 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
         kids(node),
         { url: node.attrs.url },
       );
-    case "child_page":
-      return `<page${attributesXml({ ...attrs, url: node.attrs.url || pageUrl(node.attrs.target) })}>${escapeXml(node.attrs.label || node.attrs.target)}</page>`;
+    case "child_page": {
+      const tag = node.type.name === "block.link_to_page" ? "page-link" : "page";
+      return `<${tag}${attributesXml({ ...attrs, url: node.attrs.url || pageUrl(node.attrs.target) })}>${escapeXml(node.attrs.label || node.attrs.target)}</${tag}>`;
+    }
     case "table_of_contents":
       return `<table_of_contents${attributesXml(attrs)}/>`;
     case "unknown_block":

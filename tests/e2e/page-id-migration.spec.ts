@@ -1,0 +1,31 @@
+import { test, expect } from "@playwright/test";
+import { promises as fs } from "node:fs";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import os from "node:os";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { stablePageUuid } from "../../server/page-id.js";
+
+test("migrated UUID pages open from old addresses and linked pages retain navigation", async ({ page, request }) => {
+  const status = await (await request.get('/api/status')).json();
+  const root = path.resolve(status.vaultPath);
+  expect(path.dirname(root)).toBe(path.resolve(os.tmpdir()));
+  expect(path.basename(root)).toMatch(/^notdown-e2e-/);
+  const old = `import-${randomUUID().replaceAll('-', '').slice(0, 24)}-root`;
+  await fs.writeFile(path.join(root, 'pages', `${old}.md`), `---\nid: ${old}\ntitle: UUID migrated target\n---\nTarget body`);
+  const linked = await (await request.post('/api/pages', { data: { title: 'UUID linked page', body: `<page url="#page/${old}">Go to target</page>` } })).json();
+  await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/migrate-page-ids.ts', root, '--apply']);
+  const id = stablePageUuid(old);
+  await page.goto(`/#page/${old}`);
+  await expect(page.locator('#page-title')).toHaveValue('UUID migrated target');
+  await expect(page).toHaveURL(new RegExp(`#page/${id}$`));
+  expect((await (await request.get(`/api/pages/${old}`)).json()).id).toBe(id);
+  await page.goto(`/#page/${linked.id}`);
+  await expect(page.locator('#page-title')).toHaveValue('UUID linked page');
+  await page.locator(`.pm-document a[data-page-id="${id}"]`).click();
+  await expect(page.locator('#page-title')).toHaveValue('UUID migrated target');
+  await expect(page).toHaveURL(new RegExp(`#page/${id}$`));
+  const after = await (await request.get('/api/pages')).json();
+  expect(after.every((p: any) => /^[a-f0-9-]{36}$/.test(p.id))).toBe(true);
+});

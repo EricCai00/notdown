@@ -53,14 +53,14 @@ test("MMD metadata preserves CRLF through adjacent edits, disabled switches and 
   assert.equal(resolveContentObject(preserved)?.id, 'metadata.yaml_front_matter');
 });
 
-test("database objects are removed while old tags remain recoverable Unsupported source", () => {
+test("database references preserve official attributes without creating a local database engine", () => {
   assert.equal(editorSchema.nodes["database"], undefined);
   assert.equal(contentObject('block.database_reference'), undefined);
   const raw = '<database url="https://example.com/db" inline="true" custom="keep">Existing</database>\n\nTail';
   for (const variant of ['notion-markdown', 'commonmark'] as const) {
     const config: SyntaxConfig = { version: 1, variant, extensions: { notion_databases: true } };
     let state = EditorState.create({ doc: parseNative(raw, config) });
-    assert.equal(resolveContentObject(state.doc.firstChild!)?.id, 'block.unsupported');
+    assert.equal(resolveContentObject(state.doc.firstChild!)?.id, 'block.database');
     state = state.apply(state.tr.insertText('!', state.doc.content.size - 1));
     assert.equal(serializeNative(state.doc, config), raw + '!');
   }

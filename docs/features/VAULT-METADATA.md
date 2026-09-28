@@ -15,6 +15,19 @@ node --import tsx scripts/migrate-vault-metadata.ts ./vault --apply
 
 原始 Markdown（包括 YAML 注释）、原有 JSON 与迁移清单在任何页面改写前全部备份到 `.history/migrations/yaml-to-json-<uuid>/`。同名旧头部字段优先于先前的 JSON 默认值，JSON 中其他字段保留。迁移标记防止重复执行时继续删除正文内的 YAML。规划后页面版本变化会中止，不强制重试；已有两文件事务记录支持安全恢复，未完成批次可以重新规划剩余页面。
 
+## 页面 UUID 迁移
+
+页面身份统一为标准 UUID。新建／复制使用 UUIDv4，Notion 与文件夹导入使用 UUIDv5，稳定派生的名字包含批次和条目，因此同一快照重试仍幂等，不同副本不会覆盖。普通外部 Markdown 没有显式身份时也派生 UUID；已有 metadata 或 YAML 中的旧 ID 保持可读，直到显式迁移。
+
+```powershell
+node --import tsx scripts/migrate-page-ids.ts ./vault
+node --import tsx scripts/migrate-page-ids.ts ./vault --apply
+```
+
+预览记录全库页面的 `baseRevision`、文件名及 metadata／导入清单／冲突记录指纹；应用前及备份后都校验，发生变更即停止，不强制重试。执行经 `createVault` 与现有进程锁，更新页面文件名、JSON 身份与父关系、文首 YAML 的 id/parent、可识别的 Markdown／Wiki／页面标签引用及导入清单。只替换引用目标的源码片段；代码、标签中的未知语法、未知 metadata 字段及未改动的正文保持原样。来源记录存于 metadata，不从 UUID 推断来源。
+
+`.history/migrations/page-ids-<uuid>/manifest.json` 保存所有被触及文件的完整前后内容和旧／新 ID 映射。原有历史目录与原始 API 归档不改写；可通过映射查回。`.history/page-id-migration.json` 为中断恢复日志，服务下次读取时仅在每个文件仍精确匹配迁移前或迁移后内容时继续，否则保留磁盘版本与备份并停止。旧地址通过 `pageIdMigration.previousIds` 兼容读取，返回的页面 ID 始终为迁移后的 UUID；旧窗口提交仍执行版本校验，过期草稿保留为冲突副本，不覆盖新页面。复制页面不会继承旧地址别名。
+
 ## JSON 结构
 
 每个 vault 使用一个 `metadata.json`：

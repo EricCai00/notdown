@@ -57,7 +57,7 @@ test("raw source shares HTML objects and preserves other formats as unsupported"
   assert.equal(contentObject("inline.raw_source"), undefined);
   assert(!blockCatalog.some(entry => entry.id.endsWith(".raw_source")));
   assert.equal(contentObject("inline.media"), undefined);
-  assert.equal(contentObject("inline.mention_agent"), undefined);
+  assert.equal(contentObject("inline.mention_agent")?.status, "implemented");
 });
 
 test("file transclusion placements resolve to one semantic object", () => {
@@ -69,7 +69,7 @@ test("file transclusion placements resolve to one semantic object", () => {
   assert.equal(contentObject("block.file_transclusion")!.adapters.length, 2);
 });
 
-test("removed agent mentions preserve literal content, unknown attributes and CRLF after reopening", () => {
+test("official agent mentions preserve attributes and malformed source after reopening", () => {
   for (const variant of ["notion-markdown", "commonmark"] as const) {
     const config: SyntaxConfig = { version: 1, variant, extensions: { notion_mentions: true } };
     for (const tag of [
@@ -79,7 +79,10 @@ test("removed agent mentions preserve literal content, unknown attributes and CR
     ]) {
       const source = `Before ${tag} after\r\n\r\nTail\r\n`;
       const doc = parseNative(source, config);
-      doc.descendants(node => assert.notEqual(editorKind(node), "mention"));
+      const valid = tag.endsWith('/>') || tag.endsWith('</mention-agent>');
+      let agents = 0;
+      doc.descendants(node => { if (node.type.name === "inline.mention_agent") agents++; });
+      assert.equal(agents, valid ? 1 : 0);
       assert.equal(serializeNative(doc, config), source);
       let state = EditorState.create({ doc });
       state = state.apply(state.tr.insertText("!", state.doc.content.size - 1));
@@ -91,9 +94,9 @@ test("removed agent mentions preserve literal content, unknown attributes and CR
       state = state.apply(state.tr.insertText("!", doc.firstChild!.nodeSize - 1));
       const reopened = parseNative(serializeNative(state.doc, config), config);
       let recovered = "";
-      reopened.firstChild!.forEach(node => { recovered += node.isText ? node.textContent : node.attrs.raw || ""; });
+      reopened.firstChild!.forEach(node => { recovered += node.isText ? node.textContent : node.type.name === "inline.mention_agent" ? tag : node.attrs.raw || ""; });
       assert.equal(recovered, `Before ${tag} after!`);
-      reopened.descendants(node => assert.notEqual(editorKind(node), "mention"));
+      if (valid) assert.equal(reopened.firstChild!.child(1).attrs.nfmAttrs.custom, "keep");
     }
   }
 });

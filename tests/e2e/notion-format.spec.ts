@@ -1,4 +1,5 @@
 import { expectSource } from "./source-helper.js";
+import { notionToggleCodeSource } from "../unit/notion-import-fixture.js";
 import {
   expect,
   test,
@@ -25,6 +26,43 @@ async function open(
   await expect(page.locator(".pm-document")).toBeVisible();
   return note;
 }
+
+test("API toggle code keeps its hierarchy and literal indentation after editing and reopening", async ({ page, request }) => {
+  const note = await open(page, request, notionToggleCodeSource);
+  const toggle = page.locator('.pm-heading-toggle');
+  const code = toggle.locator('pre code');
+  const values = ['tf.reset_default_graph()', 'config = tf.ConfigProto()\nif True:\n\tconfig.gpu_options.allow_growth = True'];
+  await expect(code).toHaveText(values);
+  await expect(toggle.locator('h3')).toHaveText(['Reset graph', 'GPU configuration']);
+  await page.locator('.editing-modes [data-mode="split"]').click();
+  await expectSource(page, notionToggleCodeSource);
+  // Editing an outer sibling must leave the imported code source untouched.
+  const tail = page.locator('.pm-document > p').filter({ hasText: 'Outside API toggle' });
+  await tail.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' edited');
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body)
+    .toBe(notionToggleCodeSource.replace('\r\nOutside API toggle', '\r\n\r\nOutside API toggle edited'));
+  await page.reload();
+  await expect(code).toHaveText(values);
+  // Rewriting the toggle subtree must still round-trip real code indentation.
+  await toggle.locator('h2').click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' edited');
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body)
+    .toContain('API code toggle edited');
+  await page.reload();
+  await expect(code).toHaveText(values);
+  await expect(toggle.locator('h3')).toHaveText(['Reset graph', 'GPU configuration']);
+  await toggle.locator('.pm-toggle-chevron').click();
+  await expect(code.first()).not.toBeVisible();
+  await expect(tail).toBeVisible();
+  await toggle.locator('.pm-toggle-chevron').click();
+  await expect(code.first()).toBeVisible();
+  await page.locator('.pm-document').screenshot({ path: 'test-results/notion-toggle-code.png' });
+});
 test("Notion editing preserves source blank lines and separates new blocks across save and reload", async ({
   page,
   request,

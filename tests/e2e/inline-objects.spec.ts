@@ -222,7 +222,8 @@ test("figure caption edits preserve attributes and table rectangular selections 
   await page.getByRole("button", { name: "Edit caption" }).click(); await page.getByRole("textbox", { name: "Caption", exact: true }).fill("New caption");
   await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click(); await expect(page.locator("figcaption")).toHaveText("New caption");
   const cells = page.locator(".pm-document table td, .pm-document table th"); await cells.first().click();
-  await page.getByRole("button", { name: "Select table", exact: true }).click(); await expect(page.locator(".pm-selected-cell")).toHaveCount(4);
+  await page.getByRole("button", { name: "Table options", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Select table", exact: true }).click(); await expect(page.locator(".pm-selected-cell")).toHaveCount(4);
   await page.getByRole("button", { name: "Merge selection", exact: true }).click(); await expect(page.locator(".pm-document [colspan='2'][rowspan='2']")).toHaveCount(1);
   await page.keyboard.press("Control+z"); await expect(cells).toHaveCount(4);
   await page.locator('[data-mode="source"]').click(); await expectSource(page, /!\[New caption\]\(image.png "Title"\)\{alt="Alternative" custom="keep"\}/);

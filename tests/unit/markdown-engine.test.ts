@@ -74,7 +74,7 @@ test("each enabled Notion container is available in Markdown and disabling prese
     [
       "notion_databases",
       '<database url="https://example.com">db</database>',
-      "opaque_block",
+      "database",
     ],
     [
       "notion_synced",

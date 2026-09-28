@@ -1,5 +1,4 @@
 import type { InternalReference } from "../document/internal-reference";
-import { projectPageEntries } from "../document/page-entry-projection";
 import { Compartment, EditorState, Prec } from "@codemirror/state";
 import {
   EditorView,
@@ -14,6 +13,7 @@ import { defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { foldGutter, foldKeymap } from "@codemirror/language";
 import { markdownSourceLanguage } from "./source-language";
 import { BlockEditor } from "../editor/prosemirror-editor.js";
+import { insertFormats } from "../editor/insert-format";
 import { footnoteChoices, newFootnote, type FootnoteInput } from "../editor/footnotes";
 import { editorSchema } from "../document/editor-schema";
 import type { Page } from "../shared/types.js";
@@ -50,13 +50,16 @@ interface Options {
   config: SyntaxConfig;
   mode: EditMode;
   pages: () => Page[];
+  recentPages?: () => string[];
   currentPage?: () => Page | undefined;
   onChange(source: string, config: SyntaxConfig): void;
+  onSavePage?: () => Promise<boolean>;
   onMode(mode: EditMode): void;
   onInsert(): void;
   onError(error: unknown): void;
   onOpenPage?: (id: string, reference?: InternalReference) => void;
   onCreatePage?: (title: string, parent: string | null) => Promise<Page | null>;
+  onDeleteChildPages?: (ids: string[], isCurrent: () => boolean) => Promise<boolean>;
 }
 /** Both views share a source draft and a bounded history; mode changes only hide a projection. */
 export class MarkdownWorkspace {
@@ -87,7 +90,7 @@ export class MarkdownWorkspace {
     readonly root: HTMLElement,
     private options: Options,
   ) {
-    this.session = new DocumentSession(options.source, options.config, doc => projectPageEntries(doc, options.currentPage?.()?.pageEntryEvidence));
+    this.session = new DocumentSession(options.source, options.config);
     this.mappingDoc = this.session.snapshot.doc;
     root.className = "markdown-workspace";
     root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view"><button type="button" data-mode="source">Source</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="document">Page</button></div><label class="dialect-label">Dialect <select aria-label="Markdown dialect">${dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</select></label><details class="syntax-options"><summary>Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling">Sync scrolling</label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane"><div class="pane-title">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane"><div class="pane-title">Page · Editable</div><div id="editor"></div></section></div>`;
@@ -181,12 +184,15 @@ export class MarkdownWorkspace {
       value: options.source,
       bodyFormat: syntaxFormat(options.config),
       pages: options.pages,
+      recentPages: options.recentPages,
       currentPage: options.currentPage,
+      onSavePage: options.onSavePage,
       codec: this.codec(),
       onHistory: (direction) => this.history(direction),
       canCommand: (name) => commandEnabled(this.session.snapshot.config, name),
       onOpenPage: options.onOpenPage,
       onCreatePage: options.onCreatePage,
+      onDeleteChildPages: options.onDeleteChildPages,
       onDocumentChange: (doc, isolateHistory) => {
         if (this.projecting) return;
         try {
@@ -227,8 +233,7 @@ export class MarkdownWorkspace {
         "click",
         () => {
           const mode = button.dataset.mode as EditMode;
-          this.setMode(mode);
-          options.onMode(mode);
+          void Promise.resolve(this.setMode(mode)).then(changed => { if (changed) options.onMode(mode); });
         },
         { signal },
       ),
@@ -463,6 +468,10 @@ export class MarkdownWorkspace {
     this.publish();
   }
   configure(config: SyntaxConfig) {
+    if (this.blocks.databaseViewsDirty) {
+      void this.blocks.flushDatabaseViews().then(ok => { if (ok && !this.destroyed) this.configure(config); else if (!this.destroyed) this.controls(); });
+      return;
+    }
     this.capture();
     if (this.pending || this.blocks.isComposing()) return;
     try {
@@ -475,7 +484,8 @@ export class MarkdownWorkspace {
       this.options.onError(error);
     }
   }
-  setMode(mode: EditMode) {
+  setMode(mode: EditMode): boolean | Promise<boolean> {
+    if (this.blocks.databaseViewsDirty) return this.blocks.flushDatabaseViews().then(ok => ok && !this.destroyed ? this.setMode(mode) : false);
     this.capture();
     const previous = this.root.dataset.mode;
     const location =
@@ -501,16 +511,25 @@ export class MarkdownWorkspace {
     this.source.dispatch({
       effects: this.scrollExtension.reconfigure(mode === "split" ? scrollPastEnd() : []),
     });
-    if (
-      location !== undefined && main &&
-      this.root.getBoundingClientRect().top < main.getBoundingClientRect().top
-    )
-      this.root.scrollIntoView({ block: "start", behavior: "instant" });
     if (previous === "source" && mode !== "source" && this.pageScroll) {
-      main?.scrollTo({ top: this.pageScroll.outer, behavior: "instant" });
+      if (mode === "document")
+        main?.scrollTo({ top: this.pageScroll.outer, behavior: "instant" });
       this.pagePane.scrollTop = this.pageScroll.inner;
     }
-    this.measureLayout();
+    if (mode !== "document" && main) {
+      // Size for the destination first so short pages have enough scroll range.
+      const panes = this.root.querySelector(".editing-panes")!;
+      this.measureLayout(
+        main.getBoundingClientRect().top +
+        panes.getBoundingClientRect().top - this.root.getBoundingClientRect().top,
+      );
+      main.scrollTo({
+        top: main.scrollTop + this.root.getBoundingClientRect().top - main.getBoundingClientRect().top,
+        behavior: "instant",
+      });
+    } else {
+      this.measureLayout();
+    }
     this.source.requestMeasure();
     if (location !== undefined) {
       this.source.dispatch({
@@ -518,6 +537,7 @@ export class MarkdownWorkspace {
         effects: EditorView.scrollIntoView(location, { y: "center" }),
       });
     }
+    return true;
   }
   /** Locate the visible caret or reading block before hiding the page projection. */
   private pageSourcePosition(): number | undefined {
@@ -581,15 +601,16 @@ export class MarkdownWorkspace {
     const right = Math.max(width + 8, Math.min(anchor.right, document.documentElement.clientWidth - 8));
     panel.style.setProperty("--syntax-panel-right", `${anchor.right - right}px`);
   }
-  private measureLayout() {
+  private measureLayout(paneTop?: number) {
     this.positionExtensions();
     if (this.root.dataset.mode === "document") return;
-    const top = this.root
+    const top = paneTop ?? this.root
       .querySelector(".editing-panes")!
       .getBoundingClientRect().top;
     this.root.style.setProperty(
       "--editing-height",
-      `${Math.max(300, window.innerHeight - top - 40)}px`,
+      // Reserve 30px for the pane title and keep a generous editor below tall page headers.
+      `${Math.max(450, window.innerHeight * 0.7 + 30, window.innerHeight - top - 24)}px`,
     );
     this.scheduleScroll();
   }
@@ -632,6 +653,21 @@ export class MarkdownWorkspace {
     } else {
       this.flush();
       this.blocks.insertInlineObject(value);
+    }
+  }
+
+  insertFormat(id: string) {
+    const format = insertFormats[id];
+    if (!format || !commandEnabled(this.session.snapshot.config, id)) return;
+    if (this.activePane === "source") {
+      const { from, to } = this.source.state.selection.main;
+      const text = this.source.state.sliceDoc(from, to);
+      this.source.dispatch({ changes: { from, to, insert: format.before + text + format.after },
+        selection: { anchor: from + format.before.length, head: to + format.before.length } });
+      this.source.focus();
+    } else {
+      this.flush();
+      this.blocks.insertFormat(id);
     }
   }
 

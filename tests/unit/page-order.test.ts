@@ -33,14 +33,14 @@ async function fixture(t: test.TestContext) {
 
 test("sidebar moves persist order and parent without rewriting siblings or Markdown", async (t) => {
   const { root, vault } = await fixture(t);
-  const a = await vault.create({ title: "A", body: "a\r\n" }, { id: "a" });
-  const b = await vault.create({ title: "B", body: "---\nunknown: keep\n---\n```odd\r\nraw\r\n```\r\n", properties: { extra: true } }, { id: "b" });
-  const child = await vault.create({ title: "Child", parent: b.id, body: "child" }, { id: "child" });
-  const file = path.join(root, "pages", "b.md");
+  const a = await vault.create({ title: "A", body: "a\r\n" }, { id: "00000000-0000-4000-8000-000000000001" });
+  const b = await vault.create({ title: "B", body: "---\nunknown: keep\n---\n```odd\r\nraw\r\n```\r\n", properties: { extra: true } }, { id: "00000000-0000-4000-8000-000000000002" });
+  const child = await vault.create({ title: "Child", parent: b.id, body: "child" });
+  const file = path.join(root, "pages", `${b.id}.md`);
   await fs.writeFile(file, (await fs.readFile(file, "utf8")));
   let pages = await vault.list(), source = await vault.get(b.id);
   let moved = await vault.move(b.id, planPageMove(pages, b.id, a.id, "before")!, source.revision);
-  assert.deepEqual((await vault.list()).filter((page) => !page.parent).map((page) => page.id), ["b", "a"]);
+  assert.deepEqual((await vault.list()).filter((page) => !page.parent).map((page) => page.id), [b.id, a.id]);
   assert.equal((await vault.get(a.id)).revision, a.revision);
   assert.equal((await vault.get(child.id)).revision, child.revision);
   assert.equal(moved.body, b.body);
@@ -51,13 +51,13 @@ test("sidebar moves persist order and parent without rewriting siblings or Markd
   assert.equal((await vault.get(child.id)).parent, b.id);
   moved = await vault.move(b.id, planPageMove(await vault.list(), b.id, null, "root")!, moved.revision);
   assert.equal(moved.parent, null);
-  assert.deepEqual((await createVault(root).list()).filter((page) => !page.parent).map((page) => page.id), ["a", "b"]);
+  assert.deepEqual((await createVault(root).list()).filter((page) => !page.parent).map((page) => page.id), [a.id, b.id]);
 });
 
 test("a stale destination preserves the proposed move and never overwrites either page", async (t) => {
   const { vault } = await fixture(t);
-  const a = await vault.create({ title: "A" }, { id: "a" });
-  const b = await vault.create({ title: "B" }, { id: "b" });
+  const a = await vault.create({ title: "A" });
+  const b = await vault.create({ title: "B" });
   const move = planPageMove(await vault.list(), b.id, a.id, "inside")!;
   const changed = await vault.update(a.id, { body: "External edit" }, a.revision);
   await assert.rejects(vault.move(b.id, move, b.revision), (error: unknown) => error instanceof VaultError && error.status === 409);

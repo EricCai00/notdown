@@ -1,5 +1,6 @@
 import { isEditorKind } from "./node-identity";
 import type { Node as PMNode } from "prosemirror-model";
+import { writeAttributes } from "../markdown-engine/attributes";
 
 /** Writes the shared table model using MultiMarkdown's spans and sections. */
 export function multiMarkdownTable(table: PMNode, inline: (node: PMNode) => string, block?: (node: PMNode) => string): string {
@@ -64,5 +65,7 @@ export function multiMarkdownTable(table: PMNode, inline: (node: PMNode) => stri
     if (table.attrs.captionSide === "top") lines.unshift(text);
     else lines.push(text);
   }
+  const attributes = writeAttributes(table.attrs.markdownAttrs);
+  if (attributes) lines.push("", ":" + attributes);
   return lines.join("\n");
 }

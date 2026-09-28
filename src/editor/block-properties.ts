@@ -10,6 +10,8 @@ import { editMetadata } from "../markdown-engine/metadata-editing";
 import { parseNative } from "../markdown-engine/codec";
 
 export function blockPropertyFields(node: PMNode) {
+  if (isEditorKind(node, "meeting_notes") && node.attrs.syntaxForm === "notion") return [{ key: "title", label: "Meeting title", value: String(node.attrs.title), multiline: false }];
+  if (isEditorKind(node, "tabs") && node.attrs.syntaxForm === "notion") return [];
   if (isEditorKind(node, "media_block")) {
     const type = node.attrs.type as string;
     return [

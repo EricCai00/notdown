@@ -1,13 +1,19 @@
 export type LibraryRoute = "gallery" | "list" | "tree" | "graph";
-export type PageRoute = { kind: "page"; id: string; fragment?: string } | { kind: "vault"; view: LibraryRoute };
+export type PageRoute = { kind: "page"; id: string; fragment?: string } | { kind: "vault"; view: LibraryRoute } | { kind: "database"; id?: string };
 type Entry = { session: string; index: number; route: PageRoute };
 const key = "notdownNavigation";
 
 export function routeHash(route: PageRoute): string {
+  if (route.kind === "database") return route.id ? `#database/${encodeURIComponent(route.id)}` : "#databases";
   return route.kind === "page" ? `#page/${encodeURIComponent(route.id)}${route.fragment ? "#" + encodeURIComponent(route.fragment) : ""}` : `#vault/${route.view}`;
 }
 
 export function parseRoute(hash: string): PageRoute | null {
+  if (hash === "#databases") return { kind: "database" };
+  if (hash.startsWith("#database/")) {
+    try { const id = decodeURIComponent(hash.slice(10)); return id ? { kind: "database", id } : null; }
+    catch { return null; }
+  }
   if (hash.startsWith("#page/")) {
     try {
       const separator = hash.indexOf("#", 6);
@@ -26,6 +32,7 @@ function entry(): Entry | null {
   const value = history.state?.[key];
   const route = value?.route;
   const validRoute = route && (route.kind === "page" ? typeof route.id === "string" && route.id.length > 0
+    : route.kind === "database" ? route.id === undefined || typeof route.id === "string" && route.id.length > 0
     : route.kind === "vault" && ["gallery", "list", "tree", "graph"].includes(route.view));
   return value && typeof value.session === "string" && Number.isInteger(value.index) && value.index >= 0 &&
     validRoute ? value : null;
@@ -82,7 +89,7 @@ export class PageNavigation {
     if (!this.pending && routeHash(route) === routeHash(this.active.route) && location.hash === routeHash(route)) {
       // Vault callers also refresh after mutations; keep its entry while
       // refreshing the view. A mounted page keeps its editor and undo history.
-      return route.kind === "vault" ? this.request(route, this.active, false) : Promise.resolve(true);
+      return route.kind !== "page" ? this.request(route, this.active, false) : Promise.resolve(true);
     }
     return this.request(route, null, allowTrashed);
   }

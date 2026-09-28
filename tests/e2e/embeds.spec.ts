@@ -1,65 +1,93 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
-import { openBlockProperties } from "./block-properties-helper";
 
 async function open(page: Page, request: APIRequestContext, body = "", variant = "notdown") {
   const note = await (await request.post("/api/pages", { data: { title: "Embed creation", body, syntax: { version: 1, variant, extensions: {} } } })).json();
   await page.addInitScript(id => localStorage.setItem("notdown-page", id), note.id);
   await page.goto("/"); return note;
 }
-test("slash HTML embed accepts code, cancels drafts, undoes and persists sandboxed HTML", async ({ page, request }) => {
+async function embedAction(page: Page, name: string) {
+  await page.getByRole('button', { name: 'Embed options', exact: true }).click();
+  await page.getByRole('menu', { name: 'Embed options', exact: true }).getByRole('menuitem', { name, exact: true }).click();
+}
+test("HTML upload and drop save assets, support undo, cancel and reload, and disable scripts", async ({ page, request }) => {
   const note = await open(page, request);
-  const editor = page.locator(".pm-document");
-  await editor.click(); await page.keyboard.type("/html"); await page.locator('[data-insert="html_embed"]').click();
-  await page.getByRole("button", { name: "Create or upload HTML" }).click();
+  await page.locator(".pm-document").click(); await page.keyboard.type("/html");
+  await expect(page.locator('[data-insert="embed"]')).toHaveCount(0);
+  await page.locator('[data-insert="html_embed"]').click();
+  await page.getByRole("button", { name: "Upload an HTML file", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "HTML embed", exact: true });
-  await expect(dialog.getByLabel("HTML code")).toBeFocused();
-  await expect(dialog.getByRole("button", { name: "Embed HTML" })).toBeDisabled();
-  await expect(dialog).not.toContainText("Create with AI");
-  const html = '<!doctype html>\n<h1>Hello embed</h1><script>document.body.textContent="Executed"</script>';
-  await dialog.getByLabel("HTML code").fill(html);
-  await dialog.screenshot({ path: "test-results/html-embed-create.png" });
-  await dialog.getByRole("button", { name: "Embed HTML" }).click();
-  const frame = page.locator(".pm-html-embed");
-  await expect(frame).toHaveAttribute("srcdoc", html); await expect(frame).toHaveAttribute("sandbox", "");
-  await expect(page.frameLocator(".pm-html-embed").getByRole("heading")).toHaveText("Hello embed");
-  await page.keyboard.press("Control+z"); await expect(page.getByRole("button", { name: "Create or upload HTML" })).toBeVisible();
-  await page.keyboard.press("Control+Shift+z"); await expect(frame).toHaveAttribute("srcdoc", html);
-  await page.getByRole("button", { name: "Edit HTML", exact: true }).click();
-  await dialog.getByLabel("HTML code").fill("Discard me"); await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0); await expect(frame).toHaveAttribute("srcdoc", html);
-  await page.keyboard.press("Control+s");
-  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("&lt;h1&gt;Hello embed");
-  await page.reload(); await expect(frame).toHaveAttribute("srcdoc", html);
-  const properties = await openBlockProperties(page, page.locator(".pm-object-html_embed"));
-  await expect(properties.getByLabel("HTML document", { exact: true })).toHaveValue(html);
-  await properties.getByRole("button", { name: "Cancel", exact: true }).click();
-});
-test("HTML upload and drop populate editable code; pending drafts cannot replace external content", async ({ page, request }) => {
-  const note = await open(page, request, '<html-embed custom="keep"/>\n\nTail');
-  await page.getByRole("button", { name: "Create or upload HTML" }).click();
-  const dialog = page.getByRole("dialog", { name: "HTML embed", exact: true });
-  await dialog.getByLabel("HTML file").setInputFiles({ name: "hello.html", mimeType: "text/html", buffer: Buffer.from("<h2>Uploaded</h2>") });
-  await expect(dialog.getByLabel("HTML code")).toHaveValue("<h2>Uploaded</h2>");
-  await dialog.locator(".pm-embed-upload").evaluate(el => {
-    const data = new DataTransfer(); data.items.add(new File(["<h2>Dropped</h2>"], "drop.html", { type: "text/html" }));
+  await expect(dialog.getByLabel('Embed URL')).toHaveCount(0);
+  let uploads = 0; page.on("request", req => { if (req.url().endsWith('/api/assets') && req.method() === 'POST') uploads++; });
+  await dialog.getByLabel("HTML file").setInputFiles({ name: "cancel.html", mimeType: "text/html", buffer: Buffer.from("Discard") });
+  await page.keyboard.press("Escape"); expect(uploads).toBe(0);
+  await page.getByRole("button", { name: "Upload an HTML file", exact: true }).click();
+  await dialog.getByLabel("HTML file").setInputFiles({ name: "hello.htm", mimeType: "", buffer: Buffer.from("<h2>Uploaded</h2>") });
+  await expect(dialog).toContainText("hello.htm");
+  const html = '<!doctype html><style>h2 { color: rgb(12, 34, 56) }</style><h2>Dropped</h2><script>document.body.textContent="Executed"</script>';
+  await dialog.locator(".pm-embed-upload").evaluate((el, content) => {
+    const data = new DataTransfer(); data.items.add(new File([content], "drop.html", { type: "text/html" }));
     el.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
-  });
-  await expect(dialog.getByLabel("HTML code")).toHaveValue("<h2>Dropped</h2>");
-  await dialog.getByRole("button", { name: "Embed HTML" }).click(); await page.keyboard.press("Control+s");
-  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Dropped");
-  const saved = await (await request.get(`/api/pages/${note.id}`)).json(); expect(saved.body).toContain('custom="keep"');
-  await page.getByRole("button", { name: "Edit HTML", exact: true }).click(); await dialog.getByLabel("HTML code").fill("Stale draft");
+  }, html);
+  await expect(dialog).toContainText("drop.html");
+  await dialog.screenshot({ path: "test-results/html-embed-upload.png" });
+  await dialog.getByRole("button", { name: "Embed file" }).click();
+  const frame = page.locator(".pm-web-embed-frame");
+  await expect(frame).toHaveAttribute("src", /^\/assets\/.*\.html$/);
+  const src = (await frame.getAttribute("src"))!;
+  await expect(frame).toHaveAttribute("sandbox", ""); await expect(frame).not.toHaveAttribute("srcdoc");
+  await expect(page.frameLocator(".pm-web-embed-frame").getByRole("heading")).toHaveText("Dropped");
+  await expect(page.frameLocator(".pm-web-embed-frame").getByRole("heading")).toHaveCSS("color", "rgb(12, 34, 56)");
+  await page.keyboard.press("Control+z"); await expect(page.getByRole("button", { name: "Upload an HTML file", exact: true })).toBeVisible();
+  await page.keyboard.press("Control+Shift+z"); await expect(frame).toHaveAttribute("src", src);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(`src="${src.slice(1)}"`);
+  const saved = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(saved.body).not.toContain("html-embed"); expect(saved.body).not.toContain("Dropped"); expect(saved.body).not.toContain("&lt;");
+  const asset = await request.get(src); expect(await asset.text()).toBe(html);
+  expect(asset.headers()['content-type']).toContain('text/html'); expect(asset.headers()['content-disposition']).toBeUndefined();
+  expect(asset.headers()['content-security-policy']).toContain('sandbox');
+  await page.reload(); await expect(frame).toHaveAttribute("src", src);
+  await embedAction(page, "Replace");
+  await dialog.getByLabel("HTML file").setInputFiles({ name: "draft.html", mimeType: "text/html", buffer: Buffer.from("Draft") });
   await request.put(`/api/pages/${note.id}`, { data: { body: "External replacement", baseRevision: saved.revision } });
   await expect(editor(page)).toContainText("External replacement", { timeout: 10000 });
   await expect(dialog).toHaveCount(0);
+});
+
+test("failed and delayed HTML uploads cannot overwrite cancelled or externally changed drafts", async ({ page, request }) => {
+  const note = await open(page, request, '<embed src="" custom="keep"></embed>');
+  await page.getByRole("button", { name: "Upload an HTML file", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "HTML embed", exact: true });
+  const file = { name: "hello.html", mimeType: "text/html", buffer: Buffer.from("<h2>Hello</h2>") };
+  await page.route('**/api/assets', route => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Upload failed"}' }));
+  await dialog.getByLabel("HTML file").setInputFiles(file); await dialog.getByRole("button", { name: "Embed file" }).click();
+  await expect(dialog).toContainText("Upload failed"); await expect(dialog.getByRole("button", { name: "Embed file" })).toBeEnabled();
+  await page.unroute('**/api/assets');
+  await page.route('**/api/assets', route => route.fulfill({ status: 201, contentType: 'application/json', body: '{"path":"assets/old-server.bin"}' }));
+  await dialog.getByRole('button', { name: 'Embed file' }).click();
+  await expect(dialog).toContainText('The server did not save this as an HTML file');
+  await expect(dialog.getByRole('button', { name: 'Embed file' })).toBeEnabled();
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).not.toContain('old-server.bin');
+  await page.unroute('**/api/assets');
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/assets', async route => { await gate; await route.fulfill({ status: 201, contentType: 'application/json', body: '{"path":"assets/delayed.html"}' }); });
+  await dialog.getByRole("button", { name: "Embed file" }).click(); await expect(dialog.getByRole("button", { name: "Uploading…" })).toBeDisabled();
+  const saved = await (await request.get(`/api/pages/${note.id}`)).json();
+  await request.put(`/api/pages/${note.id}`, { data: { body: 'New external content', baseRevision: saved.revision } });
+  await expect(editor(page)).toContainText('New external content', { timeout: 10000 });
+  release(); await expect(dialog).toHaveCount(0);
+  await page.keyboard.press('Control+s'); expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe('New external content');
 });
 function editor(page: Page) { return page.locator(".pm-document"); }
 test("slash web embed validates URL, persists edits and fits narrow screens", async ({ page, request }) => {
   await page.route("https://example.com/**", route => route.fulfill({ contentType: "text/html", body: "<h1>Remote page</h1>" }));
   const note = await open(page, request);
   await editor(page).click(); await page.keyboard.type("/web"); await page.locator('[data-insert="embed"]').click();
-  await page.getByRole("button", { name: /^Embed anything/ }).click();
+  await page.getByRole("button", { name: "Embed a webpage", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Web embed", exact: true });
+  await expect(dialog.getByLabel('HTML file')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: /Upload/ })).toHaveCount(0);
   await expect(dialog.getByLabel("Embed URL")).toBeFocused();
   await dialog.getByLabel("Embed URL").fill("javascript:alert(1)"); await dialog.getByRole("button", { name: "Embed link" }).click();
   await expect(dialog).toContainText("Enter a valid");
@@ -68,11 +96,11 @@ test("slash web embed validates URL, persists edits and fits narrow screens", as
   await dialog.getByLabel("Embed URL").press("Enter");
   const frame = page.locator(".pm-web-embed-frame"); await expect(frame).toHaveAttribute("src", "https://example.com/embed?a=1&b=2");
   await expect(frame).toHaveAttribute("sandbox", "allow-scripts allow-forms allow-presentation");
-  await page.keyboard.press("Control+z"); await expect(page.getByRole("button", { name: /^Embed anything/ })).toBeVisible();
+  await page.keyboard.press("Control+z"); await expect(page.getByRole("button", { name: "Embed a webpage", exact: true })).toBeVisible();
   await page.keyboard.press("Control+Shift+z"); await page.keyboard.press("Control+s");
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("<web-embed");
   await page.reload(); await expect(frame).toHaveAttribute("src", "https://example.com/embed?a=1&b=2");
-  await page.setViewportSize({ width: 390, height: 844 }); await page.getByRole("button", { name: "Edit embed link" }).click();
+  await page.setViewportSize({ width: 390, height: 844 }); await embedAction(page, "Replace");
   const bounds = await dialog.boundingBox(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
   await dialog.getByLabel("Embed URL").fill("https://example.com/changed"); await dialog.getByLabel("Embed URL").press("Enter");
   await expect(frame).toHaveAttribute("src", "https://example.com/changed");
@@ -80,8 +108,169 @@ test("slash web embed validates URL, persists edits and fits narrow screens", as
 test("Typora iframe keeps its encoding and unknown attributes when edited", async ({ page, request }) => {
   await page.route("https://example.com/**", route => route.fulfill({ contentType: "text/html", body: "Remote" }));
   const note = await open(page, request, '<iframe src="https://example.com/old" height="200" data-custom="keep"></iframe>\n\nTail', "typora");
-  await page.getByRole("button", { name: "Edit embed link" }).click();
+  await embedAction(page, "Replace");
   await page.getByLabel("Embed URL").fill("https://example.com/new"); await page.getByLabel("Embed URL").press("Enter"); await page.keyboard.press("Control+s");
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('src="https://example.com/new"');
   const saved = await (await request.get(`/api/pages/${note.id}`)).json(); expect(saved.body).toContain('data-custom="keep"'); expect(saved.body).toContain('<iframe'); expect(saved.body).toContain('Tail');
+});
+
+test("HTML embed interaction, caption, resize, alignment, fullscreen and actions persist safely", async ({ page, request }) => {
+  const asset = await (await request.post('/api/assets', { data: { name: 'a.html', contentType: 'text/html', data: Buffer.from('<h1>asdasdasd</h1><input aria-label="Inside HTML"><script>document.body.textContent="unsafe"</script>').toString('base64') } })).json();
+  const note = await open(page, request, `<web-embed url="${asset.path}" title="a.html" custom="keep"/>\n\nTail`);
+  const embed = page.locator('.pm-embed'), preview = embed.locator('.pm-embed-preview');
+  await expect(embed.locator('.pm-embed-filename')).toHaveText('a.html');
+  await expect(embed.getByRole('toolbar').getByRole('button')).toHaveCount(2);
+  await expect(embed.getByRole('button', { name: 'Resize embed left', exact: true })).toHaveCount(0);
+  await preview.hover();
+  await expect(embed.getByRole('button', { name: 'Interact', exact: true })).toBeVisible();
+  await expect(embed.getByRole('button', { name: 'Interact', exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await embed.screenshot({ path: 'test-results/embed-html-idle.png' });
+  await expect(embed.locator('iframe')).toHaveCSS('pointer-events', 'none');
+  await embed.getByRole('button', { name: 'Interact', exact: true }).click();
+  await expect(embed.locator('iframe')).toHaveCSS('pointer-events', 'auto');
+  await page.frameLocator('.pm-web-embed-frame').getByLabel('Inside HTML').fill('Works');
+  await page.locator('.pm-document > p').last().click();
+  await expect(embed.locator('iframe')).toHaveCSS('pointer-events', 'none');
+  await embedAction(page, "Caption");
+  const caption = embed.getByLabel('Embed caption');
+  await caption.fill('sdfsadfasdfasdfsdfas');
+  await caption.press('Enter');
+  const handle = embed.getByRole('button', { name: 'Resize embed bottom', exact: true });
+  const box = (await handle.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 70); await page.mouse.up();
+  await expect(preview).toHaveCSS('height', '430px');
+  await embed.getByRole('button', { name: 'Resize embed bottom-right', exact: true }).press('ArrowLeft');
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
+  const menu = page.getByRole('menu', { name: 'Embed options' });
+  await expect(menu.getByRole('menuitem', { name: 'Download', exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Copy link to original' })).toHaveCount(0);
+  await menu.getByRole('menuitem', { name: 'More options', exact: true }).click();
+  await expect(page.getByRole('menu', { name: 'More options', exact: true }).getByRole('menuitem', { name: 'Open in browser', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/embed-html-menu.png' });
+  await page.keyboard.press('Escape');
+  const download = page.waitForEvent('download');
+  await menu.getByRole('menuitem', { name: 'Download', exact: true }).click();
+  expect((await download).suggestedFilename()).toBe('a.html');
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
+  await menu.getByRole('menuitem', { name: 'Align', exact: true }).click(); await page.getByRole('menuitemradio', { name: 'Align left', exact: true }).click();
+  await expect(embed).toHaveAttribute('data-align', 'left');
+  await embed.getByRole('button', { name: 'Full screen', exact: true }).click();
+  const full = page.getByRole('dialog', { name: 'Embed full screen' });
+  await expect(full).toBeVisible(); await expect(full.locator('iframe')).toHaveAttribute('sandbox', '');
+  await page.getByRole('button', { name: 'Close full screen' }).click(); await expect(full).toHaveCount(0);
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('height="430"');
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).toContain('caption="sdfsadfasdfasdfsdfas"'); expect(saved).toContain('align="left"'); expect(saved).toContain('custom="keep"');
+  await page.reload(); await expect(preview).toHaveCSS('height', '430px'); await expect(caption).toHaveValue('sdfsadfasdfasdfsdfas'); await expect(embed).toHaveAttribute('data-align', 'left');
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
+  await menu.getByLabel('Search embed actions').fill('duplicate');
+  await expect(menu.getByRole('menuitem')).toHaveCount(1);
+  await menu.getByRole('menuitem', { name: 'Duplicate', exact: true }).click(); await expect(embed).toHaveCount(2);
+  await page.keyboard.press('Control+z'); await expect(embed).toHaveCount(1);
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
+  await menu.getByRole('menuitem', { name: 'Delete', exact: true }).click(); await expect(embed).toHaveCount(0);
+  await page.keyboard.press('Control+z'); await expect(embed).toHaveCount(1);
+});
+
+test("web embed floats controls, supports replacement and stays within a narrow viewport", async ({ page, request }) => {
+  await page.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Web content</h1><input aria-label="Web input">' }));
+  await open(page, request, '<web-embed url="https://example.com" caption="Web caption" width="70%" height="320"/>\n\nTail');
+  const embed = page.locator('.pm-embed');
+  await expect(embed.locator('.pm-embed-file-header')).toHaveCount(0); await expect(embed.getByRole('button', { name: 'Interact' })).toHaveCount(0);
+  await expect(embed.getByRole('toolbar').getByRole('button')).toHaveCount(4);
+  await expect(embed.getByRole('button', { name: 'Resize embed left', exact: true })).toHaveCount(1);
+  await page.frameLocator('.pm-web-embed-frame').getByLabel('Web input').fill('Interactive');
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).hover();
+  await expect(embed.locator('.pm-embed-toolbar')).toHaveCSS('opacity', '1');
+  await embed.screenshot({ path: 'test-results/embed-web-hover.png' });
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
+  const menu = page.getByRole('menu', { name: 'Embed options' });
+  await expect(menu.getByRole('menuitem', { name: 'Copy link to original' })).toBeVisible(); await expect(menu.getByRole('menuitem', { name: 'Download' })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: 'Turn into', exact: true })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: 'Align', exact: true })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: 'Full screen', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/embed-web-menu.png' });
+  await menu.getByRole('menuitem', { name: 'Replace', exact: true }).click();
+  await page.getByLabel('Embed URL').fill('https://example.com/new'); await page.getByLabel('Embed URL').press('Enter');
+  await expect(embed.locator('iframe')).toHaveAttribute('src', 'https://example.com/new');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
+  const bounds = (await menu.boundingBox())!; expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: 'test-results/embed-mobile-menu.png' });
+});
+
+test("official HTML embed keeps native caption encoding and resize cancellation leaves source untouched", async ({ page, request }) => {
+  await page.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>HTML document</h1>' }));
+  const note = await open(page, request, '<embed src="https://example.com/a.html" future="keep">Caption</embed>', 'notion-markdown');
+  await page.getByLabel('Embed caption').fill('A & B'); await page.getByLabel('Embed caption').press('Enter'); await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('>A &amp; B</embed>');
+  await expect(page.locator('.pm-embed-resize')).toHaveCount(0);
+  const source = '<web-embed url="https://example.com" height="260" custom="keep"/>';
+  const local = await open(page, request, source);
+  const handle = page.getByRole('button', { name: 'Resize embed bottom', exact: true }); const box = (await handle.boundingBox())!;
+  await page.mouse.move(box.x + 10, box.y + 5); await page.mouse.down(); await page.mouse.move(box.x + 10, box.y + 95); await page.keyboard.press('Escape'); await page.mouse.up();
+  await expect(page.locator('.pm-embed-preview')).toHaveCSS('height', '260px'); await page.keyboard.press('Control+s');
+  expect((await (await request.get(`/api/pages/${local.id}`)).json()).body).toBe(source);
+});
+
+for (const kind of ['html', 'web'] as const) test(`${kind} embed stays centered during resize, after save/reload and inside a column`, async ({ page, request }) => {
+  await page.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Resize</h1>' }));
+  const source = kind === 'html'
+    ? '<embed src="https://example.com/a.html" title="a.html" width="70%" height="220" align="center" future="keep">Caption</embed>'
+    : '<web-embed url="https://example.com" width="70%" height="220" align="center" future="keep"/>';
+  const note = await open(page, request, source + '\n\nTail');
+  const embed = page.locator('.pm-embed');
+  const centers = () => embed.evaluate(el => {
+    const box = el.getBoundingClientRect(), parent = el.parentElement!.getBoundingClientRect();
+    return { block: box.left + box.width / 2, parent: parent.left + parent.width / 2, width: box.width };
+  });
+  await expect(embed).toHaveAttribute('data-align', 'center');
+  const initial = await centers(); expect(Math.abs(initial.block - initial.parent)).toBeLessThan(1);
+  const handle = embed.getByRole('button', { name: kind === 'html' ? 'Resize embed bottom-right' : 'Resize embed right', exact: true });
+  const box = (await handle.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 + 20);
+  const during = await centers(); expect(Math.abs(during.block - initial.block)).toBeLessThan(1); expect(during.width).toBeLessThan(initial.width - 100);
+  await page.mouse.up();
+  expect(Math.abs((await centers()).block - initial.block)).toBeLessThan(1);
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).not.toContain('width="70%"');
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).toContain('align="center"'); expect(saved).toContain('future="keep"');
+  if (kind === 'html') { expect(saved).toContain('<embed src='); expect(saved).toContain('>Caption</embed>'); }
+  await page.reload();
+  await expect(embed).toHaveAttribute('data-align', 'center'); expect(Math.abs((await centers()).block - initial.block)).toBeLessThan(1);
+  await embed.screenshot({ path: `test-results/embed-${kind}-centered.png` });
+  await open(page, request, '<columns>\n\t<column>\n\t\t' + source + '\n\t</column>\n\t<column>\n\t\tOther\n\t</column>\n</columns>');
+  await expect(embed).toBeVisible();
+  const nested = await centers(); expect(Math.abs(nested.block - nested.parent)).toBeLessThan(1);
+  await embed.getByRole('button', { name: 'Resize embed bottom-right', exact: true }).press('ArrowLeft');
+  const resized = await centers(); expect(Math.abs(resized.block - nested.block)).toBeLessThan(1); expect(resized.width).toBeLessThan(nested.width);
+});
+
+test('HTML native insertion retains its kind after undo/reload and can turn into a file', async ({ page, request }) => {
+  const note = await open(page, request);
+  await editor(page).click(); await page.keyboard.type('/embed');
+  await expect(page.locator('[data-insert="html_embed"]')).toContainText('HTML embed');
+  await expect(page.locator('[data-insert="embed"]')).toContainText('Web embed');
+  await page.screenshot({ path: 'test-results/embed-distinct-insertions.png' });
+  await page.locator('[data-insert="html_embed"]').click();
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('<embed src=""></embed>');
+  await page.reload();
+  await page.getByRole('button', { name: 'Upload an HTML file', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'HTML embed', exact: true });
+  await dialog.getByLabel('HTML file').setInputFiles({ name: 'sample.html', mimeType: 'text/html', buffer: Buffer.from('<h1>Sample</h1>') });
+  await dialog.getByRole('button', { name: 'Embed file' }).click();
+  await expect(page.locator('.pm-embed-filename')).toHaveText('sample.html');
+  await embedAction(page, 'Turn into');
+  await page.getByRole('menuitem', { name: 'File', exact: true }).click();
+  await expect(page.locator('.pm-embed')).toHaveCount(0);
+  await expect(page.locator('.pm-media-block')).toContainText('sample.html');
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.pm-html-embed')).toHaveCount(1);
+  await embedAction(page, 'Replace');
+  await expect(dialog.getByLabel('Embed URL')).toHaveCount(0);
+  await expect(dialog.getByLabel('HTML file')).toHaveCount(1);
 });

@@ -137,8 +137,25 @@ export const icons = {
   CircleCheck,
 };
 
+const renderedIcons = new WeakMap<Element, string>();
+const pendingIconAttribute = "data-notdown-pending-icon";
+
 export function refreshIcons() {
-  createIcons({ icons, attrs: { "stroke-width": 1.65 } });
+  let pending = false;
+  for (const element of document.querySelectorAll("[data-lucide]")) {
+    const name = element.getAttribute("data-lucide")!;
+    if (renderedIcons.get(element) === name) continue;
+    element.setAttribute(pendingIconAttribute, name);
+    pending = true;
+  }
+  if (!pending) return;
+  // Lucide retains data-lucide on generated SVGs. Select only new or renamed
+  // icons so frequent status/navigation refreshes keep existing SVGs intact.
+  createIcons({ icons, nameAttr: pendingIconAttribute, attrs: { "stroke-width": 1.65 } });
+  for (const element of document.querySelectorAll(`[${pendingIconAttribute}]`)) {
+    element.removeAttribute(pendingIconAttribute);
+    if (element instanceof SVGElement) renderedIcons.set(element, element.getAttribute("data-lucide")!);
+  }
 }
 
 export function createBacklinkIcon() {

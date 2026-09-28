@@ -2,8 +2,12 @@ import { createEditorNode, editorKind, editorNodeType, isEditorKind } from "./no
 import { inlineMarkdown } from "./editor-markdown";
 import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "./editor-schema";
-import { objectTags } from "./object-model";
-import { openingTag, attributesXml, decodeXml } from "./notion-syntax";
+import { objectTags, objectNodeSpecs } from "./object-model";
+import { openingTag, attributesXml } from "./notion-syntax";
+
+// A shared PM type includes attributes from all of its source encodings.
+// Read/write only this encoding's fields; leave unknown XML attributes intact.
+const objectSpecs = objectNodeSpecs(spec => spec);
 
 /** XML attributes carry properties; block bodies remain editable Markdown. */
 export function readObjectBlock(lines: string[], start: number, end: number, parse: (raw: string) => PMNode): { node: PMNode; next: number } | undefined {
@@ -22,9 +26,7 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
       let nesting = 1, fence = "";
       while (next < end) {
         const line = lines[next].trim();
-        // HTML payload is XML-escaped text, not nested Markdown. Literal fences
-        // inside the document must never hide the enclosing closing tag.
-        const f = name === "html_embed" ? null : /^(`{3,}|~{3,})/.exec(line);
+        const f = /^(`{3,}|~{3,})/.exec(line);
         if (f) { if (!fence) fence = f[1]; else if (f[1][0] === fence[0] && f[1].length >= fence.length && line === f[1]) fence = ""; }
         if (!fence) {
           if (line === close && --nesting === 0) break;
@@ -46,8 +48,7 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
       ? lines.map(line => line.startsWith("\t") ? line.slice(1) : line).join("\n") : source);
   };
   const properties: Record<string, unknown> = { nfmAttrs: tag.attrs };
-  for (const key of Object.keys(type.spec.attrs || {})) if (key in tag.attrs) properties[key] = tag.attrs[key];
-  if (name === "html_embed") properties.html = decodeXml(body || String(properties.html || ""));
+  for (const key of ["color", ...Object.keys(objectSpecs[name]?.attrs || {})]) if (key in tag.attrs) properties[key] = tag.attrs[key];
   if (name === "tabs") {
     const children: PMNode[] = [];
     const tabLines = body.split("\n");
@@ -84,8 +85,8 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
     properties.active = Math.max(0, Math.min(children.length - 1, Number(properties.active) || 0));
     return { node: type.create(properties, children), next };
   }
-  if (!type.spec.content && name !== "html_embed" && body.trim()) return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(start, next).join("\n") }), next };
-  return { node: type.create(properties, type.spec.content ? parseChildren(body).content : undefined), next };
+  if (!type.spec.content && body.trim()) return { node: createEditorNode(schema, "opaque_block", { raw: lines.slice(start, next).join("\n") }), next };
+  return { node: createEditorNode(schema, name, properties, type.spec.content ? parseChildren(body).content : undefined), next };
 }
 export function writeObjectBlock(node: PMNode, write: (node: PMNode) => string): string | undefined {
   if (isEditorKind(node, "image_block")) {
@@ -97,13 +98,12 @@ export function writeObjectBlock(node: PMNode, write: (node: PMNode) => string):
   const tag = Object.keys(objectTags).find(t => objectTags[t] === editorKind(node));
   if (!tag) return;
   const values: Record<string, string> = { ...node.attrs.nfmAttrs };
-  for (const key of Object.keys(node.type.spec.attrs || {})) {
-    if (["source", "sourceFingerprint", "sourceStart", "sourceEnd", "sourceKey", "nfmAttrs", "markdownAttrs", "color", "html"].includes(key)) continue;
+  for (const key of Object.keys(objectSpecs[editorKind(node)]?.attrs || {})) {
+    if (["source", "sourceFingerprint", "sourceStart", "sourceEnd", "sourceKey", "nfmAttrs", "markdownAttrs", "color", "html", "syntaxForm"].includes(key)) continue;
     if (node.attrs[key] !== "" && node.attrs[key] !== undefined && node.attrs[key] !== null) values[key] = String(node.attrs[key]);
     else delete values[key];
   }
   const attributes = attributesXml(values).replace(/\r/g, "&#13;").replace(/\n/g, "&#10;");
-  if (isEditorKind(node, "html_embed")) return `<${tag}${attributes}>\n${String(node.attrs.html).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}\n</${tag}>`;
   if (!node.type.spec.content) return `<${tag}${attributes}/>`;
   const blocks: string[] = []; node.forEach(n => blocks.push(write(n)));
   return `<${tag}${attributes}>\n${blocks.join("\n\n")}\n</${tag}>`;

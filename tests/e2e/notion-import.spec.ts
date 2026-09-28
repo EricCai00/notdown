@@ -1,5 +1,32 @@
 import { test, expect } from "@playwright/test";
-import { notionRoot, notionSource } from "../unit/notion-import-fixture.js";
+import { notionRoot, notionSource, notionLinksRoot, notionChild, notionSibling } from "../unit/notion-import-fixture.js";
+import { stablePageUuid } from "../../server/page-id.js";
+
+for (const variant of ["notdown", "notion-markdown"]) test(`imported ${variant} inline page links navigate to the matching local copy`, async ({ page, request }) => {
+  const response = await request.post("/api/notion/import/preview", {
+    data: { token: "test-secret-not-saved", pageId: notionLinksRoot, variant },
+  });
+  expect(response.ok()).toBeTruthy();
+  const preview = await response.json();
+  const committed = await request.post("/api/import/commit", { data: { id: preview.id } });
+  expect(committed.ok()).toBeTruthy();
+  const pages = await (await request.get("/api/pages")).json();
+  const imported = (id: string) => pages.find((p: any) => p.id === stablePageUuid(`notion-${preview.id.slice(0, 24)}-${id}`));
+  const root = imported(notionLinksRoot);
+  for (const [label, id] of [["Python", notionChild], ["Deep Learning", notionSibling]]) {
+    const target = imported(id);
+    expect(root.body).toContain(`](#page/${target.id})`);
+    await page.goto(`/#page/${root.id}`);
+    await expect(page.locator("#page-title")).toHaveValue("Notion inline links");
+    const link = page.locator(".page-pane .ProseMirror").getByRole("link", { name: label, exact: true });
+    await expect(link).toHaveAttribute("href", `#page/${target.id}`);
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`#page/${target.id}$`));
+    await expect(page.locator("#page-title")).toHaveValue("Same title");
+    await page.reload();
+    await expect(page.locator("#page-title")).toHaveValue("Same title");
+  }
+});
 
 test("Notion API preview, exact Markdown import and duplicate snapshot preserve local edits", async ({
   page,
@@ -17,6 +44,7 @@ test("Notion API preview, exact Markdown import and duplicate snapshot preserve 
     await page
       .getByRole("button", { name: "Import from Notion API", exact: true })
       .click();
+    await page.getByRole("combobox", { name: "Import dialect", exact: true }).selectOption("notion-markdown");
     await page
       .getByLabel("Integration token", { exact: true })
       .fill("test-secret-not-saved");
@@ -43,8 +71,18 @@ test("Notion API preview, exact Markdown import and duplicate snapshot preserve 
   await expect(page.locator("#page-title")).toHaveValue("Notion API fixture");
   const imported = await (await request.get("/api/pages")).json();
   const root = imported.find((p: any) => p.title === "Notion API fixture");
+  expect(root.id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
   expect(root.body).toBe(notionSource);
   expect(root.syntax.variant).toBe("notion-markdown");
+  const toggle = page.locator('.pm-heading-toggle');
+  await expect(toggle).toHaveCount(1);
+  await expect(toggle.locator('pre code')).toHaveText([
+    'tf.reset_default_graph()',
+    'config = tf.ConfigProto()\nif True:\n\tconfig.gpu_options.allow_growth = True',
+  ]);
+  await expect(toggle.locator('h3')).toHaveText(['Reset graph', 'GPU configuration']);
+  await expect(toggle).toContainText('After API code');
+  await expect(toggle).not.toContainText('Outside API toggle');
   expect(imported.filter((p: any) => p.parent === root.id)).toHaveLength(2);
   expect(
     (await (await request.get(`/api/pages/${before.id}`)).json()).title,

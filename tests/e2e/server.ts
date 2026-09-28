@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApp } from "../../server/app.js";
-import { notionFixture } from "../unit/notion-import-fixture.js";
+import { enrichmentFixture } from "../unit/notion-block-import-fixture.js";
 
 // This test server deliberately does not read VAULT_PATH, the normal seed, or
 // the application's user vault. A new temporary vault is created on every run.
@@ -19,7 +19,7 @@ const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-e2e-"));
 const recyclePath = path.join(vaultPath, "test-system-recycle-bin");
 await fs.mkdir(recyclePath);
 const app = createApp({ vaultPath, frontendDir, recycleFile: (file) => fs.rename(file, path.join(recyclePath, path.basename(file))),
-  notionImportTransport: { fetch: notionFixture(), wait: async () => {} },
+  notionImportTransport: { fetch: enrichmentFixture(), wait: async () => {} },
 });
 const vault = app.locals.vault;
 await vault.init();

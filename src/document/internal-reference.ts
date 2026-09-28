@@ -48,7 +48,7 @@ export function markReference(mark: Mark): InternalReference | null {
   return isEditorKind(mark, "link") ? internalReference(mark.attrs.href || "") : null;
 }
 
-export interface ReferencePage { id: string; title: string }
+export interface ReferencePage { id: string; title: string; legacyIds?: readonly string[] }
 function normalizePath(path: string): string {
   const parts: string[] = [];
   for (const part of path.replace(/\\/g, "/").split("/")) {
@@ -61,7 +61,7 @@ function normalizePath(path: string): string {
 export function resolveReferencePage<T extends ReferencePage>(reference: InternalReference, pages: readonly T[], currentId?: string): T | undefined {
   if (reference.addressing === "url") return;
   if (reference.addressing === "current") return pages.find(p => p.id === currentId);
-  const byId = pages.find(p => p.id === reference.address);
+  const byId = pages.find(p => p.id === reference.address) ?? pages.find(p => p.legacyIds?.includes(reference.address));
   if (byId) return byId;
   if (reference.addressing === "id") return;
   const path = normalizePath(reference.address);

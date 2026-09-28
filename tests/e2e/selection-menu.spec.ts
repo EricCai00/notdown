@@ -164,9 +164,9 @@ test("block conversion and ordinary links retain selected text; keyboard dismiss
     .getByRole("button", { name: "Link", exact: true })
     .click();
   await page
-    .getByRole("textbox", { name: "Link address" })
+    .getByRole("combobox", { name: "Link address" })
     .fill("https://example.com");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("combobox", { name: "Link address" }).press("Enter");
   await expect(
     page.locator('.pm-document a[href="https://example.com"]'),
   ).toHaveText("Selected words");

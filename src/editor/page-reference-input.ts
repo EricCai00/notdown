@@ -72,7 +72,7 @@ export function pageInputLabel(page: InputPage, pages: InputPage[]): string {
 
 export function insertPageInput(state: EditorState, match: PageInputMatch, page: InputPage, allow: PageInputOptions["allow"]) {
   const marks = (state.storedMarks ?? state.selection.$from.marks()).filter(mark => !isEditorKind(mark, "link"));
-  const wiki = allow("wiki_syntax"), mention = !wiki && allow("link");
+  const wiki = allow("wiki_syntax"), mention = !wiki && allow("mention");
   const url = `#page/${encodeURIComponent(page.id)}`;
   const node = wiki || mention
     ? createEditorNode(state.schema, "page_link", { target: page.id, label: page.title, labelMode: "auto", syntaxForm: wiki ? "wiki" : "mention", ...(mention ? { url } : {}) }, null, marks)

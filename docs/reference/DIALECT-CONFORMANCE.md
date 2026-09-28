@@ -39,7 +39,6 @@
 | `notion_button` | button |
 | `notion_meeting_notes` | meeting-notes |
 | `notion_ai_block` | ai-block |
-| `notion_html_document` | html-embed |
 | `notion_web_embed` | web-embed |
 | `local_figure` | 带独立 caption 属性的本地 figure |
 

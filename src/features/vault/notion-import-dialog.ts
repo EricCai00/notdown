@@ -18,12 +18,13 @@ export function openNotionImportDialog(options: {
   dialog.className = "import-dialog notion-import-dialog";
   dialog.setAttribute("aria-label", "Import from Notion API");
   dialog.innerHTML = `<header><h2>Import from Notion API</h2><button id="notion-close" aria-label="Close import">×</button></header>
-    <p>Import a local copy using Notion's Enhanced Markdown API.</p>
+    <p>Import a local copy of a page, database or data source using Notion's API.</p>
     <label>Integration token<input id="notion-token" type="password" autocomplete="off" spellcheck="false" /></label>
     <label>Page URL or ID<input id="notion-page" type="text" placeholder="https://www.notion.so/..." autocomplete="off" spellcheck="false" /></label>
     <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
+    <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
     <p class="import-hint">Share the root page with your Notion connection and enable Read content. The token is used only for this preview and is not saved. Up to 500 pages / 20 MB including archived responses.</p>
-    <p class="import-hint">Attachments remain remote and signed URLs may expire. Database records, views, comments and permissions are not imported. Page links keep their Notion destinations.</p>
+    <p class="import-hint">The URL or ID can address a page, database or data source. Descendants include child databases. Database records and supported fields become editable local copies. Formula and rollup values remain read-only snapshots. Original view definitions are archived; local tables show all records. Attachments remain remote; comments and permissions are not imported.</p>
     <div id="notion-preview" aria-live="polite"></div>
     <p id="notion-status" role="status"></p>
     <footer><button id="notion-cancel">Cancel</button><button id="notion-preview-button" class="primary-button">Preview</button><button id="notion-commit" class="primary-button" disabled>Import copies</button></footer>`;
@@ -31,6 +32,7 @@ export function openNotionImportDialog(options: {
   const token = dialog.querySelector<HTMLInputElement>("#notion-token")!;
   const page = dialog.querySelector<HTMLInputElement>("#notion-page")!;
   const children = dialog.querySelector<HTMLInputElement>("#notion-children")!;
+  const variant = dialog.querySelector<HTMLSelectElement>("#notion-variant")!;
   const previewButton = dialog.querySelector<HTMLButtonElement>(
     "#notion-preview-button",
   )!;
@@ -43,7 +45,7 @@ export function openNotionImportDialog(options: {
   let state: "idle" | "preview" | "commit" = "idle";
   let controller: AbortController | undefined;
   const update = () => {
-    token.disabled = page.disabled = children.disabled = state !== "idle";
+    token.disabled = page.disabled = children.disabled = variant.disabled = state !== "idle";
     previewButton.disabled = state !== "idle";
     commit.disabled = state !== "idle" || !summary;
     cancel.disabled = close.disabled = state === "commit";
@@ -54,7 +56,7 @@ export function openNotionImportDialog(options: {
     status.textContent = "";
     update();
   };
-  for (const input of [token, page, children])
+  for (const input of [token, page, children, variant])
     input.addEventListener("input", invalidate);
   const dismiss = () => {
     if (state !== "commit") dialog.close();
@@ -96,13 +98,14 @@ export function openNotionImportDialog(options: {
           token: token.value.trim(),
           pageId: page.value.trim(),
           includeChildren: children.checked,
+          variant: variant.value,
         }),
       });
       if (!dialog.isConnected) return;
       summary = result;
-      preview.innerHTML = `<h3>${e(result.name)}</h3><p>${result.pages} pages · Notion-flavored Markdown</p>
-        <details><summary>Import limitations</summary><ul>${result.warnings.map((w) => `<li>${e(w)}</li>`).join("")}</ul></details>
-        <label>API Markdown preview<select id="notion-preview-page">${result.documents.map((doc, index) => `<option value="${index}">${e(doc.title)} (${index + 1})</option>`).join("")}</select></label>
+      preview.innerHTML = `<h3>${e(result.name)}</h3><p>${result.pages} pages · ${variant.value === "notdown" ? "Notdown" : "Notion Markdown"}</p>
+        <details><summary>Import notes and limitations</summary><ul>${result.warnings.map((w) => `<li>${e(w)}</li>`).join("")}</ul></details>
+        <label>Markdown to import<select id="notion-preview-page">${result.documents.map((doc, index) => `<option value="${index}">${e(doc.title)} (${index + 1})</option>`).join("")}</select></label>
         <pre id="notion-markdown-source" tabindex="0"></pre>`;
       const select = preview.querySelector<HTMLSelectElement>("select")!;
       const source = preview.querySelector<HTMLElement>("pre")!;
@@ -113,7 +116,7 @@ export function openNotionImportDialog(options: {
       select.addEventListener("change", show);
       show();
       status.textContent =
-        "Ready. Review the API Markdown above. Existing local pages will not be overwritten.";
+        "Ready. Review the Markdown above. Existing local pages will not be overwritten.";
     } catch (error) {
       if (dialog.isConnected)
         status.textContent =

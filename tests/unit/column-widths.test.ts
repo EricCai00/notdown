@@ -28,8 +28,8 @@ test("column resize persists ratios and unknown fields without altering fenced o
   updated.doc.check();
   const source = serializeNotionMarkdown(updated.doc);
   assert.match(source, /<columns custom="keep">/);
-  assert.match(source, /<column width-ratio="0.4" future="yes">/);
-  assert.match(source, /<column width-ratio="0.6">/);
+  assert.match(source, /<column future="yes" ratio="40">/);
+  assert.match(source, /<column ratio="60">/);
   assert.match(source, /<column width-ratio="fake">/);
   assert.ok(source.endsWith('\n\n<future untouched="yes"/>\n'));
   assert.deepEqual(
@@ -124,4 +124,64 @@ test("Notdown columns retain widths through codec and extension disable", () => 
       source,
     );
   }
+});
+
+const officialBody = body.replaceAll('width-ratio="0.3"', 'ratio="30"')
+  .replaceAll('width-ratio="0.7"', 'ratio="70"');
+
+test("official percentage ratios render and survive edits in both NFM and Notdown", () => {
+  for (const variant of ["notion-markdown", "notdown"] as const) {
+    const config: SyntaxConfig = { version: 1, variant, extensions: {} };
+    let state = EditorState.create({ doc: parseNative(officialBody, config), plugins: [history()] });
+    assert.equal(editorKind(state.doc.firstChild), "columns");
+    assert.deepEqual(columnWidths(state.doc.firstChild!), [0.3, 0.7]);
+    assert.equal(serializeNative(state.doc, config), officialBody);
+    state = state.apply(columnWidthTransaction(state, 0, [0.375, 0.625])!);
+    state.doc.check();
+    const source = serializeNative(state.doc, config);
+    assert.match(source, /<column ratio="37.5" future="yes">/);
+    assert.match(source, /<column ratio="62.5">/);
+    assert.match(source, /<columns custom="keep">/);
+    assert.match(source, /<column width-ratio="fake">/); // Code remains literal.
+    assert.ok(source.endsWith('\n\n<future untouched="yes"/>\n'));
+    assert.deepEqual(columnWidths(parseNative(source, config).firstChild!), [0.375, 0.625]);
+    assert.match(htmlDocument("Widths", source, [], "notion-markdown", config), /--column-widths:minmax\(0, 0.375fr\) minmax\(0, 0.625fr\)/);
+    assert.match(renderNotionMarkdown(source), /data-ratio="37.5"/);
+    assert.ok(undo(state, tr => { state = state.apply(tr); }));
+    assert.equal(serializeNative(state.doc, config), officialBody);
+    assert.ok(redo(state, tr => { state = state.apply(tr); }));
+    assert.equal(serializeNative(state.doc, config), source);
+    const disabled = { ...config, extensions: { notion_columns: false } };
+    const opaque = parseNative(source, disabled);
+    assert.equal(editorKind(opaque.firstChild), "opaque_block");
+    assert.equal(serializeNative(opaque, disabled), source);
+  }
+});
+
+test("missing or invalid official ratios fall back to equal widths without changing source", () => {
+  const config: SyntaxConfig = { version: 1, variant: "notion-markdown", extensions: {} };
+  for (const value of ["", "NaN", "Infinity", "0", "-1", "100", "101", "30%", "30; color:red"]) {
+    const source = officialBody.replace('ratio="30"', `ratio="${value}"`);
+    const doc = parseNative(source, config);
+    assert.deepEqual(columnWidths(doc.firstChild!), [0.5, 0.5], value);
+    assert.equal(serializeNative(doc, config), source);
+    const edited = EditorState.create({ doc }).tr.insertText("!", 3).doc;
+    assert.equal(parseNative(serializeNative(edited, config), config).firstChild!.firstChild!.attrs.nfmAttrs.ratio, value);
+  }
+  const partial = officialBody.replace(' ratio="30"', "");
+  assert.deepEqual(columnWidths(parseNative(partial, config).firstChild!), [0.5, 0.5]);
+  const normalized = officialBody.replace('ratio="30"', 'ratio="20"').replace('ratio="70"', 'ratio="60"');
+  assert.deepEqual(columnWidths(parseNative(normalized, config).firstChild!), [0.25, 0.75]);
+  const both = officialBody.replace('ratio="30"', 'ratio="30" width-ratio="0.8"').replace('ratio="70"', 'ratio="70" width-ratio="0.2"');
+  assert.deepEqual(columnWidths(parseNotionMarkdown(both).firstChild!), [0.3, 0.7]);
+});
+
+test("resizing new columns writes every official percentage and totals exactly 100", () => {
+  const source = '<columns>\n<column>\nOne\n</column>\n<column>\nTwo\n</column>\n<column>\nThree\n</column>\n</columns>';
+  const config: SyntaxConfig = { version: 1, variant: "notion-markdown", extensions: {} };
+  const state = EditorState.create({ doc: parseNative(source, config) });
+  const resized = state.apply(columnWidthTransaction(state, 0, [1 / 3, 1 / 3, 1 / 3])!);
+  const result = serializeNative(resized.doc, config);
+  assert.doesNotMatch(result, /width-ratio/);
+  assert.deepEqual([...result.matchAll(/ratio="([\d.]+)"/g)].map(match => Number(match[1])), [33.3333, 33.3333, 33.3334]);
 });

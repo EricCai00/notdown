@@ -253,8 +253,8 @@ test("invalid IDs and attachment filenames cannot escape the vault", async (t) =
     "text/html",
     Buffer.from("<script>test</script>").toString("base64"),
   );
-  assert.match(asset.path, /^assets\/[a-f0-9-]+\.bin$/);
-  assert.equal(asset.contentType, "application/octet-stream");
+  assert.match(asset.path, /^assets\/[a-f0-9-]+\.html$/);
+  assert.equal(asset.contentType, "text/html");
   assert.equal(asset.name, "attack.html");
   assert.equal(
     await fs.readFile(path.join(vault.vaultPath, asset.path), "utf8"),

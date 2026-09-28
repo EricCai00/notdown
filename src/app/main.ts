@@ -5,6 +5,10 @@ import { mountReferencePicker } from "../features/links/reference-picker";
 import { graphHTML, mountGraph } from "../features/pages/graph-view";
 import { openImportDialog } from "../features/vault/import-dialog";
 import { openNotionImportDialog } from "../features/vault/notion-import-dialog";
+import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
+import type { Database, DatabaseDataSource, DatabaseSnapshot } from "../features/databases/database-model";
+import { databaseTree } from "../features/databases/database-tree";
+import { databaseReference } from "../features/databases/database-reference";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
 import { mountConflictDiff } from "../features/pages/conflict-diff";
@@ -23,6 +27,7 @@ import { pageIconElement } from "../shared/page-icons";
 import { emojiStyle, emojiStyleOptions, initializeEmojiStyle, setEmojiStyle, type EmojiStyle } from "../blocks/emoji-style";
 import { nextExampleLabel } from "../document/example-numbering";
 import { objectSamples } from "../document/object-model";
+import { insertFormats } from "../editor/insert-format";
 import { mountServiceSettings } from "./service-settings";
 import { mountRuntimeSettings } from "./runtime-settings";
 import { openPeople } from "../features/people/people-view";
@@ -46,7 +51,6 @@ import "../editor/notion-blocks.css";
 import { api, ApiError, escape as e, type Page } from "../shared/types";
 import {
   getOutline,
-  extractLinks,
   htmlDocument,
   type OutlineNode,
 } from "../document/document-format";
@@ -60,6 +64,7 @@ import { installSidebarDrag } from "./sidebar-drag";
 import { installSidebarLayout } from "./sidebar-layout";
 import { renderBreadcrumb } from "../blocks/breadcrumb-view";
 import { PageNavigation, parseRoute } from "../features/pages/page-navigation";
+import { PageBacklinks } from "../features/pages/page-backlinks";
 import { isPageCoverPath, openPageCoverPicker } from "../features/pages/page-cover-picker";
 import "../features/pages/page-cover-picker.css";
 
@@ -76,6 +81,33 @@ let editorGeneration = 0;
 let view: View = "document";
 let libraryView: LibraryView = "gallery";
 let library = false;
+let databaseWorkspace: DatabaseWorkspace | undefined;
+let databaseRoute: { kind: "database"; id?: string } | undefined;
+let databaseSchemaRevision: string | undefined;
+let databases: Database[] = [];
+let databaseApiAvailable = true;
+const databaseRestartMessage = "Database features need the updated local server. Restart the backend with npm run dev; your existing pages remain available.";
+async function readDatabaseList(): Promise<Database[]> {
+  try {
+    const resources = await api<Database[]>("/databases");
+    databaseApiAvailable = true;
+    return resources;
+  } catch (error) {
+    // A pre-database backend must not prevent opening ordinary Markdown pages.
+    // Other errors (including invalid metadata and access failures) still surface.
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    databaseApiAvailable = false;
+    return [];
+  } finally {
+    const notice = document.querySelector<HTMLElement>("#database-api-notice");
+    if (notice) notice.hidden = databaseApiAvailable;
+  }
+}
+async function refreshWorkspacePages(): Promise<Page[]> {
+  const [loaded, resources] = await Promise.all([api<Page[]>("/pages"), readDatabaseList()]);
+  databases = resources;
+  return loaded;
+}
 let dirty = false;
 let saving: Promise<boolean> | null = null;
 let saveTimer: ReturnType<typeof setTimeout>;
@@ -93,6 +125,7 @@ let coverPickerCleanup: (() => void) | undefined;
 let coverRepositionCleanup: (() => void) | undefined;
 let sidebarLayout: ReturnType<typeof installSidebarLayout>;
 let navigation: PageNavigation | undefined;
+const backlinks = new PageBacklinks();
 
 function updateNavigationButtons() {
   const back = document.querySelector<HTMLButtonElement>('[data-action="history-back"]');
@@ -166,6 +199,7 @@ function report(error: unknown) {
 function persistDraft(page: Page) {
   try {
     localStorage.setItem(draftKey(page.id), JSON.stringify(page));
+    if (databaseSchemaRevision && page.dataSourceId) localStorage.setItem(`${draftKey(page.id)}:schema`, databaseSchemaRevision);
   } catch {
     if (!draftWarningShown) {
       toast("Browser draft storage is full. Saving to disk will continue; confirm that saving succeeds before closing.");
@@ -176,6 +210,7 @@ function persistDraft(page: Page) {
 function removeDraft(id: string) {
   try {
     localStorage.removeItem(draftKey(id));
+    localStorage.removeItem(`${draftKey(id)}:schema`);
   } catch {
     /* 磁盘保存不依赖浏览器缓存。 */
   }
@@ -206,6 +241,8 @@ function markDirty() {
   updateCounts();
 }
 async function save(): Promise<boolean> {
+  if (databaseWorkspace && !(await databaseWorkspace.flush())) return false;
+  if (workspace && !(await workspace.blocks.flushDatabaseViews())) return false;
   captureEditor();
   clearTimeout(saveTimer);
   if (saving) {
@@ -214,13 +251,23 @@ async function save(): Promise<boolean> {
   }
   if (!dirty || !current) return true;
   if (conflict) return false;
-  const draft = structuredClone(current);
   status("Saving Markdown…", "pending");
   saving = (async () => {
     try {
+      await workspace?.blocks.flushSyncedBlocks();
+      captureEditor();
+      clearTimeout(saveTimer);
+      if (!current || !dirty) return true;
+      const draft = structuredClone(current);
+      let schemaRevision = databaseSchemaRevision;
+      if (draft.dataSourceId && !schemaRevision) {
+        try { schemaRevision = localStorage.getItem(`${draftKey(draft.id)}:schema`) ?? undefined; } catch { /* Optional browser draft. */ }
+        schemaRevision ??= (await api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(draft.dataSourceId)}`)).revision;
+        if (current?.id === draft.id) { databaseSchemaRevision = schemaRevision; persistDraft(current); }
+      }
       const saved = await api<Page>(`/pages/${draft.id}`, {
         method: "PUT",
-        body: JSON.stringify({ ...draft, baseRevision: draft.revision }),
+        body: JSON.stringify({ ...draft, baseRevision: draft.revision, ...(schemaRevision ? { schemaRevision } : {}) }),
       });
       pages = pages.map((page) => (page.id === saved.id ? saved : page));
       if (current?.id === saved.id) {
@@ -274,44 +321,66 @@ async function save(): Promise<boolean> {
 function pageIcon(page: Page) {
   return pageIconElement(page.icon).outerHTML;
 }
+let sidebarSnapshot: { container: Element; key: string } | undefined;
 function renderSidebar() {
   if (sidebarDrag.isDragging()) return;
   const container = document.querySelector("#page-tree");
   if (!container) return;
+  const tree = databaseTree(pages, databases);
+  const activeId = databaseRoute?.id ? (databases.find(item => item.id === databaseRoute!.id)?.pageId ?? databaseRoute.id) : current?.id;
+  const key = JSON.stringify([
+    tree.pages.map(page => [page.id, page.parent, page.title, page.icon, page.favorite, page.sidebarOrder, page.databaseId, page.dataSourceId]),
+    [...collapsed],
+  ]);
+  if (sidebarSnapshot?.container === container && sidebarSnapshot.key === key) {
+    for (const row of container.querySelectorAll<HTMLElement>("[data-page-row]")) {
+      row.classList.toggle("active", !library && row.dataset.pageRow === activeId);
+    }
+    refreshBreadcrumbs();
+    return;
+  }
   const visited = new Set<string>();
+  const childrenByParent = new Map<string | null, Page[]>();
+  for (const page of tree.pages) {
+    const siblings = childrenByParent.get(page.parent) ?? [];
+    siblings.push(page);
+    childrenByParent.set(page.parent, siblings);
+  }
+  for (const siblings of childrenByParent.values()) siblings.sort(comparePageOrder);
   function rows(parent: string | null, depth: number): string {
-    return pages
-      .filter((p) => p.parent === parent)
-      .sort(comparePageOrder)
+    return (childrenByParent.get(parent) ?? [])
       .map((p) => {
         if (visited.has(p.id)) return "";
         visited.add(p.id);
-        const children = pages.some((c) => c.parent === p.id);
-        return `<div data-page-row="${e(p.id)}" class="tree-row ${current?.id === p.id && !library ? "active" : ""}" style="--depth:${depth}">
+        const children = childrenByParent.has(p.id);
+        return `<div data-page-row="${e(p.id)}" ${p.databaseId ? `data-database-row="${e(p.databaseId)}"` : ""} class="tree-row ${activeId === p.id && !library ? "active" : ""}" style="--depth:${depth}" ${p.parent ? `data-tree-parent="${e(p.parent)}"` : ""}>
         ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}" aria-expanded="${!collapsed.has(p.id)}">${icon(collapsed.has(p.id) ? "chevron-right" : "chevron-down")}</button>` : ""}
-        <button class="tree-page" draggable="true" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span></button>
-        <button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button><button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button></div>${collapsed.has(p.id) ? "" : rows(p.id, depth + 1)}`;
+        <button class="tree-page" draggable="${!p.dataSourceId && !tree.virtualIds.has(p.id)}" ${p.databaseId ? `data-open-database="${e(p.databaseId)}" data-open="${e(p.id)}"` : `data-open="${e(p.id)}"`}>${pageIcon(p)}<span>${e(p.title)}</span></button>
+        ${tree.virtualIds.has(p.id) ? "" : `<button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button>`}${p.databaseId ? `<button class="tree-add" data-database-new-record="${e(p.databaseId)}" aria-label="Add database record">${icon("plus")}</button>` : `<button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button>`}</div>${collapsed.has(p.id) ? "" : rows(p.id, depth + 1)}`;
       })
       .join("");
   }
   container.innerHTML =
     rows(null, 0) || `<p class="empty-small">No pages yet. Write down your first idea.</p>`;
   const favorites = document.querySelector("#favorite-pages");
-  if (favorites) favorites.innerHTML = pages.some((page) => page.favorite)
-    ? `<div class="section-label">Favorites</div>${pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="true" data-open="${e(page.id)}">${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
+  if (favorites) favorites.innerHTML = tree.pages.some((page) => page.favorite)
+    ? `<div class="section-label">Favorites</div>${tree.pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="${!page.dataSourceId}" ${page.databaseId ? `data-open-database="${e(page.databaseId)}" data-open="${e(page.id)}"` : `data-open="${e(page.id)}"`}>${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
   const count = document.querySelector("#page-count");
   if (count) count.textContent = String(pages.length);
+  sidebarSnapshot = { container, key };
   refreshBreadcrumbs();
   refreshIcons();
 }
 
 function shell() {
+  app.inert = true;
+  app.setAttribute("aria-busy", "true");
   app.innerHTML = `<aside class="sidebar" id="sidebar">
     <button class="workspace-switch" data-action="settings"><img class="workspace-avatar" src="${notdownIcon}" width="28" height="28" alt="" /><span><strong>Notdown workspace</strong></span>${icon("chevrons-up-down")}</button>
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
-    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
-    <div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
-    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button><button class="new-page" data-action="import-notion">${icon("globe")}Import from Notion API</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
+    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
+    <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
+    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="new-database">${icon("table-2")}New database</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button><button class="new-page" data-action="import-notion">${icon("globe")}Import from Notion API</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
     <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
   </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   const resizer = document.createElement("div");
@@ -353,6 +422,10 @@ function captureEditor() {
   }
 }
 function destroyEditor() {
+  databaseWorkspace?.destroy();
+  databaseWorkspace = undefined;
+  databaseRoute = undefined;
+  databaseSchemaRevision = undefined;
   graphCleanup?.();
   graphCleanup = undefined;
   pageIconCleanup?.();
@@ -386,6 +459,8 @@ function revealReference(reference: InternalReference) {
   if (!editor?.scrollToReference(reference)) toast("Linked location not found.");
 }
 async function openPage(id: string, allowTrashed = false) {
+  const databaseId = pages.find(page => page.id === id)?.databaseId ?? databases.find(database => (database.pageId ?? database.id) === id)?.id;
+  if (databaseId && !allowTrashed) return navigation?.navigate({ kind: "database", id: databaseId });
   return navigation?.navigate({ kind: "page", id }, allowTrashed);
 }
 
@@ -396,13 +471,19 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   if (!library && current?.id === id) return true;
   closeModal();
   closePageContextMenu();
-  const activePages = await api<Page[]>("/pages");
+  const activePages = await refreshWorkspacePages();
   if (!isCurrent()) return false;
-  if (!allowTrashed && !activePages.some((page) => page.id === id)) {
+  const requestedId = id;
+  const activePage = activePages.find(page => page.id === id || page.legacyIds?.includes(id));
+  id = activePage?.id ?? id;
+  if (!allowTrashed && !activePage) {
     toast("This page is in Trash or no longer exists.");
     return false;
   }
-  const page = await api<Page>(`/pages/${encodeURIComponent(id)}`);
+  // The list already contains full, fresh disk snapshots. A second GET would
+  // scan the whole vault again. Clone so edits cannot mutate the sidebar snapshot.
+  const page = activePage ? structuredClone(activePage) : await api<Page>(`/pages/${encodeURIComponent(id)}`);
+  if (page.databaseId && !allowTrashed) return loadDatabases(page.databaseId, isCurrent);
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   // Input may have arrived while fetching the destination. Save it before
   // destroying the outgoing DOM; never pair it with the destination revision.
@@ -411,12 +492,13 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   current = page;
   library = false;
   search = "";
-  const draft = readDraft(id);
+  const draftId = [id, requestedId, ...(page.legacyIds ?? [])].find(candidate => readDraft(candidate));
+  const draft = draftId ? readDraft(draftId) : null;
   if (draft) {
     try {
       const recovered = JSON.parse(draft) as Page;
       if (
-        recovered.id === id &&
+        (recovered.id === id || page.legacyIds?.includes(recovered.id)) &&
         (recovered.body !== page.body ||
           recovered.bodyFormat !== page.bodyFormat ||
           JSON.stringify(recovered.syntax) !== JSON.stringify(page.syntax) ||
@@ -429,7 +511,13 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
           JSON.stringify(recovered.properties) !==
             JSON.stringify(page.properties))
       ) {
-        current = recovered;
+        current = { ...recovered, id };
+        if (draftId !== id) {
+          try {
+            localStorage.setItem(draftKey(id), JSON.stringify(current));
+            removeDraft(draftId!);
+          } catch { /* Preserve the original draft if browser storage is full. */ }
+        }
         dirty = true;
         toast("Your unsaved draft has been restored. File revisions will be checked when saving.");
       } else removeDraft(id);
@@ -461,6 +549,7 @@ function refreshBreadcrumbs() {
   }
   const header = document.querySelector("#breadcrumb");
   if (!header) return;
+  if (databaseRoute) { header.innerHTML = `${icon("table-2")}<strong>Databases</strong>`; return; }
   if (!current || library) {
     header.innerHTML = `${icon("library")}<strong>Vault</strong>`;
     return;
@@ -499,7 +588,7 @@ function renderDocument() {
       )
       .join("")}</select></div>
     <div class="property-row"><span>${icon("tags")}Properties</span><button data-action="properties" class="property-values">${
-      Object.entries(p.properties || {})
+      p.dataSourceId ? '<span class="muted">Additional page properties…</span>' : Object.entries(p.properties || {})
         .slice(0, 4)
         .map(
           ([key, value]) =>
@@ -507,9 +596,10 @@ function renderDocument() {
         )
         .join("") || `<span class="muted">Add page properties</span>`
     }</button></div><div id="page-metadata"></div></div></details>
-    <div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents"></aside></div>`;
+    <div id="database-page-properties"></div><div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents"></aside></div>`;
   renderContent();
   renderPageDecoration();
+  void renderDatabasePageProperties(p);
   const title = document.querySelector<HTMLTextAreaElement>("#page-title")!;
   title.style.height = `${title.scrollHeight}px`;
   renderRelations();
@@ -562,7 +652,11 @@ function renderContent() {
           current.syntax ?? defaultSyntax(current.bodyFormat || "markdown"),
         mode: view as EditMode,
         pages: () => pages,
+        recentPages,
         currentPage: () => current?.id === pageId ? current : undefined,
+        onSavePage: async () => generation === editorGeneration && current?.id === pageId && await save(),
+        onDeleteChildPages: (ids, isCurrent) => deleteChildPages(ids,
+          () => generation === editorGeneration && current?.id === pageId && isCurrent()),
         onCreatePage: async (title, parent) => {
           if (generation !== editorGeneration || current?.id !== pageId) return null;
           const created = await api<Page>("/pages", {
@@ -768,13 +862,7 @@ function renderRelations() {
     // Native summary activation also handles Enter/Space. Record only user choices.
     childPageExpansion.set(pageId, !childPages.open);
   });
-  const incoming = pages.filter(
-    (p) =>
-      p.id !== current!.id &&
-      extractLinks(p.body, p.bodyFormat, p.syntax, pages, p.id).some(
-        (target) => target === current!.id || target === current!.title,
-      ),
-  );
+  const incoming = backlinks.incoming(pages, current);
   document.querySelector("#backlinks")!.innerHTML = incoming.length
     ? `<section class="relations"><h3>${icon("link-2")}Backlinks <span>${incoming.length}</span></h3>${incoming.map((p) => `<button class="backlink" data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button>`).join("")}</section>`
     : "";
@@ -796,7 +884,7 @@ async function loadLibrary(selected = libraryView, isCurrent = () => true): Prom
   if (!(await save()) || !isCurrent()) return false;
   closeModal();
   closePageContextMenu();
-  const loaded = await api<Page[]>("/pages");
+  const loaded = await refreshWorkspacePages();
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   destroyEditor();
   library = true;
@@ -928,7 +1016,7 @@ async function newPage(parent: string | null = null, embed = false) {
   pages.push(page);
   if (embed && current?.id === ownerId) {
     insertMarkdown(
-      `\n<page${workspace?.session.snapshot.config.variant === "notdown" ? ' role="child"' : ''} url="${escapeXml(pageUrl(page.id))}">${escapeXml(page.title)}</page>\n`,
+      `\n<page url="${escapeXml(pageUrl(page.id))}">${escapeXml(page.title)}</page>\n`,
     );
     if (!(await save())) return;
   }
@@ -939,7 +1027,175 @@ async function newPage(parent: string | null = null, embed = false) {
   title?.focus();
   title?.select();
 }
+
+let databaseCreationBusy = false;
+async function createDatabase(parent: string | null, mode?: "inline" | "full") {
+  if (databaseCreationBusy) return;
+  databaseCreationBusy = true;
+  app.inert = true;
+  const ownerId = current?.id, originalRoute = location.hash;
+  try {
+    if (!(await save())) return;
+    pages = await refreshWorkspacePages();
+    if (!databaseApiAvailable) { toast(databaseRestartMessage); return; }
+    if (!(await save())) return;
+    const parentPage = current?.id === parent ? current : pages.find(page => page.id === parent);
+    if (parent && !parentPage) throw new Error("The parent page is no longer available.");
+    const snapshot = await api<DatabaseSnapshot>("/databases", {
+      method: "POST",
+      body: JSON.stringify({ title: "New database", parent, ...(parentPage ? { parentRevision: parentPage.revision } : {}) }),
+    });
+    pages = await refreshWorkspacePages();
+    if (parent) collapsed.delete(parent);
+    collapsed.delete(snapshot.database.pageId ?? snapshot.database.id);
+    renderSidebar();
+    if (location.hash !== originalRoute) return;
+    if (mode && current?.id === ownerId) {
+      const hostId = snapshot.database.pageId ?? snapshot.database.id;
+      const source = workspace && usesNotionSyntax(workspace.session.snapshot.config) && enabled(workspace.session.snapshot.config, "notion_databases")
+        ? databaseReference(hostId, "", mode === "inline")
+        : `[New database](#database/${snapshot.database.id})`;
+      insertMarkdown(`\n${source}\n`);
+      if (!(await save())) { toast("Database created in the tree. Its page reference remains in your unsaved draft."); return; }
+    }
+    closeModal();
+    if (mode !== "inline") await navigation?.navigate({ kind: "database", id: snapshot.database.id });
+  } catch (error) { report(error); }
+  finally {
+    databaseCreationBusy = false;
+    app.inert = false;
+    if (databaseRoute?.id && location.hash !== originalRoute) {
+      const title = document.querySelector<HTMLInputElement>('#main [aria-label="Database title"]');
+      title?.focus(); title?.select();
+    }
+  }
+}
+async function addDatabaseRecord(id: string) {
+  if (!(await save())) return;
+  const snapshot = await api<DatabaseSnapshot>(`/databases/${encodeURIComponent(id)}`);
+  if (!snapshot.dataSources.length) { toast("This database has no available data source."); return; }
+  if (!(await navigation?.navigate({ kind: "database", id }))) return;
+  document.querySelector<HTMLButtonElement>("#main [data-db-row]")?.click();
+}
 type PageMetadataPatch = Partial<Pick<Page, "title" | "parent" | "favorite" | "trashed" | "sidebarOrder">>;
+
+async function deleteChildPages(ids: string[], isCurrent: () => boolean): Promise<boolean> {
+  if (pageActionBusy || !isCurrent()) return false;
+  const targets = [...new Set(ids)].flatMap(id => {
+    const page = pages.find(item => item.id === id);
+    return page ? [page] : [];
+  });
+  if (!targets.length) return true;
+  // A malformed child entry must not trash the editor's page or its ancestors.
+  const ancestors = new Set<string>();
+  for (let page = current; page && !ancestors.has(page.id); page = pages.find(item => item.id === page!.parent) ?? null)
+    ancestors.add(page.id);
+  if (targets.some(page => ancestors.has(page.id))) {
+    toast("This child page entry points to the current page or an ancestor. Remove it in Source instead.");
+    return false;
+  }
+  const targetIds = new Set(targets.map(page => page.id));
+  const roots = targets.filter(target => {
+    const visited = new Set<string>();
+    for (let parent = target.parent; parent && !visited.has(parent); parent = pages.find(page => page.id === parent)?.parent ?? null) {
+      if (targetIds.has(parent)) return false;
+      visited.add(parent);
+    }
+    return true;
+  });
+  const label = targets.length === 1 ? targets[0].title : `${targets[0].title} and ${targets.length - 1} more`;
+  const dialog = modal("Delete child pages", `<p>Delete ${e(label)}${targets.length > 1 ? ` (${targets.length} child pages)` : ""}?</p><p class="muted">These pages and their children will move to Trash. You can restore them from Trash.</p><div class="dialog-actions"><button type="button" class="secondary-button" data-action="close-dialog">Cancel</button><button type="button" class="primary-button danger" data-confirm-child-delete>Move to Trash</button></div>`);
+  return new Promise(resolve => {
+    let submitting = false;
+    dialog.addEventListener("close", () => { if (!submitting) resolve(false); }, { once: true });
+    dialog.querySelector<HTMLButtonElement>("[data-confirm-child-delete]")!.addEventListener("click", async event => {
+      if (submitting) return;
+      submitting = true;
+      (event.currentTarget as HTMLButtonElement).disabled = true;
+      try {
+        for (const target of roots) {
+          if (!isCurrent() || !(await mutateSidebarPage(target, { trashed: true }))) { resolve(false); return; }
+          if (!pages.some(page => page.id === target.id)) continue;
+          // YAML can override the vault metadata; retain the blocks in that case.
+          resolve(false);
+          return;
+        }
+        toast(`Moved ${targets.length} child ${targets.length === 1 ? "page" : "pages"} to Trash. You can restore them from Trash.`);
+        resolve(isCurrent());
+      } catch (error) {
+        report(error);
+        resolve(false);
+      } finally {
+        if (dialog.isConnected) closeModal();
+      }
+    });
+  });
+}
+
+async function loadDatabases(id?: string, isCurrent = () => true): Promise<boolean> {
+  if (!(await save()) || !isCurrent()) return false;
+  const loadedPages = await refreshWorkspacePages();
+  if (!isCurrent() || !(await save()) || !isCurrent()) return false;
+  if (!databaseApiAvailable) {
+    closeModal(); closePageContextMenu(); destroyEditor();
+    current = null; library = false; dirty = false; pages = loadedPages;
+    databaseRoute = { kind: "database", ...(id ? { id } : {}) };
+    document.querySelector("#main")!.innerHTML = `<section class="database-workspace"><h1>Databases</h1><p>${e(databaseRestartMessage)}</p><button class="primary-button" data-action="retry-databases">Check connection</button></section>`;
+    document.querySelector("#page-options")!.innerHTML = pageOptions();
+    renderSidebar(); updateCounts(); status("Server update needed", "error");
+    return true;
+  }
+  const host = document.createElement("div");
+  const controller = new DatabaseWorkspace(host, {
+    vaultKey: vaultPath,
+    openPage,
+    openDatabase: id => navigation?.navigate({ kind: "database", ...(id ? { id } : {}) }) ?? Promise.resolve(false),
+    changed: saved => { const index = pages.findIndex(page => page.id === saved.id); if (index < 0) pages.push(saved); else pages[index] = saved; renderSidebar(); },
+    createDatabase: () => createDatabase(null),
+  });
+  try { await controller.load(id); }
+  catch (error) { controller.destroy(); throw error; }
+  if (!isCurrent() || !(await save()) || !isCurrent()) { controller.destroy(); return false; }
+  closeModal(); closePageContextMenu(); destroyEditor();
+  current = null; library = false; dirty = false;
+  pages = loadedPages;
+  databaseWorkspace = controller; databaseRoute = { kind: "database", ...(id ? { id } : {}) };
+  document.querySelector("#main")!.replaceChildren(host);
+  document.querySelector("#breadcrumb")!.textContent = "Databases";
+  const sourceMenu = document.querySelector<HTMLElement>("#source-file-options"); if (sourceMenu) sourceMenu.hidden = true;
+  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  status("Local database"); renderSidebar(); updateCounts(); refreshIcons();
+  return true;
+}
+
+async function renderDatabasePageProperties(page: Page) {
+  const host = document.querySelector<HTMLElement>("#database-page-properties");
+  if (!host) return;
+  if (page.databaseId) {
+    const button = document.createElement("button"); button.className = "primary-button"; button.textContent = "Open database";
+    button.addEventListener("click", () => void navigation?.navigate({ kind: "database", id: page.databaseId })); host.append(button);
+  }
+  if (!page.dataSourceId) return;
+  try {
+    const source = await api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(page.dataSourceId)}`);
+    if (!host.isConnected || current?.id !== page.id) return;
+    let recoveredSchema: string | null = null;
+    try { if (readDraft(page.id)) recoveredSchema = localStorage.getItem(`${draftKey(page.id)}:schema`); } catch { /* Optional draft recovery. */ }
+    databaseSchemaRevision = recoveredSchema ?? source.revision;
+    host.className = "database-page-properties";
+    const heading = document.createElement("h3"); heading.textContent = source.title; host.append(heading);
+    for (const field of source.properties.filter(field => field.type !== "title")) {
+      const row = document.createElement("div"); row.className = "database-page-property";
+      const label = document.createElement("span"); label.textContent = field.name;
+      const cell = propertyInput(field, page, page.properties[field.key], value => {
+        if (current?.id !== page.id) return;
+        current.properties[field.key] = value;
+        markDirty();
+      });
+      row.append(label, cell); host.append(row);
+    }
+  } catch (error) { if (host.isConnected) { const note = document.createElement("p"); note.textContent = error instanceof Error ? error.message : "Database properties could not be loaded"; host.append(note); } }
+}
 
 async function requirePageActions() {
   const info = await api<{ capabilities?: { pageActions?: number; sidebarDrag?: number; systemRecycleBin?: boolean } }>("/status");
@@ -963,9 +1219,11 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
     const renamedBody = patch !== "duplicate" && patch.title !== undefined
       ? renameDocumentPageSource(base.body, base.syntax ?? defaultSyntax(base.bodyFormat), patch.title)
       : base.body;
+    const schemaRevision = base.dataSourceId && patch !== "duplicate" && patch.title !== undefined
+      ? (await api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(base.dataSourceId)}`)).revision : undefined;
     const saved = await api<Page>(`/pages/${page.id}${move ? "/move" : patch === "duplicate" ? "/duplicate" : ""}`, {
       method: move || patch === "duplicate" ? "POST" : "PUT",
-      body: JSON.stringify({ ...(move ?? (patch === "duplicate" ? {} : patch)), ...(renamedBody !== base.body ? { body: renamedBody } : {}), baseRevision: base.revision }),
+      body: JSON.stringify({ ...(move ?? (patch === "duplicate" ? {} : patch)), ...(renamedBody !== base.body ? { body: renamedBody } : {}), baseRevision: base.revision, ...(schemaRevision ? { schemaRevision } : {}) }),
     });
     if (patch !== "duplicate" && Object.entries(patch).some(([key, value]) => saved[key as keyof Page] !== value))
       toast("Document metadata overrides this property. Edit its YAML or title block to change it.");
@@ -982,7 +1240,7 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
       const parent = document.querySelector<HTMLSelectElement>("#parent-select");
       if (parent) parent.value = saved.parent ?? "";
     }
-    pages = await api<Page[]>("/pages");
+    pages = await refreshWorkspacePages();
     closeModal();
     if (current && !pages.some((item) => item.id === current!.id)) {
       destroyEditor();
@@ -1104,7 +1362,7 @@ async function recycleTrashPage(page: Page, all: Page[]) {
       method: "POST",
       body: JSON.stringify({ baseRevision: page.revision, baseRevisions: Object.fromEntries(selected) }),
     });
-    pages = await api<Page[]>("/pages");
+    pages = await refreshWorkspacePages();
     renderSidebar();
     if (current && selected.has(current.id)) {
       destroyEditor();
@@ -1386,10 +1644,12 @@ async function resolveConflict() {
   const draft =
     current?.id === conflict.proposed?.id ? current : conflict.proposed;
   try {
+    const schemaRevision = draft.dataSourceId ? (await api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(draft.dataSourceId)}`)).revision : undefined;
     const saved = await api<Page>(`/conflicts/${conflict.conflictId}/resolve`, {
       method: "POST",
       body: JSON.stringify({
         baseRevision: conflict.current.revision,
+        ...(schemaRevision ? { schemaRevision } : {}),
         body,
         bodyFormat: draft.bodyFormat || "markdown",
         syntax: draft.syntax ?? null,
@@ -1408,7 +1668,7 @@ async function resolveConflict() {
     dirty = false;
     conflict = null;
     if (oldId) removeDraft(oldId);
-    pages = await api<Page[]>("/pages");
+    pages = await refreshWorkspacePages();
     closeModal();
     if (pages.some((page) => page.id === saved.id)) renderDocument();
     else { current = null; await showLibrary(); }
@@ -1803,6 +2063,26 @@ function showInsert() {
     input?.focus();
   }
 }
+// Syntax that requires a value asks for real content instead of inserting a sample.
+function insertContentInput(title: string, fields: string[], encode: (values: string[]) => string) {
+  captureEditor();
+  workspace?.capture();
+  const owner = current, ownerWorkspace = workspace, ownerEditor = editor;
+  const originalBody = current!.body;
+  const dialog = modal(title, `<form>${fields.map(label => `<label>${e(label)}<input aria-label="${e(label)}" required /></label>`).join("")}<output role="status"></output><button type="submit">Insert</button></form>`);
+  const inputs = [...dialog.querySelectorAll<HTMLInputElement>("form input")];
+  dialog.querySelector("form")!.onsubmit = event => {
+    event.preventDefault();
+    if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor || current!.body !== originalBody) {
+      dialog.querySelector("output")!.textContent = "The page changed. Reopen the insertion dialog."; return;
+    }
+    const values = inputs.map(input => input.value);
+    if (values.some(value => !value.trim())) return;
+    insertMarkdown(encode(values));
+  };
+  inputs[0]?.focus();
+}
+
 async function handleInsert(id: string) {
   if (document.querySelector(".inline-slash")) {
     if (editor?.getSlashQuery() == null) {
@@ -1812,14 +2092,41 @@ async function handleInsert(id: string) {
     editor.consumeSlash();
     editor.captureSelection();
   }
-  if (id === "html_embed" || id === "embed") {
-    const localWeb = !workspace || enabled(workspace.session.snapshot.config, "notion_web_embed");
-    insertMarkdown("\n\n" + (id === "html_embed" ? '<html-embed/>' : localWeb ? '<web-embed/>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
+  if (id === "database_full_page" || id === "database_inline") {
+    if (!current) return;
+    if (id === "database_inline" && (!workspace || !usesNotionSyntax(workspace.session.snapshot.config) || !enabled(workspace.session.snapshot.config, "notion_databases"))) return;
+    const parent = current.id;
+    closeModal();
+    await createDatabase(parent, id === "database_inline" ? "inline" : "full");
     return;
   }
-  if (objectSamples[id]) {
-    insertMarkdown("\n\n" + (id === "button" ? '<button label="Button" actions="[]"/>' : id === "web_bookmark" ? '<bookmark/>' : objectSamples[id]) + "\n\n");
+  if (id === "html_embed") {
+    insertMarkdown('\n\n<embed src=""></embed>\n\n'); return;
+  }
+  if (id === "embed") {
+    const localWeb = !workspace || enabled(workspace.session.snapshot.config, "notion_web_embed");
+    insertMarkdown("\n\n" + (localWeb ? '<web-embed/>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
     return;
+  }
+  if (id === "tabs" && workspace && ["notdown", "notion-markdown"].includes(workspace.session.snapshot.config.variant)) {
+    insertMarkdown('\n\n<tabs>\n\t<tab>\n\t\tTab 1\n\t\t<empty-block/>\n\t</tab>\n\t<tab>\n\t\tTab 2\n\t\t<empty-block/>\n\t</tab>\n</tabs>\n\n'); return;
+  }
+  if (id === "meeting_notes" && workspace && ["notdown", "notion-markdown"].includes(workspace.session.snapshot.config.variant)) {
+    const today = new Date(); const day = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+    insertMarkdown('\n\n<meeting-notes>\n\t<mention-date start=' + JSON.stringify(day) + '/>\n\t<notes>\n\t\t\n\t</notes>\n</meeting-notes>\n\n'); return;
+  }
+  if (objectSamples[id]) {
+    const emptyObjects: Record<string, string> = {
+      button: '<button label="Button" actions="[]"/>', ai_block: '<ai-block/>',
+      web_bookmark: '<bookmark/>', link_preview: '<link-preview/>', breadcrumb: '<breadcrumb/>',
+      tabs: '<tabs>\n<tab title="">\n\n</tab>\n<tab title="">\n\n</tab>\n</tabs>',
+      meeting_notes: '<meeting-notes title="">\n\n</meeting-notes>',
+    };
+    if (emptyObjects[id]) insertMarkdown("\n\n" + emptyObjects[id] + "\n\n");
+    return;
+  }
+  if (id === "r_inline") {
+    insertContentInput("Executable expression", ["Expression"], ([expression]) => "`r " + expression + "`"); return;
   }
   if (id === "executable_chunk" || id === "executable_inline") {
     captureEditor();
@@ -1832,7 +2139,7 @@ async function handleInsert(id: string) {
       insertMarkdown("\n```{" + language + "}\n\n```\n");
       return;
     }
-    insertMarkdown("`" + (language === "r" ? "r" : "{" + language + "}") + " 1 + 1`");
+    insertContentInput("Executable expression", ["Expression"], ([expression]) => "`" + (language === "r" ? "r" : "{" + language + "}") + " " + expression + "`");
     return;
   }
   if (inlineObjectCommands.includes(id as InlineObjectCommand)) {
@@ -1877,26 +2184,42 @@ async function handleInsert(id: string) {
     captureEditor();
     return;
   }
+  if (insertFormats[id]) {
+    closeModal();
+    if (workspace) workspace.insertFormat(id);
+    else if (editor && view === "document") { editor.insertFormat(id); captureEditor(); }
+    else if (view === "source") {
+      const el = document.querySelector<HTMLTextAreaElement>("#source-editor")!;
+      const from = sourceSelection?.start ?? el.selectionStart, to = sourceSelection?.end ?? el.selectionEnd;
+      const { before, after } = insertFormats[id];
+      el.setRangeText(before + el.value.slice(from, to) + after, from, to, "select");
+      el.setSelectionRange(from + before.length, to + before.length);
+      current!.body = el.value; el.focus(); markDirty();
+    }
+    sourceSelection = null;
+    return;
+  }
+  if (id === "inline_equation") {
+    insertContentInput("Inline equation", ["Equation content"], ([value]) => `$${value}$`); return;
+  }
+  if (id === "transclusion") {
+    insertContentInput("File inclusion", ["File path"], ([value]) => `\n\n{{${value}}}\n\n`); return;
+  }
+  if (id === "definitions") {
+    insertContentInput("Definition list", ["Term", "Definition"], ([term, definition]) => `\n\n${term}\n:   ${definition}\n\n`); return;
+  }
   const snippets: Record<string, string> = {
-    inline_equation: '$x^2$', bold: '**Bold text**', italic: '*Italic text*',
-    underline: '<span underline="true">Underlined text</span>', strike: '~~Struck-through text~~',
-    color: '<span color="blue">Colored text</span>', background: '<span color="yellow_bg">Highlighted text</span>',
-    subscript: '~subscript~', superscript: '^superscript^', highlight: '==Highlighted text==', emoji: '😀',
-    synced_block: '\n<synced_block>\nShared content\n</synced_block>\n',
+    emoji: '😀',
+    synced_block: '\n<synced_block>\n<empty-block/>\n</synced_block>\n',
     date_or_reminder: workspace?.session.snapshot.config.variant === "notdown" ? '<mention-date/>' : `<mention-date start="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}"/>`,
-    native_span: '[Text]{.custom}', small_caps: '[Small capitals]{.smallcaps}',
-    diagram: "\n\n```mermaid\nflowchart LR\nA[Start] --> B[Done]\n```\n\n",
-    alert: "\n\n> [!NOTE]\n> Note content\n\n",
-    transclusion: "\n\n{{file.txt}}\n\n",
-    embed:
-      '\n\n<iframe src="https://example.com" title="Embedded page"></iframe>\n\n',
-    html: "\n\n<div>\n  <h2>HTML heading</h2>\n  <p>Write HTML content here.</p>\n</div>\n\n",
-    definitions: "\n\nTerm\n:   Write a definition here.\n\n",
+    diagram: "\n\n```mermaid\n\n```\n\n",
+    alert: "\n\n> [!NOTE]\n>\n\n",
+    html: "\n\n<div>\n</div>\n\n",
     footnote: "",
-    lines: "\n\n| First line\n| Second line\n\n",
-    div: "\n\n::: {.container}\nContainer content\n:::\n\n",
+    lines: "\n\n| \n| \n\n",
+    div: "\n\n::: {.container}\n\n:::\n\n",
     text: "\n\n",
-    toggle_heading: '\n## Toggle heading {toggle="true"}\n\tChild content\n',
+    toggle_heading: '\n## {toggle="true"}\n\t<empty-block/>\n',
     heading1: "\n# ",
     heading2: "\n## ",
     heading3: "\n### ",
@@ -1909,22 +2232,19 @@ async function handleInsert(id: string) {
     quote: "\n> ",
     code: "\n```" + lastCodeLanguage() + "\n\n```\n",
     divider: "\n---\n",
-    inline: "`Inline code`",
-    quarto_python: "\n```{python}\n1 + 1\n```\n",
-    quarto_julia: "\n```{julia}\n1 + 1\n```\n",
-    quarto_ojs: "\n```{ojs}\nanswer = 1 + 1\n```\n",
-    quarto_r: "\n```{r}\n1 + 1\n```\n",
-    executable_inline: "`{python} 1 + 1`",
-    r_chunk: "\n```{r}\nsummary(cars)\n```\n",
-    r_inline: "`r 1 + 1`",
+    quarto_python: "\n```{python}\n\n```\n",
+    quarto_julia: "\n```{julia}\n\n```\n",
+    quarto_ojs: "\n```{ojs}\n\n```\n",
+    quarto_r: "\n```{r}\n\n```\n",
+    r_chunk: "\n```{r}\n\n```\n",
     columns:
-      "\n<columns>\n\t<column>\n\t\tLeft column content\n\t</column>\n\t<column>\n\t\tRight column content\n\t</column>\n</columns>\n",
+      "\n<columns>\n\t<column>\n\t\t<empty-block/>\n\t</column>\n\t<column>\n\t\t<empty-block/>\n\t</column>\n</columns>\n",
     callout:
-      '\n<callout icon="💡" color="gray_bg">\n\tWrite a note here\n</callout>\n',
+      '\n<callout icon="💡" color="gray_bg">\n\t<empty-block/>\n</callout>\n',
     toggle:
-      "\n<details>\n<summary>Toggle list</summary>\n\t<empty-block/>\n</details>\n",
+      "\n<details>\n<summary></summary>\n\t<empty-block/>\n</details>\n",
     table:
-      '\n<table header-row="true">\n\t<tr>\n\t\t<td>Name</td>\n\t\t<td>Content</td>\n\t</tr>\n\t<tr>\n\t\t<td></td>\n\t\t<td></td>\n\t</tr>\n</table>\n',
+      '\n<table header-row="true">\n\t<tr>\n\t\t<td></td>\n\t\t<td></td>\n\t</tr>\n\t<tr>\n\t\t<td></td>\n\t\t<td></td>\n\t</tr>\n</table>\n',
     toc: "\n<table_of_contents/>\n",
     equation: "\n$$\n\n$$\n",
   };
@@ -1940,14 +2260,14 @@ async function handleInsert(id: string) {
       number = 1;
     while (current!.body.includes("[^" + label + "]"))
       label = "note" + ++number;
-    snippets.footnote = `[^${label}]\n\n[^${label}]: Footnote text.\n\n`;
+    snippets.footnote = `[^${label}]\n\n[^${label}]:\n\n`;
   }
   if (
     id === "table" &&
     workspace &&
     (enabled(workspace.session.snapshot.config, "pipe_tables") || enabled(workspace.session.snapshot.config, "mmd_tables"))
   )
-    snippets.table = "\n| Name | Content |\n| --- | --- |\n|  |  |\n";
+    snippets.table = "\n|  |  |\n| --- | --- |\n|  |  |\n";
   if (
     workspace &&
     !enabled(workspace.session.snapshot.config, "notion_colors")
@@ -1975,6 +2295,7 @@ async function handleInsert(id: string) {
     return;
   }
   if (id === "link" || id === "mention") {
+    if (!workspace || !commandEnabled(workspace.session.snapshot.config, id)) return;
     modal(
       "Link to page",
       `<div>${pages
@@ -2080,7 +2401,7 @@ async function exportHTML() {
 document.addEventListener("click", (event) => {
   const target = event.target as Element;
   const actionEl = target.closest<HTMLElement>(
-    "[data-action],[data-source-file],[data-current-page-action],[data-page-menu],[data-open],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
+    "[data-action],[data-source-file],[data-current-page-action],[data-page-menu],[data-open],[data-open-database],[data-database-new-record],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
   );
   if (!actionEl) return;
   event.preventDefault();
@@ -2105,6 +2426,10 @@ document.addEventListener("click", (event) => {
       sidebarContextMenu(actionEl);
       return;
     }
+    if (actionEl.dataset.openDatabase) {
+      closeModal(); await navigation?.navigate({ kind: "database", id: actionEl.dataset.openDatabase }); return;
+    }
+    if (actionEl.dataset.databaseNewRecord) { await addDatabaseRecord(actionEl.dataset.databaseNewRecord); return; }
     if (actionEl.dataset.open) {
       closeModal();
       await openPage(actionEl.dataset.open);
@@ -2119,6 +2444,7 @@ document.addEventListener("click", (event) => {
     }
     if (actionEl.dataset.view) {
       const next = actionEl.dataset.view as View;
+      if (workspace?.blocks.databaseViewsDirty && !(await save())) return;
       if (workspace && ["document", "source", "split"].includes(next)) {
         workspace.setMode(next as EditMode);
         view = next;
@@ -2151,6 +2477,7 @@ document.addEventListener("click", (event) => {
       return;
     }
     if (actionEl.dataset.insertLink) {
+      if (actionEl.dataset.inlineMention !== "true" && (!workspace || !commandEnabled(workspace.session.snapshot.config, "link"))) return;
       const p = pages.find((p) => p.id === actionEl.dataset.insertLink)!;
       if (
         actionEl.dataset.inlineMention !== "true" &&
@@ -2163,11 +2490,23 @@ document.addEventListener("click", (event) => {
       insertMarkdown(
         actionEl.dataset.inlineMention === "true"
           ? `<mention-page url="${escapeXml(pageUrl(p.id))}">${escapeXml(p.title)}</mention-page>`
-          : `\n<page url="${escapeXml(pageUrl(p.id))}">${escapeXml(p.title)}</page>\n`,
+          : `\n<page-link url="${escapeXml(pageUrl(p.id))}">${escapeXml(p.title)}</page-link>\n`,
       );
       return;
     }
     switch (actionEl.dataset.action) {
+      case "retry-databases": {
+        if (!(await save())) break;
+        if (databaseRoute) await loadDatabases(databaseRoute.id);
+        else { pages = await refreshWorkspacePages(); renderSidebar(); if (!databaseApiAvailable) toast(databaseRestartMessage); }
+        break;
+      }
+      case "new-database":
+        await createDatabase(null);
+        break;
+      case "databases":
+        await navigation?.navigate({ kind: "database" });
+        break;
       case "trash":
         await showTrash();
         break;
@@ -2217,7 +2556,7 @@ document.addEventListener("click", (event) => {
         break;
       case "import-folder":
         openImportDialog({ save, complete: async ids => {
-          pages = await api<Page[]>("/pages");
+          pages = await refreshWorkspacePages();
           renderSidebar();
           const first = ids.find(id => pages.some(page => page.id === id));
           if (first) await loadPage(first);
@@ -2227,10 +2566,10 @@ document.addEventListener("click", (event) => {
         break;
       case "import-notion":
         openNotionImportDialog({ save, complete: async ids => {
-          pages = await api<Page[]>("/pages");
+          pages = await refreshWorkspacePages();
           renderSidebar();
           const first = ids.find(id => pages.some(page => page.id === id));
-          if (first) await loadPage(first);
+          if (first) await openPage(first);
           else await showLibrary();
           toast("Notion Enhanced Markdown import complete. Source API content was preserved.");
         } });
@@ -2490,16 +2829,35 @@ const sidebarDrag = installSidebarDrag({
 
 window.addEventListener("beforeunload", (event) => {
   captureEditor();
-  if (dirty || saving) {
+  if (dirty || saving || databaseWorkspace?.dirty || workspace?.blocks.databaseViewsDirty) {
     event.preventDefault();
     event.returnValue = "";
   }
 });
 installDesktopCloseGuard(save);
 
+document.addEventListener("notdown-database-record-saved", event => {
+  const saved = (event as CustomEvent<Page>).detail;
+  if (!saved?.id || current?.id === saved.id) return;
+  // A nested table response may refresh navigation, never the outer editor draft.
+  const index = pages.findIndex(page => page.id === saved.id);
+  if (index < 0) pages.push(saved); else pages[index] = saved;
+  renderSidebar();
+});
+document.addEventListener("notdown-database-updated", event => {
+  const snapshot = (event as CustomEvent<DatabaseSnapshot>).detail;
+  if (!snapshot?.database?.id) return;
+  databases = databases.map(database => database.id === snapshot.database.id ? snapshot.database : database);
+  if (snapshot.hostPage && current?.id !== snapshot.hostPage.id) {
+    const host = snapshot.hostPage;
+    pages = pages.map(page => page.id === host.id ? host : page);
+  }
+  renderSidebar();
+});
+
 async function boot() {
   const [loaded, info] = await Promise.all([
-    api<Page[]>("/pages"),
+    refreshWorkspacePages(),
     api<{ vaultPath: string }>("/status"),
   ]);
   pages = loaded;
@@ -2515,13 +2873,15 @@ async function boot() {
   const saved = localStorage.getItem("notdown-page");
   const route = parseRoute(location.hash);
   const linked = route?.kind === "page" ? route.id : null;
-  if (pages.length && route?.kind !== "vault")
-    await loadPage(pages.find((p) => p.id === linked)?.id || pages.find((p) => p.id === saved)?.id || pages[0].id);
+  if (route?.kind === "database") await loadDatabases(route.id);
+  else if (pages.length && route?.kind !== "vault")
+    await loadPage(pages.find((p) => p.id === linked || linked && p.legacyIds?.includes(linked))?.id || pages.find((p) => p.id === saved || saved && p.legacyIds?.includes(saved))?.id || pages[0].id);
   else await loadLibrary(route?.kind === "vault" ? route.view : "gallery");
   navigation = new PageNavigation(
-    current && !library ? { kind: "page", id: current.id, ...(route?.kind === "page" && route.id === current.id && route.fragment ? { fragment: route.fragment } : {}) } : { kind: "vault", view: libraryView },
+    databaseRoute ?? (current && !library ? { kind: "page", id: current.id, ...(route?.kind === "page" && route.id === current.id && route.fragment ? { fragment: route.fragment } : {}) } : { kind: "vault", view: libraryView }),
     async (route, isCurrent, allowTrashed) => {
-      if (route.kind !== "page") return loadLibrary(route.view, isCurrent);
+      if (route.kind === "database") return loadDatabases(route.id, isCurrent);
+      if (route.kind === "vault") return loadLibrary(route.view, isCurrent);
       const loaded = await loadPage(route.id, allowTrashed, isCurrent);
       if (loaded && isCurrent() && route.fragment) revealReference(internalReference("#" + encodeURIComponent(route.fragment))!);
       return loaded;
@@ -2532,10 +2892,14 @@ async function boot() {
   updateNavigationButtons();
   if (route?.kind === "page" && route.fragment && current?.id === route.id)
     revealReference(internalReference("#" + encodeURIComponent(route.fragment))!);
+  app.inert = false;
+  app.removeAttribute("aria-busy");
   startReminders(() => pages, vaultPath, toast);
   setInterval(() => {
     captureEditor();
     if (
+      databaseWorkspace ||
+      workspace?.blocks.databaseViewsDirty ||
       dirty ||
       editorChanged ||
       saving ||
@@ -2547,13 +2911,14 @@ async function boot() {
     )
       return;
     void (async () => {
-      const latest = await api<Page[]>("/pages");
+      const [latest, latestDatabases] = await Promise.all([api<Page[]>("/pages"), readDatabaseList()]);
       const changed =
         JSON.stringify(latest.map((p) => [p.id, p.revision])) !==
-        JSON.stringify(pages.map((p) => [p.id, p.revision]));
+        JSON.stringify(pages.map((p) => [p.id, p.revision])) || JSON.stringify(latestDatabases) !== JSON.stringify(databases);
       captureEditor();
-      if (dirty || editorChanged || saving || conflict || pageActionBusy || sidebarDrag.isDragging() || document.querySelector("#dialog, .page-context-menu, .page-metadata-dialog[open], .people-dialog[open]") || !changed) return;
+      if (databaseWorkspace || workspace?.blocks.databaseViewsDirty || dirty || editorChanged || saving || conflict || pageActionBusy || sidebarDrag.isDragging() || document.querySelector("#dialog, .page-context-menu, .page-metadata-dialog[open], .people-dialog[open]") || !changed) return;
       pages = latest;
+      databases = latestDatabases;
       renderSidebar();
       if (library) renderLibrary();
       else if (current) {
@@ -2576,6 +2941,8 @@ async function boot() {
   }, 5000);
 }
 void boot().catch((error) => {
+  app.inert = false;
+  app.removeAttribute("aria-busy");
   app.innerHTML = `<div class="boot-error"><h1>Unable to open the vault</h1><p>${e(error instanceof Error ? error.message : error)}</p><p>Make sure the local server is running:<code>npm run dev</code></p><button onclick="location.reload()">Retry</button></div>`;
 });
 document.addEventListener(openPeopleEvent, event => {

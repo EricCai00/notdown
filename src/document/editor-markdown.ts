@@ -146,7 +146,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
       );
     } else if (token.type === "nfm_math") {
       result.push(
-        schema.nodes["inline.inline_math"].create({ value: token.content }, null, marks),
+        schema.nodes["inline.inline_math"].create({ value: token.content, delimiter: token.meta?.delimiter || "dollars" }, null, marks),
       );
     } else if (token.type === "nfm_citation") {
       result.push(
@@ -641,7 +641,7 @@ export function inlineMarkdown(
     active = [...marks];
     if (child.isText)
       result += code
-        ? codeSpan(child.text ?? "") + writeAttributes(child.marks.find(m => isEditorKind(m, "code"))?.attrs.markdownAttrs).trimStart()
+        ? codeSpan(notion || options.notionBreaks ? (child.text ?? "").replace(/\r\n|\n|\r/g, "<br>") : child.text ?? "") + writeAttributes(child.marks.find(m => isEditorKind(m, "code"))?.attrs.markdownAttrs).trimStart()
         : notion
           ? escapeText(child.text ?? "")
               .replace(/&/g, "&amp;")

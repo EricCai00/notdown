@@ -1,10 +1,14 @@
 import { editorKind, isEditorKind } from "../document/node-identity";
+import { removedChildPages } from "./child-page-deletion";
+import { insertFormats } from "./insert-format";
+import { inlineColors } from "../document/notion-syntax";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
 import { findReferenceLocation } from "../document/reference-locations";
-import { showEditorPanel } from "./editor-panel";
+import { showLinkPicker } from "./link-picker";
 import { isListItem } from "../document/list-items";
 import { hasSupplementalAttributes, needsMarkdownTable, hasOfficialDateTime } from "../document/notdown-boundary";
 import { localObjectPlugins } from "../markdown-engine/presets";
+import { officialNotionObject } from "../document/notion-official-blocks";
 import { footnotePresentation, projectFootnotes, restoreFootnotes, newFootnote, footnoteChoices, type FootnoteInput } from "./footnotes";
 import "./footnotes.css";
 import { citationCleanup } from "./citations";
@@ -13,6 +17,9 @@ import { replacePandocTitle } from "../features/metadata/pandoc-page-title";
 import { metadataSourceTransaction } from "../features/metadata/metadata-source";
 import { preserveSelectionDecorations } from "./block-selection";
 import { objectNodeViews } from "./object-views";
+import { syncedEditing, wrapSyncedBlocks } from "../blocks/synced-editing";
+import { flushSyncedBlocks } from "../blocks/synced-block-view";
+import { flushDatabaseViews, databaseViewsDirty } from "../blocks/database-view";
 import { LinkPreviewView } from "../features/links/link-preview-view";
 import { DateMentionView } from "../features/dates/date-view";
 import { dateMentionInput } from "../features/dates/date-input";
@@ -29,7 +36,8 @@ import "./block-spacing.css";
 import "../blocks/breadcrumb.css";
 import { contentCommand } from "../document/content-objects";
 import { latexMacroEditing } from "../markdown-engine/latex-macros";
-import { tableControls } from "./table-commands";
+import { tableControls } from "./table-controls";
+import { tableColumnWidths } from "./table-column-widths";
 import { tableSelections } from "./table-selection";
 import { imageView } from "./image-view";
 import { insertInlineObject, type InlineInsertion } from "../document/inline-objects";
@@ -170,8 +178,10 @@ interface Options {
   value: string;
   bodyFormat?: BodyFormat;
   pages: () => LinkedPage[];
+  recentPages?: () => string[];
   currentPage?: () => import("../blocks/breadcrumb-view").BreadcrumbPage | undefined;
   onChange: (value: string, format: BodyFormat) => void;
+  onSavePage?: () => Promise<boolean>;
   onInsert: () => void;
   onError: (error: unknown) => void;
   codec?: {
@@ -184,6 +194,7 @@ interface Options {
   canCommand?: (name: string) => boolean;
   onOpenPage?: (id: string, reference?: InternalReference) => void;
   onCreatePage?: (title: string, parent: string | null) => Promise<InputPage | null>;
+  onDeleteChildPages?: (ids: string[], isCurrent: () => boolean) => Promise<boolean>;
 }
 
 class ListItemView implements NodeView {
@@ -279,6 +290,7 @@ export class BlockEditor {
   private linkDialog?: HTMLDialogElement;
   private sourceDialog?: HTMLDialogElement;
   private destroyed = false;
+  private confirmingChildDeletion = false;
   private folded = new Set<number>();
   private bodyFormat: BodyFormat;
 
@@ -453,7 +465,7 @@ export class BlockEditor {
             if (!tr.docChanged || options.canCommand?.("notion_custom") === true) return true;
             let allowed = true;
             tr.doc.descendants(node => {
-              if (localObjectPlugins[editorKind(node)] || hasSupplementalAttributes(node) || needsMarkdownTable(node)) allowed = false;
+              if (localObjectPlugins[editorKind(node)] && !officialNotionObject(node) || hasSupplementalAttributes(node) || needsMarkdownTable(node)) allowed = false;
             });
             return allowed;
           } }),
@@ -461,6 +473,7 @@ export class BlockEditor {
           citationCleanup(),
           ...(options.metadataHost ? [protectPageMetadata()] : []),
           history(),
+          syncedEditing(() => options.currentPage?.()?.id, () => options.canCommand?.("notion_custom") === true),
           codeHighlighting(),
           emojiInput(() => options.canCommand?.("emoji_shortcode") === true),
           codeFenceInput(() => options.canCommand?.("backtick_code") !== false),
@@ -472,6 +485,7 @@ export class BlockEditor {
           linkPaste(() => options.canCommand?.("link_preview") ?? false, () => options.canCommand?.("web_bookmark") ?? false),
           latexMacroEditing(),
           tableAppearance(),
+          tableColumnWidths(),
           tableSelections(),
           tableEditing(),
           tableControls(options.canCommand),
@@ -528,14 +542,14 @@ export class BlockEditor {
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
         executable_chunk: (node, view, getPos) => new RChunkView(node, view, getPos, () => options.canCommand?.("quarto_python") !== false),
         executable_inline: (node, view, getPos) => rInlineView(node, view, getPos, () => options.canCommand?.("quarto_python") !== false),
-        ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true),
+        ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true, options.onSavePage),
         image_block: (node, view, getPos) => new ImageBlockView(node, view, getPos, () => options.canCommand?.("image_layout") === true),
         syntax_block: (node, view, getPos) =>
           options.metadataHost && node.attrs.kind === "metadata"
             ? new PageMetadataView(node, view, getPos, options.metadataHost, source => this.options.codec!.parse(source))
             : isHtmlBlock(node) ? new HtmlBlockView(node, view, getPos)
             : node.attrs.kind === "figure" && node.attrs.data?.image ? new ImageBlockView(node, view, getPos, () => options.canCommand?.("image_layout") === true)
-            : node.attrs.kind === "embed" ? new EmbedView(node, view, getPos) : new SyntaxBlockView(node, view, getPos),
+            : node.attrs.kind === "embed" ? new EmbedView(node, view, getPos, options.currentPage) : new SyntaxBlockView(node, view, getPos),
         syntax_inline: (node) =>
           node.attrs.kind === "transclusion"
             ? inlineTransclusionView(node)
@@ -602,8 +616,7 @@ export class BlockEditor {
         const href = link.getAttribute("href") || "";
         if (/^(https?:|mailto:)/i.test(href)) {
           event.preventDefault();
-          if (event.ctrlKey || event.metaKey)
-            window.open(href, "_blank", "noopener,noreferrer");
+          window.open(href, "_blank", "noopener,noreferrer");
           return;
         }
         const reference = internalReference(href, (link.getAttribute("data-reference-syntax") || "markdown") as ReferenceSyntax);
@@ -794,9 +807,30 @@ export class BlockEditor {
     );
   }
 
-  private dispatch(tr: Transaction) {
+  private dispatch(tr: Transaction, childDeletionConfirmed = false) {
     if (this.destroyed) return;
     try {
+      if (tr.docChanged && this.confirmingChildDeletion) return;
+      // Respect transaction filters (for example, protected page metadata)
+      // before asking to move any referenced pages to Trash.
+      const result = this.view.state.applyTransaction(tr);
+      if (tr.docChanged && !childDeletionConfirmed && this.options.onDeleteChildPages) {
+        const ids = removedChildPages(this.view.state.doc, result.state.doc, this.options.pages(), this.options.currentPage?.()?.id);
+        if (ids.length) {
+          this.confirmingChildDeletion = true;
+          const isCurrent = () => !this.destroyed && this.view.state.doc.eq(tr.before);
+          // Keep the original document (including browser-originated deletions)
+          // visible until the page action has succeeded.
+          this.view.updateState(this.view.state);
+          void this.options.onDeleteChildPages(ids, isCurrent).then(confirmed => {
+            this.confirmingChildDeletion = false;
+            if (confirmed && isCurrent()) this.dispatch(tr, true);
+          }).catch(error => this.options.onError(error)).finally(() => {
+            this.confirmingChildDeletion = false;
+          });
+          return;
+        }
+      }
       if (tr.docChanged) this.selectedBlocks.clear();
       if (this.bookmark) this.bookmark = this.bookmark.map(tr.mapping);
       this.folded = new Set(
@@ -805,7 +839,6 @@ export class BlockEditor {
           return mapped.deleted ? [] : [mapped.pos];
         }),
       );
-      const result = this.view.state.applyTransaction(tr);
       this.view.updateState(result.state);
       if (result.transactions.some((change) => change.docChanged))
         refreshEmbeddedToc(this.view);
@@ -860,6 +893,7 @@ export class BlockEditor {
     const dom = this.view.nodeDOM(location.pos);
     const element = dom instanceof HTMLElement ? dom : dom?.parentElement;
     if (!element) return false;
+    element.dispatchEvent(new Event("notdown-reveal-reference", { bubbles: true }));
     for (let parent = element.parentElement; parent && parent !== this.view.dom; parent = parent.parentElement)
       if (parent instanceof HTMLDetailsElement) parent.open = true;
     element.scrollIntoView({ block: "center" });
@@ -868,6 +902,9 @@ export class BlockEditor {
   getDocument() {
     return restoreFootnotes(this.view.state.doc);
   }
+  async flushSyncedBlocks() { await flushSyncedBlocks(this.view); }
+  async flushDatabaseViews() { return flushDatabaseViews(this.view); }
+  get databaseViewsDirty() { return databaseViewsDirty(this.view); }
   setPageTitle(title: string) {
     const node = this.view.state.doc.firstChild;
     if (node?.attrs.metadataForm !== "pandoc" || !this.options.codec) return;
@@ -1046,6 +1083,34 @@ export class BlockEditor {
     this.view.focus();
   }
 
+  insertFormat(id: string) {
+    const format = insertFormats[id];
+    if (!format || this.options.canCommand?.(id) === false) return;
+    this.getValue();
+    this.restoreSelection();
+    const { state } = this.view;
+    const type = schema.marks[format.mark];
+    const markFor = (marks: PMNode["marks"]) => {
+      const old = marks.find(mark => mark.type === type);
+      if (format.mark !== "color") return type.create({ ...old?.attrs, ...format.attrs });
+      const nfmAttrs = { ...old?.attrs.nfmAttrs };
+      delete nfmAttrs.color; delete nfmAttrs.bg_color; delete nfmAttrs.underline;
+      const dual = this.options.canCommand?.("notion_custom") === true;
+      const colors = dual ? inlineColors(old?.attrs || {}) : { color: "", bg_color: "" };
+      if (id === "background" && dual) colors.bg_color = "yellow";
+      else colors.color = id === "background" ? "yellow_bg" : "blue";
+      return type.create({ ...colors, nfmAttrs });
+    };
+    const { from, to, empty, $from } = state.selection;
+    const tr = state.tr;
+    if (empty) tr.addStoredMark(markFor(state.storedMarks ?? $from.marks()));
+    else state.doc.nodesBetween(from, to, (node, pos) => {
+      if (node.isInline) tr.addMark(Math.max(from, pos), Math.min(to, pos + node.nodeSize), markFor(node.marks));
+    });
+    this.view.dispatch(tr.scrollIntoView());
+    this.view.focus();
+  }
+
   insertValue(markdown: string) {
     if (this.view.hasFocus()) this.bookmark = undefined;
     else this.restoreSelection();
@@ -1078,9 +1143,9 @@ export class BlockEditor {
       ? new Slice(doc.firstChild!.content, 0, 0)
       : new Slice(doc.content, 0, 0);
     const tr = this.view.state.tr.replaceSelection(slice).scrollIntoView();
-    if (doc.childCount === 1 && isEditorKind(doc.firstChild, "executable_chunk")) {
+    if (doc.childCount === 1 && doc.firstChild && (isEditorKind(doc.firstChild, "executable_chunk") || (!doc.firstChild.textContent && !doc.firstChild.isAtom))) {
       tr.doc.descendants((node, pos) => {
-        if (node === doc.firstChild) tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+        if (node === doc.firstChild) tr.setSelection(Selection.near(tr.doc.resolve(pos + 1)));
       });
     }
     if (doc.childCount === 1 && isEditorKind(doc.firstChild, "syntax_block") && doc.firstChild.attrs.kind === "comment") {
@@ -1734,6 +1799,7 @@ export class BlockEditor {
     if (!this.hovered) return;
     this.closeMenu();
     const block = this.hovered;
+    const syncPositions = this.selectedBlocks.has(block.pos) ? [...this.selectedBlocks] : [block.pos];
     this.selectBlocks([block.pos]);
     const menu = document.createElement("div");
     menu.className = "pm-block-menu";
@@ -1802,6 +1868,11 @@ export class BlockEditor {
     const label = document.createElement("small");
     label.textContent = "Turn into";
     menu.append(label);
+    if (this.options.canCommand?.("notion_custom") === true && this.options.canCommand?.("synced_block") !== false && wrapSyncedBlocks(this.view.state, syncPositions))
+      add("Synced block", () => {
+        const tr = wrapSyncedBlocks(this.view.state, syncPositions);
+        if (tr) this.view.dispatch(closeHistory(tr).scrollIntoView());
+      });
     for (const [type, title] of [
       ["text", "Text"],
       ["heading1", "Heading 1"],
@@ -1868,34 +1939,12 @@ export class BlockEditor {
     this.captureSelection();
     this.linkDialog?.remove();
     const { selection } = this.view.state;
+    if (!this.view.editable || selection.$from.parent.type.spec.code || selection.$to.parent.type.spec.code) return;
     const original = this.view.state.doc, bookmark = selection.getBookmark();
     const linkRange = linkRangeAtSelection(this.view.state);
     const link = linkRange?.mark;
-    const dialog = document.createElement("dialog");
-    dialog.className = "pm-link-dialog";
-    const form = document.createElement("form");
-    form.method = "dialog";
-    const label = document.createElement("label");
-    label.textContent = "Link";
-    const input = document.createElement("input");
-    input.type = "url";
-    input.placeholder = "Paste a link…";
-    input.value = link?.attrs.href || "";
-    input.setAttribute("aria-label", "Link address");
-    label.append(input);
-    form.append(label);
-    const submit = document.createElement("button");
-    submit.textContent = "Apply";
-    submit.type = "submit";
-    form.append(submit);
-    const remove = document.createElement("button");
-    remove.textContent = "Remove link";
-    remove.type = "button";
-    form.append(remove);
-    const output = document.createElement("output");
-    form.append(output);
-    const apply = (href: string) => {
-      if (!this.view.state.doc.eq(original)) { output.textContent = "Content changed. Reopen the link editor."; return; }
+    const apply = (href: string, label?: string): string | undefined => {
+      if (this.destroyed || !this.view.editable || !this.view.state.doc.eq(original)) return "Content changed. Reopen the link editor.";
       this.view.dispatch(this.view.state.tr.setSelection(bookmark.resolve(this.view.state.doc)));
       this.bookmark = undefined;
       const state = this.view.state;
@@ -1905,27 +1954,29 @@ export class BlockEditor {
         from = range.from;
         to = range.to;
       }
-      let tr = state.tr.removeMark(from, to, schema.marks.link);
+      let tr = closeHistory(state.tr).removeMark(from, to, schema.marks.link);
       if (href && from === to)
         tr = tr.replaceSelectionWith(
-          schema.text(href, [schema.marks.link.create({ href })]),
+          schema.text(label || href, [...(state.storedMarks ?? state.selection.$from.marks()).filter(mark => mark.type !== schema.marks.link), schema.marks.link.create({ href })]),
+          false,
         );
       else if (href) tr.addMark(from, to, schema.marks.link.create({ href }));
-      this.view.dispatch(tr);
-      dialog.close();
+      this.view.dispatch(tr.setMeta("isolateHistory", true));
       this.view.focus();
     };
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      if (input.value.trim()) apply(input.value.trim());
+    this.linkDialog = showLinkPicker({
+      href: link?.attrs.href || "",
+      pages: this.options.pages,
+      recentPages: this.options.recentPages,
+      anchor: () => this.view.coordsAtPos(Math.min(selection.from, this.view.state.doc.content.size)),
+      apply,
+      cancel: () => {
+        if (!this.destroyed && this.view.state.doc.eq(original)) {
+          this.view.dispatch(this.view.state.tr.setSelection(bookmark.resolve(original)));
+          this.view.focus();
+        }
+      },
     });
-    remove.addEventListener("click", () => apply(""));
-    dialog.addEventListener("close", () => dialog.remove());
-    dialog.append(form);
-    document.body.append(dialog);
-    this.linkDialog = dialog;
-    showEditorPanel(dialog, "Link", this.view.dom);
-    input.focus({ preventScroll: true });
   }
 
   destroy() {

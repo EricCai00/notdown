@@ -52,8 +52,8 @@ test("Notion source filter includes local feature counterparts with honest encod
   await expect(detail.locator(":scope > h2")).toHaveText("Meeting notes");
   await expect(detail).toContainText("Notion feature counterpart · Notdown local encoding");
   const results = page.locator(".catalog-results");
-  await expect(results.locator("article")).toHaveCount(22);
-  for (const id of ["notion_meeting_notes", "notion_link_preview", "notion_tabs", "notion_html_document"]) {
+  await expect(results.locator("article")).toHaveCount(21);
+  for (const id of ["notion_meeting_notes", "notion_link_preview", "notion_tabs", "notion_web_embed"]) {
     const card = results.locator(`[data-extension-id="${id}"]`);
     await expect(card.locator('[data-extension-category="notion"]')).toHaveText("Notdown Notion extensions");
     await expect(card).toContainText("local encoding");

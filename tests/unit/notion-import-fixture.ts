@@ -5,7 +5,25 @@ export const notionChild = "22222222-2222-4222-8222-222222222222";
 export const notionSibling = "33333333-3333-4333-8333-333333333333";
 export const notionContainer = "44444444-4444-4444-8444-444444444444";
 export const notionDatabase = "55555555-5555-4555-8555-555555555555";
-export const notionSource =
+export const notionLinksRoot = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+export const notionLinksSource = `## 1. [Python](/p/${notionChild.replace(/-/g, "")}?pvs=25)\r\n\r\n[Deep Learning](https://app.notion.com/p/${notionSibling}?pvs=25)\r\n`;
+export const notionToggleCodeSource = [
+  '## API code toggle {toggle="true"}',
+  '\t### Reset graph',
+  '\t```python',
+  'tf.reset_default_graph()',
+  '\t```',
+  '\t### GPU configuration',
+  '\t```python',
+  'config = tf.ConfigProto()',
+  'if True:',
+  '\tconfig.gpu_options.allow_growth = True',
+  '\t```',
+  '\tAfter API code',
+  'Outside API toggle',
+  '',
+].join('\r\n');
+export const notionSource = notionToggleCodeSource +
   '# API Enhanced Markdown {color="blue"}\r\n\r\n<callout icon="📘" color="blue_bg">\r\n\tOnly API content\r\n</callout>\r\n\r\n<details>\r\n<summary>Toggle</summary>\r\n\tChild text\r\n</details>\r\n\r\n<unknown url="https://www.notion.so/block" alt="Unsupported"/>\r\n\r\n```xml\r\n<page url="keep-this-literal">Code</page>\r\n```\r\n';
 export const notionFixture =
   (calls: string[] = []): typeof fetch =>
@@ -23,11 +41,12 @@ export const notionFixture =
     );
     calls.push(url.pathname + url.search);
     const id = url.pathname.split("/")[3];
+    if (url.pathname.startsWith("/v1/databases/")) return Response.json({ object: "error" }, { status: 404 });
     if (url.pathname.endsWith("/markdown"))
       return Response.json({
         object: "page_markdown",
         id,
-        markdown: id === notionRoot ? notionSource : "Child API Markdown\n",
+        markdown: id === notionLinksRoot ? notionLinksSource : id === notionRoot ? notionSource : "Child API Markdown\n",
         truncated: false,
         unknown_block_ids: [],
       });
@@ -46,7 +65,7 @@ export const notionFixture =
             title: [
               {
                 plain_text:
-                  id === notionRoot ? "Notion API fixture" : "Same title",
+                  id === notionLinksRoot ? "Notion inline links" : id === notionRoot ? "Notion API fixture" : "Same title",
               },
             ],
           },
@@ -59,13 +78,13 @@ export const notionFixture =
       type,
       has_children,
     });
-    if (id === notionRoot && !url.searchParams.has("start_cursor"))
+    if ((id === notionRoot || id === notionLinksRoot) && !url.searchParams.has("start_cursor"))
       return Response.json({
         results: [block(notionContainer, "toggle", true)],
         has_more: true,
         next_cursor: "second page&cursor",
       });
-    if (id === notionRoot)
+    if (id === notionRoot || id === notionLinksRoot)
       return Response.json({
         results: [
           block(notionSibling, "child_page"),

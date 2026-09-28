@@ -19,10 +19,19 @@
 - [原生方言](reference/NATIVE-DIALECTS.md)、[方言符合性](reference/DIALECT-CONFORMANCE.md)、[Notdown 集合体边界](reference/NOTDOWN-SUPERSET.md)
 - [Pandoc 扩展说明](reference/PANDOC-EXTENSIONS.md)、[开关矩阵](reference/PANDOC-EXTENSIONS-MATRIX.md)
 - [扩展来源](reference/EXTENSION-PROVENANCE.md)、[Notion 参考](reference/NOTION-REFERENCE.md)
+- [Notion MCP 规范语法与实现边界](reference/NOTION-MCP-SYNTAX.md)
 - [补充内容对象](reference/LOCAL-OBJECTS.md)、[产品语法](reference/PRODUCT-SYNTAX.md)
 - [HTTP API](reference/API.md)、[MyBase 集成](reference/MYBASE.md)
 
 ## 功能说明
+
+- [本地数据库、表格视图与 Notion 数据库导入](features/DATABASES.md)
+
+- [会议笔记卡片、配置与上传转写](features/MEETING-NOTES.md)
+
+- [本地同步块的复制、联动与取消同步](features/SYNCED-BLOCKS.md)
+
+- [AI block 配置、上下文与生成](features/AI-BLOCKS.md)
 
 - [Quarto 方言、多语言 Notebook 与解释器设置](features/QUARTO.md)、[2026-09-25 验证记录](verification/QUARTO-2026-09-25.md)
 - [可执行块与 inline 统一语言选择验证](verification/EXECUTABLE-LANGUAGE-2026-09-25.md)
@@ -47,6 +56,14 @@
 - [联系人](features/PEOPLE.md)
 
 ## 审计与验证记录
+
+- [数据库表格、选项与右侧记录面板验证（2026-09-28）](verification/DATABASES-DESIGN-QA-2026-09-28.md)
+
+- [会议笔记卡片与菜单验证（2026-09-27）](verification/MEETING-NOTES-DESIGN-QA-2026-09-27.md)
+
+- [HTML / Web embed 样式与交互验证（2026-09-27）](verification/EMBED-DESIGN-QA-2026-09-27.md)
+
+- [AI block 样式与交互验证（2026-09-27）](verification/AI-BLOCK-DESIGN-QA-2026-09-27.md)
 
 - [内容节点 object ID 统一验证（2026-09-24）](verification/OBJECT-IDENTITY-2026-09-24.md)
 

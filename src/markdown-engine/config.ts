@@ -64,9 +64,9 @@ export interface SyntaxConfig {
 export const usesNotionSyntax = (config: Pick<SyntaxConfig, "variant">) =>
   config.variant === "notion-markdown" || config.variant === "notdown";
 const blockLabels: Record<string, string> = {
-  embed_web_contents: "Web embed",
+  web_embed: "Web embed",
   tabs: "Tabs", web_bookmark: "Bookmark", link_preview: "Link preview", breadcrumb: "Breadcrumb",
-  button: "Button", meeting_notes: "Meeting notes", ai_block: "AI block", html_embed: "HTML document", image_block: "Image with caption",
+  button: "Button", meeting_notes: "Meeting notes", ai_block: "AI block", image_block: "Image with caption",
 };
 type Extension = {
   id: string;
@@ -78,7 +78,7 @@ export const extensions: Extension[] = [
   { id: "symbol_replacements", label: "Symbol replacements", description: "Notdown typing only: arrows, comparisons, ellipsis and copyright symbols. Backspace reverts the last replacement; source and pasted text stay unchanged.", kind: "syntax" },
   ...Object.entries(localObjectPlugins).filter(([name]) => name !== "tab" && name !== "link_mention").map(([name, id]) => ({
     id, label: blockLabels[name],
-    description: "Supplemental Notion encoding, available only in the Notdown variant. Not part of official enhanced Markdown.",
+    description: ["tabs", "meeting_notes"].includes(name) ? "Official Notion MCP container syntax. Legacy local properties are supported only in Notdown." : "Supplemental Notion encoding, available only in the Notdown variant. Not part of official enhanced Markdown.",
     defaults: ["notdown"], kind: "block" as const,
   })),
   { id: "display_math", label: "Display math", description: "Double-dollar block equations, independently of optional inline math.", kind: "syntax" },
@@ -286,7 +286,7 @@ export const extensions: Extension[] = [
   {
     id: "notion_pages",
     label: "Page references",
-    description: "Child pages and <mention-page>.",
+    description: "Child pages and <mention-page>; Notdown also supports <page-link> blocks.",
     kind: "block",
   },
   {
@@ -304,7 +304,7 @@ export const extensions: Extension[] = [
   {
     id: "notion_databases",
     label: "Database source preservation",
-    description: "Compatibility setting: database tags are Unsupported raw source. Database objects are not implemented.",
+    description: "Official database references; local inline references display editable vault databases. Remote references remain links.",
     kind: "block",
   },
   {
@@ -345,7 +345,7 @@ export function defaultSyntax(
 }
 const notionKeys = new Set(["columns", "callouts", "toggles", "tables", "pages", "mentions", "media", "databases", "synced", "toc", "nesting", "colors"]);
 export const legacyLocalExtensionIds: Record<string, string> = Object.fromEntries(
-  ["tabs", "bookmark", "link_preview", "breadcrumb", "button", "meeting_notes", "ai_block", "html_document", "web_embed"].map(name => ["local_" + name, "notion_" + name]),
+  ["tabs", "bookmark", "link_preview", "breadcrumb", "button", "meeting_notes", "ai_block", "web_embed"].map(name => ["local_" + name, "notion_" + name]),
 );
 const localAliases = Object.fromEntries(Object.entries(legacyLocalExtensionIds).map(([old, current]) => [current, old]));
 export function canonicalExtensionId(name: string): string {
@@ -454,6 +454,9 @@ export function resetExtensions(config: SyntaxConfig): Record<string, boolean> {
   );
 }
 export function commandEnabled(config: SyntaxConfig, command: string) {
+  if (command === "database_full_page") return true;
+  if (command === "database_inline") return usesNotionSyntax(config) && enabled(config, "notion_databases");
+  if (command === "table_column_widths") return config.variant === "notdown" && enabled(config, "table_attributes");
   if (command === "input_pipe_quote") return !enabled(config, "line_blocks");
   if (command === "input_single_strike") return enabled(config, "strikeout") && !enabled(config, "subscript") && !enabled(config, "short_subsuperscripts");
   if (command === "input_fancy_list") return enabled(config, "fancy_lists");
@@ -474,6 +477,8 @@ export function commandEnabled(config: SyntaxConfig, command: string) {
   if (command === "notion_custom") return config.variant === "notdown";
   if (command === "code_caption") return config.variant !== "notion-markdown" && enabled(config, "fenced_code_attributes");
   if (command === "image_block") return false;
+  if (command === "html_embed") return usesNotionSyntax(config) && enabled(config, "notion_media");
+  if (command === "link") return config.variant === "notdown" && enabled(config, "notion_pages");
   if (["audio", "video", "pdf"].includes(command)) return enabled(config, "notion_media");
   if (command === "embed") return enabled(config, "notion_web_embed") || (!usesNotionSyntax(config) && enabled(config, "html_embed"));
   if (/^heading[1-6]$/.test(command)) return config.variant !== "notion-markdown" || Number(command.slice(-1)) <= 4;

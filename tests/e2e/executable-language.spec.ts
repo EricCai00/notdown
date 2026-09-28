@@ -99,7 +99,7 @@ for (const variant of ["notdown", "quarto"]) test(`${variant}: one chunk entry, 
   expect(executions).toBe(0);
 });
 
-test("inline insertion remembers the language without a popup and its name switches it later", async ({ page, request }) => {
+test("inline insertion remembers the language, asks for content and its name switches it later", async ({ page, request }) => {
   const note = await open(page, request, "Before after.\n");
   await page.evaluate(() => localStorage.setItem("notdown-executable-language", "julia"));
   const paragraph = page.locator(".pm-document > p");
@@ -112,6 +112,9 @@ test("inline insertion remembers the language without a popup and its name switc
   await expect.poll(() => paragraph.evaluate(element => document.getSelection()?.anchorNode === element.firstChild && document.getSelection()?.anchorOffset)).toBe(7);
   await page.keyboard.type("/");
   await page.locator('[data-insert="executable_inline"]').click();
+  await expect(page.getByLabel("Expression", { exact: true })).toHaveValue("");
+  await page.getByLabel("Expression", { exact: true }).fill("1 + 1");
+  await page.locator("#dialog").getByRole("button", { name: "Insert", exact: true }).click();
   await expect(chooser(page)).toHaveCount(0);
   await expect(page.locator(".pm-r-inline-popover")).toHaveCount(0);
   await expect(page.locator(".pm-r-inline-prefix")).toHaveText("jl");

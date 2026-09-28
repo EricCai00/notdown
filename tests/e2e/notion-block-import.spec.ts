@@ -1,0 +1,36 @@
+import { test, expect } from "@playwright/test";
+import { enrichmentRoot } from "../unit/notion-block-import-fixture";
+
+test("Notdown import restores unknown blocks and keeps a child page and link to that child distinct", async ({ page, request }) => {
+  const seed = await (await request.post("/api/pages", { data: { title: "Before restoration", body: "Keep" } })).json();
+  await page.route("https://example.com/**", route => route.fulfill({ contentType: "text/html", body: "Test embed" }));
+  await page.goto(`/#page/${seed.id}`);
+  await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Import dialect", exact: true })).toHaveValue("notdown");
+  await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
+  await page.getByLabel("Page URL or ID", { exact: true }).fill(enrichmentRoot);
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await expect(page.locator("#notion-markdown-source")).toContainText("<page-link");
+  await expect(page.locator("#notion-preview")).toContainText("Restored 5");
+  await page.getByRole("button", { name: "Import copies", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Notdown restored blocks");
+  const all = await (await request.get("/api/pages")).json();
+  const root = all.find((p: any) => p.title === "Notdown restored blocks");
+  await expect(page).toHaveURL(new RegExp(`#page/${root.id}$`));
+  const child = all.find((p: any) => p.parent === root.id);
+  expect(root.syntax.variant).toBe("notdown");
+  const owned = page.locator('.ProseMirror [data-pm-node-type="block.child_page"]');
+  const linked = page.locator('.ProseMirror [data-pm-node-type="block.link_to_page"]');
+  await expect(owned).toHaveAttribute("data-page-id", child.id);
+  await expect(linked).toHaveAttribute("data-page-id", child.id);
+  await expect(linked.locator(".page-link-reference-arrow")).toHaveCount(0);
+  await expect(owned.locator(".page-link-reference-arrow")).toHaveCount(0);
+  await page.getByRole("button", { name: "Source", exact: true }).click();
+  await page.getByRole("group", { name: "Editing view", exact: true }).getByRole("button", { name: "Page", exact: true }).click();
+  await page.reload();
+  await expect(linked).toHaveCount(1);
+  expect((await (await request.get(`/api/pages/${root.id}`)).json()).body).toBe(root.body);
+  await linked.click();
+  await expect(page.locator("#page-title")).toHaveValue(child.title);
+});

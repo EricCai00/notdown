@@ -3,14 +3,26 @@ import type { Node as PMNode } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import { closeHistory } from "prosemirror-history";
 
-/** Local Markdown extension, not an attribute documented by Notion's Markdown API. */
+/** Official NFM ratios are percentages. Read old Notdown fractions for
+ * compatibility, but prefer official ratios whenever they are present. */
+function ratioAttribute(node: PMNode): "ratio" | "width-ratio" {
+  let official = false, legacy = false;
+  node.forEach(child => {
+    official ||= Object.hasOwn(child.attrs.nfmAttrs || {}, "ratio");
+    legacy ||= Object.hasOwn(child.attrs.nfmAttrs || {}, "width-ratio");
+  });
+  return !official && legacy ? "width-ratio" : "ratio";
+}
+
 export function columnWidths(node: PMNode): number[] {
+  const attribute = ratioAttribute(node);
+  const scale = attribute === "ratio" ? 100 : 1;
   const values: number[] = [];
   node.forEach((child) =>
-    values.push(Number(child.attrs.nfmAttrs?.["width-ratio"])),
+    values.push(Number(child.attrs.nfmAttrs?.[attribute])),
   );
   if (
-    values.some((value) => !Number.isFinite(value) || value <= 0 || value >= 1)
+    values.some((value) => !Number.isFinite(value) || value <= 0 || value >= scale)
   )
     return values.map(() => 1 / values.length);
   const sum = values.reduce((a, b) => a + b, 0);
@@ -62,11 +74,12 @@ export function columnWidthTransaction(
             Math.max(1, Math.round((widths[index] / sum) * 1_000_000)),
           );
     used += units;
+    const { "width-ratio": _legacy, ...attrs } = column.attrs.nfmAttrs;
     tr.setNodeMarkup(pos + 1 + offset, undefined, {
       ...column.attrs,
       nfmAttrs: {
-        ...column.attrs.nfmAttrs,
-        "width-ratio": String(units / 1_000_000),
+        ...attrs,
+        ratio: String(units / 10_000),
       },
     });
   });

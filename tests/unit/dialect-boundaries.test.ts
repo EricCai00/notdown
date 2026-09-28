@@ -20,10 +20,11 @@ const has = (source: string, c: SyntaxConfig, type: string) => {
 test("supplemental carriers cannot be enabled in upstream dialects, including by saved overrides", () => {
   for (const { id: variant } of dialects.filter(d => d.id !== "notdown")) for (const [name, sample] of Object.entries(objectSamples)) {
     const base = config(variant), plugin = localObjectPlugins[name], active = config(variant, { [plugin]: true, future_option: true });
-    assert(!enabled(base, plugin), `${variant}: ${plugin}`);
-    assert(!commandEnabled(base, name));
+    const official = variant === "notion-markdown" && ["tabs", "meeting_notes"].includes(name);
+    assert.equal(enabled(base, plugin), official, `${variant}: ${plugin}`);
+    assert.equal(commandEnabled(base, name), official);
     assert(!has(sample, base, name), `${variant} accidentally parsed ${name}`);
-    assert(!commandEnabled(active, name));
+    assert.equal(commandEnabled(active, name), official);
     const source = sample.replace(/\n/g, "\r\n") + "\r\n\r\nTail";
     const session = new DocumentSession(source, active);
     assert.notEqual(editorKind(session.snapshot.doc.firstChild!), name);
@@ -42,7 +43,7 @@ test("supplemental carriers cannot be enabled in upstream dialects, including by
     assert(written.startsWith(sample.replace(/\n/g, "\r\n")), `${variant}: preserved ${name}`);
     assert.deepEqual(resetExtensions(active), { future_option: true });
   }
-  assert(variantsForObject("block.tabs").every(v => v.status === (v.id === "notdown" ? "default" : "unavailable")));
+  assert(variantsForObject("block.tabs").every(v => v.status === (["notdown", "notion-markdown"].includes(v.id) ? "default" : "unavailable")));
   assert.deepEqual(defaultSyntax("markdown"), config("commonmark"));
 });
 

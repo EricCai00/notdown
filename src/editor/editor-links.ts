@@ -1,6 +1,7 @@
 import { isEditorKind } from "../document/node-identity";
 import { createElement, ArrowUpRight } from "lucide";
 import { pageIconElement } from "../shared/page-icons";
+import { pageReferenceContent } from "../shared/page-reference-content";
 import type { Mark, Node as ProseMirrorNode } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import type { NodeView, NodeViewConstructor } from "prosemirror-view";
@@ -12,6 +13,7 @@ export interface LinkedPage {
   title: string;
   icon?: string;
   parent?: string | null;
+  trashed?: boolean;
 }
 
 export function isOwnedPageEntry(node: ProseMirrorNode): boolean {
@@ -61,6 +63,8 @@ export function linkRangeAtSelection(
 
 class PageLinkView implements NodeView {
   readonly dom: HTMLAnchorElement;
+  private events = new AbortController();
+  private targetUpdates = new Map<string, LinkedPage>();
 
   constructor(
     private node: ProseMirrorNode,
@@ -70,12 +74,20 @@ class PageLinkView implements NodeView {
     this.dom = document.createElement("a");
     this.dom.contentEditable = "false";
     this.dom.draggable = false;
+    const refresh = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      const page = detail?.hostPage ?? detail;
+      if (!page || typeof page.id !== "string" || typeof page.title !== "string") return;
+      this.targetUpdates.set(page.id, page); this.render();
+    };
+    document.addEventListener("notdown-database-updated", refresh, { signal: this.events.signal });
+    document.addEventListener("notdown-database-record-saved", refresh, { signal: this.events.signal });
     this.render();
   }
 
   private render(): void {
     const target = String(this.node.attrs.target ?? "");
-    const pages = this.pages();
+    const pages = [...this.pages().filter(page => !this.targetUpdates.has(page.id)), ...this.targetUpdates.values()];
     const reference = nodeReference(this.node);
     const page = reference ? resolveReferencePage(reference, pages, this.currentPage?.()?.id) : undefined;
     const label = reference ? referenceLabel(this.node, reference, page) : String(this.node.attrs.label || target);
@@ -101,24 +113,11 @@ class PageLinkView implements NodeView {
     text.className = "page-link-label";
     text.textContent = label;
     const icon = reference?.kind === "location" ? createElement(ArrowUpRight, { width: 16, height: 16 }) : pageIconElement(page?.icon);
-    if (isEditorKind(this.node, "child_page")) {
-      const iconSlot = document.createElement("span");
-      iconSlot.className = "page-link-icon-slot";
-      iconSlot.setAttribute("aria-hidden", "true");
-      iconSlot.append(icon);
+    const isBlock = isEditorKind(this.node, "child_page");
+    if (isBlock || reference?.kind === "page") {
       // UI identity must follow the actual PM type, never inferred ownership.
-      this.dom.dataset.pageRelation = isOwnedPageEntry(this.node) ? "child" : "reference";
-      if (this.dom.dataset.pageRelation !== "child") {
-        iconSlot.append(createElement(ArrowUpRight, {
-          class: "page-link-reference-arrow",
-          width: 18,
-          height: 18,
-          "stroke-width": 1.8,
-          "aria-hidden": "true",
-          focusable: "false",
-        }));
-      }
-      this.dom.replaceChildren(iconSlot, text);
+      if (isBlock) this.dom.dataset.pageRelation = isOwnedPageEntry(this.node) ? "child" : "reference";
+      this.dom.replaceChildren(...pageReferenceContent(label, page?.icon, !isBlock && !isOwnedPageEntry(this.node)));
     } else {
       this.dom.replaceChildren(icon, text);
     }
@@ -147,6 +146,7 @@ class PageLinkView implements NodeView {
   ignoreMutation(mutation: { type: string }): boolean {
     return mutation.type !== "selection";
   }
+  destroy() { this.events.abort(); }
 }
 
 export function createPageNodeViews(

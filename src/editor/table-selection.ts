@@ -32,6 +32,7 @@ function tableAtCell($cell: ResolvedPos) {
   throw new Error("Cell is outside a table.");
 }
 export class TableSelection extends Selection {
+  visible = false;
   readonly tablePos: number;
   readonly cells: TableCell[];
   readonly rect: { top: number; left: number; bottom: number; right: number };
@@ -111,14 +112,50 @@ export function pasteTableText(state: EditorState, text: string): Transaction | 
   return tr;
 }
 export function tableSelections() {
-  return new Plugin({ props: {
+  return new Plugin({ view(view) {
+    let drag: { anchor: number; doc: typeof view.state.doc; selection?: TableSelection } | null = null;
+    let frame = 0;
+    const stop = () => { drag = null; };
+    const finish = () => {
+      const completed = drag; stop();
+      // Native mouseup completes ProseMirror's text drag after pointerup.
+      // Restore the rectangle after that event, without touching document/history.
+      if (completed?.selection) frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (view.state.doc === completed.doc) view.dispatch(view.state.tr.setSelection(completed.selection!));
+      });
+    };
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0 || event.shiftKey || !(event.target instanceof Element)) return;
+      cancelAnimationFrame(frame); frame = 0;
+      const cell = event.target.closest("td, th");
+      if (!cell || !view.dom.contains(cell)) return;
+      const anchor = cellAt(view.state.doc.resolve(view.posAtDOM(cell, 0)));
+      if (anchor !== undefined) drag = { anchor, doc: view.state.doc };
+    };
+    const move = (event: PointerEvent) => {
+      if (!drag) return;
+      if (!(event.buttons & 1) || view.state.doc !== drag.doc) { stop(); return; }
+      const cell = event.target instanceof Element ? event.target.closest("td, th") : null;
+      if (!cell || !view.dom.contains(cell)) return;
+      const head = cellAt(view.state.doc.resolve(view.posAtDOM(cell, 0)));
+      if (head === undefined || head === drag.anchor && !(view.state.selection instanceof TableSelection)) return;
+      try {
+        const selection = new TableSelection(view.state.doc.resolve(drag.anchor), view.state.doc.resolve(head));
+        drag.selection = selection;
+        if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection));
+        event.preventDefault();
+      } catch { /* Dragging into another table keeps the original selection. */ }
+    };
+    view.dom.addEventListener("pointerdown", down); document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", finish); document.addEventListener("pointercancel", stop); window.addEventListener("blur", stop);
+    return { destroy() {
+      view.dom.removeEventListener("pointerdown", down); document.removeEventListener("pointermove", move);
+      cancelAnimationFrame(frame);
+      document.removeEventListener("pointerup", finish); document.removeEventListener("pointercancel", stop); window.removeEventListener("blur", stop);
+    } };
+  }, props: {
     decorations(state) { return state.selection instanceof TableSelection ? DecorationSet.create(state.doc, state.selection.cells.map(c => Decoration.node(c.pos, c.pos + c.node.nodeSize, { class: "pm-selected-cell" }))) : null; },
-    handleClickOn(view, _pos, node, pos, event) {
-      if (!isEditorKind(node, "table_cell") || !event.shiftKey) return false;
-      const anchor = view.state.selection instanceof TableSelection ? view.state.selection.$anchorCell.pos : cellAt(view.state.selection.$from);
-      if (anchor === undefined) return false;
-      try { view.dispatch(view.state.tr.setSelection(new TableSelection(view.state.doc.resolve(anchor), view.state.doc.resolve(pos)))); event.preventDefault(); return true; } catch { return false; }
-    },
     handleKeyDown(view, event) {
       const selection = view.state.selection;
       if (!(selection instanceof TableSelection)) return false;
@@ -126,7 +163,20 @@ export function tableSelections() {
       if (["Backspace", "Delete"].includes(event.key) && view.editable) { const tr = view.state.tr; selection.replace(tr); view.dispatch(tr); return true; }
       return false;
     },
-    handleDOMEvents: { copy(view, event) {
+    handleDOMEvents: { mousedown(view, event) {
+      // ProseMirror lets Shift-mousedown extend the native text selection and
+      // skips handleClickOn on mouseup. Intercept before that default path.
+      if (event.button !== 0 || !event.shiftKey || !(event.target instanceof Element)) return false;
+      const cell = event.target.closest("td, th");
+      if (!cell || !view.dom.contains(cell)) return false;
+      const anchor = view.state.selection instanceof TableSelection ? view.state.selection.$anchorCell.pos : cellAt(view.state.selection.$from);
+      const head = cellAt(view.state.doc.resolve(view.posAtDOM(cell, 0)));
+      if (anchor === undefined || head === undefined) return false;
+      try {
+        const selection = new TableSelection(view.state.doc.resolve(anchor), view.state.doc.resolve(head));
+        event.preventDefault(); view.dispatch(view.state.tr.setSelection(selection)); view.focus(); return true;
+      } catch { return false; }
+    }, copy(view, event) {
       if (!(view.state.selection instanceof TableSelection) || !event.clipboardData) return false;
       event.clipboardData.setData("text/plain", selectedTableText(view.state.selection)); event.preventDefault(); return true;
     }, cut(view, event) {

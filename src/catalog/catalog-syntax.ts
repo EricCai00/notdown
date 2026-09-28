@@ -78,7 +78,7 @@ ext([8], ["inline.inline_math"], ["tex_math_dollars"], "美元行内数学；Typ
 ext([9], ["inline.subscript"], ["subscript"], "成对 ~ 的下标，与 MMD 简写 x~z 的 short_subsuperscripts 区分。", { variants: ["typora", "markdown_mmd", "markdown"] });
 ext([10], ["inline.superscript"], ["superscript"], "成对 ^ 的上标，与 MMD 简写 X^2 区分。", { variants: ["typora", "markdown_mmd", "markdown"] });
 ext([11], ["inline.highlight"], ["highlight", "mark"], "==高亮==；highlight 是产品开关，mark 是 Pandoc 开关，语法相似不表示默认值相同。", { variants: ["typora", "obsidian"] });
-ext([12], ["block.embed_web_contents"], ["html_embed"], "iframe 属于网页嵌入；不是 notion_html_document HTML 文件块。远端可能拒绝嵌入。");
+ext([12], ["block.web_embed"], ["html_embed"], "iframe 属于网页嵌入；HTML 文件上传使用 Notdown web-embed 附件引用。远端可能拒绝嵌入。");
 ext([13, 14, 15], ["block.diagram"], ["diagrams"], "图表代码围栏需要渲染器；空围栏仅展示标记形式，不是有效图表内容。sequence/flow 的兼容转换只覆盖常见语法。", { limitation: "空样例无法验证图形是否正确；Mermaid 渲染与 sequence/flow 兼容范围需分别验收。" });
 annotations.get("extended:15")!.variants = ["typora", "obsidian"];
 ext([16], ["block.heading"], ["space_in_atx_header"], "Typora 非严格标题写法，要求关闭 space_in_atx_header。", { references: reference("https://support.typora.io/Strict-Mode/") });

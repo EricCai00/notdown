@@ -15,7 +15,8 @@ export function pageActionsHTML(page: Page, attribute = "data-page-action") {
     ["move", "folder-tree", "Move to"],
     ["trash", "trash-2", "Move to Trash"],
   ];
-  return items.map(([action, icon, label]) => `${action === "link" || action === "trash" ? "<hr>" : ""}<button type="button" role="menuitem" ${attribute}="${action}" class="${action === "trash" ? "danger" : ""}"><i data-lucide="${icon}"></i><span>${label}</span></button>`).join("");
+  return items.filter(([action]) => !(page.databaseId && action === "duplicate") && !(page.dataSourceId && action === "move"))
+    .map(([action, icon, label]) => `${action === "link" || action === "trash" ? "<hr>" : ""}<button type="button" role="menuitem" ${attribute}="${action}" class="${action === "trash" ? "danger" : ""}"><i data-lucide="${icon}"></i><span>${label}</span></button>`).join("");
 }
 
 export function showPageContextMenu(page: Page, x: number, y: number, anchor: HTMLElement, act: (action: PageAction) => void) {

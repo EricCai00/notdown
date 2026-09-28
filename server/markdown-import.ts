@@ -6,10 +6,13 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { validSyntax, syntaxFormat, type SyntaxConfig } from "../src/markdown-engine/config.js";
 import { VaultError } from "./vault.js";
+import { stablePageUuid } from "./page-id.js";
+import type { DatabaseResources } from "../src/features/databases/database-model.js";
 
 export type ImportFile = { path: string; data: string };
 export type ImportRequest = { files: ImportFile[]; dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown" | "quarto"; name: string };
 export type ImportPlan = {
+  databaseResources?: DatabaseResources;
   id: string;
   name: string;
   pages: { id: string; path: string; source: string; metadata: Record<string, unknown> }[];
@@ -23,7 +26,7 @@ const maxBytes = 20 * 1024 * 1024;
 const frontmatter = /^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const safeAssetExtension = /\.(png|jpe?g|gif|webp|avif|mp3|ogg|wav|m4a|mp4|webm|pdf|txt|zip)$/i;
 
-function destinationMarker(raw: string, definition: boolean): number {
+export function destinationMarker(raw: string, definition: boolean): number {
   if (definition) {
     // Definition labels may contain escaped brackets and colons.
     for (let i = 1; i < raw.length; i++) {
@@ -141,7 +144,7 @@ export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
         const metadata = match ? parseDocument(match[1], { uniqueKeys: true }) : new Document();
         if (metadata.errors.length || (match && !isMap(metadata.contents))) throw new Error("invalid YAML mapping");
         metadata.toJS({ maxAliasCount: 50 });
-        const pageId = `${prefix}-${index}`;
+        const pageId = stablePageUuid(`${prefix}-${index}`);
         documents.push({ path: file.path, id: pageId, body: match ? text.slice(match[0].length) : text, prefix: match?.[0] ?? "", metadata });
         targets.set(file.path, `#page/${pageId}`);
       } catch (error) { plan.errors.push(`${file.path}: ${error instanceof Error ? error.message : error}`); }
@@ -153,11 +156,11 @@ export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
     }
   }
   if (!documents.length) throw new VaultError(400, "No readable Markdown pages found", { errors: plan.errors });
-  const folderIds = new Map<string, string>([["", `${prefix}-root`]]);
+  const folderIds = new Map<string, string>([["", stablePageUuid(`${prefix}-root`)]]);
   for (const document of documents) {
     let folder = path.posix.dirname(document.path);
     while (folder !== "." && folder !== "") {
-      if (!folderIds.has(folder)) folderIds.set(folder, `${prefix}-folder-${folderIds.size}`);
+      if (!folderIds.has(folder)) folderIds.set(folder, stablePageUuid(`${prefix}-folder-${folderIds.size}`));
       folder = path.posix.dirname(folder);
     }
   }

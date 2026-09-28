@@ -44,15 +44,17 @@ type Page = {
   parent: string | null;
   icon: string;
   properties: Record<string, unknown>;
-  body: string; // Exact Markdown body, without frontmatter
-  revision: string; // SHA-256 of the complete source file
+  body: string; // Complete Markdown file, including document metadata
+  revision: string; // Revision of complete Markdown and this page's JSON metadata
   updated: string; // ISO timestamp
   favorite?: boolean; // Sidebar Favorites; absent means false
   trashed?: boolean; // Soft deletion; absent means false
+  dataSourceId?: string; // Database record membership, separate from parent
+  databaseId?: string; // Native or imported database host page
 };
 ```
 
-Page files are UTF-8 Markdown in `vault/pages/<uuid>.md`. The YAML fields are `id`, `title`, `parent`, `icon`, `properties`, and `updated`. Other YAML fields and comments survive metadata updates. A metadata-only update preserves body bytes as decoded UTF-8, including CRLF and trailing blank lines. Unknown body syntax is left untouched. Files are re-read on every call, so edits made by an external editor become visible. Invalid YAML and duplicate page IDs produce 422 and block mutations instead of overwriting ambiguous data. Symlink pages are ignored.
+Page files are UTF-8 Markdown in `vault/pages/<uuid>.md`; application metadata is stored in `metadata.json`. Existing YAML/Pandoc metadata remains in the complete body and overrides JSON defaults on reads. Unknown fields and comments survive metadata updates. A metadata-only update preserves body bytes as decoded UTF-8, including CRLF and trailing blank lines. Unknown body syntax is left untouched. Files are re-read on every call, so edits made by an external editor become visible. Invalid YAML and duplicate page IDs produce 422 and block mutations instead of overwriting ambiguous data. Symlink pages are ignored.
 
 ## Routes
 
@@ -70,18 +72,53 @@ Markdown Lab uses `GET /api/markdown/capabilities` to report installed Pandoc re
 | `POST /api/pages/:id/move` | `{baseRevision,parent,sidebarOrder,beforeId,afterId,baseRevisions}` | `Page`; set parent and sibling position after validating source, parent and destination sibling revisions |
 | `GET /api/pages/:id`              | —                                                       | `Page`                                                       |
 | `POST /api/pages`                 | `{title?,parent?,icon?,properties?,body?}`              | 201 `Page`                                                   |
-| `PUT /api/pages/:id`              | `{baseRevision,title?,parent?,icon?,properties?,body?}` | `Page`                                                       |
+| `PUT /api/pages/:id`              | `{baseRevision,schemaRevision?,title?,parent?,icon?,properties?,body?}` | `Page`                                                       |
 | `GET /api/conflicts`              | —                                                       | `Conflict[]`                                                 |
-| `POST /api/conflicts/:id/resolve` | `{baseRevision,title?,parent?,icon?,properties?,body?}` | `Page`                                                       |
+| `POST /api/conflicts/:id/resolve` | `{baseRevision,schemaRevision?,title?,parent?,icon?,properties?,body?}` | `Page`                                                       |
 | `POST /api/assets`                | `{name,contentType,data}` (`data` is standard base64)   | 201 `{path,name,contentType}`                                |
 
 `title` defaults to Untitled page, `icon` to 📄, `parent` to null, and `body` to an empty string on creation. Properties are replaced when provided; omitted properties remain intact. Passing null as a parent makes the page a root page. Parent references must exist and cannot create cycles. IDs are immutable.
 
 `PUT /api/pages/:id` also accepts boolean `favorite` and `trashed`, with the same required `baseRevision` and conflict preservation. Normal listing excludes trashed pages and descendants of trashed ancestors; `GET /api/pages/:id` still allows recovery reads. Trash preserves the original Markdown file, hierarchy, and children without rewriting child files. Restore with `trashed:false`; restore ancestors first. Creating or moving under a trashed ancestor is rejected. Duplication copies one page, preserves existing references and attachments, and resets favorite/trash flags. A stale duplication revision returns a conflict instead of silently copying a different revision.
 
-`GET /api/status` includes `capabilities: {pageActions:1,sidebarDrag:1,systemRecycleBin:boolean}`. The frontend checks this before page mutations and Trash reads so an older running server cannot silently ignore new metadata fields and report success. It also checks returned metadata against the requested change.
+`GET /api/status` includes `capabilities: {pageActions:1,sidebarDrag:1,databases:1,systemRecycleBin:boolean}`. The frontend checks page capabilities before page mutations and Trash reads so an older running server cannot silently ignore new metadata fields and report success. It also checks returned metadata against the requested change. A 404 from the database-list endpoint is treated as an older backend: ordinary pages stay available and database entrypoints explain how to restart and recheck the server. Other database errors remain visible.
 
 System recycling requires a revision map covering the exact current subtree, a trashed root, and no unresolved conflicts in that subtree. Each file gets a history snapshot and a revision recheck. Children are recycled first; OS errors stop processing, return 503 with completed IDs, and leave remaining files in Trash. Shared attachments and histories are retained. Windows shell `IFileOperation` uses [RECYCLEONDELETE](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags); no permanent-delete fallback is provided. Restoring files in Windows puts their original Markdown back in `pages/`, retaining the application's Trash flag until Restore is clicked. Browser tests inject a private temporary recycle adapter; native recycling and restoration are verified separately.
+
+## Local databases
+
+`createVault(...).databases` stores database, data-source and view resources in the corresponding `metadata.json` top-level maps. Records remain normal Markdown pages. A `DatabaseSnapshot` is `{ database, hostPage?, dataSources, views, pages }`; `pages` excludes trashed records and descendants of trashed ancestors. `hostPage` is absent for legacy databases without a host. Resource reads include content-hash revisions and use `Cache-Control: no-store`.
+
+| Request | Body | Response |
+| --- | --- | --- |
+| `GET /api/databases` | — | `Database[]` |
+| `POST /api/databases` | `{title,parent?:string|null,parentRevision?:string}` | 201 `DatabaseSnapshot`; creates a Markdown host page, one data source, title property and table view |
+| `GET /api/databases/:id` | — | `DatabaseSnapshot` |
+| `PUT /api/databases/:id` | `{title?,icon?,baseRevision,hostRevision?}` | Updated `DatabaseSnapshot`; requires at least one of title/icon |
+| `PUT /api/databases/:id/icon` | `{icon,baseRevision,hostRevision?}` | Updated `DatabaseSnapshot`; icon-only alias |
+| `GET /api/data-sources/:id` | — | `DatabaseDataSource` |
+| `PUT /api/data-sources/:id` | `{baseRevision,title?,properties?}` | Updated `DatabaseDataSource` |
+| `POST /api/databases/:id/views` | `{baseRevision,name?,dataSourceId?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | 201 updated `DatabaseSnapshot`; revision belongs to the database |
+| `PUT /api/database-views/:id` | `{baseRevision,name?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | Updated `DatabaseView`; source/database identity stays unchanged |
+| `POST /api/data-sources/:id/records` | `{baseRevision,title?,properties?}` | 201 `Page`; revision belongs to the data source |
+| `PUT /api/data-sources/:id/records/:pageId` | `{baseRevision,schemaRevision,propertyId,value}` | Updated `Page`; checks both page and data-source revisions |
+| `POST /api/data-sources/:id/records/:pageId/remove` | `{baseRevision,schemaRevision}` | Updated `Page` detached from its data source; Markdown and properties preserved |
+
+`Database` has `{id,title,icon?,pageId?,dataSourceIds,viewIds,revision}`. New native databases use the same UUID for `id`, `pageId` and their host page; the host page has `databaseId:id`, the default `table-2` icon and an empty Markdown body. Hosted database titles, icons and parent locations are presented from the host page, and list reads exclude effectively trashed hosts. `DatabaseDataSource` has `{id,title,properties,ownerDatabaseId?,revision}`; new native sources bind an immutable canonical owner.
+
+Title/icon updates require the database `baseRevision`; hosted databases also require the captured `hostRevision`. A title is a nonblank string of at most 500 characters; an icon is a string of at most 100 characters, with `""` removing the custom icon. The UI renders the shared document icon as the empty-value fallback. Hosted updates go through the normal page journal and preserve exact Markdown and unknown metadata; stale host revisions create normal page conflicts, while stale resource revisions use database conflict archives. Document-controlled title/icon values return 422 with `source:"document"`. Hostless legacy databases update only their resource fields, without creating host files. Updates accept only title, icon and the two revision fields.
+
+Omitting `parent` or passing null creates a root database. A non-null parent requires its current `parentRevision`; stale parents fail with 409 before creating an orphan. The parent must be an active ordinary page, not a database host. Database records are created with `parent` equal to their source's canonical host. Ordinary page creation/movement directly into a database host, generic reparenting of database records, and generic duplication of a database host return 422; use database record operations for membership. Existing imported host identities are retained. Legacy databases without hosts remain readable and do not acquire files during reads; their new records retain `parent:null`, with hierarchy projected only in the UI.
+
+Each property has `{id,name,key,type,options?,readOnly?}`; options have stable `{id,name,color?}` identities. Exactly one `title` field binds `key:"title"`; other fields bind keys in `Page.properties`. Field keys cannot be renamed. Populated type conversions and deletion of options still in use are rejected, and fields referenced by saved views cannot be removed. Unknown stored resource, field and option fields are retained.
+
+Editable primitive types are `text`, `number`, `checkbox`, `date`, `select`, `multi_select`, `status`, `url`, `email` and `phone`, plus the page title. Date values are `{start,end?,time_zone?}`; select/status values are option IDs and multi-select values are unique option-ID arrays. Non-title values may be null. `formula`, `rollup`, `unknown` and explicitly `readOnly` fields reject edits. Imported relations, people and files are currently read-only snapshots. Document-controlled values reject cell updates with 422; edit the complete document source instead.
+
+`DatabaseView` has `{id,databaseId,dataSourceId,name,type:"table",propertyIds?,filters?,sorts?,rowOrder?,revision}`. `rowOrder` is a unique ordered array of page IDs from that view's data source; duplicate and foreign IDs are rejected. Current table rendering supports filters `{propertyId,operator:"contains",value}` and sorts `{propertyId,direction:"ascending"|"descending"}`. The UI edits one filter and one sort; remote Notion view definitions are preserved separately and are not applied as local view configuration.
+
+Generic `PUT /api/pages/:id` and conflict resolution also require the data source's `schemaRevision` when changing a database record's title or schema-bound properties. Clients must preserve the schema revision captured when editing began; a stale schema produces a recoverable conflict, not an automatic retry. Body-only edits retain the usual page revision requirement. Data-source membership cannot be changed through arbitrary page metadata patches.
+
+Resource revision conflicts return 409 with `current`, `proposed` and `recoveryPath`, retaining both versions under `.history/database-conflicts/`. Resource writes preserve before/after metadata in `.history/database-transactions/` and atomically replace the metadata file. Page conflicts use the existing page conflict API. Database resource conflict archives are not returned by `GET /api/conflicts`, and no resource-conflict resolution endpoint exists yet. See [database behavior and boundaries](../features/DATABASES.md).
 
 ## Conflicts and history
 

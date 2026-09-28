@@ -96,7 +96,7 @@ test("all variants partition every extension once and retain required/spec/optio
     const specified = groups.find(g => g.id === "specified")!.entries;
     const ranks = specified.map(e => { const s = extensionProvenance(variant, e.id).syntax!; return Number(s.requirement === "optional") * 2 + Number(s.authority === "docs"); });
     assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b), variant);
-    for (const e of specified) assert.match(extensionProvenance(variant, e.id).syntax!.url, /^https:\/\//);
+    for (const e of specified) assert.match(extensionProvenance(variant, e.id).syntax!.url, /^(?:https:\/\/|notion:\/\/docs\/enhanced-markdown-spec$)/);
   }
 });
 
@@ -111,7 +111,7 @@ test("extension sources have exactly three categories, independent of dialect an
   for (const { id: variant } of dialects) {
     const groups = groupExtensions(catalogExtensions, variant);
     assert.equal(groups[0].id, "specified");
-    assert(groups.find(group => group.id === "other")!.entries.some(entry => entry.id === "notion_tabs"));
+    assert(groups.find(group => group.id === (["notdown", "notion-markdown"].includes(variant) ? "specified" : "other"))!.entries.some(entry => entry.id === "notion_tabs"));
   }
 });
 

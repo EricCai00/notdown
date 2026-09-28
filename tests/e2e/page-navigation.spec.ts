@@ -20,6 +20,52 @@ async function append(page: Page, text: string) {
   await page.keyboard.type(text);
 }
 
+test('navigation uses one fresh list snapshot and refreshes changed backlinks', async ({ page, request }) => {
+  const a = await create(request, 'Snapshot A');
+  const b = await create(request, 'Snapshot B');
+  const source = await create(request, 'Backlink source', `[Target](#page/${b.id})`);
+  await open(page, a.id);
+  const reads: string[] = [];
+  page.on('request', req => {
+    if (req.method() === 'GET' && new URL(req.url()).pathname.startsWith('/api/pages')) reads.push(new URL(req.url()).pathname);
+  });
+  await visit(page, b.id, b.title);
+  expect(reads).toContain('/api/pages');
+  expect(reads).not.toContain(`/api/pages/${b.id}`);
+  await expect(page.locator('#backlinks')).toContainText(source.title);
+  await visit(page, a.id, a.title);
+  expect((await request.put(`/api/pages/${source.id}`, { data: { body: 'Link removed externally', baseRevision: source.revision } })).ok()).toBeTruthy();
+  expect((await request.put(`/api/pages/${b.id}`, { data: { body: 'Fresh destination body', baseRevision: b.revision } })).ok()).toBeTruthy();
+  await visit(page, b.id, b.title);
+  await expect(page.locator('.pm-document')).toContainText('Fresh destination body');
+  await expect(page.locator('#backlinks')).toBeEmpty();
+});
+
+test('page switches retain unchanged sidebar rows and icons, but refresh changed page metadata', async ({ page, request }) => {
+  const a = await create(request, 'Stable sidebar A');
+  const b = await create(request, 'Stable sidebar B');
+  await open(page, a.id);
+  const row = await page.locator(`#page-tree [data-page-row="${a.id}"]`).elementHandle();
+  const rowIcon = await page.locator(`#page-tree [data-page-row="${a.id}"] .tree-add svg`).elementHandle();
+  const searchIcon = await page.locator('.search-launch svg').elementHandle();
+  await visit(page, b.id, b.title);
+  expect(await row!.evaluate(el => el.isConnected)).toBe(true);
+  expect(await rowIcon!.evaluate(el => el.isConnected)).toBe(true);
+  expect(await searchIcon!.evaluate(el => el.isConnected)).toBe(true);
+  await expect(page.locator(`#page-tree [data-page-row="${a.id}"]`)).not.toHaveClass(/active/);
+  await expect(page.locator(`#page-tree [data-page-row="${b.id}"]`)).toHaveClass(/active/);
+  await append(page, ' body edit keeps sidebar');
+  await visit(page, a.id, a.title);
+  expect(await row!.evaluate(el => el.isConnected)).toBe(true);
+  expect(await rowIcon!.evaluate(el => el.isConnected)).toBe(true);
+  expect((await request.put(`/api/pages/${b.id}`, { data: { title: 'Renamed sidebar B', baseRevision: (await (await request.get(`/api/pages/${b.id}`)).json()).revision } })).ok()).toBeTruthy();
+  await visit(page, b.id, 'Renamed sidebar B');
+  expect(await row!.evaluate(el => el.isConnected)).toBe(false);
+  await expect(page.locator(`#page-tree [data-open="${b.id}"]`)).toContainText('Renamed sidebar B');
+  await expect(page.locator(`#page-tree [data-page-row="${b.id}"] .tree-add svg[data-lucide="plus"]`)).toHaveCount(1);
+  expect(await searchIcon!.evaluate(el => el.isConnected)).toBe(true);
+});
+
 test('browser and toolbar share page and vault history, including reload and branch truncation', async ({ page, request }) => {
   const a = await create(request, 'History A');
   const c = await create(request, 'History C');
@@ -75,8 +121,8 @@ test('navigation saves input typed while loading and superseded responses cannot
   await open(page, a.id);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route(`**/api/pages/${b.id}`, async route => { await gate; await route.continue(); });
-  const loading = page.waitForRequest(request => request.url().endsWith(`/api/pages/${b.id}`));
+  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
   await page.locator(`#page-tree [data-open="${b.id}"]`).click();
   await loading;
   await append(page, ' typed during navigation');
@@ -97,8 +143,8 @@ test('rapid native Back requests keep the final destination and save outgoing in
   await visit(page, c.id, c.title);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route(`**/api/pages/${b.id}`, async route => { await gate; await route.continue(); });
-  const loading = page.waitForRequest(request => request.url().endsWith(`/api/pages/${b.id}`));
+  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
   await page.evaluate(() => history.back());
   await loading;
   await append(page, ' while going back');
@@ -117,8 +163,8 @@ test('Back immediately followed by Forward preserves the current editor and its 
   await visit(page, b.id, b.title);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route(`**/api/pages/${a.id}`, async route => { await gate; await route.continue(); });
-  const loading = page.waitForRequest(request => request.url().endsWith(`/api/pages/${a.id}`));
+  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
   await page.evaluate(() => history.back());
   await loading;
   await append(page, ' keep current input');
@@ -138,8 +184,8 @@ test('consecutive hash links keep their real browser positions while requests ar
   await open(page, a.id);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route(`**/api/pages/${b.id}`, async route => { await gate; await route.continue(); });
-  const loading = page.waitForRequest(request => request.url().endsWith(`/api/pages/${b.id}`));
+  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
   await page.evaluate(id => { location.hash = `#page/${id}`; }, b.id);
   await loading;
   await page.evaluate(id => { location.hash = `#page/${id}`; }, c.id);

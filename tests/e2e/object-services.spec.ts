@@ -15,7 +15,7 @@ test("settings configure compatible services; generated and transcribed content 
   await page.getByLabel("Transcription model").fill("test-audio-model");
   await page.getByLabel("API key", { exact: true }).fill("fake-browser-test-key");
   await page.getByRole("button", { name: "Save service settings" }).click();
-  await expect(page.locator(".settings-section form output")).toHaveText("Service settings saved.");
+  await expect(page.locator(".settings-section form output").filter({ hasText: "Service settings saved." })).toBeVisible();
   const settings = await (await request.get("/api/services/settings")).json();
   expect(settings).toMatchObject({ model: "test-text-model", transcriptionModel: "test-audio-model", hasKey: true });
   expect(JSON.stringify(settings)).not.toContain("fake-browser-test-key");
@@ -39,13 +39,15 @@ test("settings configure compatible services; generated and transcribed content 
     expect(route.request().postDataJSON().path).toBe("assets/interview.wav");
     await route.fulfill({ json: { text: "Saved transcript" } });
   });
-  await meeting.getByRole("button", { name: "Transcribe", exact: true }).click();
-  await expect(meeting.locator(".pm-object-content")).toHaveText("Saved transcript");
+  await meeting.getByRole("button", { name: "Start transcribing", exact: true }).click();
+  await page.getByRole("dialog", { name: "Start transcribing" }).getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Transcribe uploaded file", exact: true }).click();
+  await expect(meeting.locator(".pm-object-content")).toContainText("Saved transcript");
   await page.keyboard.press("Control+s");
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Saved transcript");
   await page.reload();
   await expect(ai.locator(".pm-object-content")).toContainText("Generated paragraph");
-  await expect(meeting.locator(".pm-object-content")).toHaveText("Saved transcript");
+  await expect(meeting.locator(".pm-object-content")).toContainText("Saved transcript");
   await page.screenshot({ path: "test-results/service-objects.png", fullPage: true });
 });
 

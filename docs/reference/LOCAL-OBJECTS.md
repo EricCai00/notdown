@@ -1,5 +1,7 @@
 # 本地对象与服务
 
+2026-09-27：MCP 已明确的 Tabs、分区 Meeting notes、HTML 附件 embed、Folder/Database 引用等现已在 Notdown 与 Notion Markdown 共同支持，见[规范语法](NOTION-MCP-SYNTAX.md)。下文 Tabs 的 title/active 属性、会议笔记的 audio/language 等属于旧 Notdown 补充编码，只保留兼容读取和编辑；新插入的 Tabs、会议笔记使用官方形式。`<embed>` 也共用 `block.web_embed`，并保留自己的 URL 附件编码。此修订优先于下面的历史说明。
+
 2026-09-22 方言边界修正：各方言默认值按上游规范独立定义，仅 Pandoc 自身预设沿用 Pandoc 3.11 快照。九种本地对象改为默认关闭的独立插件，在页面语法面板开启；旧正文不迁移、不删除。已实现默认规则隔离、显式启用、解析／命令／目录统一门控；尚未宣称完整上游一致性或跨端同步。详见[方言核对与插件说明](./DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
 
 2026-09-22。逐项能力见 [对象 Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md)。implemented 表示具备该行说明的本地编辑／保存路径，不代表任意方言完整兼容或已调用真实外部服务。字符类继续作为文本处理能力展示。
@@ -8,9 +10,11 @@
 
 Tabs 的页签标题、正文、选中项和顺序可编辑并撤销。Web bookmark 的 URL、标题、描述及图片由用户填写。Link preview 支持 GitHub 仓库、PR/Issue、代码和 OneDrive / SharePoint 文件的实时只读预览，其他网站保留手填静态卡片；粘贴可选普通链接、行内引用或卡片。凭据、刷新策略和限制见 [Link Preview](../features/LINK-PREVIEWS.md)。Breadcrumb 使用无外框的行内页面图标、名称和斜杠分隔，悬停及键盘聚焦显示背景；路径为空时显示当前页面的父级链，有序页面 ID 路径仍优先采用，缺失／回收站页面显示不可点击的占位。自动路径不写入正文。图片的替代文字与题注分别保存。HTML embed 是禁用脚本的隔离 iframe，与 HTML block 分开。
 
-本地标签包括 `tabs/tab`、`bookmark`、`link-preview`、`breadcrumb`、`button`、`meeting-notes`、`ai-block`、`html-embed`、`web-embed`、`figure`。它们是本地对象编码，**不全部属于 Notion 官方 Markdown 标签**。
+本地标签包括 `tabs/tab`、`bookmark`、`link-preview`、`breadcrumb`、`button`、`meeting-notes`、`ai-block`、`web-embed`、`figure`。它们是本地对象编码，**不全部属于 Notion 官方 Markdown 标签**。
 
-HTML embed 可从插入菜单创建空块，点击后上传／拖放 HTML 文件或直接输入 HTML 代码，下方不提供 AI 生成区。Web embed 通过 `<web-embed url="…"/>` 保存 HTTP(S) 链接，属于 `notion_web_embed`，Notdown 默认启用；已有 Typora iframe 继续保留原编码。两种面板确认时各提交一次事务，可撤销；取消不改变块，外部更新或页面切换会关闭旧草稿。HTML 不执行脚本、不自动导入相对资源；Web 不保证目标站点允许嵌入，不提供文件上传或各平台分享链接转换。
+`web-embed` 与已有 Typora iframe、官方 Notion embed 共用 PM `block.web_embed`。`editorRepresentation` 记录各自编码；不向 Markdown 写入内部字段。`html-embed` 标签与独立 HTML 插入入口已移除。
+
+Web embed 面板支持 HTTP(S) 链接，以及 HTML 文件上传／拖放。HTML 文件先通过知识库 API 保存为 `assets/*.html`，确认后只提交附件 URL 到文档；取消不提交，失败可重试，外部更新或页面切换关闭旧草稿，延迟上传结果不能覆盖新内容。上传后的独立附件不会因撤销而删除。上传文件预览禁用脚本与同源权限；资源响应也强制 sandbox，允许内联样式与 data 图片。远程网页仍受目标站点嵌入限制。HTML 相对资源不自动复制。旧内容使用显式迁移脚本提取为附件，按 CAS 保存并保留原正文历史；代码围栏示例不改写。
 
 ```markdown
 <tabs active="0">
@@ -74,7 +78,7 @@ Settings → OpenAI-compatible services 配置 API endpoint（例如 `https://ap
 
 日期提及的 reminder 为 ISO 日期时间，例如 `<mention-date start="2026-10-01" reminder="2026-10-01T09:00:00+08:00">Review</mention-date>`。应用打开时检查，重新打开时补发未确认提醒；系统通知需在 Settings 授权。它不是后台操作系统任务。
 
-Synced block 的源使用 `<synced_block id="shared">…</synced_block>`，引用 URL 为 `#page/PAGE_ID#block=shared`。Refresh from source 更新快照并记录 revision；Publish to source 携带该 revision，来源改变时生成可恢复 CAS 冲突，不强制覆盖。Toggle live refresh 每四秒检查本地源页，本地编辑后暂停自动替换。实时协作和跨设备传输未实现。
+Synced block 的源使用 `<synced_block id="shared">…</synced_block>`，引用 URL 为 `#page/PAGE_ID#block=shared`。右上工具栏提供同步位置、复制及取消同步。新复制引用使用仅 Notdown 启用的 `auto-sync="true"`，同页事务联动、跨页自动 CAS 发布及打开时刷新。旧快照保留菜单中的 Refresh from source / Publish to source；Toggle live refresh 每两秒检查来源，本地编辑后暂停替换。发布使用已捕获的 revision，来源改变时生成可恢复冲突并暂停，不强制覆盖。未打开页保留上次快照；实时协作和跨设备传输未实现。见[同步块说明](../features/SYNCED-BLOCKS.md)。
 
 Pandoc 引文预览读取本知识库 bibliography，可选本地自包含 CSL，使用已安装 Pandoc 的沙箱 citeproc。不执行任意 filter，不下载 CSL；失败保留引用。HTML 导出保留引文标记，不等待异步 citeproc。
 

@@ -38,7 +38,7 @@ export class TabsView implements NodeView {
   }
 
   private active() {
-    const value = this.view.editable ? this.node.attrs.active : this.previewActive ?? this.node.attrs.active;
+    const value = this.view.editable && this.node.attrs.syntaxForm !== "notion" ? this.node.attrs.active : this.previewActive ?? this.node.attrs.active;
     return Math.max(0, Math.min(this.node.childCount - 1, Math.trunc(Number(value)) || 0));
   }
 
@@ -47,7 +47,7 @@ export class TabsView implements NodeView {
   }
 
   private select(index: number, focus = true) {
-    if (this.view.editable) {
+    if (this.view.editable && this.node.attrs.syntaxForm !== "notion") {
       const pos = this.getPos();
       if (pos === undefined) return;
       this.view.dispatch(closeHistory(this.view.state.tr).setNodeMarkup(pos, undefined, { ...this.node.attrs, active: index }));
@@ -118,7 +118,8 @@ export class TabsView implements NodeView {
       add.addEventListener("click", () => {
         const pos = this.getPos(); if (pos === undefined || !this.view.editable) return;
         const index = this.node.childCount;
-        const child = this.node.type.schema.nodes["structure.tab"].create({ title: `Tab ${index + 1}` }, this.node.type.schema.nodes["block.paragraph"].create());
+        if (this.node.attrs.syntaxForm === "notion") this.previewActive = index;
+        const child = this.node.type.schema.nodes["structure.tab"].create({ title: `Tab ${index + 1}`, syntaxForm: this.node.attrs.syntaxForm }, this.node.type.schema.nodes["block.paragraph"].create());
         const tr = closeHistory(this.view.state.tr).insert(pos + this.node.nodeSize - 1, child)
           .setNodeMarkup(pos, undefined, { ...this.node.attrs, active: index });
         this.view.dispatch(tr); this.focusTab(index);
@@ -150,6 +151,7 @@ export class TabsView implements NodeView {
       [children[index], children[other]] = [children[other], children[index]];
       if (active === index) active = other; else if (active === other) active = index;
     }
+    if (this.node.attrs.syntaxForm === "notion") this.previewActive = active;
     this.view.dispatch(closeHistory(this.view.state.tr).replaceWith(pos, pos + this.node.nodeSize, this.node.type.create({ ...this.node.attrs, active }, children, this.node.marks)));
     this.focusTab(active);
   }

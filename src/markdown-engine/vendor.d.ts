@@ -75,3 +75,7 @@ declare module "markdown-it/lib/rules_inline/image.mjs" {
   import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
   export default function rule(state: StateInline, silent: boolean): boolean;
 }
+declare module "markdown-it/lib/rules_inline/backticks.mjs" {
+  import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
+  export default function backticks(state: StateInline, silent: boolean): boolean;
+}

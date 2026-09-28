@@ -1,0 +1,57 @@
+dialog.pm-link-picker {
+  position: fixed;
+  inset: auto;
+  z-index: 1300;
+  margin: 0;
+  padding: 14px 6px 6px;
+  width: min(410px, calc(100vw - 16px));
+  border: 1px solid var(--line, #e5e5e3);
+  border-radius: 12px;
+  background: var(--surface, white);
+  color: var(--text, #37352f);
+  box-shadow: 0 8px 28px #0000001f, 0 1px 4px #00000012;
+  font: 14px/1.4 var(--font-ui, system-ui, sans-serif);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.pm-link-picker > input {
+  display: block;
+  width: calc(100% - 16px);
+  height: 34px;
+  margin: 0 8px 16px;
+  padding: 6px 10px;
+  border: 1px solid #d5d5d3;
+  border-radius: 6px;
+  background: var(--surface, white);
+  color: inherit;
+  font: inherit;
+}
+.pm-link-picker > input:focus { outline: 2px solid #4995ec; outline-offset: -1px; }
+.pm-link-picker > input::placeholder { color: #a3a29f; }
+.pm-link-picker-heading { margin: 0 10px 6px; color: #787774; font-size: 12px; font-weight: 500; }
+.pm-link-picker-results { max-height: 300px; overflow: auto; overscroll-behavior: contain; }
+.pm-link-picker-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.pm-link-picker-option[aria-selected="true"] { background: var(--hover, #efefed); }
+.pm-link-picker-option > :first-child { flex: 0 0 20px; width: 20px; height: 20px; margin-top: 1px; color: #787774; }
+.pm-link-picker-text { display: flex; flex-direction: column; min-width: 0; }
+.pm-link-picker-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-link-picker-text small { margin-top: 2px; font-size: 12px; color: #787774; }
+.pm-link-picker-empty { padding: 12px 10px; color: #787774; }
+.pm-link-picker output:not(:empty) { display: block; margin: 8px 10px; color: #b44736; font-size: 12px; }
+.pm-link-picker-remove { width: 100%; margin-top: 6px; padding: 8px 10px; border: 0; border-top: 1px solid var(--line, #e5e5e3); background: transparent; color: #787774; text-align: left; font: inherit; cursor: pointer; }
+.pm-link-picker-remove:hover { background: var(--hover, #efefed); }
+.pm-link-picker-remove:focus-visible { outline: 2px solid #4995ec; outline-offset: -2px; }

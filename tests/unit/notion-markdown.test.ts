@@ -105,6 +105,86 @@ test("code fence contents never interpret tabs, closing tags, nests, mentions or
   );
   assert.deepEqual(extractLinks(body, "notion-markdown"), []);
 });
+
+test("API toggle headings retain literal code bodies across sibling blocks and edits", () => {
+  const body = [
+    '## Errors {toggle="true"}',
+    '\t### First error',
+    '\t```python',
+    'tf.reset_default_graph()',
+    '\t```',
+    '\t### Second error',
+    '\t> Internal Error: Blas GEMM launch failed',
+    '## GPU {toggle="true"}',
+    '\t```python',
+    'if True:',
+    '\tprint("keep this code tab")',
+    '',
+    '# literal heading',
+    '<page url="#page/literal">literal tag</page>',
+    '\t```',
+    '\tAfter code',
+    'Outside',
+  ].join('\r\n');
+  const doc = parseNotionMarkdown(body);
+  doc.check();
+  assert.equal(doc.childCount, 3);
+  assert.equal(doc.child(0).childCount, 5);
+  assert.equal(editorKind(doc.child(0).child(2)), 'code_block');
+  assert.equal(doc.child(0).child(2).textContent, 'tf.reset_default_graph()');
+  assert.equal(doc.child(0).child(3).textContent, 'Second error');
+  const code = doc.child(1).child(1);
+  assert.equal(editorKind(code), 'code_block');
+  assert.equal(code.attrs.params, 'python');
+  assert.equal(code.textContent, 'if True:\n\tprint("keep this code tab")\n\n# literal heading\n<page url="#page/literal">literal tag</page>');
+  assert.equal(doc.child(1).lastChild?.textContent, 'After code');
+  assert.equal(doc.lastChild?.textContent, 'Outside');
+  assert.equal(serializeNotionMarkdown(doc), body);
+  assert.deepEqual(extractLinks(body, 'notion-markdown'), []);
+  assert.equal(parseNotionMarkdown(canonical(body)).child(1).child(1).textContent, code.textContent);
+  const state = EditorState.create({ doc });
+  const changed = state.tr.insertText(' edited', 3).doc;
+  const reopened = parseNotionMarkdown(serializeNotionMarkdown(changed));
+  assert.equal(reopened.child(0).child(2).textContent, 'tf.reset_default_graph()');
+  assert.equal(reopened.child(1).child(1).textContent, code.textContent);
+});
+
+test("literal API code is atomic inside nested toggles, lists and tag containers", () => {
+  const body = [
+    '<callout>',
+    '\t## Outer {toggle="true"}',
+    '\t\t- Item',
+    '\t\t\t````html',
+    '````',
+    '</callout>',
+    '\t<details>',
+    '\t\t\t```',
+    '\t\t\t````',
+    '\t\tSibling',
+    '</callout>',
+    'After',
+  ].join('\n');
+  const doc = parseNotionMarkdown(body);
+  doc.check();
+  assert.equal(doc.childCount, 2);
+  const toggle = doc.firstChild!.firstChild!;
+  assert.equal(editorKind(toggle), 'nested_block');
+  const code = toggle.child(1).firstChild!.child(1);
+  assert.equal(editorKind(code), 'code_block');
+  assert.equal(code.textContent, '````\n</callout>\n\t<details>\n\t\t\t```');
+  assert.equal(toggle.lastChild?.textContent, 'Sibling');
+  assert.equal(serializeNotionMarkdown(doc), body);
+  assert.equal(parseNotionMarkdown(canonical(body)).firstChild!.firstChild!.child(1).firstChild!.child(1).textContent, code.textContent);
+});
+
+test("unclosed nested API fences preserve source without consuming following outer blocks", () => {
+  const body = '## Toggle {toggle="true"}\n\t```python\nunclosed()\n## Outside\nTail';
+  const doc = parseNotionMarkdown(body);
+  doc.check();
+  assert.equal(editorKind(doc.firstChild?.child(1)), 'opaque_block');
+  assert.equal(doc.child(2).textContent, 'Outside');
+  assert.equal(serializeNotionMarkdown(doc), body);
+});
 test("rich text preserves nested spans, page/user/date mentions, citations and inline math", () => {
   const body =
     'Before **bold** <span color="red"><span underline="true">red underlined</span></span> <mention-page url="#page/target">A &amp; B</mention-page> <mention-user url="user://ada">Ada</mention-user> <mention-date start="2026-09-12"/> $x^2$ [^https://example.com] after';
@@ -142,7 +222,7 @@ test("page, preserved database source, media, toc and unknown blocks retain offi
     doc.content.content.map((node) => editorKind(node)),
     [
       "child_page",
-      "opaque_block",
+      "database",
       "media_block",
       "media_block",
       "media_block",

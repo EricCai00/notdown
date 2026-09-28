@@ -3,6 +3,7 @@ import { Plugin, TextSelection, type Command, type EditorState } from "prosemirr
 import { Fragment, Slice, type Node as PMNode } from "prosemirror-model";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { colorStyle } from "../document/notion-syntax.js";
+import { readTableColumnWidths } from "../document/table-width-attributes";
 
 export function tableCaptionId(table: PMNode): string {
   if (!isEditorKind(table.firstChild, "table_caption")) return "";
@@ -73,7 +74,12 @@ export function tableCellStyle(
     (rowIndex === (isEditorKind(table.firstChild, "table_caption") ? 1 : 0) && table.attrs.nfmAttrs["header-row"] === "true") ||
     (columnIndex === 0 && table.attrs.nfmAttrs["header-column"] === "true");
   const alignment = cell.attrs.nfmAttrs?.align;
-  const width = String(table.attrs.widths?.[columnIndex] || "");
+  let width = String(table.attrs.widths?.[columnIndex] || "");
+  const relative = readTableColumnWidths(table.attrs.markdownAttrs?.["tbl-colwidths"], table.attrs.widths?.length || 0);
+  if (relative) {
+    let start = 0; for (let i = 0; i < columnIndex; i++) start += Number(row.child(i).attrs.colspan) || 1;
+    width = `${relative.slice(start, start + (Number(cell.attrs.colspan) || 1)).reduce((a, b) => a + b, 0) / relative.reduce((a, b) => a + b, 0) * 100}%`;
+  }
   return [
     /^\d+(?:\.\d+)?(?:px|%)?$/.test(width) ? `width:${/^\d+$/.test(width) ? width + "px" : width}` : "",
     header ? "background-color:#f7f7f5;font-weight:600" : "",

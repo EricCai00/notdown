@@ -40,6 +40,7 @@ export function installSidebarDrag(options: {
     }
     try {
       const move = planPageMove(snapshot, sourceId!, targetId, position);
+      if (move?.parent && snapshot.some(page => page.id === move.parent && page.databaseId)) return null;
       return move ? { element, position, move } : null;
     } catch { return null; }
   };
@@ -63,13 +64,16 @@ export function installSidebarDrag(options: {
   };
   // Use pointer events, like editor block dragging, rather than the OS drag loop.
   document.addEventListener("dragstart", (event) => {
-    if ((event.target as Element).closest(".sidebar .tree-page")) event.preventDefault();
+    // Scrolling the sidebar during a pressed gesture can place a link beneath
+    // the original pointer position. Chrome then starts its native link drag,
+    // canceling our pointer stream unless the entire page gesture owns it.
+    if (pending || sourceId || (event.target as Element).closest(".sidebar .tree-page")) event.preventDefault();
   });
   document.addEventListener("pointerdown", (event) => {
     // A new press is an intentional click, even immediately after a drop.
     suppressClickUntil = 0;
     if (event.button !== 0 || event.pointerType === "touch") return;
-    const button = (event.target as Element).closest<HTMLElement>(".sidebar .tree-page[data-open]");
+    const button = (event.target as Element).closest<HTMLElement>(".sidebar .tree-page[data-open]:not([draggable='false'])");
     if (button) pending = { id: button.dataset.open!, x: event.clientX, y: event.clientY, pointer: event.pointerId };
   });
   document.addEventListener("pointermove", (event) => {

@@ -12,6 +12,6 @@
 .import-dialog .import-file-list { max-height: 180px; overflow: auto; padding-left: 20px; }
 .import-dialog #import-status { font-size: 13px; }
 .import-dialog [hidden] { display: none; }
-.notion-import-dialog input[type=password], .notion-import-dialog input[type=text] { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 12px; border: 1px solid #dedbd5; border-radius: 6px; }
+.notion-import-dialog input[type=password], .notion-import-dialog input[type=text], .notion-import-dialog select { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 12px; border: 1px solid #dedbd5; border-radius: 6px; }
 .notion-import-dialog pre { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: #f4f2ed; font-size: 12px; }
 .notion-import-dialog footer { position: sticky; bottom: -24px; flex-wrap: wrap; padding: 12px 0; background: #fffefa; border-top: 1px solid #dedbd5; }

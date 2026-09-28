@@ -16,19 +16,19 @@ import {
 import { dialects, extensions, enabled } from "../../src/markdown-engine/config";
 
 test("extension sources cover the workbook and current registry without treating reference entries as implemented", () => {
-  assert.equal(catalogExtensions.length, 127);
-  assert.equal(new Set(catalogExtensions.map((e) => e.id)).size, 127);
+  assert.equal(catalogExtensions.length, 126);
+  assert.equal(new Set(catalogExtensions.map((e) => e.id)).size, 126);
   for (const [category, count] of [
     ["pandoc", 89],
     ["product", 16],
-    ["notion", 22],
+    ["notion", 21],
   ] as const)
     assert.equal(
       catalogExtensions.filter((e) => e.category === category).length,
       count,
     );
   for (const [status, count] of [
-    ["registered", 115],
+    ["registered", 114],
     ["pending", 0],
     ["out-of-scope", 12],
   ] as const)
@@ -48,9 +48,9 @@ test("extension sources cover the workbook and current registry without treating
       assert.ok(e.workbookStates[d.id]);
       assert.match(workbookStateLabel(e.workbookStates[d.id]), /^[A-Z]/);
     }
-    assert.ok(e.references.length || e.id.startsWith("local_"));
+    assert.ok(e.references.length || e.id.startsWith("local_"), e.id);
     for (const r of e.references)
-      assert.equal(new URL(r.url).protocol, "https:");
+      assert.ok(r.url === "notion://docs/enhanced-markdown-spec" || new URL(r.url).protocol === "https:");
   }
   assert.equal(
     enabled(
@@ -93,7 +93,7 @@ test("object, variant and extension links use symmetric relations with explicit 
   ]);
   assert.equal(objectsForExtension("grid_tables")[0].role, "encoding");
   assert.ok(
-    variantsForObject("block.tabs").every((v) => v.status === (v.id === "notdown" ? "default" : "unavailable")),
+    variantsForObject("block.tabs").every((v) => v.status === (["notdown", "notion-markdown"].includes(v.id) ? "default" : "unavailable")),
   );
   assert.equal(
     variantsForObject("block.callout").find((v) => v.id === "notion-markdown")

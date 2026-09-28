@@ -1,0 +1,203 @@
+.database-api-notice { margin: 8px 12px; padding: 10px; border: 1px solid #e5d7b2; border-radius: 6px; background: #fff9e9; color: #6f5a27; font-size: 12px; line-height: 1.5; }
+.database-api-notice[hidden] { display: none; }
+.database-api-notice button { display: block; margin-top: 7px; padding: 3px 0; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; }
+.database-workspace {
+  --database-blue: #2f64ad;
+  --database-rule: #e3e3e1;
+  --database-muted: #73736f;
+  --database-gutter: clamp(24px, calc(13vw - 117px), 130px);
+  min-width: 0;
+  position: relative;
+  margin: 0 auto;
+  padding: 54px var(--database-gutter) 80px;
+  color: var(--text, #252525);
+  background: var(--surface, #fff);
+  font-size: 15px;
+}
+
+.database-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 14px; }
+.database-heading-title { display: flex; align-items: center; min-width: 0; gap: 14px; }
+.database-heading h1 { margin: 0; font-size: 40px; line-height: 1.25; letter-spacing: -.8px; font-weight: 700; overflow-wrap: anywhere; }
+.database-heading-title { flex: 1; }
+.database-heading-title h1 { flex: 1; min-width: 0; }
+.database-title-input { display: block; width: 100%; border: 1px solid transparent; border-radius: 4px; padding: 0; margin: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; outline: none; }
+.database-title-input:focus { border-color: #d9e5f4; }
+.database-workspace button.database-title-icon { padding: 0; border: 0; width: 40px; height: 40px; font-size: 32px; line-height: 1; color: inherit; }
+.database-title-icon .page-link-icon { width: 34px; height: 34px; font-size: 32px; display: inline-flex; align-items: center; justify-content: center; }
+.database-title-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 34px; width: 34px; height: 34px; color: #cc8335; }
+.database-title-icon svg { width: 34px; height: 34px; stroke-width: 1.7; }
+.database-heading p { margin: 10px 0 0; color: var(--database-muted); font-size: 14px; line-height: 1.5; }
+.database-heading .database-eyebrow { display: none; }
+
+.database-workspace button, .database-dialog button, .database-option-popover button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 6px 9px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.3;
+}
+.database-workspace button:hover, .database-dialog button:hover, .database-option-popover button:hover { background: #f2f2f0; }
+.database-workspace button:disabled, .database-dialog button:disabled, .database-option-popover button:disabled { opacity: .45; cursor: default; }
+.database-workspace :is(button, input, select, summary):focus-visible,
+.database-dialog :is(button, input, select, textarea):focus-visible,
+.database-option-popover :is(button, input):focus-visible { outline: 2px solid var(--database-blue, #2f64ad); outline-offset: 2px; }
+.database-workspace button svg, .database-dialog button svg { width: 18px; height: 18px; flex-shrink: 0; }
+.database-workspace button.primary-button, .database-dialog button.primary-button,
+.database-workspace .database-new-button, .database-workspace .database-new-menu-button { border-color: var(--database-blue, #2f64ad); background: var(--database-blue, #2f64ad); color: white; }
+.database-workspace button.primary-button:hover, .database-dialog button.primary-button:hover,
+.database-workspace .database-new-button:hover, .database-workspace .database-new-menu-button:hover { border-color: #26568f; background: #26568f; }
+.database-workspace .database-back { position: absolute; top: 16px; left: var(--database-gutter); padding: 0; margin: 0; color: var(--database-muted); font-size: 12px; }
+
+.database-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 40px; margin: 0 0 9px; padding: 0; }
+.database-view-tabs { display: flex; align-items: center; flex: 1 1 auto; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.database-view-tabs > button { flex-shrink: 0; padding: 8px 13px; border-radius: 22px; font-weight: 500; white-space: nowrap; }
+.database-view-tabs > button[aria-selected="true"] { border-color: #777773; background: #f5f5f3; color: #252525; }
+.database-view-tabs > button svg { width: 17px; height: 17px; }
+.database-workspace .database-view-tabs > .database-icon-button { width: 32px; height: 32px; padding: 5px; border-radius: 4px; }
+.database-toolbar-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 4px; margin-left: auto; }
+.database-workspace .database-icon-button { width: 32px; height: 32px; padding: 5px; color: #6f706c; border: 0; border-radius: 4px; }
+.database-workspace .database-icon-button[aria-pressed="true"], .database-workspace .database-icon-button.is-active { color: var(--database-blue); background: #edf3fb; }
+.database-new-group, .database-new-split, .database-new-control { display: inline-flex; align-items: stretch; margin-left: 7px; }
+.database-workspace .database-new-button { min-height: 35px; padding: 6px 11px; border-radius: 5px 0 0 5px; font-weight: 600; }
+.database-workspace .database-new-menu-button { width: 29px; min-height: 35px; padding: 5px; border: 1px solid var(--database-blue); border-left-color: #18487f; border-radius: 0 5px 5px 0; }
+.database-new-menu, .database-more-menu { position: relative; }
+.database-new-menu > summary, .database-more-menu > summary { display: flex; align-items: center; justify-content: center; list-style: none; cursor: pointer; }
+.database-new-menu > summary::-webkit-details-marker, .database-more-menu > summary::-webkit-details-marker { display: none; }
+.database-new-menu > summary svg, .database-more-menu > summary svg { width: 18px; height: 18px; }
+.database-new-menu:not([open]) > .database-menu, .database-more-menu:not([open]) > .database-menu { display: none; }
+.database-new-menu[open] > summary, .database-more-menu[open] > summary { outline: 2px solid #a3c0e5; outline-offset: 1px; }
+.database-menu, .database-new-menu-content { position: absolute; z-index: 60; top: calc(100% + 6px); right: 0; min-width: 210px; padding: 5px; border: 1px solid #e4e4e1; border-radius: 7px; background: white; box-shadow: 0 5px 18px #0002; }
+.database-menu button, .database-new-menu-content button { display: flex; justify-content: flex-start; width: 100%; padding: 8px; text-align: left; font-size: 14px; white-space: nowrap; }
+.database-search { display: flex; align-items: center; min-width: 100px; gap: 6px; padding: 4px 0 8px; color: var(--database-muted); }
+.database-search > svg { width: 17px; height: 17px; }
+.database-search input { width: 160px; padding: 6px 8px; border: 1px solid var(--database-rule); border-radius: 4px; background: white; color: inherit; font: inherit; font-size: 14px; }
+.database-search[hidden], .database-menu[hidden], .database-new-menu-content[hidden], .database-option-popover[hidden] { display: none; }
+.database-message { min-height: 0; margin: 4px 0 8px; font-size: 12px; line-height: 1.5; color: var(--database-muted, #73736f); white-space: pre-wrap; }
+.database-message:empty { display: none; }
+.database-workspace > .database-message { position: absolute; top: 15px; right: var(--database-gutter); max-width: 60%; margin: 0; color: #94958f; font-size: 11px; text-align: right; }
+.database-workspace > .database-message.is-error { position: static; max-width: none; margin: 3px 0 10px; padding: 8px 10px; border: 1px solid #ead6bd; border-radius: 4px; background: #fff8ec; color: #866039; font-size: 12px; text-align: left; white-space: pre-wrap; }
+
+#main > div:has(> .database-layout) { height: 100%; }
+.database-layout { position: relative; display: flex; align-items: stretch; height: 100%; min-width: 0; min-height: 0; }
+.database-table-pane { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
+.database-peek-mount:empty { display: none; }
+.database-layout:has(.database-peek) .database-table-pane.database-workspace,
+.database-layout:has(.database-peek) .database-table-pane > .database-workspace { padding-right: 28px; }
+.database-layout:has(.database-peek) .database-table-pane > .database-message:not(.is-error) { right: 28px; }
+.database-table-scroll { overflow: auto; width: 100%; border: 0; border-radius: 0; scrollbar-width: thin; }
+.database-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 100%; table-layout: auto; text-align: left; font-size: 16px; line-height: 1.35; }
+.database-table th { height: 40px; min-width: 200px; padding: 0; border-bottom: 1px solid #a6a6a1; background: white; color: #73736f; font-weight: 400; text-align: left; vertical-align: middle; }
+.database-table th > button { justify-content: flex-start; width: 100%; min-height: 38px; padding: 7px 10px; border: 0; border-radius: 0; background: transparent; font-size: 15px; font-weight: 400; text-align: left; white-space: nowrap; }
+.database-type-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; width: 20px; height: 20px; color: #777873; }
+.database-type-icon svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.database-table td { position: relative; height: 46px; min-width: 200px; padding: 0; border-right: 1px solid var(--database-rule); border-bottom: 1px solid #c9cac5; vertical-align: middle; }
+.database-table td:last-child { border-right: 0; }
+.database-table :is(th, td):first-child, .database-table :is(th, td)[data-type="title"] { min-width: 230px; }
+.database-table :is(th, td)[data-type="checkbox"] { min-width: 106px; width: 106px; }
+.database-table :is(th, td)[data-type="number"] { min-width: 140px; width: 150px; }
+.database-table :is(th, td)[data-type="date"] { min-width: 260px; }
+.database-table :is(th, td)[data-type="select"], .database-table :is(th, td)[data-type="status"] { min-width: 210px; }
+.database-table th.database-add-property, .database-table td.database-add-property,
+.database-table th.database-row-actions, .database-table td.database-row-actions { width: 75px; min-width: 75px; }
+.database-table th.database-add-column, .database-table td.database-row-tail { width: 40px; min-width: 40px; }
+.database-table tbody tr:hover > td { background: #fafaf8; }
+.database-table tbody tr.database-row-selected > td { background: #edf5fd; border-top-color: #a1c6ef; border-bottom-color: #8db7e7; box-shadow: inset 0 1px #8db7e7; }
+.database-table tbody tr.database-row-selected > td:first-child { box-shadow: inset 1px 1px #8db7e7; }
+.database-table tbody tr.database-row-selected > td:last-child { box-shadow: inset -1px 1px #8db7e7; }
+.database-cell { display: flex; align-items: center; gap: 0; min-height: 45px; min-width: 0; }
+.database-cell input:not([type="checkbox"]), .database-cell select { flex: 1 1 auto; width: 100%; min-width: 0; height: 44px; padding: 10px; border: 1px solid transparent; border-radius: 0; outline: none; background: transparent; color: inherit; font: inherit; }
+.database-cell input:not([type="checkbox"]):focus, .database-cell select:focus { border-color: #86b6ed; outline: none; box-shadow: inset 0 0 0 1px #86b6ed; background: #fff; }
+.database-table td:first-child .database-cell input { font-weight: 500; padding-left: 6px; }
+.database-page-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; width: 20px; height: 22px; margin-left: 10px; color: #82837b; }
+.database-page-icon svg { width: 20px; height: 22px; stroke-width: 1.6; }
+.database-cell input[type="checkbox"] { appearance: none; display: grid; place-content: center; flex: 0 0 20px; width: 20px; height: 20px; margin: 0 11px; border: 1px solid #767873; border-radius: 3px; background: white; accent-color: var(--database-blue, #2f64ad); cursor: pointer; }
+.database-cell input[type="checkbox"]:checked { border-color: var(--database-blue, #2f64ad); background: var(--database-blue, #2f64ad); }
+.database-checkbox-cell { position: relative; }
+.database-checkbox-check { display: none; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: white; pointer-events: none; }
+.database-cell input[type="checkbox"]:checked + .database-checkbox-check { display: block; }
+.database-table input:disabled, .database-workspace .database-table .database-select-control:disabled { opacity: 1; color: inherit; -webkit-text-fill-color: currentColor; cursor: default; }
+.database-workspace .database-table .database-select-control:disabled:hover { background: transparent; }
+.database-workspace .database-open-page { flex-shrink: 0; gap: 4px; min-height: 29px; margin: 0 6px 0 0; padding: 3px 6px; border: 1px solid #d0d0cb; border-radius: 5px; background: white; color: #646760; font-size: 11px; font-weight: 500; opacity: 0; white-space: nowrap; }
+.database-open-page svg { width: 15px !important; height: 15px !important; }
+.database-table tr:hover .database-open-page, .database-table tr:focus-within .database-open-page, .database-open-page:focus-visible, .database-row-selected .database-open-page { opacity: 1; }
+.database-cell-readonly { display: block; padding: 8px 10px; max-width: 350px; overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
+.database-cell-readonly small { display: block; margin-top: 3px; color: var(--database-muted, #73736f); font-size: 10px; line-height: 1.35; }
+.database-cell-readonly a { color: inherit; text-decoration-color: #bbbdb6; text-underline-offset: 3px; }
+.database-workspace .database-select-control { justify-content: flex-start; flex-wrap: wrap; align-content: center; width: 100%; min-height: 45px; min-width: 0; gap: 4px; padding: 7px 10px; border: 1px solid transparent; border-radius: 0; text-align: left; }
+.database-select-control[aria-expanded="true"] { box-shadow: inset 0 0 0 1px #86b6ed; background: white; }
+.database-select-control .database-empty-value { color: #a7a7a2; font-size: 14px; }
+.database-tag { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 7px; border-radius: 4px; background: #e9e9e6; color: #4d4c49; font-size: 15px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.database-tag[data-color="default"], .database-tag[data-color="gray"] { background: #e9e9e6; color: #4d4c49; }
+.database-tag[data-color="brown"] { background: #eee0d7; color: #674936; }
+.database-tag[data-color="orange"] { background: #f8dfca; color: #8a4a16; }
+.database-tag[data-color="yellow"] { background: #fcedbe; color: #7a591d; }
+.database-tag[data-color="green"] { background: #dfece1; color: #315b45; }
+.database-tag[data-color="blue"] { background: #d7e7ff; color: #275786; }
+.database-tag[data-color="purple"] { background: #e9dff3; color: #654680; }
+.database-tag[data-color="pink"] { background: #f4dce8; color: #874663; }
+.database-tag[data-color="red"] { background: #fbdcd7; color: #934538; }
+.database-option-popover { z-index: 1000; min-width: 220px; max-width: min(340px, calc(100vw - 24px)); max-height: min(350px, calc(100vh - 40px)); overflow: auto; padding: 5px; border: 1px solid #deded9; border-radius: 7px; background: white; color: #37352f; box-shadow: 0 7px 24px #0002, 0 1px 4px #0001; font: inherit; }
+.database-option-popover .database-option { display: flex; justify-content: flex-start; width: 100%; min-height: 35px; padding: 5px 7px; text-align: left; }
+.database-option[aria-selected="true"] { background: #f1f4f8; }
+.database-option[aria-selected="true"]::after { content: "✓"; margin-left: auto; color: #2f64ad; font-size: 15px; }
+.database-option-popover .database-option-clear { width: 100%; justify-content: flex-start; padding: 7px; color: #85857f; font-size: 13px; }
+.database-workspace .database-add-row { display: flex; justify-content: flex-start; gap: 8px; width: 100%; min-height: 43px; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--database-rule); border-radius: 0; color: #94958f; text-align: left; }
+.database-row-count { margin: 12px 10px; color: #92938c; font-size: 12px; }
+
+.database-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 30px; }
+.database-list > button { align-items: flex-start; flex-direction: column; gap: 15px; min-height: 110px; padding: 22px; border: 1px solid var(--database-rule); border-radius: 8px; text-align: left; }
+.database-list strong { font-size: 17px; }
+.database-list span { color: var(--database-muted); font-size: 12px; }
+.database-empty { grid-column: 1 / -1; padding: 50px 24px; border: 1px dashed var(--database-rule); border-radius: 8px; text-align: center; }
+.database-empty h2 { font-size: 20px; }
+.database-empty p { color: var(--database-muted); font-size: 14px; }
+
+.database-dialog { width: min(480px, 90vw); max-height: 85vh; overflow: auto; padding: 24px; border: 1px solid #e6e5e2; border-radius: 10px; background: var(--surface, #fff); color: var(--text, #292827); box-shadow: 0 20px 80px #0002; }
+.database-dialog::backdrop { background: #0005; }
+.database-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.database-dialog h2 { margin: 0; font-size: 21px; }
+.database-dialog label { display: flex; flex-direction: column; gap: 7px; margin: 15px 0; font-size: 13px; }
+.database-dialog input, .database-dialog select, .database-dialog textarea { padding: 9px; border: 1px solid #deddd9; border-radius: 5px; background: transparent; color: inherit; font: inherit; }
+.database-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.database-dialog footer > button { border-color: #e6e5e2; padding: 7px 12px; font-size: 13px; }
+.database-hint { color: var(--database-muted, #787774); font-size: 12px; line-height: 1.5; }
+.database-dialog fieldset { border: 1px solid #deddd9; border-radius: 5px; }
+.database-dialog label.database-check { flex-direction: row; align-items: center; margin: 7px 0; }
+.database-page-properties { margin: 18px 0; border-top: 1px solid var(--border, #eee); padding-top: 12px; }
+.database-page-property { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 12px; font-size: 13px; }
+.database-page-property > span { color: var(--database-muted, #787774); }
+.database-page-properties h3 { color: var(--database-muted, #787774); font-size: 13px; font-weight: 500; }
+.database-page-properties .database-cell { border-bottom: 1px solid #eee; }
+.database-page-properties .database-select-control { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-height: 42px; width: 100%; padding: 7px 9px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+
+@media (max-width: 1000px) {
+  .database-workspace { padding-top: 38px; }
+  .database-toolbar { gap: 10px; flex-wrap: wrap; }
+  .database-toolbar-actions { gap: 2px; }
+  .database-heading h1 { font-size: 34px; }
+  .database-search input { width: 130px; }
+}
+@media (max-width: 680px) {
+  .database-workspace { padding: 28px 20px 60px; }
+  .database-heading { gap: 12px; align-items: flex-start; }
+  .database-heading h1 { font-size: 29px; }
+  .database-heading-title { gap: 10px; }
+  .database-title-icon, .database-title-icon svg { width: 27px; height: 27px; }
+  .database-title-icon { flex-basis: 27px; }
+  .database-toolbar { row-gap: 10px; }
+  .database-view-tabs { flex-basis: 100%; }
+  .database-toolbar-actions { margin-left: 0; }
+  .database-page-property { grid-template-columns: 100px 1fr; }
+  .database-workspace .database-open-page { opacity: 1; }
+  .database-dialog { padding: 20px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .database-workspace .database-open-page { transition: opacity 100ms; }
+}

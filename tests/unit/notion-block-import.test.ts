@@ -1,0 +1,70 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { prepareNotionImport, notionPageId } from "../../server/notion-import.js";
+import { enrichNotionBlocks } from "../../server/notion-block-import.js";
+import { createVault } from "../../server/vault.js";
+import { parseNative, serializeNative } from "../../src/markdown-engine/codec.js";
+import { enrichmentFixture, enrichmentRoot, enrichmentSource, unknownTag, blockId, enrichmentBlocks } from "./notion-block-import-fixture.js";
+const request = { token: "test-token-example", pageId: enrichmentRoot, variant: "notdown" };
+const wait = async () => {};
+
+test("Notdown imports five known unknown-block types, including a link to an actual child, with original archives", async t => {
+  const calls: string[] = [], options = { fetch: enrichmentFixture(calls), wait };
+  const plan = await prepareNotionImport(request, options);
+  const root = plan.pages[0], child = plan.pages[1];
+  assert.equal(plan.pages.length, 2);
+  assert.equal(child.metadata.parent, root.id);
+  assert.equal((root.metadata.syntax as any).variant, "notdown");
+  assert.ok(root.source.includes(`<page url="#page/${child.id}">Child</page>`));
+  assert.ok(root.source.includes(`<page-link future="keep" url="#page/${child.id}">Same title</page-link>`));
+  assert.ok(root.source.includes('caption="Caption &quot;quoted&quot;&#10;Next"'));
+  assert.ok(root.source.includes('<web-embed future="keep" url="https://example.com/embed"/>'));
+  assert.ok(root.source.includes('<link-preview future="keep" url="https://example.com/preview"/>'));
+  assert.ok(root.source.includes('<breadcrumb future="keep"/>'));
+  for (const n of [6, 7, 8]) assert.ok(root.source.includes(unknownTag(n)));
+  assert.ok(!calls.some(call => call === `/v1/blocks/${blockId(1)}`), "reuse archived child responses");
+  assert.ok(!calls.some(call => call.includes(blockId(8))), "code examples never cause reads");
+  assert.ok(plan.warnings.some(w => w.includes("Restored 5")));
+  assert.ok(plan.warnings.some(w => w.includes(blockId(7)) && w.includes("preserved")));
+  assert.ok(plan.warnings.some(w => w.includes("template")));
+  assert.equal(plan.originals.find(f => f.path === `pages/${enrichmentRoot}.md`)!.data.toString(), enrichmentSource);
+  assert.ok(plan.originals.some(f => f.path.startsWith("api/") && f.data.toString().includes('"link_to_page"') && f.data.toString().includes('"preserved":true')));
+  assert.ok(!JSON.stringify(plan).includes(request.token));
+  assert.ok(!JSON.stringify(plan).includes("never display upstream body"));
+  const c = { version: 1 as const, variant: "notdown" as const, extensions: {} }, doc = parseNative(root.source, c);
+  const types: string[] = []; doc.descendants(node => { types.push(node.type.name); });
+  for (const type of ["block.child_page", "block.link_to_page", "block.web_bookmark", "block.web_embed", "block.link_preview", "block.breadcrumb"]) assert.ok(types.includes(type), type);
+  assert.equal(serializeNative(doc, c), root.source);
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-block-import-"));
+  t.after(async () => { assert.equal(path.dirname(temporary), path.resolve(os.tmpdir())); assert.ok(path.basename(temporary).startsWith("notdown-block-import-")); await fs.rm(temporary, { recursive: true, force: true }); });
+  const vault = createVault(temporary);
+  await vault.importBatch(plan);
+  assert.equal((await vault.get(root.id)).body, root.source);
+  assert.equal((await vault.importBatch(await prepareNotionImport(request, options))).alreadyImported, true);
+});
+
+test("official mode preserves placeholders; Notdown single-page mode fetches blocks but leaves unimported targets remote", async () => {
+  const calls: string[] = [];
+  const official = await prepareNotionImport({ ...request, variant: "notion-markdown", includeChildren: false }, { fetch: enrichmentFixture(calls), wait });
+  assert.equal(official.pages[0].source, enrichmentSource);
+  assert.ok(!calls.some(call => call.startsWith("/v1/blocks/")));
+  const notdown = await prepareNotionImport({ ...request, includeChildren: false }, { fetch: enrichmentFixture(calls), wait });
+  assert.equal(notdown.pages.length, 1);
+  assert.notEqual(official.id, notdown.id);
+  assert.ok(calls.some(call => call === `/v1/blocks/${blockId(1)}`));
+  assert.ok(notdown.pages[0].source.includes('<page-link future="keep" url="https://www.notion.so/'));
+  await assert.rejects(prepareNotionImport({ ...request, variant: "gfm" }, { fetch: enrichmentFixture(), wait }), /Choose Notdown/);
+});
+
+test("unknown recovery validates block identity, ignores alt, protects literal syntax and retains unsupported children", async () => {
+  const warnings: string[] = [], calls: string[] = [];
+  const options = { normalizeId: notionPageId, readBlock: async (id: string) => { calls.push(id); return { ...enrichmentBlocks[0], id: blockId(9) }; }, pageTitle: async () => "Target", warn: (message: string) => warnings.push(message) };
+  const source = unknownTag(1) + '\n\n`' + unknownTag(2) + '`\n\n<future>\n' + unknownTag(3) + '\n</future>\n\n<unknown url="https://evil.test/' + enrichmentRoot + '"/>\n';
+  assert.equal(await enrichNotionBlocks(source, options), source);
+  assert.deepEqual(calls, [blockId(1)]);
+  assert.ok(warnings.length >= 2);
+  assert.equal(await enrichNotionBlocks(unknownTag(1), { ...options, readBlock: async () => ({ ...enrichmentBlocks[0], has_children: true }) }), unknownTag(1));
+});

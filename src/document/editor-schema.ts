@@ -68,7 +68,7 @@ function block(spec: NodeSpec): NodeSpec {
 }
 
 function safeUrl(value: string): string {
-  return /^(?:javascript|vbscript|data):/i.test(value.trim()) ? "" : value;
+  return safeReference(value);
 }
 
 function referenceDomAttributes(dom: HTMLElement) {
@@ -304,8 +304,11 @@ export const editorSchema = new Schema({
       content: "block+",
       defining: true,
       isolating: true,
-      parseDOM: [{ tag: "section.note-column", getAttrs: dom => ({ nfmAttrs: dom.hasAttribute("data-width-ratio") ? { "width-ratio": dom.getAttribute("data-width-ratio") } : {} }) }],
-      toDOM: node => ["section", { class: "note-column", "data-width-ratio": node.attrs.nfmAttrs["width-ratio"] ?? null }, 0],
+      parseDOM: [{ tag: "section.note-column", getAttrs: dom => ({ nfmAttrs: {
+        ...(dom.hasAttribute("data-ratio") ? { ratio: dom.getAttribute("data-ratio") } : {}),
+        ...(dom.hasAttribute("data-width-ratio") ? { "width-ratio": dom.getAttribute("data-width-ratio") } : {}),
+      } }) }],
+      toDOM: node => ["section", { class: "note-column", "data-ratio": node.attrs.nfmAttrs.ratio ?? null, "data-width-ratio": node.attrs.nfmAttrs["width-ratio"] ?? null }, 0],
     }),
     child_page: block({
       group: "block",
@@ -689,7 +692,7 @@ export const editorSchema = new Schema({
           "data-mention-kind": node.attrs.kind,
         },
         node.attrs.label ||
-          (node.attrs.nfmAttrs.start ? [node.attrs.nfmAttrs.start, node.attrs.nfmAttrs.startTime, node.attrs.nfmAttrs.timeZone, node.attrs.nfmAttrs.end && "→ " + node.attrs.nfmAttrs.end].filter(Boolean).join(" ") : "") ||
+          (node.attrs.nfmAttrs.start ? [node.attrs.nfmAttrs.start, node.attrs.nfmAttrs.startTime, node.attrs.nfmAttrs.end && "→ " + node.attrs.nfmAttrs.end, node.attrs.nfmAttrs.endTime, node.attrs.nfmAttrs.timeZone].filter(Boolean).join(" ") : "") ||
           node.attrs.nfmAttrs.url ||
           "Mention",
       ],
@@ -714,7 +717,7 @@ export const editorSchema = new Schema({
         "a",
         {
           class: "pm-citation",
-          href: safeReference(node.attrs.url),
+          href: safeReference(/^[a-z\d-]+(?:\.[a-z\d-]+)+(?:[/?#]|$)/i.test(node.attrs.url) ? "https://" + node.attrs.url : node.attrs.url) || null,
           contenteditable: "false",
         },
         "↗",
@@ -855,7 +858,7 @@ export const editorSchema = new Schema({
         "a",
         {
           href: safeUrl(mark.attrs.href),
-          title: mark.attrs.title || `${mark.attrs.href} · Ctrl/⌘ + click to open link`,
+          title: mark.attrs.title || `${mark.attrs.href} · Click to open link`,
           rel: "noopener noreferrer",
           ...domAttributes(mark.attrs.markdownAttrs),
         },

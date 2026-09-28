@@ -120,7 +120,7 @@ del.pm-critic,
 .pm-editor > .md-bibliography { padding-bottom: 100px; }
 .md-bibliography button { margin-left: 12px; font-size: 12px; }
 .md-bibliography [aria-invalid="true"] { color: #a34831; }
-.pm-document .pm-selected-cell { background: #dceaf8 !important; outline: 1px solid #80add6; outline-offset: -1px; }
+.pm-document .pm-selected-cell { caret-color: transparent; }
 .pm-syntax-block[hidden] { display: none; }
 
 /* Match the MMD reference presentation without changing other dialects. */

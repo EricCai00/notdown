@@ -2,7 +2,7 @@ import snapshot from "../../docs/data/pandoc-3.11-extensions.json";
 import { canonicalExtensionId, pandocDefaults, localObjectPlugins, type Dialect } from "../markdown-engine/config";
 import { escape } from "../shared/types";
 import { extensionCategories, extensionCategory } from "./extension-categories";
-import { notionFeatureOrigins, localEncodingNote } from "./extension-feature-origins";
+import { notionFeatureOrigins, localEncodingNote, notionMcpSyntax, notionMcpSpecUrl } from "./extension-feature-origins";
 
 export type SyntaxAuthority = "spec" | "docs";
 export interface SyntaxEvidence {
@@ -13,7 +13,7 @@ export interface SyntaxEvidence {
   note?: string;
   setting?: string;
 }
-export const provenanceReviewed = "2026-09-22";
+export const provenanceReviewed = "2026-09-27";
 export const pandocDefaultVersion = snapshot.pandocVersion;
 const cm = "https://spec.commonmark.org/0.31.2/";
 const gfm = "https://github.github.com/gfm/";
@@ -138,6 +138,7 @@ const notionSections: Record<string, string> = {
   notion_colors: "rich-text-formatting", notion_underline: "rich-text-formatting", strikeout: "rich-text-formatting", task_lists: "lists", tex_math_dollars: "equation",
 };
 for (const [id, anchor] of Object.entries(notionSections)) add("notion-markdown", id, "Notion Docs", notion + "#" + anchor);
+for (const [id, note] of Object.entries(notionMcpSyntax)) add("notion-markdown", id, "Notion MCP specification", notionMcpSpecUrl, { authority: "spec", note });
 add("notion-markdown", "diagrams", "Notion Docs", notion + "#code", { note: "Notion documents Mermaid code fences; other diagram engines are outside this mapping." });
 for (const [id, evidence] of Object.entries(rules["notion-markdown"])) rules.notdown[id] = { ...evidence, note: "Inherited from Notion-flavored Markdown. Notdown block extensions use separate encodings." };
 
@@ -186,7 +187,7 @@ export function extensionProvenanceHtml(variant: Dialect, id: string) {
   id = canonicalExtensionId(id);
   const category = extensionCategory(id);
   const categoryBadge = `<span class="extension-category" data-extension-category="${category}">${extensionCategories[category]}</span>`;
-  if (Object.values(localObjectPlugins).includes(id)) {
+  if (Object.values(localObjectPlugins).includes(id) && !notionMcpSyntax[id]) {
     const origin = notionFeatureOrigins[id];
     const featureBadge = origin ? `<a class="extension-evidence" href="${escape(origin.url)}" target="_blank" rel="noopener noreferrer" title="${escape(localEncodingNote)}">${escape(origin.label)} · local encoding ↗</a>` : "";
     return `<span class="extension-provenance">${categoryBadge}${featureBadge}<span class="extension-evidence">Notdown block extension · ${variant === "notdown" ? "on by default" : "unavailable in this variant"}</span></span>`;

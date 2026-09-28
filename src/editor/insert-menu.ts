@@ -2,12 +2,13 @@ import { contentCommand } from "../document/content-objects";
 import { objectSamples } from "../document/object-model";
 import type { SyntaxConfig } from "../markdown-engine/config";
 
-export const insertGroups = ["Notion basic", "Notion advanced", "Notion media", "Notion embeds", "Notion inline", "Notion style", "Markdown blocks", "Markdown inline"];
+export const insertGroups = ["Notion basic", "Databases", "Notion advanced", "Notion media", "Notion embeds", "Notion inline", "Notion style", "Markdown blocks", "Markdown inline"];
 const objectIcons: Record<string, string> = {
   tabs: "panels-top-left", web_bookmark: "bookmark", link_preview: "panel-top", breadcrumb: "navigation",
-  button: "mouse-pointer-2", meeting_notes: "mic", ai_block: "sparkles", html_embed: "code-xml", image_block: "image",
+  button: "mouse-pointer-2", meeting_notes: "mic", ai_block: "sparkles", image_block: "image",
 };
 function insertGroup(id: string): string {
+  if (["database_full_page", "database_inline"].includes(id)) return "Databases";
   if (id === "r_inline" || id === "executable_inline") return "Markdown inline";
   if (["text", "child", "task", "heading1", "heading2", "heading3", "heading4", "list", "number", "quote", "divider", "link", "callout", "toggle", "table"].includes(id)) return "Notion basic";
   if (["columns", "toc", "equation", "toggle_heading", "synced_block", "button", "breadcrumb", "meeting_notes", "ai_block", "tabs"].includes(id)) return "Notion advanced";
@@ -27,6 +28,8 @@ const typingAliases: Record<string, string> = {
 };
 export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
   return [
+    ["database_full_page", "table-2", "Database - Full page", "Create a database as a child page.", "database full page collection 数据库 整页"],
+    ["database_inline", "table-2", "Database - Inline", "Create an editable database inside this page.", "database inline collection 数据库 内嵌"],
     ["executable_chunk", "code", "Executable Chunk", "Choose a language for an executable code block.", "quarto r python julia ojs javascript knitr executable chunk 可执行代码块"],
     ["executable_inline", "code-xml", "Executable Expression", "Choose a language for an inline expression.", "quarto r python julia ojs javascript inline expression 行内表达式"],
     ["citation", "quote", "Citation", "Insert or reuse a source reference.", "citation 引文 文献"],
@@ -97,10 +100,11 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
     [
       "embed",
       "external-link",
-      "Embedded page",
-      "Display a web page in an isolated frame.",
-      "iframe embed web 网页 嵌入",
+        "Web embed",
+        "Embed a webpage from its URL.",
+        "iframe embed web url 网页 嵌入 网址",
     ],
+    ["html_embed", "code-xml", "HTML embed", "Upload an HTML file as an interactive document.", "html embed upload file 嵌入 上传 文件"],
     [
       "html",
       "code-xml",
@@ -141,10 +145,10 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
     ["audio", "music", "Audio", "Upload audio with playback controls.", "audio music sound 音频 音乐"],
     ["pdf", "file-text", "PDF", "Upload a PDF to preview on the page.", "pdf document 文档"],
     ["file", "paperclip", "File", "Upload a file card with its name and size.", "file attachment download 文件 附件"],
-    ...Object.keys(objectSamples).filter(id => id !== "embed_web_contents").map(id => [id, (objectIcons[id] || "square"), contentCommand(id).label || id, id === "html_embed" ? "Upload an HTML file or enter HTML code." : "Insert an editable " + (contentCommand(id).label || id) + ".", id.replace(/_/g, " ")]),
+    ...Object.keys(objectSamples).filter(id => id !== "web_embed").map(id => [id, (objectIcons[id] || "square"), contentCommand(id).label || id, "Insert an editable " + (contentCommand(id).label || id) + ".", id.replace(/_/g, " ")]),
     ["toggle_heading", "chevron-right", "Toggle heading", "A heading with collapsible child blocks.", "collapsible heading"],
     ["example_list_item", "list-ordered", "Example list item", "A numbered example with a stable label.", "example list"],
-    ["synced_block", "copy", "Synced block", "A local source or snapshot with revision-aware publishing.", "synced source snapshot"],
+    ["synced_block", "copy", "Synced block", "Reuse content across local pages. Copy, sync and unsync.", "synced source snapshot"],
     ["mention_person", "user", "Mention person", "An editable person reference and label.", "person user mention"],
     ["date_or_reminder", "calendar", "Date or reminder", "An editable date with an optional local reminder.", "date reminder"],
     ["native_span", "type", "Native span", "Inline text with editable attributes.", "span attributes"],
@@ -163,6 +167,6 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
   ].filter(([id]) => contentCommand(id, config).enabled && (id !== "alert" || config?.variant === "notdown") && (!inFootnote || footnoteCommands.has(id)))
     .map(([id, icon, title, description, aliases]) => {
       const entry = contentCommand(id);
-      return [id, icon, ["image", "footnote", "alert", "page_link", "location_link"].includes(id) ? title : entry.label || title, description, [aliases, typingAliases[id] || "", ...entry.aliases].join(" "), insertGroup(id)];
+      return [id, icon, ["image", "footnote", "alert", "page_link", "location_link", "html_embed", "embed"].includes(id) ? title : entry.label || title, description, [aliases, typingAliases[id] || "", ...(["embed", "html_embed"].includes(id) ? [] : entry.aliases)].join(" "), insertGroup(id)];
     }).sort((a, b) => insertGroups.indexOf(a[5]) - insertGroups.indexOf(b[5]));
 }

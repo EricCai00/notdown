@@ -70,8 +70,18 @@ export async function installManualPages(api: ReturnType<typeof apiClient>, pare
   resources.target = target.id;
   const specimens = buildManualPages(resources), audit = auditManualPages(specimens);
   const created: { page: Page; specimen?: Specimen }[] = [];
+  let childCount = 0;
   for (const specimen of specimens) {
-    const page = await api<Page>('/pages', { title: specimen.title, parent: parentId, icon: 'file-text', bodyFormat: ['notion-markdown', 'notdown'].includes(specimen.syntax.variant) ? 'notion-markdown' : 'markdown', syntax: specimen.syntax, properties: properties(specimen.key), body: specimen.body });
+    let page = await api<Page>('/pages', { title: specimen.title, parent: parentId, icon: 'file-text', bodyFormat: ['notion-markdown', 'notdown'].includes(specimen.syntax.variant) ? 'notion-markdown' : 'markdown', syntax: specimen.syntax, properties: properties(specimen.key), body: specimen.body });
+    if (specimen.childTarget) {
+      const placeholder = specimen.childTarget;
+      const child = await api<Page>('/pages', { title: 'Fixture child', parent: page.id, body: 'This page belongs to its dialect specimen.', properties: properties(specimen.key + '-child') });
+      // These are freshly generated fixtures, including their source examples.
+      specimen.body = specimen.body.replaceAll('#page/' + placeholder, '#page/' + child.id);
+      specimen.childTarget = child.id;
+      page = await api<Page>('/pages/' + page.id, { body: specimen.body, baseRevision: page.revision }, 'PUT');
+      childCount++;
+    }
     created.push({ page, specimen });
   }
   const indexBody = '# Test guide — Dialects, extensions & objects\n\n' +
@@ -89,7 +99,7 @@ export async function installManualPages(api: ReturnType<typeof apiClient>, pare
   }
   // Creation should not modify the existing parent or reference material.
   if ((await api<Page>('/pages/' + parentId)).revision !== parent.revision) throw new Error('Parent changed during import; inspect it before editing.');
-  return { parent: parentId, index: index.id, target: target.id, resources, audit, pages: created.map(c => ({ id: c.page.id, key: c.specimen!.key, title: c.page.title })), count: created.length + 2 };
+  return { parent: parentId, index: index.id, target: target.id, resources, audit, pages: created.map(c => ({ id: c.page.id, key: c.specimen!.key, title: c.page.title })), count: created.length + childCount + 2 };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -9,7 +9,7 @@ import { objectSamples } from "../../src/document/object-model";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 
 export type Resources = { image: string; audio: string; video: string; pdf: string; text: string; bibliography: string; target: string };
-export type Specimen = { key: string; title: string; body: string; syntax: SyntaxConfig; objects: string[]; probes: string[] };
+export type Specimen = { key: string; title: string; body: string; syntax: SyntaxConfig; objects: string[]; probes: string[]; childTarget?: string };
 const xml = (s: string) => s.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
 const config = (variant: Dialect, flags: string[] = [], off: string[] = []): SyntaxConfig => ({ version: 1, variant, extensions: Object.fromEntries([...flags.map(f => [f, true]), ...off.map(f => [f, false])]) });
 const instruction = `这是一份可操作的验收样本，不是完整兼容性通过报告。每个用例下面是真实正文，只有“源码对照”位于代码块中。
@@ -44,12 +44,12 @@ function objectSources(r: Resources, syntax: SyntaxConfig): Record<string, strin
     "block.pdf": `<pdf src="${r.pdf}">Local one-page PDF</pdf>`,
     "block.file": `<file src="${r.text}">Download local sample text</file>`,
     "block.file_transclusion": `{{${r.text}}}`,
-    "block.embed_web_contents": '<iframe src="about:blank" title="Isolated blank frame"></iframe>',
-    "block.link_to_page": `<page url="#page/${r.target}">Fixture target</page>`,
-    "block.child_page": `<page url="#page/${r.target}" role="child">Fixture target (ownership comes from page metadata)</page>`,
+    "block.web_embed": '<iframe src="about:blank" title="Isolated blank frame"></iframe>',
+    "block.link_to_page": `<page-link url="#page/${r.target}">Fixture target</page-link>`,
+    "block.child_page": `<page url="#page/fixture-child-${syntax.variant}">Fixture child (ownership comes from page metadata)</page>`,
     "block.breadcrumb": `<breadcrumb path="${r.target}"/>`,
     "block.synced_block": `<synced_block_reference url="#page/${r.target}#block=acceptance-source">\nLocal snapshot: refresh manually\n</synced_block_reference>`,
-    "block.meeting_notes": `<meeting-notes title="Transcription test" audio="${r.audio}">\nManual notes. Replace the tone with speech before testing accuracy.\n</meeting-notes>`,
+    "block.meeting_notes": '<meeting-notes>\n\tMeeting title\n\t<notes>\n\t\tManual notes.\n\t</notes>\n</meeting-notes>',
     "block.example_list_item": '(@first-case) First example\n(@second-case) Second example\n\nReference: @second-case.',
     "block.raw_tex": '\\begin{center}\nRaw TeX source\n\\end{center}',
     "inline.code_span": 'Text with `**literal**` code.', "inline.emphasis": '*Italic text*', "inline.strong_emphasis": '**Bold text**',
@@ -104,7 +104,8 @@ export function buildManualPages(r: Resources): Specimen[] {
     }
     body += '## 默认配置的边界\n\n下列对象未在这组默认样例中形成对应对象；这不是“全部未实现”的结论。请到 Extensions 页面使用相应配置单独验收：\n\n' + omitted.join('、') + '。\n\n';
     body += section('R01', '代码保护与往返', '    <callout>must remain code</callout>\n    **not bold**\n    [toc]', '这些行始终作为代码显示；切换视图不应执行其中的标签。');
-    return { key: `dialect-${dialect.id}`, title: `${String(index + 1).padStart(2, '0')} · ${dialect.label} — Tests`, body, syntax, objects, probes: defaults };
+    return { key: `dialect-${dialect.id}`, title: `${String(index + 1).padStart(2, '0')} · ${dialect.label} — Tests`, body, syntax, objects, probes: defaults,
+      childTarget: objects.includes('block.child_page') ? `fixture-child-${dialect.id}` : undefined };
   });
   const sources = objectSources(r, config('markdown'));
   const groups: { key: string; title: string; variant: Dialect; flags: string[]; off?: string[]; prefix?: string; cases: [string[], string, string][] }[] = [
@@ -188,7 +189,7 @@ export function buildManualPages(r: Resources): Specimen[] {
       [['notion_pages'], `<page url="#page/${r.target}">Fixture target</page>\n\n<mention-page url="#page/${r.target}">Fixture inline reference</mention-page>`, '块引用与行内提及不同；点击后返回此页继续。'],
       [['notion_mentions'], sources['inline.mention_person'] + '\n\n' + sources['inline.date_or_reminder'], '提及载荷可编辑；没有自动安排提醒。'],
       [['notion_media'], ['block.audio','block.video','block.pdf','block.file'].map(k => sources[k]).join('\n\n'), '本地音视频、PDF 与文件均使用真实附件。'],
-      [['notion_databases'], '<database url="local:fixture-database" custom="keep"/>', '按此前决定不创建 Database 产品对象，仅验证未知原文恢复。'],
+      [['notion_databases'], '<database url="https://www.notion.so/fixture-database" custom="keep">Database reference</database>', '引用及属性可保留；不创建本地数据库引擎，也不操作远端数据库。'],
       [['notion_synced'], sources['block.synced_block'], '官方 variant 保留引用和内容；本地 Refresh/Publish 仅在 Notdown 中可用。'],
       [['notion_toc'], '<table_of_contents/>', '目录跟随标题更新。'],
       [['notion_nesting'], 'Parent paragraph\n\tChild paragraph\n\t\tGrandchild\n\n## Toggle heading {toggle="true"}\n\tHeading child', '移动父级携带子树；折叠标题和普通标题共用结构。'],

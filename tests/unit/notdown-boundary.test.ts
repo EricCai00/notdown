@@ -16,8 +16,9 @@ test("supplemental Notion objects are Notdown-only even with legacy or explicit 
   for (const { id } of dialects) for (const [name, sample] of Object.entries(objectSamples)) {
     const flag = localObjectPlugins[name];
     const c = { ...config(id), extensions: { [flag]: true, [flag.replace(/^notion_/, "local_")]: true } };
-    assert.equal(enabled(c, flag), id === "notdown");
-    assert.equal(supportsOption(c, flag), id === "notdown");
+    const official = id === "notion-markdown" && ["tabs", "meeting_notes"].includes(name);
+    assert.equal(enabled(c, flag), id === "notdown" || official);
+    assert.equal(supportsOption(c, flag), id === "notdown" || official);
     const doc = parseNative(sample + "\n\nTail", c);
     assert.equal(editorKind(doc.firstChild) === name, id === "notdown", id + name);
     const edited = EditorState.create({ doc }).tr.insertText("!", doc.content.size - 1).doc;
@@ -27,7 +28,7 @@ test("supplemental Notion objects are Notdown-only even with legacy or explicit 
 
 test("custom properties and retired directives stay recoverable without activating official semantics", () => {
   const samples = [
-    '<page role="child" url="#page/local">Child page</page>',
+    '<page-link url="#page/child">Link to child</page-link>',
     '<columns>\n<column width-ratio="0.3">\nLeft\n</column>\n<column>\nRight\n</column>\n</columns>',
     '<mention-date start="2026-09-23" reminder="2026-09-23T12:00:00Z"/>',
     '<mention-date start="2026-09-23T12:00:00Z"/>',
