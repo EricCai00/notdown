@@ -75,6 +75,68 @@ test("same-page copies update in both directions and survive reload", async ({ p
   await page.keyboard.press("Control+s");
   await expect.poll(async () => (await (await request.get(`/api/pages/${source.id}`)).json()).body.match(/Shared edited/g)?.length).toBe(2);
   await page.reload(); await expect(contents.first()).toContainText("Shared edited"); await expect(contents.last()).toContainText("Shared edited");
+  const blocks = page.locator(".pm-object-synced_block");
+  for (const index of [1, 0]) {
+    await blocks.nth(index).hover();
+    await blocks.nth(index).getByRole("button", { name: "Synced block locations", exact: true }).click();
+    const locations = page.getByRole("menu", { name: "Synced block locations" });
+    await expect(locations.locator("a")).toHaveCount(1);
+    await expect(locations.locator("a")).toContainText("Original");
+    await expect(locations.locator("a")).toContainText("This page");
+    await expect(blocks.nth(index)).toHaveCSS("background-color", "rgb(228, 237, 250)");
+    await expect(blocks.nth(1 - index)).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await page.keyboard.press("Escape");
+    await expect(blocks.nth(index)).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  }
+});
+
+test("locations show actual page metadata, keep unnamed sources separate and offer working help", async ({ page, context, request }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const parent = await create(request, "Test");
+  const body = '<synced_block>\nSynced content\n</synced_block>';
+  const response = await request.post("/api/pages", { data: { title: "Blocks", icon: "book-open", parent: parent.id, body, bodyFormat: "notion-markdown", syntax } });
+  expect(response.status()).toBe(201);
+  const source = await response.json();
+  await create(request, "Unrelated unnamed source", body);
+  await page.goto(`/#page/${source.id}`);
+  const block = page.locator(".pm-object-synced_block");
+  const trigger = page.getByRole("button", { name: "Synced block locations", exact: true });
+  const locations = page.getByRole("menu", { name: "Synced block locations" });
+  await block.hover(); await trigger.click();
+  await expect(locations.locator("a")).toHaveCount(1);
+  const original = locations.locator(`a[href="#page/${source.id}"]`);
+  await expect(original).toHaveAttribute("aria-current", "page");
+  await expect(original).toContainText("Test");
+  await expect(original).toContainText("Original");
+  await expect(original).toContainText("This page");
+  await expect(original.locator('[data-page-icon="book-open"]')).toBeVisible();
+  expect((await (await request.get(`/api/pages/${source.id}`)).json()).body).toBe(body);
+  await page.keyboard.press("End");
+  await expect(locations.getByRole("menuitem", { name: "Learn more about Synced blocks", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  const help = page.getByRole("dialog", { name: "Synced blocks", exact: true });
+  await expect(help).toContainText("within this vault");
+  await expect(help).toContainText("do not sync with Notion");
+  await page.keyboard.press("Escape"); await expect(help).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  const clipboard = await copy(page);
+  const destination = await create(request, "Shared copy", clipboard);
+  await page.goto(`/#page/${destination.id}`);
+  await block.hover(); await trigger.click();
+  await expect(locations.locator("a")).toHaveCount(2);
+  await expect(original).toContainText("Original");
+  await expect(original).not.toContainText("This page");
+  const current = locations.locator('[aria-current="page"]');
+  await expect(current).toContainText("Shared copy");
+  await expect(current).not.toContainText("Original");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => locations.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+  })).toBe(true);
+  await original.click();
+  await expect(page).toHaveURL(new RegExp(`#page/${source.id}$`));
+  await expect(locations).toHaveCount(0);
 });
 
 test("automatic publication pauses on conflict and preserves both versions", async ({ page, context, request }) => {

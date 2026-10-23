@@ -45,6 +45,9 @@ type Row = [
 // carrier@switch+switch:editing; alternatives are separated by semicolons.
 const rows: Record<ContentCategory, Row[]> = {
   block: [
+    ["mail", "Mail", "Notion mail", "children", "implemented", "P2", "mail:direct", "Official v2 mail body and header metadata. Sending and mailbox synchronization are not included."],
+    ["custom_block", "Custom block reference", "Notion custom block", "leaf", "partial", "P2", "custom_block:reference", "Retains the definition ID and source URL supplied by Notion. The API does not return the rendered custom content."],
+    ["external_object_instance", "Integration reference", "Notion external object", "leaf", "partial", "P2", "external_object_instance:reference", "Retains integration name, label and source URL. Live third-party data remains with the integration."],
     ["folder", "Folder reference", "Notion folder", "leaf", "implemented", "P2", "folder@notion_pages:reference", "Official folder reference with editable URL/title. Local navigation only; does not create or move a Notion folder."],
     ["database", "Database reference", "linked database;wiki database", "leaf", "implemented", "P2", "database@notion_databases:reference", "Official database/data-source reference with retained inline/wiki/icon properties. Local host references open vault databases or embed editable tables; remote references remain links. The Markdown stores only the reference, never records or view definitions. No cloud operations."],
     ["executable_chunk", "Executable Chunk", "Quarto;R Markdown;knitr;R;Python;Julia;OJS", "text", "implemented", "P1", "executable_chunk:direct", "One executable cell for all supported languages; R Markdown supports R, Quarto and Notdown support R/Python/Julia/OJS. Separate language sessions, temporary output."],
@@ -179,8 +182,8 @@ const rows: Record<ContentCategory, Row[]> = {
       "leaf",
       "partial",
       "P2",
-      "paragraph.image:direct;syntax.figure@implicit_figures:source",
-      "Standalone image paragraphs and figure previews; dedicated caption editing remains pending.",
+      "image_block:direct;syntax.figure@implicit_figures:source",
+      "Standalone media images, including empty captions, and implicit figures; editable captions retain image block identity.",
     ],
     [
       "video",
@@ -795,7 +798,7 @@ byId.get("block.web_embed")!.adapters.push({ carrier: "notion_embed", extensions
 for (const [id, note] of Object.entries({
   "block.toggle_heading": "Official toggle heading with editable heading and children, subtree movement and undo. Persisted folding is supplemental and Notdown-only.",
   "block.table": "One model for pipe, Notion, MMD, grid, simple and multiline tables. Edit cells/captions, add/delete rows/columns, merge/split cells. Span commands require an enabled encoding that can retain geometry.",
-  "block.image_block": "Standalone images and existing implicit-figure encoding. Edit figure captions without changing the URL, title or unknown attributes. Captions require implicit_figures; no custom image block protocol.",
+  "block.image_block": "Standalone Notion/Notdown images and existing implicit-figure encoding. Empty captions retain block identity. Other Markdown dialects use implicit_figures for captions; no custom image block protocol.",
   "block.native_div": "Fenced and native HTML Div share editable children and a properties form; original encoding and unknown attributes are retained.",
   "block.video": "Local playback and editable attachment URL/caption; undo and Markdown persistence.",
   "block.audio": "Local playback and editable attachment URL/caption; undo and Markdown persistence.",
@@ -837,6 +840,7 @@ export function getContentCapabilities(id: string, config: SyntaxConfig) {
   const adapters =
     object?.adapters.filter(
       (adapter) =>
+        (!["block.mail", "block.custom_block", "block.external_object_instance"].includes(id) || ["notdown", "notion-markdown"].includes(config.variant) && config.notionVersion === "v2") &&
         (id !== "block.link_to_page" || config.variant === "notdown") &&
         (!(["block.executable_chunk", "inline.executable_expression"].includes(id)) || ["rmarkdown", "quarto", "notdown"].includes(config.variant)) &&
         !(config.variant === "notion-markdown" && ["inline.image", "inline.autolink"].includes(id)) &&

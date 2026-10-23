@@ -88,6 +88,8 @@ export function createApp(options: {
     };
 
   const files=syntaxFiles(vault);
+  app.get("/api/sync/:action", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.sync.handle(String(req.params.action), "GET")); }));
+  app.post("/api/sync/:action", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.sync.handle(String(req.params.action), "POST", req.body)); }));
   app.get("/api/databases", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.list()); }));
   app.post("/api/databases", route(async (req, res) => res.status(201).json(await vault.databases.create(req.body))));
   app.get("/api/databases/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.get(String(req.params.id))); }));
@@ -316,6 +318,7 @@ export function createApp(options: {
       );
     }),
   );
+  app.get("/api/assets", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.listAssets()); }));
   app.post(
     "/api/assets",
     route(async (req, res) => {
@@ -338,7 +341,8 @@ export function createApp(options: {
           return;
         }
         const filename = path.resolve(vault.assetsPath, `.${relative}`);
-        if (path.dirname(filename) !== vault.assetsPath) {
+        const inside = path.relative(vault.assetsPath, filename);
+        if (!inside || inside.startsWith("..") || path.isAbsolute(inside)) {
           res.status(404).end();
           return;
         }
@@ -348,10 +352,14 @@ export function createApp(options: {
           return;
         }
         try {
-          const stat = await fs.lstat(filename);
-          if (!stat.isFile() || stat.isSymbolicLink()) {
-            res.status(404).end();
-            return;
+          let target = vault.assetsPath;
+          const parts = inside.split(path.sep);
+          for (let i = 0; i < parts.length; i++) {
+            target = path.join(target, parts[i]);
+            const stat = await fs.lstat(target);
+            if (parts[i].startsWith(".") || stat.isSymbolicLink() || (i < parts.length - 1 ? !stat.isDirectory() : !stat.isFile())) {
+              res.status(404).end(); return;
+            }
           }
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code === "ENOENT") {

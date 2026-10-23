@@ -4,6 +4,7 @@ import { encodeCodeCaption } from "../document/code-caption";
 import { objectTags } from "../document/object-model";
 import { localObjectPlugins } from "./presets";
 import { officialNotionObject } from "../document/notion-official-blocks";
+import { notionV2BlockMarkdown } from "../document/notion-v2";
 import { installNotionRichText } from "../document/notion-rich-text";
 import { isListItem } from "../document/list-items";
 import { normalizeExampleNumbering } from "../document/example-numbering";
@@ -106,7 +107,7 @@ function allowNotionObject(config: SyntaxConfig, name: string): boolean {
 function unavailable(node: PMNode, config: SyntaxConfig): boolean {
   if (node.type.name === "block.link_to_page" && config.variant !== "notdown") return true;
   if (["executable_chunk", "executable_inline"].includes(editorKind(node)) && !(["quarto", "notdown"].includes(config.variant) || config.variant === "rmarkdown" && node.attrs.language === "r")) return true;
-  if (isEditorKind(node, "image_block")) return true;
+  if (isEditorKind(node, "image_block") && node.attrs.syntaxForm !== "notion") return true;
   if (isEditorKind(node, "code_block") &&
       (node.attrs.markdownAttrs?.caption !== undefined || node.attrs.nfmAttrs?.caption !== undefined) &&
       (config.variant === "notion-markdown" || config.variant === "notdown" && !enabled(config, "fenced_code_attributes"))) return true;
@@ -120,7 +121,9 @@ function unavailable(node: PMNode, config: SyntaxConfig): boolean {
     if (flag && !enabled(config, flag)) return true;
   }
   const localPlugin = localObjectPlugins[editorKind(node)];
-  if (localPlugin && (!enabled(config, localPlugin) || config.variant !== "notdown" && !officialNotionObject(node))) return true;
+  if (["mail", "custom_block", "external_object_instance"].includes(editorKind(node)) && !(usesNotionSyntax(config) && config.notionVersion === "v2")) return true;
+  const officialV2 = config.notionVersion === "v2" && officialNotionObject(node);
+  if (localPlugin && ((!enabled(config, localPlugin) && !(officialV2 && config.extensions[localPlugin] !== false)) || config.variant !== "notdown" && !officialNotionObject(node))) return true;
   const feature = isEditorKind(node, "callout") && node.attrs.syntaxForm === "alert"
     ? "alerts"
     : isEditorKind(node, "table_of_contents") && node.attrs.syntaxForm !== "notion"
@@ -173,7 +176,7 @@ function preserve(node: PMNode, raw: string): PMNode {
 }
 const parsers = new Map<string, MarkdownIt>();
 function parser(config: SyntaxConfig): MarkdownIt {
-  const key = JSON.stringify([config.variant, config.extensions, config.sourcePath]);
+  const key = JSON.stringify([config.variant, config.extensions, config.sourcePath, config.notionVersion]);
   const cached = parsers.get(key);
   if (cached) return cached;
   const md = new MarkdownIt("commonmark", {
@@ -675,7 +678,7 @@ function parseNativeDocument(
       createEditorNode(schema, "opaque_block", { raw: source }),
     ]);
   if (usesNotionSyntax(config)) {
-    const doc = parseNotionMarkdown(source, name => allowNotionObject(config, name), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined);
+    const doc = parseNotionMarkdown(source, name => allowNotionObject(config, name), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined, config.notionVersion);
     const nodes = children(doc).map((node) =>
       unavailable(node, config)
         ? preserve(node, node.attrs.source ?? notionBlockMarkdown(node))
@@ -1004,6 +1007,7 @@ export function serializeNative(doc: PMNode, config: SyntaxConfig): string {
         (needsMarkdownTable(node) || isEditorKind(node, "code_block") && node.attrs.markdownAttrs?.caption !== undefined))
       throw new Error("Supplemental Notion content can only be written in the Notdown variant. Preserve the original source or switch variants.");
   });
+  if (usesNotionSyntax(config) && config.notionVersion === "v2") return serializeEditorMarkdown(doc, node => notionV2BlockMarkdown(node, child => config.variant === "notdown" ? writeNotdownBlock(child, config) : notionBlockMarkdown(child), config.variant === "notdown"));
   if (config.variant === "notdown") return serializeEditorMarkdown(doc, node => writeNotdownBlock(node, config));
   return usesNotionSyntax(config)
     ? serializeNotionMarkdown(doc)

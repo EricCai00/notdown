@@ -1,13 +1,15 @@
-import { createHash, randomUUID } from "node:crypto";
-import path from "node:path";
+import type { Buffer } from "buffer";
+import { hashBytes, randomUUID } from "./crypto.js";
+import type { VaultPlatform, StorageError } from "./platform.js";
 import { VaultError, assertId, type Page, type PageInput } from "./vault.js";
-import { documentMetadata } from "../src/features/metadata/document-metadata.js";
-import { trashedPageIds } from "../src/features/pages/page-hierarchy.js";
-import { databasePropertyReadOnly, databasePropertyTypes, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabaseResources, type DatabaseSnapshot, type DatabaseView } from "../src/features/databases/database-model.js";
+import { documentMetadata } from "../features/metadata/document-metadata.js";
+import { trashedPageIds } from "../features/pages/page-hierarchy.js";
+import { databasePropertyReadOnly, databasePropertyTypes, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabaseResources, type DatabaseSnapshot, type DatabaseView } from "../features/databases/database-model.js";
 
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
 type PresentationInput = { title?: string; icon?: string; baseRevision: string; hostRevision?: string };
 type Host = {
+  platform: VaultPlatform;
   root: string;
   serialize<T>(operation: () => Promise<T>): Promise<T>;
   scanPages(): Promise<Page[]>;
@@ -25,7 +27,7 @@ const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
 const revision = (value: Record<string, unknown>) => {
   const { revision: _revision, ...rest } = value;
-  return createHash("sha256").update(JSON.stringify(rest)).digest("hex");
+  return hashBytes(JSON.stringify(rest));
 };
 const stamped = <T extends { revision: string }>(value: T): T => ({ ...value, revision: revision(value) });
 function base(value: unknown) {
@@ -79,6 +81,7 @@ export function validateDatabaseValue(field: DatabaseProperty, value: unknown) {
 
 /** Invoked only through the vault lock; canonical resources live in metadata.json. */
 export function createDatabases(host: Host) {
+  const { fs, path } = host.platform;
   const metadataPath = path.join(host.root, "metadata.json");
   async function context() {
     const pages = await host.scanPages();

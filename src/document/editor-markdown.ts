@@ -100,6 +100,13 @@ export function parseInline(tokens: Token[]): EditorNode[] {
       result.push(
         schema.nodes["inline.footnote"].create({ label: token.meta.label }, null, marks),
       );
+    } else if (token.type === "nfm_format") {
+      const mark = schema.marks[token.meta.mark].create();
+      for (const child of parseInline(token.children ?? [])) {
+        let combined = mark.addToSet(child.marks);
+        for (const existing of marks) combined = existing.addToSet(combined);
+        result.push(child.mark(combined));
+      }
     } else if (token.type === "nfm_span") {
       const attrs = token.meta;
       let extra = marks;
@@ -125,7 +132,7 @@ export function parseInline(tokens: Token[]): EditorNode[] {
     } else if (token.type === "nfm_mention") {
       result.push(
         token.meta.kind === "link"
-          ? schema.nodes["inline.link"].create({ url: token.meta.attrs.url || "", label: token.content, nfmAttrs: token.meta.attrs }, null, marks)
+          ? schema.nodes["inline.link"].create({ url: token.meta.attrs.url || "", label: token.content, nfmAttrs: token.meta.attrs, syntaxForm: token.meta.syntaxForm || "local" }, null, marks)
           : token.meta.kind === "page"
           ? schema.nodes["inline.internal_link"].create({
                 target:
@@ -561,7 +568,7 @@ export function inlineMarkdown(
   pageMentions = false,
   escapeSuperscript = false,
   legacyEscapes = false,
-  options: { mmdAttributes?: boolean; literalExtensions?: boolean; htmlMarksFirst?: boolean; notionBreaks?: boolean } = {},
+  options: { mmdAttributes?: boolean; literalExtensions?: boolean; htmlMarksFirst?: boolean; notionBreaks?: boolean; notionV2?: boolean } = {},
 ): string {
   let result = "";
   let active: Mark[] = [];
@@ -571,6 +578,7 @@ export function inlineMarkdown(
       .map(([key, value]) => ` ${key}="${value.replace(/"/g, "&quot;")}"`)
       .join("");
   const open = (mark: Mark) =>
+    options.notionV2 && ["strong", "em", "strike", "underline"].includes(editorKind(mark)) ? `<${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
     isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? `<span${attributesXml(mark.attrs.attributes)}>` : "[")
       : isEditorKind(mark, "critic")
@@ -596,6 +604,7 @@ export function inlineMarkdown(
                 link: "[",
               }[editorKind(mark)] ?? "");
   const close = (mark: Mark) =>
+    options.notionV2 && ["strong", "em", "strike", "underline"].includes(editorKind(mark)) ? `</${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
     isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? "</span>" : "]" + writeAttributes(mark.attrs.attributes).trimStart())
       : isEditorKind(mark, "critic")
@@ -646,7 +655,7 @@ export function inlineMarkdown(
           ? escapeText(child.text ?? "")
               .replace(/&/g, "&amp;")
               .replace(/[$|{}^]/g, "\\$&")
-              .replace(/\r\n|\n|\r/g, "<br>")
+              .replace(/\r\n|\n|\r/g, options.notionV2 ? "\n" : "<br>")
           : escapeText(child.text ?? "", legacyEscapes)
               .replace(
                 options.literalExtensions ? /[{}=%]/g : /(?!)/g,
@@ -677,7 +686,7 @@ export function inlineMarkdown(
     else if (isEditorKind(child, "footnote_reference"))
       result += "[^" + child.attrs.label + "]";
     else if (isEditorKind(child, "hard_break"))
-      result += notion || options.notionBreaks ? "<br>" : "  \n";
+      result += options.notionV2 ? "\\\n" : notion || options.notionBreaks ? "<br>" : "  \n";
     else if (isEditorKind(child, "page_link")) {
       const target = String(child.attrs.target).replace(/[\[\]\r\n]/g, "");
       const label = String(child.attrs.label || target).replace(
@@ -692,7 +701,7 @@ export function inlineMarkdown(
       }
       result +=
         mention
-          ? `<mention-page${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url || pageUrl(String(child.attrs.target)) })}>${escapeXml(child.attrs.label || child.attrs.target)}</mention-page>`
+          ? `<${options.notionV2 ? "mention" : "mention-page"}${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url || pageUrl(String(child.attrs.target)) })}>${escapeXml(child.attrs.label || child.attrs.target)}</${options.notionV2 ? "mention" : "mention-page"}>`
           : child.attrs.labelMode !== "custom" && label === target
             ? `[[${target}]]`
             : child.attrs.syntaxForm === "wiki-title-first" ? `[[${label}|${target}]]` : `[[${target}|${label}]]`;
@@ -709,12 +718,14 @@ export function inlineMarkdown(
     } else if (isEditorKind(child, "inline_note")) {
       result += "^[" + inlineMarkdown(child, notion, escapeMath, pageMentions, escapeSuperscript, legacyEscapes, options) + "]";
     } else if (isEditorKind(child, "link_mention")) {
-      result += `<mention-link${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url })}>${escapeXml(child.attrs.label)}</mention-link>`;
+      result += options.notionV2 ? `<link-preview${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url })} />` : `<mention-link${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url })}>${escapeXml(child.attrs.label)}</mention-link>`;
     } else if (isEditorKind(child, "mention")) {
-      const tag = `mention-${child.attrs.kind}`;
+      const tag = options.notionV2 ? child.attrs.kind === "date" ? "date" : "mention" : `mention-${child.attrs.kind}`;
+      const attrs = { ...child.attrs.nfmAttrs, ...(options.notionV2 && child.attrs.kind === "database" ? { type: "database" } : {}) };
+      if (options.notionV2 && child.attrs.kind === "date") for (const [from,to] of [["startTime","start-time"],["endTime","end-time"],["timeZone","time-zone"]]) if (attrs[from] !== undefined) { attrs[to] = attrs[from]; delete attrs[from]; }
       result += child.attrs.label
-        ? `<${tag}${attributesXml(child.attrs.nfmAttrs)}>${escapeXml(child.attrs.label)}</${tag}>`
-        : `<${tag}${attributesXml(child.attrs.nfmAttrs)}/>`;
+        ? `<${tag}${attributesXml(attrs)}>${escapeXml(child.attrs.label)}</${tag}>`
+        : `<${tag}${attributesXml(attrs)}/>`;
     } else if (isEditorKind(child, "inline_math")) {
       result += child.attrs.delimiter === "single" ? `\\(${child.attrs.value}\\)` : child.attrs.delimiter === "gfm" ? "$`" + child.attrs.value + "`$" : `$${child.attrs.value}$`;
     } else if (isEditorKind(child, "citation")) {
@@ -829,6 +840,9 @@ export function serializeEditorMarkdown(
         ? (node.attrs.sourceKey as number)
         : null;
     const unchanged =
+      // Nested source slices include their former parent's indentation. Once
+      // promoted to the root, write them at their new depth instead of reusing it.
+      typeof node.attrs.sourceKey === "number" &&
       node.attrs.source !== null &&
       node.attrs.sourceFingerprint === editorFingerprint(node);
     const content = unchanged

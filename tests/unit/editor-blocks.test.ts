@@ -281,6 +281,26 @@ test("deleting the last row produces one editable empty paragraph", () => {
   assert.ok(state.apply(tr).doc.eq(doc(p())));
 });
 
+test("empty toggle containers survive deletion, movement, duplication and last-child outdent", () => {
+  const toggle = (text: string, children: PMNode[] = []) => schema.nodes["structure.nested_block"].create(null, [
+    createEditorNode(schema, "heading", { level: 2, toggle: true }, schema.text(text)), ...children,
+  ]);
+  const original = doc(toggle("Empty"), toggle("Parent", [p("Child")]), p("Tail"));
+  const state = stateFor(original);
+  const deletion = deleteEditorBlock(state, pos(original, "Child"));
+  assert.ok(deletion);
+  assert.ok(state.apply(deletion).doc.eq(doc(toggle("Empty"), toggle("Parent"), p("Tail"))));
+  const outdent = run(outdentEditorBlock, stateFor(original, "Child"));
+  assert.ok(outdent.doc.eq(doc(toggle("Empty"), toggle("Parent"), p("Child"), p("Tail"))));
+  assert.ok(run(undo, outdent).doc.eq(original));
+  const movement = moveEditorBlock(state, pos(original, "Empty"), pos(original, "Tail"), "after");
+  assert.ok(movement);
+  assert.ok(state.apply(movement).doc.eq(doc(toggle("Parent", [p("Child")]), p("Tail"), toggle("Empty"))));
+  const duplicate = duplicateEditorBlock(state, pos(original, "Empty"));
+  assert.ok(duplicate);
+  assert.ok(state.apply(duplicate).doc.eq(doc(toggle("Empty"), toggle("Empty"), toggle("Parent", [p("Child")]), p("Tail"))));
+});
+
 test("duplicating a parent duplicates descendants and can be undone atomically", () => {
   const item = li("Parent", [ul(li("Child", [], true))], false);
   const document = doc(ul(item, li("Tail")));

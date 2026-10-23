@@ -1,0 +1,54 @@
+import { test, expect } from "@playwright/test";
+import { inlineRoot, inlineDatabases, inlineRecords, inlineTitles, inlineUrl, inlineDatabaseSource } from "../unit/notion-inline-database-fixture.js";
+import { stablePageUuid } from "../../src/vault/page-id.js";
+
+for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports two editable inline databases with local navigation and persistent source`, async ({ page, request }) => {
+  const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+  const response = await request.post("/api/notion/import/preview", { data: { token: "test-secret-not-saved", pageId: inlineRoot, variant } });
+  expect(response.ok()).toBeTruthy();
+  const preview = await response.json();
+  expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
+  const local = (id: string) => stablePageUuid(`notion-${preview.id.slice(0, 24)}-${id}`);
+  const rootId = local(inlineRoot), hostIds = inlineDatabases.map(local);
+  const original = (await (await request.get(`/api/pages/${rootId}`)).json()).body;
+  expect(original).toBe(inlineDatabaseSource.replace(inlineUrl(inlineDatabases[0]), `#page/${hostIds[0]}`).replace(inlineUrl(inlineDatabases[1]), `#page/${hostIds[1]}`));
+  await page.goto(`/#page/${rootId}`);
+  await expect(page.locator("#page-title")).toHaveValue("Note apps");
+  const databases = page.getByRole("region", { name: "Inline database", exact: true });
+  await expect(databases).toHaveCount(2);
+  const used = databases.nth(0), unused = databases.nth(1);
+  await expect(used.getByRole("button", { name: "Open Xiaomi Notes", exact: true })).toBeVisible();
+  await expect(unused.getByRole("button", { name: "Open Anytype", exact: true })).toBeVisible();
+  await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2014");
+  await expect(used.getByLabel("Markdown: Xiaomi Notes", { exact: true })).toContainText("Not supported");
+  await expect(unused.getByLabel("Comments: Anytype", { exact: true })).toHaveValue("Notion-like; Object Oriented Programming-like");
+  for (let index = 0; index < 2; index++) {
+    const link = databases.nth(index).locator(":scope > .pm-database-reference");
+    await expect(link).toContainText(inlineTitles[index]);
+    await expect(link).toHaveAttribute("href", `#database/${hostIds[index]}`);
+    await expect(link).not.toHaveAttribute("target", "_blank");
+  }
+  await page.screenshot({ path: `test-results/notion-inline-databases-${variant}.png`, fullPage: true });
+  await used.getByLabel("Since: Xiaomi Notes", { exact: true }).fill("2015");
+  const toolbar = page.locator("#editing-workspace > .editing-toolbar");
+  await toolbar.getByRole("button", { name: "Source", exact: true }).click();
+  await expect(page.locator("#source-editor")).toContainText(`url="#page/${hostIds[0]}" inline="true"`);
+  const snapshot = await (await request.get(`/api/databases/${hostIds[0]}`)).json();
+  const since = snapshot.dataSources[0].properties.find((field: any) => field.name === "Since");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${local(inlineRecords[0])}`)).json()).properties[since.key]).toBe(2015);
+  await toolbar.getByRole("button", { name: "Page", exact: true }).click();
+  await page.reload();
+  await expect(databases).toHaveCount(2);
+  await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2015");
+  await unused.getByRole("button", { name: "Open Anytype", exact: true }).click();
+  await unused.getByRole("button", { name: "Open as full page", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`#page/${local(inlineRecords[1])}$`));
+  await expect(page.locator("#page-title")).toHaveValue("Anytype");
+  await page.goto(`/#page/${rootId}`);
+  await expect(used.locator(":scope > .pm-database-reference")).toHaveAttribute("href", `#database/${hostIds[0]}`);
+  await used.locator(":scope > .pm-database-reference").click();
+  await expect(page).toHaveURL(new RegExp(`#database/${hostIds[0]}$`));
+  await expect(page.getByRole("button", { name: "Open Xiaomi Notes", exact: true })).toBeVisible();
+  expect((await (await request.get(`/api/pages/${rootId}`)).json()).body).toBe(original);
+  expect(errors).toEqual([]);
+});

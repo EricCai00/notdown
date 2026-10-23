@@ -1,5 +1,57 @@
 import { expect, test } from "@playwright/test";
 
+for (const mode of ["source", "split"]) {
+  test(`code language unlocks after ${mode} projection, including nested blocks`, async ({ page, request }, testInfo) => {
+    const body = '<callout icon="🤔">\n\tCallout text\n\n\t```mathematica\n\tNested code\n\t```\n</callout>\n\n> Quote text\n\t```mathematica\n\tQuoted code\n\t```\n\n```mathematica\nTop code\n```';
+    const response = await request.post("/api/pages", { data: {
+      title: "Code language after source editing", body,
+      syntax: { version: 1, variant: "notdown", extensions: {} },
+    } });
+    expect(response.status()).toBe(201);
+    const note = await response.json();
+    await page.goto(`/#page/${note.id}`);
+    const blocks = page.locator(".pm-document .pm-code-block");
+    await expect(blocks).toHaveCount(3);
+    await page.locator(`.editing-modes [data-mode="${mode}"]`).click();
+    const source = page.locator("#source-editor");
+    await source.click();
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("Control+a");
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+    await page.keyboard.insertText(body.replaceAll("code", "changed code"));
+    await expect(page.locator(".page-pane")).toHaveAttribute("aria-busy", "true");
+    for (let index = 0; index < 3; index++) {
+      await expect(blocks.nth(index).locator(".pm-code-language")).toBeDisabled();
+      await expect(blocks.nth(index).locator(".pm-code-caption")).toBeDisabled();
+    }
+    await page.clock.runFor(501);
+    await page.clock.resume();
+    await expect(page.locator(".page-pane")).toHaveAttribute("aria-busy", "false");
+    await page.locator('.editing-modes [data-mode="document"]').click();
+    for (let index = 0; index < 3; index++) {
+      const block = blocks.nth(index);
+      await block.hover();
+      await expect(block.getByRole("button", { name: "Code language", exact: true })).toBeEnabled();
+      await expect(block.locator(".pm-code-caption")).toBeEnabled();
+      await block.getByRole("button", { name: "Code language", exact: true }).click();
+      await page.getByRole("searchbox", { name: "Search for a language" }).fill("python");
+      await page.getByRole("button", { name: "Python", exact: true }).click();
+      await expect(block.getByRole("button", { name: "Code language", exact: true })).toHaveText("Python");
+    }
+    await page.keyboard.press("Control+s");
+    await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body)
+      .toContain("```python");
+    await page.reload();
+    for (let index = 0; index < 3; index++) {
+      await expect(blocks.nth(index).getByRole("button", { name: "Code language", exact: true })).toHaveText("Python");
+      await expect(blocks.nth(index).locator("code")).toContainText("changed code");
+    }
+    await blocks.first().hover();
+    await page.screenshot({ path: testInfo.outputPath("nested-code-language.png") });
+  });
+}
+
 for (const variant of ["notdown", "notion-markdown"]) {
   test(`three backticks immediately create a code block in ${variant}`, async ({ page, request }) => {
     const response = await request.post("/api/pages", { data: {

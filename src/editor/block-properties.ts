@@ -9,7 +9,12 @@ import { metadataValues } from "../markdown-engine/products";
 import { editMetadata } from "../markdown-engine/metadata-editing";
 import { parseNative } from "../markdown-engine/codec";
 
-export function blockPropertyFields(node: PMNode) {
+export function blockPropertyFields(node: PMNode, supplemental = true): { key: string; label: string; value: string; multiline: boolean }[] {
+  if (!supplemental && node.attrs.syntaxForm === "notion") {
+    const official: Record<string, string[]> = { web_bookmark: ["url", "caption"], link_preview: ["url"], web_embed: ["url", "caption"], image_block: ["src", "caption", "title"] };
+    const keys = official[editorKind(node)];
+    if (keys) return blockPropertyFields(node).filter(field => keys.includes(field.key));
+  }
   if (isEditorKind(node, "meeting_notes") && node.attrs.syntaxForm === "notion") return [{ key: "title", label: "Meeting title", value: String(node.attrs.title), multiline: false }];
   if (isEditorKind(node, "tabs") && node.attrs.syntaxForm === "notion") return [];
   if (isEditorKind(node, "media_block")) {
@@ -92,7 +97,7 @@ export function blockProperties(supplemental: () => boolean = () => false) {
       openers.set(view, pos => {
         const node = view.state.doc.nodeAt(pos);
         if (!view.editable || !node) return;
-        const fields = blockPropertyFields(node).filter(field => supplemental() || !isEditorKind(node, "synced_block") || field.key !== "@id");
+        const fields = blockPropertyFields(node, supplemental()).filter(field => supplemental() || !isEditorKind(node, "synced_block") || field.key !== "@id");
         if (!fields.length) return;
         active?.dialog.remove();
         const dialog = document.createElement("dialog"); dialog.className = "pm-block-properties-dialog";

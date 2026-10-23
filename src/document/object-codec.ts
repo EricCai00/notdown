@@ -90,6 +90,12 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
 }
 export function writeObjectBlock(node: PMNode, write: (node: PMNode) => string): string | undefined {
   if (isEditorKind(node, "image_block")) {
+    if (node.attrs.syntaxForm === "notion") {
+      const image = schema.nodes["inline.image"].create({ src: node.attrs.src, alt: node.attrs.caption, title: node.attrs.title || null });
+      const attributes = { ...node.attrs.nfmAttrs, ...(node.attrs.color ? { color: node.attrs.color } : {}), ...node.attrs.markdownAttrs };
+      return inlineMarkdown(schema.nodes["block.paragraph"].create(null, image)) +
+        (Object.keys(attributes).length ? ` {${attributesXml(attributes).trim()}}` : "");
+    }
     // Retired local_figure: new output uses Pandoc's existing image attributes.
     const image = schema.nodes["inline.image"].create({ src: node.attrs.src, alt: node.attrs.caption || node.attrs.alt, title: node.attrs.title || null, markdownAttrs: node.attrs.markdownAttrs });
     const source = inlineMarkdown(schema.nodes["block.paragraph"].create(null, image));

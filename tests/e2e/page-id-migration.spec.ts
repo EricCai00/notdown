@@ -5,7 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { stablePageUuid } from "../../server/page-id.js";
+import { stablePageUuid } from "../../src/vault/page-id.js";
 
 test("migrated UUID pages open from old addresses and linked pages retain navigation", async ({ page, request }) => {
   const status = await (await request.get('/api/status')).json();

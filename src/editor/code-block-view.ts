@@ -7,6 +7,12 @@ import { codeLanguage, codeLanguageLabel, filterCodeLanguages } from "./code-lan
 import { rememberCodeLanguage } from "./code-input-preferences";
 import "./code-block.css";
 
+const codeBlockViews = new WeakMap<HTMLElement, CodeBlockView>();
+
+export function refreshCodeBlockViews(view: EditorView) {
+  view.dom.querySelectorAll<HTMLElement>(".pm-code-block").forEach(dom => codeBlockViews.get(dom)?.refreshEditable());
+}
+
 const icon = (glyph: IconNode) => createElement(glyph, {
   width: 16, height: 16, "stroke-width": 1.8, "aria-hidden": "true",
 });
@@ -50,6 +56,7 @@ export class CodeBlockView implements NodeView {
     this.contentDOM = spec.contentDOM as HTMLElement;
     this.pre.classList.add("pm-code-pre");
     this.dom.className = "pm-code-block";
+    codeBlockViews.set(this.dom, this);
     this.toolbar.className = "pm-code-toolbar";
     this.toolbar.contentEditable = "false";
     this.toolbar.setAttribute("role", "toolbar");
@@ -92,7 +99,7 @@ export class CodeBlockView implements NodeView {
     for (const attr of Array.from((spec.dom as HTMLElement).attributes)) this.pre.setAttribute(attr.name, attr.value);
     this.pre.classList.add("pm-code-pre");
     this.languageText.textContent = codeLanguageLabel(String(this.node.attrs.params || ""));
-    this.languageButton.disabled = !this.view.editable;
+    this.refreshEditable();
     this.languageButton.title = "Code language";
     this.dom.classList.toggle("pm-code-wrapped", this.wrapped);
     this.wrapButton.setAttribute("aria-pressed", String(this.wrapped));
@@ -100,6 +107,12 @@ export class CodeBlockView implements NodeView {
     this.captionVisible ||= Boolean(codeCaption(this.node));
     this.captionInput.hidden = !this.captionVisible;
     if (document.activeElement !== this.captionInput) this.captionInput.value = codeCaption(this.node);
+  }
+
+  refreshEditable() {
+    this.languageButton.disabled = !this.view.editable;
+    this.captionInput.disabled = !this.view.editable;
+    if (!this.view.editable) this.closeMenu();
   }
 
   private updateAttrs(attrs: Record<string, unknown>, separate = true) {
@@ -145,6 +158,7 @@ export class CodeBlockView implements NodeView {
   }
 
   private toggleMenu(kind: "language" | "more") {
+    if (kind === "language" && !this.view.editable) return;
     if (this.menuKind === kind) { this.closeMenu(); return; }
     this.closeMenu();
     const panel = document.createElement("div");
@@ -295,6 +309,7 @@ export class CodeBlockView implements NodeView {
   }
 
   destroy() {
+    codeBlockViews.delete(this.dom);
     this.closeMenu();
     clearTimeout(this.copyTimer);
   }

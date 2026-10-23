@@ -229,6 +229,9 @@ export function buildManualPages(r: Resources): Specimen[] {
   pages.push({ key: 'objects-local', title: '32 · Objects — Local editing & services', syntax: config('notdown', Object.values(localObjectPlugins)), probes: [...new Set(Object.values(localObjectPlugins))], objects: local.map(([key]) => 'block.'+key),
     body: '# Local editing & services\n\n' + instruction + '\n\n这些是本地对象编码，不都属于 Notion 官方标签。按钮只插入样例文本；AI 和转录需要你主动点击。\n\n' + local.map(([key,sample],i) => section('L'+(i+1),key,sample,contentObjects.find(o => o.id === 'block.'+key)?.note || '',true)).join('\n') });
   pages.push({ key: 'outside', title: '99 · Outside Markdown scope — Reference only', syntax: config('commonmark'), probes: [], objects: [], body: '# Outside Markdown scope\n\n这些条目按工作簿分类列在最后，不提供虚假的启用或插入操作。\n\n' + catalogExtensions.filter(e => e.status === 'out-of-scope').map(e => `- **${e.id}** — ${e.description}`).join('\n') });
+  pages.push({ key: "notion-v2", title: "33 · Notion Markdown v2", syntax: { ...config("notion-markdown"), notionVersion: "v2" }, probes: [], objects: ["block.mail", "block.custom_block", "block.external_object_instance"], body: '# Notion Markdown v2\n\n<mail from="writer@example.com" subject="Imported mail">Editable body</mail>\n\n<custom-block definition-id="11111111-1111-4111-8111-111111111111" />\n\n<external_object_instance integration="github">Repository reference</external_object_instance>\n' });
+  const outsideIndex = pages.findIndex(page => page.key === "outside");
+  pages.push(...pages.splice(outsideIndex, 1));
   return pages;
 }
 

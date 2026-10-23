@@ -79,6 +79,8 @@ test("crop is reversible, retains the original resource, and expand/download/mor
   await expect(block.locator(".pm-image-caption")).toBeHidden();
   await page.keyboard.press("Control+s"); await page.reload();
   await expect(block.locator(".pm-image-viewport")).toHaveAttribute("style", /aspect-ratio/);
+  await expect(block.locator(".pm-image-caption")).toBeHidden();
+  await page.locator(".pm-document").screenshot({ path: "test-results/image-without-caption.png" });
 });
 
 test("cancelled changes and official Notion format preserve source; mobile controls stay reachable", async ({ page, request }) => {

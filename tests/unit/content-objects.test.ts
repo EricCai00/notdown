@@ -27,13 +27,13 @@ const config = (
   extensions: Record<string, boolean> = {},
 ): SyntaxConfig => ({ version: 1, variant, extensions });
 test("target inventory merges raw HTML and preserves other formats as unsupported", () => {
-  assert.equal(contentObjects.length, 82);
-  assert.equal(new Set(contentObjects.map((o) => o.id)).size, 82);
+  assert.equal(contentObjects.length, 85);
+  assert.equal(new Set(contentObjects.map((o) => o.id)).size, 85);
   assert.deepEqual(
     ["block", "metadata", "inline", "character"].map(
       (c) => contentObjects.filter((o) => o.category === c).length,
     ),
-    [43, 2, 33, 4],
+    [46, 2, 33, 4],
   );
   for (const object of contentObjects) {
     assert.equal(object.id.split(".")[0], object.category);

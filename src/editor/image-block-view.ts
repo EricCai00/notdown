@@ -3,6 +3,7 @@ import type { EditorView, NodeView } from "prosemirror-view";
 import { AlignCenter, AlignLeft, AlignRight, Captions, Crop, Download, Ellipsis, X, ZoomIn, ZoomOut, createElement, type IconNode } from "lucide";
 import { imageModel, imageLayout, type ImageCrop } from "../document/image-layout";
 import { safeReference as safeUrl } from "../document/notion-syntax";
+import { assetDisplayUrl } from "../shared/asset-display";
 import { mediaFilename } from "../document/media";
 import { imageTransaction, type ImageChange } from "./image-transactions";
 import { domAttributes } from "../markdown-engine/attributes";
@@ -76,7 +77,7 @@ export class ImageBlockView implements NodeView {
   private get model() { return imageModel(this.node)!; }
   private present() {
     const model = this.model, layout = imageLayout(model.attributes, this.canLayout());
-    const source = safeUrl(model.src);
+    const source = assetDisplayUrl(safeUrl(model.src));
     if (this.image.getAttribute("src") !== source) { this.dom.dataset.imageState = "loading"; this.image.src = source; }
     this.image.alt = model.alt; this.image.title = model.title;
     const attributes = domAttributes(model.attributes);
@@ -174,7 +175,7 @@ export class ImageBlockView implements NodeView {
     this.dialog?.close();
     const dialog = this.dialog = element("dialog", "pm-image-lightbox"), controls = element("div", "pm-image-lightbox-controls");
     dialog.setAttribute("aria-label", "Expanded image");
-    const image = element("img"); image.src = safeUrl(this.model.src); image.alt = this.model.alt;
+    const image = element("img"); image.src = assetDisplayUrl(safeUrl(this.model.src)); image.alt = this.model.alt;
     let zoom = 1;
     const setZoom = (next: number) => { zoom = Math.max(.25, Math.min(4, next)); image.style.transform = `scale(${zoom})`; };
     controls.append(button("Zoom out", ZoomOut, () => setZoom(zoom / 1.25)), button("Zoom in", ZoomIn, () => setZoom(zoom * 1.25)), button("Close expanded image", X, () => dialog.close()));
@@ -187,7 +188,7 @@ export class ImageBlockView implements NodeView {
     this.dialog?.close(); const original = this.node, ratio = this.image.naturalWidth / this.image.naturalHeight;
     const dialog = this.dialog = element("dialog", "pm-image-crop-dialog"); dialog.setAttribute("aria-label", "Crop image");
     const title = element("h3", "", "Crop image"), stage = element("div", "pm-image-crop-stage"), picture = element("img");
-    picture.src = safeUrl(this.model.src); picture.alt = this.model.alt; picture.draggable = false;
+    picture.src = assetDisplayUrl(safeUrl(this.model.src)); picture.alt = this.model.alt; picture.draggable = false;
     stage.style.aspectRatio = String(ratio); stage.style.width = `min(640px, 75vw, ${55 * ratio}vh)`;
     const box = element("div", "pm-image-crop-box"); box.setAttribute("aria-label", "Crop selection"); stage.append(picture, box);
     let crop: ImageCrop = [...(imageLayout(this.model.attributes, true).crop || [0, 0, 1, 1, ratio])] as ImageCrop;

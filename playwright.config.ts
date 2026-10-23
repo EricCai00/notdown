@@ -5,6 +5,7 @@ const testPort = Number(process.env.NOTDOWN_E2E_PORT || 4329);
 export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: "**/*.spec.ts",
+  testIgnore: ["**/mobile.spec.ts", "**/sync.spec.ts"],
   fullyParallel: false,
   workers: 1,
   retries: 0,

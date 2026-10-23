@@ -1,0 +1,17 @@
+.sync-settings form { display: grid; gap: 12px; }
+.sync-settings [hidden] { display: none !important; }
+.sync-settings label { display: grid; gap: 6px; font-size: 13px; }
+.sync-settings input, .sync-settings select, .sync-settings textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--border, #ddd); border-radius: 6px; background: var(--bg, #fff); color: inherit; font: inherit; }
+.sync-settings textarea, .sync-conflict pre { font: 12px/1.6 ui-monospace, monospace; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sync-settings textarea { resize: vertical; }
+.sync-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.sync-summary { font-size: 13px; overflow-wrap: anywhere; }
+.sync-feedback { display: block; margin-top: 10px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sync-conflict { border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 12px; margin-top: 12px; }
+.sync-conflict > summary { cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
+.sync-conflict .conflict-diff { max-height: 300px; overflow: auto; }
+.sync-conflict details { margin: 12px 0; }
+.sync-conflict label { margin: 12px 0; }
+.mobile-sync-dialog { box-sizing: border-box; width: min(680px, calc(100vw - 20px)); max-height: calc(var(--mobile-height, 100dvh) - 24px); border: 1px solid #ddd; border-radius: 12px; padding: 18px; overflow: auto; }
+.mobile-sync-dialog::backdrop { background: #0006; }
+.mobile-sync-dialog .sync-settings { border: 0; padding: 0; }

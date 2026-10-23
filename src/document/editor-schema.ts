@@ -16,6 +16,8 @@ const sourceAttrs = {
   sourceStart: { default: null },
   sourceEnd: { default: null },
   sourceKey: { default: null },
+  sourceCaption: { default: null },
+  sourceCaptionText: { default: null },
 };
 
 function block(spec: NodeSpec): NodeSpec {

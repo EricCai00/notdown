@@ -9,7 +9,7 @@ export interface ImageModel { src: string; alt: string; title: string; caption: 
 export function imageModel(node: PMNode): ImageModel | null {
   if (isEditorKind(node, "syntax_block")) return node.attrs.kind === "figure" ? node.attrs.data?.image || null : null;
   if (isEditorKind(node, "image") || isEditorKind(node, "image_block")) return {
-    src: node.attrs.src, alt: node.attrs.markdownAttrs?.alt ?? node.attrs.alt ?? "", title: node.attrs.title || "",
+    src: node.attrs.src, alt: node.attrs.markdownAttrs?.alt ?? (node.attrs.syntaxForm === "notion" ? node.attrs.caption : node.attrs.alt) ?? "", title: node.attrs.title || "",
     caption: isEditorKind(node, "image") ? node.attrs.alt || "" : node.attrs.caption || "",
     attributes: node.attrs.markdownAttrs || {},
   };

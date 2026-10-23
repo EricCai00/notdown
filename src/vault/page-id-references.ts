@@ -1,10 +1,10 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { parseDocument, isScalar } from "yaml";
-import { parseNative } from "../src/markdown-engine/codec.js";
-import { defaultSyntax } from "../src/markdown-engine/config.js";
-import { editorKind } from "../src/document/node-identity.js";
-import { nodeReference, markReference } from "../src/document/internal-reference.js";
-import { destinationMarker } from "./markdown-import.js";
+import { parseNative } from "../markdown-engine/codec.js";
+import { defaultSyntax } from "../markdown-engine/config.js";
+import { editorKind } from "../document/node-identity.js";
+import { nodeReference, markReference } from "../document/internal-reference.js";
+import { destinationMarker } from "../document/markdown-destination.js";
 import type { Page } from "./vault.js";
 
 /** Rewrite only reference destinations, never reserialize the document. */

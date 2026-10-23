@@ -1,4 +1,5 @@
 import { createElement, icons, type IconNode } from "lucide";
+import { assetDisplayUrl } from "./asset-display";
 
 // Include the installed library's complete public catalog, including legacy aliases.
 // Look up names before classifying text, so names containing digits remain icons.
@@ -18,6 +19,12 @@ export function lucidePageIcon(name?: string): IconNode | undefined {
 
 /** Unknown names fall back without changing the saved metadata; symbols stay text. */
 export function pageIconElement(icon?: string): Element {
+  if (icon && /^assets\/[a-zA-Z0-9_-]+\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i.test(icon)) {
+    const image = document.createElement("img");
+    image.className = "page-link-icon image"; image.src = assetDisplayUrl(icon); image.alt = "";
+    image.width = image.height = 16; image.style.objectFit = "contain";
+    return image;
+  }
   const node = lucidePageIcon(icon);
   if (icon && !node && /[^a-z0-9-]/i.test(icon)) {
     const span = document.createElement("span");

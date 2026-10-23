@@ -1,6 +1,65 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openBlockProperties } from "./block-properties-helper";
 
+test("audio and YouTube players omit automatic labels and preserve explicit captions after reload", async ({ page, request }) => {
+  test.setTimeout(45_000);
+  const original = "https://www.youtube.com/watch?v=QBuZEl1waIA";
+  const embed = "https://www.youtube.com/embed/QBuZEl1waIA";
+  const audioSource = "https://media.example.test/Aphex_Twin_-_Bit_4.mp3";
+  // Deterministic integration check; live YouTube availability is not a CI dependency.
+  await page.route(embed, route => route.fulfill({ contentType: "text/html", body: '<html><body style="margin:0;background:#181818;color:white"><button onclick="this.textContent=\'Playing\'">Play fixture</button></body></html>' }));
+  await page.route(audioSource, route => route.fulfill({ contentType: "audio/wav", body: wav() }));
+  const body = `<video src="${original}"></video>\n\n<audio src="${audioSource}"></audio>\n\nTail`;
+  const note = await (await request.post("/api/pages", { data: { title: "YouTube video", body, syntax: { version: 1, variant: "notion-markdown", extensions: {} } } })).json();
+  const loaded = page.waitForRequest(embed);
+  await page.goto(`/#page/${note.id}`);
+  const incoming = await loaded;
+  expect((await incoming.allHeaders()).referer).toBe(new URL(page.url()).origin + "/");
+  const frame = page.locator(".pm-video-block iframe");
+  await expect(frame).toHaveAttribute("src", embed);
+  await expect(frame).toHaveAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+  await expect(page.locator(".pm-video-block video")).toHaveCount(0);
+  const media = page.locator(".pm-video-block, .pm-audio-block");
+  await expect(media).toHaveCount(2);
+  await expect(media.locator("a, figcaption")).toHaveCount(0);
+  const dimensions = await frame.boundingBox();
+  expect(dimensions!.width / dimensions!.height).toBeCloseTo(16 / 9, 1);
+  await page.frameLocator(".pm-video-embed").getByRole("button", { name: "Play fixture" }).click();
+  await expect(page.frameLocator(".pm-video-embed").getByRole("button")).toHaveText("Playing");
+  const audio = page.locator(".pm-audio-block audio");
+  await expect(audio).toBeVisible();
+  await audio.evaluate(async (el: HTMLAudioElement) => { await el.play(); });
+  await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(0);
+  await audio.evaluate((el: HTMLAudioElement) => el.pause());
+  await page.locator(".pm-document > p").last().click();
+  await page.keyboard.press("End"); await page.keyboard.type(" edited"); await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body + " edited");
+  await page.reload();
+  await expect(frame).toHaveAttribute("src", embed);
+  await expect(media.locator("a, figcaption")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/media-no-automatic-labels.png" });
+
+  // Hover the block gutter: pointer events inside the player belong to its iframe.
+  const bounds = await frame.boundingBox();
+  await page.mouse.move(bounds!.x - 8, bounds!.y + 8);
+  await expect(page.locator(".pm-block-handle")).toHaveClass(/visible/);
+  await page.locator(".pm-block-handle").click();
+  await page.getByRole("menuitem", { name: "Properties…", exact: true }).click();
+  const properties = page.getByRole("dialog").filter({ has: page.locator(".pm-block-property-fields") });
+  await expect(properties.getByLabel("Caption", { exact: true })).toHaveValue("");
+  await properties.getByLabel("Caption", { exact: true }).fill("A caption I added");
+  await properties.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator(".pm-video-block figcaption")).toHaveText("A caption I added");
+  await expect(media.locator("a")).toHaveCount(0);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(`<video src="${original}">A caption I added</video>`);
+  await page.reload();
+  await expect(page.locator(".pm-video-block figcaption")).toHaveText("A caption I added");
+  await expect(page.locator(".pm-audio-block figcaption")).toHaveCount(0);
+  await expect(media.locator("a")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/media-explicit-caption.png" });
+});
+
 function wav() {
   const data = Buffer.alloc(44 + 16000);
   data.write("RIFF"); data.writeUInt32LE(data.length - 8, 4); data.write("WAVEfmt ", 8);
@@ -81,8 +140,10 @@ test("File stays a card for audio and PDF; typed media uploads persist and audio
   await audio.evaluate(async (el: HTMLAudioElement) => { await el.play(); });
   await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(0);
   await audio.evaluate((el: HTMLAudioElement) => el.pause());
+  await expect(page.locator(".pm-audio-block figcaption, .pm-audio-block a")).toHaveCount(0);
   await upload(page, "video", "Movie.webm", "video/webm", await videoFixture(page));
   await expect(page.locator(".pm-document video[controls]")).toBeVisible();
+  await expect(page.locator(".pm-video-block figcaption, .pm-video-block a")).toHaveCount(0);
   await expect.poll(() => page.locator(".pm-document video").evaluate((el: HTMLVideoElement) => el.error?.message || (el.readyState >= 1 ? "loaded" : "loading"))).toBe("loaded");
   await page.locator(".pm-document video").evaluate(async (el: HTMLVideoElement) => { await el.play(); });
   await expect.poll(() => page.locator(".pm-document video").evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(0);
@@ -93,16 +154,22 @@ test("File stays a card for audio and PDF; typed media uploads persist and audio
   await expect(page.locator(".pm-file-card")).toHaveCount(2);
   await expect(page.locator(".pm-document object")).toHaveCount(1);
   await upload(page, "image", "Picture.png", "image/png", Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aB1cAAAAASUVORK5CYII=", "base64"));
-  await expect(page.locator('.pm-document img[alt="Picture.png"]')).toBeVisible();
+  const image = page.locator(".pm-document .pm-image-block-view");
+  await expect(image.locator("img")).toBeVisible();
+  await expect(image.locator("img")).toHaveAttribute("alt", "");
+  await expect(image.locator(".pm-image-caption")).toBeHidden();
   await page.keyboard.press("Control+s");
-  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("![Picture.png]");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("![](");
   const body = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
   expect(body).toMatch(/<file[^>]+>Recording.wav<\/file>/);
-  expect(body).toMatch(/<audio[^>]+>Recording.wav<\/audio>/);
+  expect(body).toMatch(/<audio[^>]+><\/audio>/);
+  expect(body).toMatch(/<video[^>]+><\/video>/);
   expect(body).not.toContain("15.7 KiB");
   await page.reload();
   await expect(card.locator(".pm-file-size")).toHaveText("15.7 KiB");
   await expect(page.locator(".pm-document audio")).toHaveCount(1);
+  await expect(image.locator(".pm-image-caption")).toBeHidden();
+  await expect(page.locator(".pm-audio-block, .pm-video-block").locator("figcaption, a")).toHaveCount(0);
   const properties = await openBlockProperties(page, page.locator(".pm-file-block").filter({ has: card }));
   await expect(properties.getByLabel("File name", { exact: true })).toHaveValue("Recording.wav");
   await properties.getByLabel("File name", { exact: true }).fill("Renamed.wav");

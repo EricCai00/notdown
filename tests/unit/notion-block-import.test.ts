@@ -20,8 +20,8 @@ test("Notdown imports five known unknown-block types, including a link to an act
   assert.equal((root.metadata.syntax as any).variant, "notdown");
   assert.ok(root.source.includes(`<page url="#page/${child.id}">Child</page>`));
   assert.ok(root.source.includes(`<page-link future="keep" url="#page/${child.id}">Same title</page-link>`));
-  assert.ok(root.source.includes('caption="Caption &quot;quoted&quot;&#10;Next"'));
-  assert.ok(root.source.includes('<web-embed future="keep" url="https://example.com/embed"/>'));
+  assert.ok(root.source.includes('<b>Caption &quot;quoted&quot;\\\nNext</b>'));
+  assert.ok(root.source.includes('<embed future="keep" source="https://example.com/embed"></embed>'));
   assert.ok(root.source.includes('<link-preview future="keep" url="https://example.com/preview"/>'));
   assert.ok(root.source.includes('<breadcrumb future="keep"/>'));
   for (const n of [6, 7, 8]) assert.ok(root.source.includes(unknownTag(n)));
@@ -34,7 +34,7 @@ test("Notdown imports five known unknown-block types, including a link to an act
   assert.ok(plan.originals.some(f => f.path.startsWith("api/") && f.data.toString().includes('"link_to_page"') && f.data.toString().includes('"preserved":true')));
   assert.ok(!JSON.stringify(plan).includes(request.token));
   assert.ok(!JSON.stringify(plan).includes("never display upstream body"));
-  const c = { version: 1 as const, variant: "notdown" as const, extensions: {} }, doc = parseNative(root.source, c);
+  const c = { version: 1 as const, variant: "notdown" as const, notionVersion: "v2" as const, extensions: {} }, doc = parseNative(root.source, c);
   const types: string[] = []; doc.descendants(node => { types.push(node.type.name); });
   for (const type of ["block.child_page", "block.link_to_page", "block.web_bookmark", "block.web_embed", "block.link_preview", "block.breadcrumb"]) assert.ok(types.includes(type), type);
   assert.equal(serializeNative(doc, c), root.source);
@@ -46,11 +46,14 @@ test("Notdown imports five known unknown-block types, including a link to an act
   assert.equal((await vault.importBatch(await prepareNotionImport(request, options))).alreadyImported, true);
 });
 
-test("official mode preserves placeholders; Notdown single-page mode fetches blocks but leaves unimported targets remote", async () => {
+test("official v2 mode restores official carriers; local controls remain Notdown-only and missing targets remain remote", async () => {
   const calls: string[] = [];
   const official = await prepareNotionImport({ ...request, variant: "notion-markdown", includeChildren: false }, { fetch: enrichmentFixture(calls), wait });
-  assert.equal(official.pages[0].source, enrichmentSource);
-  assert.ok(!calls.some(call => call.startsWith("/v1/blocks/")));
+  assert.ok(official.pages[0].source.includes('<mention future="keep"'));
+  assert.ok(official.pages[0].source.includes('<bookmark future="keep" source='));
+  assert.ok(official.pages[0].source.includes(unknownTag(5)));
+  assert.ok(!official.pages[0].source.includes('<breadcrumb'));
+  assert.ok(calls.some(call => call.startsWith("/v1/blocks/")));
   const notdown = await prepareNotionImport({ ...request, includeChildren: false }, { fetch: enrichmentFixture(calls), wait });
   assert.equal(notdown.pages.length, 1);
   assert.notEqual(official.id, notdown.id);

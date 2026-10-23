@@ -19,14 +19,18 @@ export class BookmarkView implements NodeView {
   private dialog?: HTMLDivElement;
   private original?: PMNode;
   private controller?: AbortController;
+  private previewController?: AbortController;
+  private preview?: BookmarkMetadata;
+  private previewUrl = "";
   private serial = 0;
   private disposed = false;
   private loading = false;
   private message = "";
-  constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined) {
+  constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined, private supplemental: () => boolean = () => true) {
     this.dom.contentEditable = "false";
     this.dom.addEventListener("notdown-create-bookmark", this.createFromPaste);
     this.render();
+    this.loadPreview();
   }
   private createFromPaste = () => { if (this.view.editable) void this.resolve(String(this.node.attrs.url)); };
   private action(label: string, shape: typeof Bookmark, callback: () => void) {
@@ -36,7 +40,14 @@ export class BookmarkView implements NodeView {
     return button;
   }
   private render() {
-    const a = this.node.attrs, url = bookmarkUrl(a.url);
+    const saved = this.node.attrs, url = bookmarkUrl(saved.url);
+    const preview = url === this.previewUrl ? this.preview : undefined;
+    const a = {
+      title: saved.title || preview?.title,
+      description: saved.description || preview?.description,
+      icon: saved.icon || preview?.icon,
+      image: saved.image || preview?.image,
+    };
     this.dom.replaceChildren();
     this.dom.setAttribute("aria-busy", String(this.loading));
     if (!url) {
@@ -61,7 +72,7 @@ export class BookmarkView implements NodeView {
     }
     body.append(identity, el("div", "pm-bookmark-title", a.title || new URL(url).hostname));
     if (a.description) body.append(el("div", "pm-bookmark-description", a.description));
-    body.append(el("div", "pm-bookmark-url", a.url));
+    body.append(el("div", "pm-bookmark-url", saved.url));
     link.append(body);
     if (bookmarkUrl(a.image)) {
       const image = el("img", "pm-bookmark-image");
@@ -69,7 +80,7 @@ export class BookmarkView implements NodeView {
       image.onerror = () => image.remove(); link.append(image);
     }
     this.dom.append(link);
-    if (a.caption) this.dom.append(el("div", "pm-bookmark-caption", a.caption));
+    if (saved.caption) this.dom.append(el("div", "pm-bookmark-caption", saved.caption));
     if (this.view.editable) {
       const actions = el("div", "pm-bookmark-actions");
       const refresh = this.action("Refresh bookmark", RefreshCw, () => { void this.resolve(url); });
@@ -84,6 +95,24 @@ export class BookmarkView implements NodeView {
       const status = el("output", "pm-bookmark-status", this.loading ? "Loading bookmark…" : this.message);
       status.setAttribute("aria-live", "polite"); this.dom.append(status);
     }
+  }
+  private loadPreview() {
+    const a = this.node.attrs, url = bookmarkUrl(a.url);
+    if (url === this.previewUrl) return;
+    this.previewController?.abort();
+    this.preview = undefined;
+    this.previewUrl = url;
+    // Imported bookmarks may only contain a URL. Enrich the view without
+    // dispatching an edit or replacing any saved metadata.
+    if (!url || a.title || a.description || a.icon || a.image) return;
+    const controller = this.previewController = new AbortController();
+    void api<BookmarkMetadata>("/bookmarks/resolve", {
+      method: "POST", body: JSON.stringify({ url }), signal: controller.signal,
+    }).then(metadata => {
+      if (this.disposed || controller.signal.aborted || url !== bookmarkUrl(this.node.attrs.url)) return;
+      this.preview = metadata;
+      this.render();
+    }).catch(() => { /* Keep the usable URL card when a website is unavailable. */ });
   }
   private position = () => {
     if (!this.dialog) return;
@@ -132,6 +161,7 @@ export class BookmarkView implements NodeView {
   }
   private async resolve(url: string, output?: HTMLOutputElement) {
     if (!this.view.editable || !bookmarkUrl(url)) return;
+    this.previewController?.abort();
     const original = this.original || this.node, serial = ++this.serial;
     this.controller?.abort(); this.controller = new AbortController();
     this.loading = true; this.message = ""; this.render();
@@ -150,7 +180,11 @@ export class BookmarkView implements NodeView {
       this.render(); return;
     }
     const changedUrl = bookmarkUrl(original.attrs.url) !== bookmarkUrl(url);
-    const attrs = { ...original.attrs, ...(changedUrl ? { title: "", description: "", image: "", icon: "" } : {}), ...metadata, url };
+    // Official v2 stores the destination and caption; fetched card details stay a preview.
+    const attrs = { ...original.attrs, ...(changedUrl ? { title: "", description: "", image: "", icon: "" } : {}), ...(this.supplemental() ? metadata : {}), url };
+    if (changedUrl) this.preview = undefined;
+    if (!this.supplemental()) this.preview = metadata;
+    this.previewUrl = bookmarkUrl(url);
     // Clear the draft before dispatch: the resulting NodeView update is our own commit.
     const returnFocus = !!this.dialog || document.activeElement === document.body;
     this.close();
@@ -164,9 +198,9 @@ export class BookmarkView implements NodeView {
       this.controller?.abort(); this.serial++; this.loading = false;
       if (this.dialog) this.close();
     }
-    this.node = node; this.render(); return true;
+    this.node = node; this.loadPreview(); this.render(); return true;
   }
   stopEvent(event: Event) { return event.type !== "dragstart" && event.type !== "dragend"; }
   ignoreMutation() { return true; }
-  destroy() { this.disposed = true; this.close(); this.dom.removeEventListener("notdown-create-bookmark", this.createFromPaste); }
+  destroy() { this.disposed = true; this.previewController?.abort(); this.close(); this.dom.removeEventListener("notdown-create-bookmark", this.createFromPaste); }
 }

@@ -26,10 +26,16 @@ export class ApiError extends Error {
   }
 }
 
+export type ApiTransport = (path: string, options: RequestInit) => Promise<unknown>;
+let localTransport: ApiTransport | undefined;
+/** Installed by the offline mobile entry point before mounting shared editor views. */
+export function setApiTransport(transport: ApiTransport | undefined) { localTransport = transport; }
+
 export async function api<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (localTransport) return await localTransport(path, options) as T;
   const response = await fetch(`/api${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...options.headers },

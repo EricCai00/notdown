@@ -90,6 +90,7 @@ import { undoInputRule } from "prosemirror-inputrules";
 import { HtmlBlockView, htmlInlineView, isHtmlBlock } from "../markdown-engine/html-view.js";
 import { inTableCell, tableEditing, tableLineBreak } from "./editor-table.js";
 import { lineBlockEnter } from "./line-block.js";
+import { toggleHeadingEnter } from "./toggle-heading";
 import {
   SyntaxBlockView,
   inlineTransclusionView,
@@ -150,7 +151,7 @@ import type { BodyFormat } from "../document/notion-syntax";
 import { notionNodeViews, refreshEmbeddedToc } from "./notion-nodeviews";
 import { refreshAlertViews } from "../blocks/alert-view";
 import { EmbedView } from "../blocks/embed-view";
-import { CodeBlockView } from "./code-block-view";
+import { CodeBlockView, refreshCodeBlockViews } from "./code-block-view";
 import { ImageBlockView } from "./image-block-view";
 import { RChunkView, rInlineView } from "./rmarkdown-view";
 import { codeHighlighting } from "./code-highlighting";
@@ -408,6 +409,7 @@ export class BlockEditor {
         tableLineBreak,
         mathBlockEnter(() => options.canCommand?.("equation") !== false),
         lineBlockEnter,
+        toggleHeadingEnter,
         (state, dispatch, view) => splitListItem(schema.nodes["block.example_list_item"], { label: "", number: (state.selection.$from.node(-1)?.attrs.number || 0) + 1 })(state, dispatch, view),
         exitEmptyList,
         splitItem,
@@ -915,6 +917,8 @@ export class BlockEditor {
   setEditable(value: boolean) {
     this.view.setProps({ editable: () => value });
     refreshAlertViews(this.view);
+    // Node views can be reused without update() when only editable changes.
+    refreshCodeBlockViews(this.view);
   }
   /** Pair fresh file ranges with the same projection used by the live view. */
   sourceBlocks(sourceDoc: PMNode): { node: PMNode; element: HTMLElement }[] {

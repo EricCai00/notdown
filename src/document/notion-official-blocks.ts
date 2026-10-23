@@ -4,6 +4,7 @@ import { createEditorNode, editorKind } from "./node-identity";
 import { attributesXml, decodeXml, escapeXml, openingTag } from "./notion-syntax";
 
 export function officialNotionObject(node: PMNode): boolean {
+  if (["mail", "custom_block", "external_object_instance"].includes(editorKind(node)) || ["web_bookmark", "web_embed", "link_preview", "link_mention"].includes(editorKind(node)) && node.attrs.syntaxForm === "notion") return true;
   return ["notion_embed", "folder", "database", "meeting_section"].includes(editorKind(node)) ||
     ["tabs", "tab", "meeting_notes"].includes(editorKind(node)) && node.attrs.syntaxForm === "notion";
 }

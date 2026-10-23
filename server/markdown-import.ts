@@ -1,3 +1,5 @@
+import { destinationMarker } from "../src/document/markdown-destination.js";
+export { destinationMarker } from "../src/document/markdown-destination.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { Document, isMap, parseDocument } from "yaml";
@@ -6,7 +8,7 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { validSyntax, syntaxFormat, type SyntaxConfig } from "../src/markdown-engine/config.js";
 import { VaultError } from "./vault.js";
-import { stablePageUuid } from "./page-id.js";
+import { stablePageUuid } from "../src/vault/page-id.js";
 import type { DatabaseResources } from "../src/features/databases/database-model.js";
 
 export type ImportFile = { path: string; data: string };
@@ -16,7 +18,7 @@ export type ImportPlan = {
   id: string;
   name: string;
   pages: { id: string; path: string; source: string; metadata: Record<string, unknown> }[];
-  assets: { filename: string; data: Buffer }[];
+  assets: { filename: string; data: Buffer; name?: string; contentType?: string; origin?: "notion" }[];
   originals: { path: string; data: Buffer }[];
   warnings: string[];
   errors: string[];
@@ -26,28 +28,6 @@ const maxBytes = 20 * 1024 * 1024;
 const frontmatter = /^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const safeAssetExtension = /\.(png|jpe?g|gif|webp|avif|mp3|ogg|wav|m4a|mp4|webm|pdf|txt|zip)$/i;
 
-export function destinationMarker(raw: string, definition: boolean): number {
-  if (definition) {
-    // Definition labels may contain escaped brackets and colons.
-    for (let i = 1; i < raw.length; i++) {
-      if (raw[i] === "\\") { i++; continue; }
-      if (raw[i] === "]" && raw[i + 1] === ":") return i + 2;
-    }
-    return -1;
-  }
-  let depth = 0;
-  for (let i = raw.startsWith("!") ? 1 : 0; i < raw.length; i++) {
-    if (raw[i] === "\\") { i++; continue; }
-    if (raw[i] === "`") {
-      let count = 1; while (raw[i + count] === "`") count++;
-      const end = raw.indexOf("`".repeat(count), i + count);
-      if (end >= 0) { i = end + count - 1; continue; }
-    }
-    if (raw[i] === "[") depth++;
-    if (raw[i] === "]" && --depth === 0) return raw[i + 1] === "(" ? i + 2 : -1;
-  }
-  return -1;
-}
 
 function safePath(value: unknown): string {
   if (typeof value !== "string" || !value || value.length > 1000 || /[\\\x00-\x1f:]/.test(value) || value.startsWith("/") || value.split("/").some(p => !p || p === "." || p === ".."))

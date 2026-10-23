@@ -2,6 +2,15 @@
 
 先读项目 README（[English](../README.md) / [简体中文](../README.zh-CN.md)）、[正文格式契约](FORMAT.md) 与 [仓库组织约定](architecture/REPOSITORY.md)。格式规则以当前契约及明确标注的后续修订为准；历史审计和验收结果不代表当前全部实现状态。
 
+## 使用入门
+
+- [写作与导航](features/WRITING-AND-NAVIGATION.md)：编辑视图、常用操作、页面管理与关系图。
+- [媒体与嵌入](features/MEDIA-AND-EMBEDS.md)：图片、音视频、PDF、HTML 附件与网页嵌入。
+- [Android 初版](features/ANDROID.md)：离线笔记、图片、知识库 ZIP 备份与当前移动端边界。
+- [多设备云同步](features/CLOUD-SYNC.md)：Supabase 配置、桌面与安卓同步、冲突处理及当前限制。
+- [坚果云 WebDAV 同步](features/WEBDAV-SYNC.md)：应用密码、独立远端文件夹、请求限制与并发保护。
+- [运行与开发指南](architecture/DEVELOPMENT.md)：知识库路径、启动与重启、构建、测试及开发工具。
+
 ## 架构与开发
 
 - [仓库组织与开发入口](architecture/REPOSITORY.md)
@@ -43,7 +52,7 @@
 - [页面与位置链接（统一引用模型）](features/INTERNAL-REFERENCES.md)
 
 - [Windows 桌面版与 Markdown 文件夹导入](features/DESKTOP-AND-IMPORT.md)
-- [Notion API Enhanced Markdown 单向导入](features/NOTION-IMPORT.md)
+- [Notion API Markdown v2 单向导入](features/NOTION-IMPORT.md)
 - [代码语言、Custom 分组与高亮来源](features/CODE-LANGUAGES.md)
 - [脚注交互与正文块类型](features/FOOTNOTES.md)
 - [引文、缩写、术语、修订、图片工具栏与表格编辑](features/INLINE-OBJECTS.md)
@@ -56,6 +65,14 @@
 - [联系人](features/PEOPLE.md)
 
 ## 审计与验证记录
+
+- [WebDAV 适配与本机验证（2026-10-23）](verification/WEBDAV-2026-10-23.md)
+
+- [多设备云同步验证（2026-10-23）](verification/CLOUD-SYNC-2026-10-23.md)
+
+- [附件库首版验证（2026-10-23）](verification/ATTACHMENTS-2026-10-23.md)
+
+- [Android 离线初版验证（2026-10-23）](verification/ANDROID-2026-10-23.md)
 
 - [数据库表格、选项与右侧记录面板验证（2026-09-28）](verification/DATABASES-DESIGN-QA-2026-09-28.md)
 

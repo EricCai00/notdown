@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { notionRoot, notionSource, notionLinksRoot, notionChild, notionSibling } from "../unit/notion-import-fixture.js";
-import { stablePageUuid } from "../../server/page-id.js";
+import { stablePageUuid } from "../../src/vault/page-id.js";
 
 for (const variant of ["notdown", "notion-markdown"]) test(`imported ${variant} inline page links navigate to the matching local copy`, async ({ page, request }) => {
   const response = await request.post("/api/notion/import/preview", {
@@ -87,11 +87,11 @@ test("Notion API preview, exact Markdown import and duplicate snapshot preserve 
   expect(
     (await (await request.get(`/api/pages/${before.id}`)).json()).title,
   ).toBe("Save pending Notion import title");
-  await page
-    .locator(".page-pane .ProseMirror")
-    .fill("Local edit after API import");
+  await page.locator(".page-pane .ProseMirror").focus();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("Local edit after API import");
   await page.keyboard.press("Control+s");
-  await expect(page.locator("#save-status")).toContainText("Saved locally");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${root.id}`)).json()).body).toContain("Local edit after API import");
   await open();
   await page
     .getByRole("button", { name: "Import copies", exact: true })

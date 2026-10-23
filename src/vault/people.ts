@@ -1,11 +1,12 @@
-import { createHash, randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import type { Buffer } from "buffer";
+import { hashBytes, randomUUID } from "./crypto.js";
+import type { VaultPlatform, StorageError } from "./platform.js";
 import { Document, isMap, parseDocument } from "yaml";
 import { VaultError, assertId } from "./vault.js";
-import { personFields, type Person, type PersonInput } from "../src/features/people/person.js";
+import { personFields, type Person, type PersonInput } from "../features/people/person.js";
 
 type Storage = {
+  platform: VaultPlatform;
   root: string;
   init(): Promise<void>;
   safeDirectory(directory: string): Promise<void>;
@@ -13,7 +14,7 @@ type Storage = {
   serialize<T>(operation: () => Promise<T>): Promise<T>;
 };
 type Stored = { person: Person; source: string; document: Document; file: string };
-const hash = (source: string) => createHash("sha256").update(source).digest("hex");
+const hash = (source: string) => hashBytes(source);
 function validate(input: PersonInput) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new VaultError(400, "A person object is required");
   for (const field of personFields) {
@@ -27,6 +28,7 @@ function validate(input: PersonInput) {
 
 /** Called only by createVault; shares its mutation queue and atomic file writer. */
 export function createPeople(storage: Storage) {
+  const { fs, path } = storage.platform;
   const directory = path.join(storage.root, "people");
   const history = path.join(storage.root, ".history", "people");
   async function ready() {

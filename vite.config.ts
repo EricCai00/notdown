@@ -2,7 +2,9 @@ import { defineConfig } from "vite";
 import { build } from "esbuild";
 import path from "node:path";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  root: mode === "mobile" ? path.resolve("src/mobile") : undefined,
+  publicDir: path.resolve("public"),
   plugins: [{
     name: "notdown-ojs-sandbox",
     resolveId: id => ["virtual:notdown-ojs", "virtual:notdown-ojs-output"].includes(id) ? "\0" + id.slice(8) : undefined,
@@ -25,10 +27,12 @@ export default defineConfig({
     },
   },
   build: {
+    ...(mode === "mobile" ? { outDir: path.resolve(".run/android-frontend"), emptyOutDir: true }
+      : process.env.NOTDOWN_E2E_FRONTEND_DIR ? { outDir: path.resolve(process.env.NOTDOWN_E2E_FRONTEND_DIR), emptyOutDir: true } : {}),
     assetsDir: "static",
     rollupOptions: {
-      input: { main: "index.html", lab: "markdown-lab.html", catalog: "block-catalog.html" },
+      input: mode === "mobile" ? path.resolve("src/mobile/index.html") : { main: "index.html", lab: "markdown-lab.html", catalog: "block-catalog.html" },
       output: { manualChunks: { editor: ["prosemirror-view", "prosemirror-state", "prosemirror-model", "prosemirror-commands", "prosemirror-history", "prosemirror-schema-list"] } },
     },
   },
-});
+}));

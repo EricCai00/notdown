@@ -166,7 +166,23 @@ export function notionDatabaseImport(options: {
     };
     return { resources, metadata };
   }
-  return { database, dataSource, pageProperties, completeProperties, finish };
+  async function saveAttachments(save: (url: string, name?: string) => Promise<string>) {
+    for (const [id, record] of records) {
+      const properties = { ...record.properties };
+      for (const [name, property] of Object.entries<Json>(properties)) {
+        if (property.type !== "files" || !Array.isArray(property.files)) continue;
+        const files: Json[] = [];
+        for (const file of property.files) {
+          const url = file[file.type]?.url;
+          const local = typeof url === "string" ? await save(url, typeof file.name === "string" ? file.name : undefined) : url;
+          files.push(local && local !== url ? { ...file, notionSourceUrl: url, [file.type]: { ...file[file.type], url: local } } : file);
+        }
+        properties[name] = { ...property, files };
+      }
+      records.set(id, { ...record, properties });
+    }
+  }
+  return { database, dataSource, pageProperties, completeProperties, finish, saveAttachments };
 }
 
 function decodePropertyId(value: string) { try { return decodeURIComponent(value); } catch { return value; } }

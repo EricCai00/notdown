@@ -24,10 +24,11 @@ export function mediaFileMatches(kind: MediaInsertKind, file: { name: string; ty
 export function mediaInsertMarkdown(kind: MediaInsertKind, name: string, path: string, config: SyntaxConfig): string {
   const label = name.replace(/[\\\[\]]/g, "\\$&").replace(/[\r\n]/g, " ");
   const destination = path.replace(/[\s()<>]/g, c => encodeURIComponent(c).replace(/\(/g, "%28").replace(/\)/g, "%29"));
-  if (kind === "image") return `\n\n![${label}](${destination})\n\n`;
+  if (kind === "image") return `\n\n![](${destination})\n\n`;
   if (!enabled(config, "notion_media")) {
     if (kind !== "file") throw new Error("This page format does not support media blocks.");
     return `\n\n[${label}](${destination})\n\n`;
   }
-  return `\n\n<${kind} src="${escapeXml(path)}">${escapeXml(name)}</${kind}>\n\n`;
+  const caption = kind === "audio" || kind === "video" ? "" : escapeXml(name);
+  return `\n\n<${kind} src="${escapeXml(path)}">${caption}</${kind}>\n\n`;
 }

@@ -1,7 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { documentMetadata } from "../src/features/metadata/document-metadata.js";
+import type { Buffer } from "buffer";
+import { hashBytes, randomUUID } from "./crypto.js";
+import type { VaultPlatform, StorageError } from "./platform.js";
+import { documentMetadata } from "../features/metadata/document-metadata.js";
 import { isPageUuid, stablePageUuid } from "./page-id.js";
 import { migratePageReferences } from "./page-id-references.js";
 import { VaultError, type Page } from "./vault.js";
@@ -14,6 +14,7 @@ export type PageIdMigrationPlan = {
   fingerprint: string;
 };
 type Context = {
+  platform: VaultPlatform;
   root: string;
   scan: () => Promise<Map<string, Stored>>;
   serialize: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -23,11 +24,12 @@ type Context = {
   safeDirectory: (file: string) => Promise<void>;
   snapshot: (page: Stored) => Promise<void>;
 };
-const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+const hash = (value: string) => hashBytes(value);
 const legacyNotion = /^notion-([a-f0-9]{24})-([a-f0-9-]{36})$/;
 
 /** A recoverable multi-file CAS transaction, executed under the vault's lock. */
 export function createPageIdMigration(ctx: Context) {
+  const { fs, path } = ctx.platform;
   const journalPath = path.join(ctx.root, ".history/page-id-migration.json");
   const resolve = (file: string) => {
     if (!/^(?:metadata\.json|pages\/[^/\\]+\.md|\.history\/imports\/[a-f0-9]{64}\/manifest\.json|\.history\/conflicts\/[a-zA-Z0-9_-]+\.(?:json|md))$/.test(file) || file.includes(".."))
@@ -46,7 +48,7 @@ export function createPageIdMigration(ctx: Context) {
         const before = await ctx.readOptional(resolve(file));
         if (before !== null) files.push({ file, before, after: before });
       }
-    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+    } catch (error) { if ((error as StorageError).code !== "ENOENT") throw error; }
     for (const entry of await fs.readdir(path.join(ctx.root, ".history/conflicts"), { withFileTypes: true })) {
       if (!entry.isFile() || entry.isSymbolicLink() || !/^[a-zA-Z0-9_-]+\.(?:json|md)$/.test(entry.name)) continue;
       const file = `.history/conflicts/${entry.name}`, before = await ctx.readOptional(resolve(file));

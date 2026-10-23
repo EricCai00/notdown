@@ -30,7 +30,9 @@ import { objectSamples } from "../document/object-model";
 import { insertFormats } from "../editor/insert-format";
 import { mountServiceSettings } from "./service-settings";
 import { mountRuntimeSettings } from "./runtime-settings";
+import { mountSyncSettings, installSyncScheduler } from "../features/vault/sync-settings";
 import { openPeople } from "../features/people/people-view";
+import { openAssetLibrary } from "../features/assets/asset-library";
 import { openPeopleEvent, refreshPeople } from "../features/people/people-client";
 import { personMention } from "../features/people/person";
 import { plainText } from "../shared/plain-text";
@@ -378,7 +380,7 @@ function shell() {
   app.innerHTML = `<aside class="sidebar" id="sidebar">
     <button class="workspace-switch" data-action="settings"><img class="workspace-avatar" src="${notdownIcon}" width="28" height="28" alt="" /><span><strong>Notdown workspace</strong></span>${icon("chevrons-up-down")}</button>
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
-    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
+    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="attachments">${icon("paperclip")}Attachments</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
     <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="new-database">${icon("table-2")}New database</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button><button class="new-page" data-action="import-notion">${icon("globe")}Import from Notion API</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
     <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
@@ -634,7 +636,7 @@ function pageOptions() {
     ["source", "code-xml", "Markdown source"],
     ["split", "columns-2", "Source and page"],
   ];
-  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
 }
 function renderContent() {
   if (!current) return;
@@ -1561,7 +1563,7 @@ function startCoverReposition() {
 function showSettings() {
   const settingsDialog = modal(
     "Workspace settings",
-    `<div class="settings-section"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies are available. Background sync across devices is not yet implemented.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
+    `<div class="settings-section"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync below to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
   );
   const typingSection = document.createElement("div");
   typingSection.className = "settings-section";
@@ -1623,6 +1625,7 @@ function showSettings() {
   settingsDialog.querySelectorAll(".settings-section")[1]?.append(listRow, listHint);
   void mountRuntimeSettings(settingsDialog);
   void mountServiceSettings(settingsDialog);
+  void mountSyncSettings(settingsDialog, { beforeSync: save });
 }
 function showConflict() {
   if (!conflict) return;
@@ -1854,6 +1857,31 @@ function insertMarkdown(text: string) {
   }
   sourceSelection = null;
   markDirty();
+}
+async function showAttachments(pageOnly = false) {
+  captureEditor();
+  workspace?.capture();
+  editor?.captureSelection();
+  const owner = !library && !databaseWorkspace ? current : null;
+  const ownerEditor = editor, ownerWorkspace = workspace;
+  const config = workspace?.session.snapshot.config || current?.syntax || defaultSyntax(current?.bodyFormat);
+  const originalConfig = JSON.stringify(config);
+  closeModal();
+  if (!(await save())) return;
+  openAssetLibrary({
+    pageId: owner?.id, pageTitle: owner?.title, pageOnly: pageOnly && !!owner,
+    canInsert: owner ? kind => commandEnabled(config, kind) : undefined,
+    onInsert: owner ? (asset, kind) => {
+      if (current?.id !== owner.id || editor !== ownerEditor || workspace !== ownerWorkspace || library ||
+          JSON.stringify(workspace?.session.snapshot.config || current.syntax || defaultSyntax(current.bodyFormat)) !== originalConfig) {
+        toast("The page changed. Reopen Attachments to choose where to insert the file."); return false;
+      }
+      const destination = asset.path.split("/").map(encodeURIComponent).join("/");
+      insertMarkdown(mediaInsertMarkdown(kind, asset.name, destination, config));
+      return true;
+    } : undefined,
+    onOpenPage: async reference => { try { await openPage(reference.pageId); } catch (error) { report(error); } },
+  });
 }
 function showInsert() {
   if (!current || library) return;
@@ -2092,6 +2120,7 @@ async function handleInsert(id: string) {
     editor.consumeSlash();
     editor.captureSelection();
   }
+  if (id === "attachments") { await showAttachments(); return; }
   if (id === "database_full_page" || id === "database_inline") {
     if (!current) return;
     if (id === "database_inline" && (!workspace || !usesNotionSyntax(workspace.session.snapshot.config) || !enabled(workspace.session.snapshot.config, "notion_databases"))) return;
@@ -2495,6 +2524,12 @@ document.addEventListener("click", (event) => {
       return;
     }
     switch (actionEl.dataset.action) {
+      case "attachments":
+        await showAttachments();
+        break;
+      case "page-attachments":
+        await showAttachments(true);
+        break;
       case "retry-databases": {
         if (!(await save())) break;
         if (databaseRoute) await loadDatabases(databaseRoute.id);
@@ -2895,6 +2930,7 @@ async function boot() {
   app.inert = false;
   app.removeAttribute("aria-busy");
   startReminders(() => pages, vaultPath, toast);
+  installSyncScheduler({ beforeSync: save });
   setInterval(() => {
     captureEditor();
     if (
@@ -2907,7 +2943,7 @@ async function boot() {
       pageActionBusy ||
       sidebarDrag.isDragging() ||
       document.querySelector(".page-context-menu") ||
-      document.querySelector("#dialog, .people-dialog[open]")
+      document.querySelector("#dialog, .people-dialog[open], .attachments-dialog[open]")
     )
       return;
     void (async () => {
@@ -2916,7 +2952,7 @@ async function boot() {
         JSON.stringify(latest.map((p) => [p.id, p.revision])) !==
         JSON.stringify(pages.map((p) => [p.id, p.revision])) || JSON.stringify(latestDatabases) !== JSON.stringify(databases);
       captureEditor();
-      if (databaseWorkspace || workspace?.blocks.databaseViewsDirty || dirty || editorChanged || saving || conflict || pageActionBusy || sidebarDrag.isDragging() || document.querySelector("#dialog, .page-context-menu, .page-metadata-dialog[open], .people-dialog[open]") || !changed) return;
+      if (databaseWorkspace || workspace?.blocks.databaseViewsDirty || dirty || editorChanged || saving || conflict || pageActionBusy || sidebarDrag.isDragging() || document.querySelector("#dialog, .page-context-menu, .page-metadata-dialog[open], .people-dialog[open], .attachments-dialog[open]") || !changed) return;
       pages = latest;
       databases = latestDatabases;
       renderSidebar();

@@ -1,6 +1,7 @@
 import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 import type { NodeView } from "prosemirror-view";
 import { fileSizeLabel } from "../document/media";
+import { assetDisplayUrl } from "../shared/asset-display";
 
 /** Resource metadata is presentation only; it never changes the document or its revision. */
 export class MediaView implements NodeView {
@@ -11,7 +12,14 @@ export class MediaView implements NodeView {
     this.loadSize();
   }
   private render(node: PMNode) {
-    return DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
+    const dom = DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
+    for (const item of [dom, ...Array.from(dom.querySelectorAll("[src], [href], [data]"))]) {
+      for (const attribute of ["src", "href", "data"]) {
+        const value = item.getAttribute(attribute);
+        if (value) item.setAttribute(attribute, assetDisplayUrl(value));
+      }
+    }
+    return dom;
   }
   private loadSize() {
     this.request?.abort();
@@ -41,7 +49,7 @@ export class MediaView implements NodeView {
     return true;
   }
   stopEvent(event: Event) {
-    return event.target instanceof Element && !!event.target.closest("audio, video, object, a");
+    return event.target instanceof Element && !!event.target.closest("audio, video, iframe, object, a");
   }
   ignoreMutation() { return true; }
   destroy() { this.request?.abort(); }

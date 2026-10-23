@@ -1,5 +1,13 @@
 # Markdown vault API
 
+## Device sync
+
+`GET /api/sync/status` returns connection status, last sync time and conflict count, without session tokens. `GET /api/sync/vaults` lists the signed-in account's cloud notebooks. `GET /api/sync/conflicts` returns the shared base, local and remote snapshots for review.
+
+`POST /api/sync/:action` supports `sign-in` (url, key, email, password), `connect` (vaultId, or name for a new notebook), `run`, `pause` (paused), `disconnect`, and `resolve` (id, choice, baseRevision, and a complete merged item for choice merged). Page conflicts also reuse `/api/conflicts/:id/resolve`. The Android local transport exposes the same operations. These routes control the local client; the cloud uses the authenticated RPCs in `server/sync/supabase.sql`. See [setup and boundaries](../features/CLOUD-SYNC.md).
+
+For WebDAV, `sign-in` accepts `{ provider: "webdav", url, folder, email, password }`; `email` is the account identifier and `password` is its application password. It verifies actual conditional-write behavior in a temporary diagnostic folder before storing the connection. `vaults` returns the notebook in the configured remote folder, or an empty list when no index exists. `connect` creates a new folder or joins the listed notebook. Status additionally returns `provider`, `folder`, `nextSyncAt` and `needsSignIn`; it never returns the application password. WebDAV sync uses HTTPS and a direct conditional-write protocol, without Supabase RPCs. See [WebDAV setup](../features/WEBDAV-SYNC.md).
+
 ## Local R Markdown execution
 
 `GET /api/runtimes/settings` returns `{ settings, inherited, revision }`. Settings fields are `rscript`, `python`, `julia`, `pandoc`, `pythonKernel`, `juliaKernel`, `jupyterDataDir` (strings, at most 2,048 characters, no null/newline). Empty values inherit startup configuration or automatic discovery. `PUT /api/runtimes/settings` accepts `{ settings, baseRevision }`, persists through `createVault` to `.notdown/runtimes.json`, preserves unknown stored fields and resets existing R/Quarto notebook sessions. Stale revisions return 409 with a `conflictFile` containing both versions; no forced retry. `POST /api/runtimes/check` accepts `{ language: "r" | "python" | "julia", settings }` and returns `{ available, detail }`, probing unsaved settings in a temporary process (maximum two concurrent checks, 60 seconds). No page content is executed or saved by this check. All endpoints use the same local-origin/desktop-token restrictions as other settings APIs.
@@ -76,6 +84,11 @@ Markdown Lab uses `GET /api/markdown/capabilities` to report installed Pandoc re
 | `GET /api/conflicts`              | —                                                       | `Conflict[]`                                                 |
 | `POST /api/conflicts/:id/resolve` | `{baseRevision,schemaRevision?,title?,parent?,icon?,properties?,body?}` | `Page`                                                       |
 | `POST /api/assets`                | `{name,contentType,data}` (`data` is standard base64)   | 201 `{path,name,contentType}`                                |
+| `GET /api/assets`                 | —                                                    | `{assets,warnings}`; local files and referenced missing paths |
+
+Attachment entries contain `path`, `name`, `originalName` (null for unregistered legacy files), `contentType`, `kind`, `size` (nullable), `addedAt`, `modifiedAt`, `missing`, and `references`. Each reference identifies a saved page with `pageId`, `title`, `trashed` and `locations`. Current Markdown, page properties, covers, icons and database record file properties are inspected; history and unsaved drafts are not counted. Warnings identify sources that could not be fully inspected. Zero references does not establish that a file is safe to delete.
+
+Uploads retain the original name and resource metadata in `metadata.json.assets`, keyed by the stable relative path. Metadata writes compare the previous file contents and preserve a recovery proposal on conflict. Existing files are listed without being renamed or registered automatically. Local asset serving supports nested directories and rejects symbolic links and traversal.
 
 `title` defaults to Untitled page, `icon` to 📄, `parent` to null, and `body` to an empty string on creation. Properties are replaced when provided; omitted properties remain intact. Passing null as a parent makes the page a root page. Parent references must exist and cannot create cycles. IDs are immutable.
 

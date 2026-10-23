@@ -2,6 +2,7 @@ import type { NodeSpec, MarkSpec, DOMOutputSpec } from "prosemirror-model";
 import { domAttributes } from "../markdown-engine/attributes";
 import { safeReference } from "./notion-syntax";
 import { embedSource, isHtmlAsset } from "./embed-source";
+import { imageLayoutDOM } from "./image-layout";
 
 const attrs = (values: Record<string, unknown>) => Object.fromEntries(Object.entries(values).map(([name, value]) => [name, { default: value }]));
 export const objectTags: Record<string, string> = {
@@ -32,7 +33,7 @@ const safeUrl = (s: unknown) => /^(?:https?:|\/|\.\.?\/|[^:/\\]+(?:\/|\.)|#)/i.t
 export function objectNodeSpecs(block: (spec: NodeSpec) => NodeSpec): Record<string, NodeSpec> {
   const card = (name: string): NodeSpec => block({
     group: "block", atom: true, selectable: true, draggable: true,
-    attrs: attrs({ url: "", title: "", description: "", image: "", caption: "", ...(name === "web_bookmark" ? { icon: "" } : {}) }),
+    attrs: attrs({ url: "", title: "", description: "", image: "", caption: "", syntaxForm: "local", ...(name === "web_bookmark" ? { icon: "" } : {}) }),
     toDOM: n => ["figure", { class: "pm-object-card", "data-object": name },
       ["a", { href: safeUrl(n.attrs.url), rel: "noopener noreferrer" }, n.attrs.title || n.attrs.url || "Link"],
       ...(safeUrl(n.attrs.image) ? [["img", { src: safeUrl(n.attrs.image), alt: "", loading: "lazy" }] as DOMOutputSpec] : []),
@@ -43,7 +44,7 @@ export function objectNodeSpecs(block: (spec: NodeSpec) => NodeSpec): Record<str
     tab: block({ content: "block+", defining: true, isolating: true, attrs: attrs({ title: "Tab", syntaxForm: "local" }), toDOM: n => ["section", { class: "pm-tab", "data-title": n.attrs.title }, 0] }),
     web_bookmark: card("web_bookmark"), link_preview: card("link_preview"),
     link_mention: { inline: true, group: "inline", atom: true, selectable: true,
-      attrs: attrs({ url: "", label: "", nfmAttrs: {} }),
+      attrs: attrs({ url: "", label: "", nfmAttrs: {}, syntaxForm: "local" }),
       toDOM: n => ["a", { class: "pm-link-mention", href: safeUrl(n.attrs.url), "data-link-mention": "true", "data-label": n.attrs.label, rel: "noopener noreferrer" }, n.attrs.label || n.attrs.url],
       parseDOM: [{ tag: "a[data-link-mention]", getAttrs: el => ({ url: el.getAttribute("href"), label: el.getAttribute("data-label") || "" }) }],
     },
@@ -52,11 +53,16 @@ export function objectNodeSpecs(block: (spec: NodeSpec) => NodeSpec): Record<str
     meeting_notes: block({ group: "block", content: "(block | meeting_section)+", defining: true, isolating: true, attrs: attrs({ title: "Meeting notes", audio: "", language: "", transcript: "", syntaxForm: "local" }), toDOM: n => ["section", { class: "pm-meeting-notes" }, ["h3", n.attrs.title], ["div", 0]] }),
     meeting_section: block({ content: "block+", defining: true, isolating: true, attrs: attrs({ section: "notes" }), toDOM: n => ["section", { class: "pm-meeting-section", "data-section": n.attrs.section }, ["strong", n.attrs.section], ["div", 0]] }),
     ai_block: block({ group: "block", content: "block+", defining: true, isolating: true, attrs: attrs({ prompt: "", model: "", generate: "", using: "", context: "", search: "" }), toDOM: () => ["section", { class: "pm-ai-block" }, 0] }),
-    web_embed: block({ group: "block", atom: true, attrs: attrs({ url: "", title: "", caption: "", width: "", height: "", align: "" }), toDOM: n => ["iframe", { src: embedSource(n.attrs.url), title: n.attrs.title || "Web embed", sandbox: isHtmlAsset(n.attrs.url) ? "" : "allow-scripts allow-forms allow-presentation", referrerpolicy: "no-referrer" }] }),
+    web_embed: block({ group: "block", atom: true, attrs: attrs({ url: "", title: "", caption: "", width: "", height: "", align: "", syntaxForm: "local" }), toDOM: n => ["iframe", { src: embedSource(n.attrs.url), title: n.attrs.title || "Web embed", sandbox: isHtmlAsset(n.attrs.url) ? "" : "allow-scripts allow-forms allow-presentation", referrerpolicy: "no-referrer" }] }),
     notion_embed: block({ group: "block", atom: true, attrs: attrs({ src: "", caption: "" }), toDOM: n => ["figure", { class: "pm-notion-embed" }, ["iframe", { src: embedSource(n.attrs.src) || null, sandbox: "", referrerpolicy: "no-referrer", title: n.attrs.caption || "HTML attachment" }], ["figcaption", n.attrs.caption]] }),
     folder: block({ group: "block", atom: true, attrs: attrs({ url: "", label: "" }), toDOM: n => ["a", { class: "pm-notion-folder", href: safeReference(n.attrs.url) || null, rel: "noopener noreferrer" }, n.attrs.label || n.attrs.url || "Folder"] }),
+    mail: block({ group: "block", content: "block+", defining: true, isolating: true, toDOM: n => ["section", { class: "pm-notion-mail" }, ["header", { contenteditable: "false" }, String(n.attrs.nfmAttrs.subject || "Mail") + (n.attrs.nfmAttrs.from ? ` · ${n.attrs.nfmAttrs.from}` : "")], ["div", 0]] }),
+    custom_block: block({ group: "block", atom: true, attrs: attrs({ definitionId: "", url: "" }), toDOM: n => ["figure", { class: "pm-notion-reference", "data-notion-reference": "custom-block" }, ["strong", "Custom block reference"], ["p", `Definition: ${n.attrs.definitionId}`], ...(safeReference(n.attrs.url) ? [["a", { href: safeReference(n.attrs.url), rel: "noopener noreferrer" }, "Open in Notion"] as DOMOutputSpec] : []), ["small", "The API provides a definition reference; rendered content is unavailable."]] }),
+    external_object_instance: block({ group: "block", atom: true, attrs: attrs({ integration: "", label: "", url: "" }), toDOM: n => ["figure", { class: "pm-notion-reference", "data-notion-reference": "external-object" }, ["strong", n.attrs.label || "Integration reference"], ["p", n.attrs.integration], ...(safeReference(n.attrs.url) ? [["a", { href: safeReference(n.attrs.url), rel: "noopener noreferrer" }, "Open source"] as DOMOutputSpec] : [])] }),
     database: block({ group: "block", atom: true, attrs: attrs({ url: "", dataSourceUrl: "", label: "", icon: "", inline: false, wiki: false }), toDOM: n => ["a", { class: "pm-notion-database", href: safeReference(n.attrs.url || n.attrs.dataSourceUrl), rel: "noopener noreferrer" }, n.attrs.label || "Database reference"] }),
-    image_block: block({ group: "block", atom: true, draggable: true, attrs: attrs({ src: "", alt: "", caption: "", title: "" }), toDOM: n => ["figure", { class: "pm-image-block" }, ["img", { src: safeUrl(n.attrs.src), alt: n.attrs.alt, title: n.attrs.title }], ["figcaption", n.attrs.caption]] }),
+    image_block: block({ group: "block", atom: true, draggable: true, attrs: attrs({ src: "", alt: "", caption: "", title: "", syntaxForm: "" }), toDOM: n => ["figure", { class: "pm-image-block" },
+      Object.keys(n.attrs.markdownAttrs).length ? imageLayoutDOM(n) : ["img", { src: safeUrl(n.attrs.src), alt: n.attrs.syntaxForm === "notion" ? n.attrs.caption : n.attrs.alt, title: n.attrs.title }],
+      ["figcaption", n.attrs.caption]] }),
     example_list: block({ group: "block", content: "example_list_item+", attrs: attrs({ start: 1 }), toDOM: n => ["ol", { start: n.attrs.start, class: "pm-example-list" }, 0] }),
     example_list_item: block({ content: "paragraph block*", defining: true, attrs: attrs({ label: "", number: 1, referenceId: null }), toDOM: n => ["li", { "data-example-label": n.attrs.label, id: n.attrs.referenceId, value: n.attrs.number }, 0] }),
     inline_note: { inline: true, group: "inline", content: "inline*", isolating: true, toDOM: () => ["span", { class: "pm-inline-note" }, 0] },

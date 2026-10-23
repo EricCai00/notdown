@@ -1,5 +1,11 @@
 # Markdown 正文格式 v0.4：方言配置与 Notion Enhanced Markdown
 
+## Notion Markdown 版本
+
+新 Notion API 导入显式保存 `syntax.notionVersion: "v2"`，使用官方 [Notion-flavored Markdown](https://developers.notion.com/guides/data-apis/notion-flavored-markdown) 的 CommonMark/GFM 正文、统一容器与行内标签。API header 的版本与 Markdown 的 v2 参数独立。未标记的旧文件沿用原有读取方式，不批量转换。
+
+v2 保存时使用 `source` 媒体属性、连字符的同步块/目录标签、`mention`/`date`、Meeting notes 分区等对应语法；保留未编辑的原始字节及未知属性。Mail 是可编辑正文，Custom block 与外部集成是明确的引用节点。Notdown 的模板按钮、面包屑、本地同步 ID 仍属于补充语法，官方 `notion-markdown` 不因开关而启用它们。导入恢复、附件保存与未实现的云端能力见[Notion 导入](features/NOTION-IMPORT.md)。下文历史 Enhanced Markdown / MCP 记录用于兼容旧文件。
+
 2026-09-27 表格列宽：Notdown 的 Markdown 表格支持 `: {tbl-colwidths="[30,70]"}`，使用 Pandoc 的表格属性容器与 Quarto 的显式相对列宽数组，来源为 [Quarto Column Widths](https://quarto.org/docs/authoring/tables.html#column-widths)。数组长度须等于逻辑列数，每项须为有限正数；按比例呈现，拖动后归一化为百分比并保存到正文。仅当 Notdown 的 `table_attributes` 启用时新写该属性；官方 Notion 表格仍使用原生 `<col width>`。MMD 的 `[题注][ID]`、题注位置、合并单元格及未知属性保留，属性独立成行时不会创建空题注或覆盖原题注。未改内容原文保留；非法、数量不匹配及 `auto`／布尔值目前仅原文保留，不赋予列宽布局语义。增删、复制、移动列和拖动行列数量时同步有效列宽数组；不批量迁移文件，纯 MMD／GFM 等其他方言不新增该扩展语义。
 
 2026-09-27 嵌入入口区分修订（覆盖下文“独立 HTML 插入入口已移除”的说明）：HTML embed 新建使用官方 `<embed src="assets/…html">说明</embed>`，上传与替换只选择 HTML 文件；Web embed 新建使用 `<web-embed url="…"/>`，只接受 HTTP(S) 网址。二者共享节点类型但保留各自表示。Notdown 可为 HTML `<embed>` 补充 title/width/height/align；这些属性仅在 Notdown 启用，官方 notion-markdown 遇到扩展属性时保留原始源码而不赋予布局语义。已有 HTML 附件 `<web-embed>` 不批量迁移，继续按原载体写回。旧内联正文 `<html-embed>` 不恢复。

@@ -48,7 +48,7 @@ test("callout icon picker searches, cancels, changes, undoes and persists remova
   await expect(icon).toHaveText("❗");
   await icon.click();
   await dialog.getByRole("searchbox").fill("check");
-  await dialog.getByRole("button", { name: "Check 完成", exact: true }).click();
+  await dialog.getByRole("button", { name: "check mark button", exact: true }).click();
   await expect(icon).toHaveText("✅");
   await page.keyboard.press("Control+z");
   await expect(icon).toHaveText("❗");

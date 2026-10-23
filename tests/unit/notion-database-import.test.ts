@@ -63,6 +63,30 @@ function fixture(calls: { url: string; method: string; body?: any }[] = [], opti
 const input = { token: "test-token-not-persisted", pageId: database, includeChildren: false };
 const wait = async () => {};
 
+test("database Files download into local assets while preserving source URLs and archived JSON", async t => {
+  const base = fixture(), remote = "https://files.example.test/report.pdf";
+  const plan = await prepareNotionImport(input, { wait, readAsset: async () => ({ data: Buffer.from("%PDF fixture"), contentType: "application/pdf" }), fetch: async (input, init) => {
+    const response = await base(input, init), value = await response.json();
+    if (value.object === "data_source") value.properties.Files = { id: "files", type: "files", files: {} };
+    const add = (record: any) => { if (record.object === "page") record.properties.Files = { id: "files", type: "files", files: [{ name: "Report", type: "external", external: { url: remote } }] }; };
+    add(value); value.results?.forEach(add);
+    return Response.json(value, { status: response.status });
+  }});
+  assert.equal(plan.assets.length, 1);
+  assert.equal(plan.assets[0].name, "Report");
+  const field = Object.values(plan.databaseResources!.dataSources)[0].properties.find(field => field.name === "Files")!;
+  const record = plan.pages.find(page => page.metadata.dataSourceId)!;
+  const files = (record.metadata.properties as any)[field.key];
+  assert.equal(files[0].notionSourceUrl, remote); assert.ok(files[0].external.url.startsWith("assets/"));
+  assert.ok(plan.originals.some(file => file.data.toString().includes(remote) && !file.data.toString().includes("notionSourceUrl")));
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-db-assets-"));
+  t.after(async () => { assert.equal(path.dirname(temp), path.resolve(os.tmpdir())); assert.ok(path.basename(temp).startsWith("notdown-db-assets-")); await fs.rm(temp, { recursive: true, force: true }); });
+  const vault = createVault(temp); await vault.importBatch(plan);
+  const asset = (await vault.listAssets()).assets[0];
+  assert.equal(asset.originalName, "Report"); assert.equal(asset.contentType, "application/pdf");
+  assert.ok(asset.references.some(ref => ref.pageId === record.id && ref.locations.includes(`Property: ${field.key}`)));
+});
+
 test("database import reads paginated records and properties, retains source definitions and maps relations", async t => {
   const calls: { url: string; method: string; body?: any }[] = [];
   const plan = await prepareNotionImport(input, { fetch: fixture(calls), wait });

@@ -1,0 +1,145 @@
+import { test, expect } from "@playwright/test";
+
+const picture = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="280" viewBox="0 0 640 280"><rect width="640" height="280" fill="#f1eee6"/><circle cx="520" cy="85" r="32" fill="#dfb97d"/><path d="M0 245 175 70 330 245 470 110 640 245" fill="#8ca79b"/><path d="M0 280 250 150 435 280" fill="#526f64"/><text x="28" y="42" font-family="sans-serif" font-size="18" fill="#526f64">Field notes · October</text></svg>');
+const syntax = { version: 1, variant: "notdown", extensions: {} };
+
+test("attachment library uploads, preserves names, previews, filters and reuses the same file", async ({ page, request }, testInfo) => {
+  const note = await (await request.post("/api/pages", { data: { title: "Attachment workspace", body: "Before\n\nTail", syntax } })).json();
+  await page.goto(`/#page/${note.id}`);
+  await expect(page.locator(".pm-document")).toBeVisible();
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  const dialog = page.getByRole("dialog", { name: "Attachments", exact: true });
+  await expect(dialog).toBeVisible();
+  const chooser = page.waitForEvent("filechooser");
+  await dialog.getByRole("button", { name: "Upload files" }).click();
+  await (await chooser).setFiles([
+    { name: "Field notes.svg", mimeType: "image/svg+xml", buffer: picture },
+    { name: "Reading list.txt", mimeType: "text/plain", buffer: Buffer.from("Reading list") },
+  ]);
+  await expect(dialog.locator(".attachment-row").filter({ hasText: "Field notes.svg" })).toBeVisible();
+  await dialog.getByLabel("Attachment type").selectOption("image");
+  await expect(dialog.locator(".attachment-row")).toHaveCount(1);
+  await dialog.getByLabel("Attachment type").selectOption("file");
+  await expect(dialog.locator(".attachment-row")).toContainText("Reading list.txt");
+  await dialog.getByLabel("Attachment type").selectOption("");
+  await dialog.getByLabel("Sort attachments").selectOption("size");
+  await expect(dialog.locator(".attachment-row").first()).toContainText("Field notes.svg");
+  await dialog.getByRole("searchbox").fill("Field notes");
+  await dialog.locator(".attachment-row").click();
+  const image = dialog.locator(".attachment-preview img");
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(640);
+  await expect(dialog.locator(".attachment-info")).toContainText("Field notes.svg");
+  const storedPath = await dialog.locator(".attachment-heading code").textContent();
+  await page.screenshot({ path: testInfo.outputPath("attachments-library.png") });
+  await dialog.getByRole("button", { name: "Close attachments" }).click();
+
+  const tail = page.locator(".pm-document > p").last();
+  await tail.click(); await page.keyboard.press("End"); await page.keyboard.type(" /attachments");
+  await page.locator('[data-insert="attachments"]').click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("searchbox").fill("Field notes");
+  await dialog.locator(".attachment-row").click();
+  await expect(dialog.getByLabel("Insert attachment as")).toHaveValue("image");
+  await dialog.getByRole("button", { name: "Insert into page" }).click();
+  await expect(page.locator(".pm-document img")).toHaveAttribute("src", storedPath!);
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(`![](${storedPath})`);
+  await page.reload();
+  await expect(page.locator(".pm-document img")).toHaveAttribute("src", storedPath!);
+  await page.getByLabel("Page options", { exact: true }).click();
+  await page.getByRole("menuitem", { name: "Page attachments", exact: true }).click();
+  await expect(dialog.getByLabel("This page only")).toBeChecked();
+  await expect(dialog.locator(".attachment-row")).toHaveCount(1);
+  await dialog.locator(".attachment-row").click();
+  await expect(dialog.locator(".attachment-references")).toContainText("Used in 1 page");
+  await expect(dialog.locator(".attachment-references")).toContainText("Attachment workspace");
+  await page.screenshot({ path: testInfo.outputPath("attachments-used-in.png") });
+  const library = await (await request.get("/api/assets")).json();
+  expect(library.assets.filter((asset: { name: string }) => asset.name === "Field notes.svg")).toHaveLength(1);
+});
+
+test("references navigate between pages, missing paths are visible, and File insertion keeps card semantics", async ({ page, request }, testInfo) => {
+  const upload = await (await request.post("/api/assets", { data: { name: "Shared diagram.svg", contentType: "image/svg+xml", data: picture.toString("base64") } })).json();
+  const first = await (await request.post("/api/pages", { data: { title: "Shared source", body: `![](${upload.path})`, syntax } })).json();
+  const second = await (await request.post("/api/pages", { data: { title: "Shared destination", body: `Tail\n\n[Missing](assets/missing-check.pdf)`, properties: { cover: upload.path }, syntax } })).json();
+  await page.goto(`/#page/${second.id}`);
+  await expect(page.locator(".pm-document")).toBeVisible();
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  const dialog = page.getByRole("dialog", { name: "Attachments", exact: true });
+  await dialog.getByRole("searchbox").fill("Shared diagram");
+  await dialog.locator(".attachment-row").click();
+  await expect(dialog.locator(".attachment-references")).toContainText("Used in 2 pages");
+  await expect(dialog.locator(".attachment-references")).toContainText("Page cover");
+  await dialog.locator(".attachment-references button").filter({ hasText: "Shared source" }).click();
+  await expect(page).toHaveURL(new RegExp(first.id));
+  await expect(page.locator(".pm-document img")).toHaveAttribute("src", upload.path);
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  await dialog.getByRole("searchbox").fill("missing-check");
+  await dialog.locator(".attachment-row").click();
+  await expect(dialog.locator(".attachment-actions")).toContainText("File missing");
+  await expect(dialog.getByRole("button", { name: "Insert into page" })).toHaveCount(0);
+  await dialog.getByRole("searchbox").fill("Shared diagram");
+  await dialog.locator(".attachment-row").click();
+  await dialog.getByLabel("Insert attachment as").selectOption("file");
+  await dialog.getByRole("button", { name: "Insert into page" }).click();
+  await expect(page.locator(".pm-file-card")).toContainText("Shared diagram.svg");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${first.id}`)).json()).body).toContain(`<file src="${upload.path}">Shared diagram.svg</file>`);
+  await page.reload();
+  await expect(page.locator(".pm-file-card")).toContainText("Shared diagram.svg");
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  await dialog.getByRole("searchbox").fill("Shared diagram");
+  await dialog.locator(".attachment-row").click();
+  await page.setViewportSize({ width: 480, height: 850 });
+  await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("attachments-narrow.png") });
+});
+
+test("attachment reuse in CommonMark produces a portable file link and keeps pending typing", async ({ page, request }) => {
+  const upload = await (await request.post("/api/assets", { data: { name: "Portable reference.txt", contentType: "text/plain", data: Buffer.from("reference").toString("base64") } })).json();
+  const note = await (await request.post("/api/pages", { data: { title: "Portable attachments", body: "Draft", syntax: { version: 1, variant: "commonmark", extensions: {} } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  await page.locator(".pm-document > p").click();
+  await page.keyboard.press("End"); await page.keyboard.type(" retained");
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  const dialog = page.getByRole("dialog", { name: "Attachments", exact: true });
+  await dialog.getByRole("searchbox").fill("Portable reference");
+  await dialog.locator(".attachment-row").click();
+  await dialog.getByRole("button", { name: "Insert into page" }).click();
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(`[Portable reference.txt](${upload.path})`);
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Draft retained");
+});
+
+test("source selection survives opening the library and stale backends show a recoverable error", async ({ page, request }) => {
+  const upload = await (await request.post("/api/assets", { data: { name: "Source attachment.txt", contentType: "text/plain", data: Buffer.from("reference").toString("base64") } })).json();
+  const note = await (await request.post("/api/pages", { data: { title: "Source attachments", body: "Before\n\nAfter", syntax } })).json();
+  await page.goto(`/#page/${note.id}`);
+  await expect(page.locator(".pm-document")).toBeVisible();
+  await page.keyboard.press("Control+e");
+  const source = page.locator(".cm-content");
+  await expect(source).toBeVisible();
+  await source.click(); await page.keyboard.press("Control+Home");
+  await page.keyboard.type("Unsaved prefix\n\n");
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  const dialog = page.getByRole("dialog", { name: "Attachments", exact: true });
+  await dialog.getByRole("searchbox").fill("Source attachment");
+  await dialog.locator(".attachment-row").click();
+  await dialog.getByRole("button", { name: "Insert into page" }).click();
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(upload.path);
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).toContain("Unsaved prefix");
+  expect(saved.indexOf(upload.path)).toBeLessThan(saved.indexOf("Before"));
+  expect(saved).toContain("Before\n\nAfter");
+  await page.route("**/api/assets", route => route.request().method() === "GET" ? route.fulfill({ status: 404, contentType: "application/json", body: '{"error":"API endpoint not found"}' }) : route.continue());
+  await page.locator('.main-nav [data-action="attachments"]').click();
+  await expect(dialog.getByRole("status")).toContainText("updated local backend");
+  await page.unroute("**/api/assets");
+  await dialog.getByRole("button", { name: "Refresh attachments" }).click();
+  await dialog.getByRole("searchbox").fill("Source attachment");
+  await expect(dialog.locator(".attachment-row")).toHaveCount(1);
+  await expect(dialog.getByRole("status")).toBeHidden();
+});

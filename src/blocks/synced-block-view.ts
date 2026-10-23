@@ -2,8 +2,11 @@ import type { Node as PMNode } from "prosemirror-model";
 import { EditorState } from "prosemirror-state";
 import { closeHistory } from "prosemirror-history";
 import type { EditorView, NodeView } from "prosemirror-view";
-import { createElement, ArrowDownLeft, ChevronDown, Copy, Ellipsis, type IconNode } from "lucide";
+import { createElement, ArrowDownLeft, ChevronDown, CircleHelp, Copy, Ellipsis, type IconNode } from "lucide";
 import { api, type Page } from "../shared/types";
+import { pageIconElement } from "../shared/page-icons";
+import { placeDatePanel } from "../features/dates/date-view";
+import { showEditorPanel } from "../editor/editor-panel";
 import type { BreadcrumbPage } from "./breadcrumb-view";
 import { editorSchema as schema } from "../document/editor-schema";
 import { parseNative, serializeNative } from "../markdown-engine/codec";
@@ -50,6 +53,8 @@ export class SyncedBlockView implements NodeView {
   private notice = document.createElement("div");
   private popup?: HTMLDivElement;
   private popupTrigger?: HTMLButtonElement;
+  private popupEvents?: AbortController;
+  private help?: HTMLDialogElement;
   private abort = new AbortController();
   private timer: ReturnType<typeof setInterval>;
   private pending?: ReturnType<typeof setTimeout>;
@@ -59,7 +64,7 @@ export class SyncedBlockView implements NodeView {
   private epoch = 0;
   private baseline?: Page;
   private syncing?: Promise<void>;
-  private knownPages: { id: string; title: string; original: boolean }[] = [];
+  private knownPages: { id: string; title: string; icon: string; parentTitle: string; original: boolean }[] = [];
 
   constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined,
     private currentPage: () => BreadcrumbPage | undefined, private supplemental: () => boolean,
@@ -115,6 +120,7 @@ export class SyncedBlockView implements NodeView {
     this.more.disabled = !this.view.editable;
     this.popup?.querySelectorAll<HTMLButtonElement>('[data-sync-idle="true"]').forEach(item => { item.disabled = this.busy || !this.view.editable; });
     this.dom.dataset.syncState = this.paused ? "paused" : this.busy ? "syncing" : "ready";
+    this.positionPopup();
   }
   private live() { return !this.disposed && !this.view.isDestroyed && this.view.editable && !this.view.composing && this.supplemental() && this.view.dom.closest<HTMLElement>(".markdown-workspace")?.dataset.mode !== "source"; }
   private patch(attrs: Record<string, string>, content?: PMNode["content"], group = false) {
@@ -131,50 +137,104 @@ export class SyncedBlockView implements NodeView {
     this.view.dispatch(tr.setMeta("addToHistory", !!content));
   }
   private closePopup() {
+    this.popupEvents?.abort(); this.popupEvents = undefined;
     this.popup?.remove(); this.popup = undefined;
     this.popupTrigger?.setAttribute("aria-expanded", "false"); this.popupTrigger = undefined;
     this.dom.classList.remove("pm-synced-menu-open");
   }
-  private openPopup(trigger: HTMLButtonElement, label: string) {
+  private positionPopup = () => {
+    if (!this.popup || !this.popupTrigger) return;
+    const rect = this.toolbar.getBoundingClientRect();
+    placeDatePanel(this.popup, { top: rect.top, bottom: rect.bottom,
+      left: this.popupTrigger === this.locations ? rect.left : rect.right - this.popup.offsetWidth });
+  };
+  private openPopup(trigger: HTMLButtonElement, label: string, className = "") {
     this.closePopup();
-    const popup = this.popup = document.createElement("div"); popup.className = "pm-synced-menu";
+    const popup = this.popup = document.createElement("div"); popup.className = `pm-synced-menu ${className}`.trim();
     popup.contentEditable = "false"; popup.setAttribute("role", "menu"); popup.setAttribute("aria-label", label);
     this.popupTrigger = trigger; trigger.setAttribute("aria-expanded", "true");
-    this.dom.classList.add("pm-synced-menu-open"); this.toolbar.append(popup); return popup;
+    this.dom.classList.add("pm-synced-menu-open"); this.toolbar.append(popup);
+    this.popupEvents = new AbortController();
+    const { signal } = this.popupEvents;
+    window.addEventListener("resize", this.positionPopup, { signal });
+    document.addEventListener("scroll", event => {
+      if (!this.popup?.contains(event.target as Node)) this.positionPopup();
+    }, { capture: true, signal });
+    this.positionPopup(); return popup;
   }
   private async loadLocations(fresh = false) {
-    if (!this.supplemental() || !this.key() || this.disposed) return;
+    if (!this.supplemental() || this.disposed || !this.key() && this.node.attrs.reference) return;
     const key = this.key(), epoch = this.epoch;
     try {
       const pages = await allPages(this.view, fresh);
       if (this.disposed || epoch !== this.epoch || key !== this.key()) return;
       this.knownPages = [];
+      const titles = new Map(pages.filter(page => !page.trashed).map(page => [page.id, page.title || "Untitled"]));
       for (const page of pages) {
         if (page.trashed || page.syntax?.variant !== "notdown") continue;
+        const unnamedOriginal = !key && !this.node.attrs.reference && page.id === this.currentPage()?.id;
+        if (!key && !unnamedOriginal) continue;
         const doc = page.id === this.currentPage()?.id ? this.view.state.doc : parseNative(page.body, page.syntax || defaultSyntax(page.bodyFormat));
-        const matches = syncedNodes(doc).filter(item => syncKey(item.node, page.id) === key);
-        if (matches.length) this.knownPages.push({ id: page.id, title: page.title || "Untitled", original: matches.some(item => !item.node.attrs.reference) });
+        const matches = key ? syncedNodes(doc).filter(item => syncKey(item.node, page.id) === key) : [];
+        if (matches.length || unnamedOriginal) this.knownPages.push({ id: page.id, title: page.title || "Untitled", icon: page.icon,
+          parentTitle: page.parent ? titles.get(page.parent) || "" : "", original: unnamedOriginal || matches.some(item => !item.node.attrs.reference) });
       }
       this.knownPages.sort((a, b) => Number(b.original) - Number(a.original)); this.render();
     } catch { /* A transient count lookup must not disable editing or synchronization. */ }
   }
   private async showLocations() {
     if (this.popupTrigger === this.locations) { this.closePopup(); return; }
-    const popup = this.openPopup(this.locations, "Synced block locations"); popup.textContent = "Loading locations…";
+    const popup = this.openPopup(this.locations, "Synced block locations", "pm-synced-locations-menu"); popup.textContent = "Loading locations…";
     await this.loadLocations(true);
     if (this.popup !== popup || this.disposed) return;
     popup.replaceChildren();
-    const heading = document.createElement("small"); heading.textContent = "Pages with this block"; popup.append(heading);
+    const heading = document.createElement("div"); heading.className = "pm-synced-menu-heading"; heading.textContent = "Synced to"; popup.append(heading);
     for (const page of this.knownPages) {
-      const link = document.createElement("a"); link.setAttribute("role", "menuitem");
+      const link = document.createElement("a"); link.className = "pm-synced-page"; link.setAttribute("role", "menuitem");
       link.href = `#page/${encodeURIComponent(page.id)}`;
-      const title = document.createElement("span"); title.textContent = page.title;
-      link.append(title);
-      if (page.original) { const badge = document.createElement("small"); badge.textContent = "Original"; link.append(badge); }
+      const title = document.createElement("span"); title.className = "pm-synced-page-title"; title.textContent = page.title; title.title = page.title;
+      const meta = document.createElement("span"); meta.className = "pm-synced-page-meta";
+      if (page.parentTitle) { const parent = document.createElement("span"); parent.className = "pm-synced-page-parent"; parent.textContent = page.parentTitle; parent.title = page.parentTitle; meta.append(parent); }
+      for (const label of [page.original ? "Original" : "", page.id === this.currentPage()?.id ? "This page" : ""].filter(Boolean)) {
+        const badge = document.createElement("small"); badge.className = "pm-synced-badge"; badge.textContent = label; meta.append(badge);
+      }
+      if (page.id === this.currentPage()?.id) link.setAttribute("aria-current", "page");
+      link.append(pageIconElement(page.icon), title, meta);
       link.onclick = () => this.closePopup(); popup.append(link);
     }
     if (!this.knownPages.length) { const empty = document.createElement("p"); empty.textContent = this.node.attrs.reference ? "Source unavailable. This copy keeps its content." : "Copy this block and paste it on another page."; popup.append(empty); }
-    popup.querySelector<HTMLElement>("a")?.focus();
+    popup.append(document.createElement("hr"));
+    const help = button("Learn more about Synced blocks", () => this.showHelp(), CircleHelp);
+    help.className = "pm-synced-help"; help.setAttribute("role", "menuitem");
+    help.append(document.createTextNode("Learn more about Synced blocks")); popup.append(help);
+    this.positionPopup();
+    popup.querySelector<HTMLElement>("a, button")?.focus({ preventScroll: true });
+  }
+  private showHelp() {
+    this.closePopup();
+    if (this.help?.isConnected) { this.help.querySelector<HTMLButtonElement>("button")?.focus(); return; }
+    const dialog = this.help = document.createElement("dialog");
+    const body = document.createElement("div"); body.className = "pm-synced-help-body";
+    for (const text of [
+      "Use Copy synced block and paste it into another Notdown page to reuse the same content.",
+      "With automatic sync enabled, edits in local copies update the original and other open copies. Unopened pages keep their last saved snapshot until opened. Conflicting edits pause syncing and keep both versions recoverable.",
+      "Unsync keeps this copy’s content and stops sharing it. If the original still has copies, unsync those copies first.",
+      "Synced blocks work within this vault. External Notion references are saved snapshots; they do not sync with Notion.",
+    ]) { const paragraph = document.createElement("p"); paragraph.textContent = text; body.append(paragraph); }
+    dialog.append(body);
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      if (this.help !== dialog) return;
+      this.help = undefined;
+      if (!this.disposed && this.dom.isConnected && !this.toolbar.hidden) {
+        // The toolbar may have hidden while the user read the help panel.
+        this.toolbar.style.visibility = "visible";
+        this.locations.focus({ preventScroll: true });
+        this.toolbar.style.removeProperty("visibility");
+      }
+    }, { once: true });
+    document.body.append(dialog); showEditorPanel(dialog, "Synced blocks", this.dom);
+    dialog.querySelector<HTMLButtonElement>("button")?.focus();
   }
   private showOptions() {
     if (this.popupTrigger === this.more) { this.closePopup(); return; }
@@ -197,7 +257,8 @@ export class SyncedBlockView implements NodeView {
       popup.append(document.createElement("hr"));
     }
     action("Unsync", () => { void this.unsync(); }, true);
-    popup.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    this.positionPopup();
+    popup.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
   }
   private async unsync() {
     if (!this.live()) return;
@@ -324,5 +385,5 @@ export class SyncedBlockView implements NodeView {
   ignoreMutation(mutation: MutationRecord | { type: "selection"; target: Node }) {
     return mutation.type !== "selection" && !this.contentDOM.contains(mutation.target);
   }
-  destroy() { this.disposed = true; this.epoch++; activeViews.get(this.view)?.delete(this); clearInterval(this.timer); clearTimeout(this.pending); this.abort.abort(); this.closePopup(); }
+  destroy() { this.disposed = true; this.epoch++; activeViews.get(this.view)?.delete(this); clearInterval(this.timer); clearTimeout(this.pending); this.abort.abort(); this.closePopup(); this.help?.close(); this.help?.remove(); }
 }

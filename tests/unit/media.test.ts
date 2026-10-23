@@ -5,9 +5,30 @@ import { mediaFileMatches, mediaInsertMarkdown } from "../../src/blocks/media-in
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 import { insertMenuItems } from "../../src/editor/insert-menu";
 import { blockPropertiesTransaction, blockPropertyFields } from "../../src/editor/block-properties";
-import { fileSizeLabel, mediaFilename } from "../../src/document/media";
+import { fileSizeLabel, mediaFilename, youtubeEmbedSource } from "../../src/document/media";
 
 const config = { version: 1 as const, variant: "notdown" as const, extensions: {} };
+
+test("YouTube video blocks render an embed without changing source, identity or file semantics", () => {
+  const id = "QBuZEl1waIA";
+  for (const url of [`https://www.youtube.com/watch?v=${id}`, `https://youtu.be/${id}`, `https://m.youtube.com/shorts/${id}`, `https://youtube.com/live/${id}`, `https://www.youtube.com/embed/${id}`]) {
+    assert.equal(youtubeEmbedSource(url), `https://www.youtube.com/embed/${id}`);
+    for (const variant of ["notdown", "notion-markdown"] as const) {
+      const syntax = { ...config, variant };
+      const source = `<video src="${url}">Example</video>\n\nTail`;
+      const doc = parseNative(source, syntax), node = doc.firstChild!;
+      assert.equal(node.type.name, "block.video");
+      assert.match(JSON.stringify(node.type.spec.toDOM!(node)), /\["iframe"/);
+      assert.equal(serializeNative(doc, syntax), source);
+      assert.equal(parseNative(serializeNative(doc, syntax), syntax).firstChild!.attrs.src, url);
+    }
+    const file = parseNative(`<file src="${url}">Link</file>`, config).firstChild!;
+    assert.doesNotMatch(JSON.stringify(file.type.spec.toDOM!(file)), /\["iframe"/);
+  }
+  assert.equal(youtubeEmbedSource(`https://youtu.be/${id}?t=1h2m3s`), `https://www.youtube.com/embed/${id}?start=3723`);
+  assert.equal(youtubeEmbedSource(`https://www.youtube-nocookie.com/embed/${id}?start=45`), `https://www.youtube-nocookie.com/embed/${id}?start=45`);
+  for (const src of ["assets/movie.webm", "https://example.com/video.mp4", `https://youtube.com.evil.test/watch?v=${id}`, `https://youtube.com@evil.test/watch?v=${id}`, "https://youtube.com/watch?v=invalid", `javascript:https://youtube.com/watch?v=${id}`]) assert.equal(youtubeEmbedSource(src), undefined);
+});
 
 test("the selected insertion type wins over the resource extension and survives editing", () => {
   for (const variant of ["notdown", "notion-markdown"] as const) {
@@ -16,12 +37,14 @@ test("the selected insertion type wins over the resource extension and survives 
       const source = mediaInsertMarkdown(kind, "A & B.mp3", "assets/same.mp3", syntax);
       const doc = parseNative(source, syntax);
       assert.equal(doc.firstChild!.type.name, `block.${kind}`);
+      assert.equal(doc.firstChild!.attrs.caption, kind === "audio" || kind === "video" ? "" : "A & B.mp3");
       assert.equal(serializeNative(doc, syntax), source);
       const state = EditorState.create({ doc });
       const tr = blockPropertiesTransaction(state, 0, doc.firstChild!, { caption: "Renamed" });
       assert.ok(tr);
       const saved = serializeNative(state.apply(tr).doc, syntax);
       assert.equal(parseNative(saved, syntax).firstChild!.type.name, `block.${kind}`);
+      assert.equal(parseNative(saved, syntax).firstChild!.attrs.caption, "Renamed");
       const dom = JSON.stringify(doc.firstChild!.type.spec.toDOM!(doc.firstChild!));
       if (kind === "file") {
         assert.match(dom, /pm-file-icon/);
@@ -47,6 +70,7 @@ test("separate insertion entries respect dialect boundaries and portable fallbac
   }
   assert.equal(mediaInsertMarkdown("file", "A [B].mp3", "assets/a.mp3", commonmark).trim(), "[A \\[B\\].mp3](assets/a.mp3)");
   const image = mediaInsertMarkdown("image", "A [B].png", "assets/a.png", config);
+  assert.equal(image.trim(), "![](assets/a.png)");
   const doc = parseNative(image, config);
   assert.equal(doc.firstChild!.type.name, "block.image_block");
   assert.equal(serializeNative(doc, config), image);

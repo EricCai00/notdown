@@ -1,7 +1,7 @@
 import { isEditorKind } from "../document/node-identity";
 import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 import { tocIncludes } from "../blocks/content-toc";
-import { Selection } from "prosemirror-state";
+import { Selection, TextSelection } from "prosemirror-state";
 import type {
   EditorView,
   NodeView,
@@ -67,31 +67,75 @@ class ToggleView implements NodeView {
   dom = document.createElement("div");
   contentDOM = document.createElement("div");
   private button = document.createElement("button");
+  private empty = document.createElement("button");
   private open = true;
+  private resize = new ResizeObserver(() => {
+    const head = this.contentDOM.firstElementChild;
+    if (!head) return;
+    const style = getComputedStyle(head);
+    // Use the actual first line, including mobile font sizes and wrapped titles.
+    this.dom.style.setProperty("--pm-toggle-line-height", style.lineHeight);
+    this.dom.style.setProperty("--pm-toggle-top-padding", style.paddingTop);
+  });
   constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined, private supplemental: () => boolean) {
     if (this.supplemental()) this.open = (isEditorKind(node, "nested_block") ? node.firstChild : node)?.attrs.nfmAttrs?.open !== "false";
     this.button.type = "button";
     this.button.contentEditable = "false";
     this.button.className = "pm-toggle-chevron";
-    this.button.addEventListener("reveal-content", () => { this.open = true; this.render(); });
+    this.button.addEventListener("mousedown", event => event.preventDefault());
+    this.button.addEventListener("reveal-content", () => this.setOpen(true));
     this.button.addEventListener("click", () => {
-      this.open = !this.open;
-      const pos = this.getPos(), head = isEditorKind(this.node, "nested_block") ? this.node.firstChild! : this.node;
-      if (this.supplemental() && this.view.editable && pos !== undefined) this.view.dispatch(this.view.state.tr.setNodeMarkup(pos + (isEditorKind(this.node, "nested_block") ? 1 : 0), undefined, { ...head.attrs, nfmAttrs: { ...head.attrs.nfmAttrs, open: String(this.open) } }));
-      this.render();
+      this.setOpen(!this.open);
+    });
+    this.empty.type = "button";
+    this.empty.contentEditable = "false";
+    this.empty.className = "pm-toggle-empty";
+    this.empty.setAttribute("aria-label", "Add content to toggle");
+    this.empty.textContent = "Empty toggle. Click to add content.";
+    this.empty.addEventListener("mousedown", event => event.preventDefault());
+    this.empty.addEventListener("click", () => {
+      const pos = this.getPos();
+      const current = pos === undefined ? null : this.view.state.doc.nodeAt(pos);
+      if (!this.view.editable || current?.type !== this.node.type || current.childCount !== 1) return;
+      const insertAt = pos! + 1 + current.firstChild!.nodeSize;
+      const tr = closeHistory(this.view.state.tr).insert(insertAt, this.view.state.schema.nodes["block.paragraph"].create());
+      this.view.dispatch(tr.setSelection(TextSelection.create(tr.doc, insertAt + 1)).scrollIntoView());
+      this.view.focus();
     });
     this.contentDOM.className = "pm-toggle-content";
-    this.dom.append(this.button, this.contentDOM);
+    this.dom.append(this.button, this.contentDOM, this.empty);
+    this.resize.observe(this.contentDOM);
     this.render();
+  }
+  private setOpen(open: boolean) {
+    const pos = this.getPos();
+    const current = pos === undefined ? null : this.view.state.doc.nodeAt(pos);
+    if (current?.type !== this.node.type) return;
+    this.open = open;
+    const heading = isEditorKind(current, "nested_block"), head = current.firstChild!;
+    const tr = this.view.state.tr;
+    const childStart = pos! + 1 + head.nodeSize;
+    const { from, to } = tr.selection;
+    const hidingSelection = !open && from < pos! + current.nodeSize - 1 && to >= childStart;
+    if (hidingSelection) tr.setSelection(TextSelection.create(tr.doc, pos! + head.nodeSize));
+    if (this.supplemental() && this.view.editable) {
+      const target = heading ? head : current;
+      closeHistory(tr).setNodeMarkup(pos! + (heading ? 1 : 0), undefined,
+        { ...target.attrs, nfmAttrs: { ...target.attrs.nfmAttrs, open: String(open) } });
+    }
+    if (tr.docChanged || tr.selectionSet) this.view.dispatch(tr);
+    this.render();
+    if (hidingSelection) this.view.focus();
   }
   render() {
     this.dom.className = `pm-toggle${isEditorKind(this.node, "nested_block") ? " pm-heading-toggle" : ""}${this.open ? "" : " pm-toggle-closed"}`;
-    this.dom.style.cssText = colorStyle(
-      this.node.attrs.color || this.node.firstChild?.attrs.color || "",
-    );
+    const style = document.createElement("span").style;
+    style.cssText = colorStyle(this.node.attrs.color || this.node.firstChild?.attrs.color || "");
+    this.dom.style.color = style.color;
+    this.dom.style.backgroundColor = style.backgroundColor;
     this.button.setAttribute("aria-label", this.open ? "Collapse content" : "Expand content");
     this.button.setAttribute("aria-expanded", String(this.open));
-    this.button.textContent = this.open ? "▾" : "▸";
+    this.empty.hidden = !this.open || this.node.childCount > 1 || !this.view.editable;
   }
   update(node: PMNode) {
     if (node.type !== this.node.type) return false;
@@ -102,14 +146,15 @@ class ToggleView implements NodeView {
     return true;
   }
   stopEvent(event: Event) {
-    return this.button.contains(event.target as Node);
+    return this.button.contains(event.target as Node) || this.empty.contains(event.target as Node);
   }
   ignoreMutation(mutation: { type: string; target: Node }) {
     return (
       mutation.type !== "selection" &&
-      (this.button.contains(mutation.target) || mutation.target === this.dom)
+      !this.contentDOM.contains(mutation.target)
     );
   }
+  destroy() { this.resize.disconnect(); }
 }
 
 class MathView implements NodeView {

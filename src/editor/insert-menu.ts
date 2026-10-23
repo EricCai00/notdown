@@ -12,7 +12,7 @@ function insertGroup(id: string): string {
   if (id === "r_inline" || id === "executable_inline") return "Markdown inline";
   if (["text", "child", "task", "heading1", "heading2", "heading3", "heading4", "list", "number", "quote", "divider", "link", "callout", "toggle", "table"].includes(id)) return "Notion basic";
   if (["columns", "toc", "equation", "toggle_heading", "synced_block", "button", "breadcrumb", "meeting_notes", "ai_block", "tabs"].includes(id)) return "Notion advanced";
-  if (["code", "image", "video", "audio", "pdf", "file", "web_bookmark", "link_preview", "image_block"].includes(id)) return "Notion media";
+  if (["code", "image", "video", "audio", "pdf", "file", "attachments", "web_bookmark", "link_preview", "image_block"].includes(id)) return "Notion media";
   if (["embed", "html_embed"].includes(id)) return "Notion embeds";
   if (["inline", "page_link", "location_link", "mention", "mention_person", "date_or_reminder", "inline_equation", "emoji"].includes(id)) return "Notion inline";
   if (["bold", "italic", "underline", "strike", "color", "background"].includes(id)) return "Notion style";
@@ -145,6 +145,7 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
     ["audio", "music", "Audio", "Upload audio with playback controls.", "audio music sound 音频 音乐"],
     ["pdf", "file-text", "PDF", "Upload a PDF to preview on the page.", "pdf document 文档"],
     ["file", "paperclip", "File", "Upload a file card with its name and size.", "file attachment download 文件 附件"],
+    ["attachments", "files", "From attachments", "Reuse a file already in this vault.", "assets library existing media 附件库 资源"],
     ...Object.keys(objectSamples).filter(id => id !== "web_embed").map(id => [id, (objectIcons[id] || "square"), contentCommand(id).label || id, "Insert an editable " + (contentCommand(id).label || id) + ".", id.replace(/_/g, " ")]),
     ["toggle_heading", "chevron-right", "Toggle heading", "A heading with collapsible child blocks.", "collapsible heading"],
     ["example_list_item", "list-ordered", "Example list item", "A numbered example with a stable label.", "example list"],

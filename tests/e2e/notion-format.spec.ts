@@ -196,7 +196,7 @@ test("official tags render editable columns, callouts, toggles, tables, colors, 
   expect(errors).toEqual([]);
 });
 
-test("legacy paragraphs keep source and enable nesting explicitly across reload", async ({
+test("legacy Markdown keeps unsupported nesting source intact across reload", async ({
   page,
   request,
 }) => {
@@ -224,20 +224,15 @@ test("legacy paragraphs keep source and enable nesting explicitly across reload"
   );
   await expect(page.locator(".pm-nested-block")).toHaveCount(0);
   await page.locator(".syntax-options summary").click();
-  await page.locator('[data-extension="notion_nesting"]').check();
+  // The current dialect boundary only exposes Notion nesting in Notdown and
+  // official Notion Markdown; legacy directives must remain recoverable text.
+  await expect(page.locator('[data-extension="notion_nesting"]')).toHaveCount(0);
   await page.locator(".syntax-options summary").click();
   await page.keyboard.press("Control+s");
-  // The first read may precede the asynchronous save and still have no syntax override.
-  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).syntax?.extensions?.notion_nesting).toBe(true);
-  await expect(page.locator(".pm-nested-block > p")).toHaveText([
-    "Parent",
-    "Child",
-  ]);
   await page.reload();
-  await expect(page.locator(".pm-nested-block > p")).toHaveText([
-    "Parent",
-    "Child",
-  ]);
+  await expect(page.locator(".pm-nested-block")).toHaveCount(0);
+  await page.keyboard.press("Control+e");
+  await expectSource(page, "one\ncontinued\n\n:::nest\nParent\n:::children\nChild\n:::endnest\n\nTail");
 });
 
 test("slash inserts an official callout block without exposing tag source", async ({

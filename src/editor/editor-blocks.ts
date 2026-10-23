@@ -182,7 +182,7 @@ function materialize(tree: Branch): PMNode {
 function unwrapEmptyGroups(tree: Branch) {
   for (const child of [...tree.children]) {
     unwrapEmptyGroups(child);
-    if (isGroup(child.node) && child.children.length === 1) {
+    if (isGroup(child.node) && child.children.length === 1 && !child.children[0].node.attrs.toggle) {
       const index = tree.children.indexOf(child);
       const head = child.children[0];
       head.parent = tree;

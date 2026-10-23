@@ -4,8 +4,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { createVault, VaultError } from "../../server/vault.js";
-import { isPageUuid, stablePageUuid } from "../../server/page-id.js";
-import { migratePageReferences } from "../../server/page-id-references.js";
+import { isPageUuid, stablePageUuid } from "../../src/vault/page-id.js";
+import { migratePageReferences } from "../../src/vault/page-id-references.js";
 import { prepareMarkdownImport } from "../../server/markdown-import.js";
 
 async function fixture(t: { after(fn: () => Promise<void>): void }) {

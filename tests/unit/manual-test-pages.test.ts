@@ -5,7 +5,7 @@ import { buildManualPages, auditManualPages } from '../../docs/fixtures/manual-t
 export const fixtureResources = { image: 'assets/example.png', audio: 'assets/example.wav', video: 'assets/example.webm', pdf: 'assets/example.pdf', text: 'assets/example.txt', bibliography: 'assets/refs.txt', target: '00000000-0000-4000-8000-000000000001' };
 test('manual acceptance pages cover each dialect and all in-scope extensions without changing source', () => {
   const pages = buildManualPages(fixtureResources), audit = auditManualPages(pages);
-  assert.equal(audit.dialects, 14); assert.equal(audit.extensions, 114); assert.equal(audit.objects, 82);
+  assert.equal(audit.dialects, 14); assert.equal(audit.extensions, 114); assert.equal(audit.objects, 85);
   assert.equal(pages.filter(p => p.key.startsWith('dialect-')).length, 14);
   assert.equal(pages.at(-1)?.key, 'outside');
   assert.equal(new Set(pages.map(p => p.key)).size, pages.length);

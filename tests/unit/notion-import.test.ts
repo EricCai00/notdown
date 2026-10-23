@@ -101,7 +101,7 @@ test("API Enhanced Markdown stays byte-exact, pagination and nested descendants 
     ),
   );
   assert.equal(
-    calls.filter((p) => p === `/v1/pages/${notionSibling}/markdown`).length,
+    calls.filter((p) => p === `/v1/pages/${notionSibling}/markdown?markdown_version=v2&include_transcript=true`).length,
     1,
   );
   assert.ok(
@@ -177,7 +177,7 @@ test("unknown blocks warn but allow preview and import, including responses also
         wait,
         fetch: async (input, init) => {
           const response = await fixture(input, init);
-          return String(input).endsWith(`/pages/${notionRoot}/markdown`)
+          return new URL(String(input)).pathname.endsWith(`/pages/${notionRoot}/markdown`)
             ? Response.json({ ...(await response.json()), truncated, unknown_block_ids: [notionChild] })
             : response;
         },
@@ -235,7 +235,7 @@ test("truncation without unknown blocks, inaccessible pages, malformed and ambig
     const fixture = notionFixture();
     const mock: typeof fetch = async (input, init) => {
       const response = await fixture(input, init);
-      return String(input).endsWith("/markdown")
+      return new URL(String(input)).pathname.endsWith("/markdown")
         ? Response.json({ ...(await response.json()), ...overrides })
         : response;
     };

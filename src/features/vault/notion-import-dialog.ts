@@ -22,9 +22,10 @@ export function openNotionImportDialog(options: {
     <label>Integration token<input id="notion-token" type="password" autocomplete="off" spellcheck="false" /></label>
     <label>Page URL or ID<input id="notion-page" type="text" placeholder="https://www.notion.so/..." autocomplete="off" spellcheck="false" /></label>
     <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
+    <label><input id="notion-assets" type="checkbox" checked /> Import files, media, covers and icons into Attachments</label>
     <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
     <p class="import-hint">Share the root page with your Notion connection and enable Read content. The token is used only for this preview and is not saved. Up to 500 pages / 20 MB including archived responses.</p>
-    <p class="import-hint">The URL or ID can address a page, database or data source. Descendants include child databases. Database records and supported fields become editable local copies. Formula and rollup values remain read-only snapshots. Original view definitions are archived; local tables show all records. Attachments remain remote; comments and permissions are not imported.</p>
+    <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and automations remain in Notion.</p>
     <div id="notion-preview" aria-live="polite"></div>
     <p id="notion-status" role="status"></p>
     <footer><button id="notion-cancel">Cancel</button><button id="notion-preview-button" class="primary-button">Preview</button><button id="notion-commit" class="primary-button" disabled>Import copies</button></footer>`;
@@ -32,6 +33,7 @@ export function openNotionImportDialog(options: {
   const token = dialog.querySelector<HTMLInputElement>("#notion-token")!;
   const page = dialog.querySelector<HTMLInputElement>("#notion-page")!;
   const children = dialog.querySelector<HTMLInputElement>("#notion-children")!;
+  const attachments = dialog.querySelector<HTMLInputElement>("#notion-assets")!;
   const variant = dialog.querySelector<HTMLSelectElement>("#notion-variant")!;
   const previewButton = dialog.querySelector<HTMLButtonElement>(
     "#notion-preview-button",
@@ -45,7 +47,7 @@ export function openNotionImportDialog(options: {
   let state: "idle" | "preview" | "commit" = "idle";
   let controller: AbortController | undefined;
   const update = () => {
-    token.disabled = page.disabled = children.disabled = variant.disabled = state !== "idle";
+    token.disabled = page.disabled = children.disabled = attachments.disabled = variant.disabled = state !== "idle";
     previewButton.disabled = state !== "idle";
     commit.disabled = state !== "idle" || !summary;
     cancel.disabled = close.disabled = state === "commit";
@@ -56,7 +58,7 @@ export function openNotionImportDialog(options: {
     status.textContent = "";
     update();
   };
-  for (const input of [token, page, children, variant])
+  for (const input of [token, page, children, attachments, variant])
     input.addEventListener("input", invalidate);
   const dismiss = () => {
     if (state !== "commit") dialog.close();
@@ -98,6 +100,7 @@ export function openNotionImportDialog(options: {
           token: token.value.trim(),
           pageId: page.value.trim(),
           includeChildren: children.checked,
+          downloadAssets: attachments.checked,
           variant: variant.value,
         }),
       });

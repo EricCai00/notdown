@@ -17,9 +17,22 @@
     "desktop": "npm run desktop:build && electron .",
     "desktop:pack": "npm run desktop:build && electron-builder --win --dir",
     "desktop:dist": "npm run desktop:build && electron-builder --win nsis",
-    "test:desktop": "npm run desktop:build && playwright test -c tests/e2e/desktop.config.ts"
+    "test:desktop": "npm run desktop:build && playwright test -c tests/e2e/desktop.config.ts",
+    "mobile:dev": "vite --mode mobile --host 127.0.0.1 --port 4337 --strictPort",
+    "mobile:build": "tsc --noEmit && vite build --mode mobile",
+    "android:sync": "npm run mobile:build && cap sync android",
+    "android:build": "npm run android:sync && node scripts/build-android.mjs",
+    "android:open": "cap open android",
+    "test:mobile": "npm run mobile:build && playwright test -c tests/e2e/mobile.config.ts",
+    "test:sync": "npm run build -- --outDir .run/sync-frontend && vite build --mode mobile --outDir ../../.run/sync-mobile-frontend && playwright test -c tests/e2e/sync.config.ts"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@noble/hashes": "2.4.0",
+    "buffer": "6.0.3",
+    "fflate": "0.8.2",
+    "pathe": "2.0.3",
     "@alex.garcia/unofficial-observablehq-compiler": "^0.6.0-alpha.9",
     "@codemirror/commands": "^6.11.0",
     "@codemirror/lang-html": "^6.4.12",
@@ -74,6 +87,8 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@capacitor/cli": "8.5.3",
     "@playwright/test": "^1.63.0",
     "@types/d3-force": "^3.0.10",
     "@types/express": "^5.0.0",

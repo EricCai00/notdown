@@ -56,6 +56,7 @@ export const dialects = [
 export type Dialect = (typeof dialects)[number]["id"];
 export interface SyntaxConfig {
   version: 1;
+  notionVersion?: "v1" | "v2";
   variant: Dialect;
   extensions: Record<string, boolean>;
   [key: string]: unknown;
@@ -382,6 +383,7 @@ export function validSyntax(value: unknown): value is SyntaxConfig {
   const c = value as SyntaxConfig;
   return (
     c.version === 1 &&
+    (c.notionVersion === undefined || c.notionVersion === "v1" || c.notionVersion === "v2") &&
     dialects.some((v) => v.id === c.variant) &&
     !!c.extensions &&
     typeof c.extensions === "object" &&

@@ -21,6 +21,7 @@ export const enrichmentFixture = (calls: string[] = []): typeof fetch => {
   const base = notionFixture(calls);
   return async (input, init) => {
     const response = await base(input, init), url = new URL(String(input));
+    if (url.pathname.includes("/pages/aaaaaaaa-") && url.pathname.endsWith("/markdown")) return Response.json({}, { status: 404 });
     if (url.pathname === `/v1/pages/${enrichmentRoot}/markdown`) return Response.json({
       object: "page_markdown", id: enrichmentRoot, markdown: enrichmentSource, truncated: true, unknown_block_ids: [blockId(7)],
     });
