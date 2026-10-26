@@ -12,6 +12,8 @@ import { databaseReference } from "../features/databases/database-reference";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { openVaultManager } from "../features/vault/vault-manager";
 import { applySidebarPreferences, mountSidebarPreferences } from "./sidebar-preferences";
+import { WorkspaceTabs, renderWorkspaceTabs } from "./workspace-tabs";
+import "./workspace-tabs.css";
 import { vaultAssetUrl, vaultPageUrl, vaultPrefix } from "../shared/vault-url";
 import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
 import { mountConflictDiff } from "../features/pages/conflict-diff";
@@ -70,7 +72,7 @@ import { comparePageOrder, type PageMoveInput } from "../features/pages/page-ord
 import { installSidebarDrag } from "./sidebar-drag";
 import { installSidebarLayout } from "./sidebar-layout";
 import { renderBreadcrumb } from "../blocks/breadcrumb-view";
-import { PageNavigation, parseRoute } from "../features/pages/page-navigation";
+import { PageNavigation, parseRoute, type PageRoute } from "../features/pages/page-navigation";
 import { PageBacklinks } from "../features/pages/page-backlinks";
 import { isPageCoverPath, openPageCoverPicker } from "../features/pages/page-cover-picker";
 import "../features/pages/page-cover-picker.css";
@@ -133,6 +135,7 @@ let coverPickerCleanup: (() => void) | undefined;
 let coverRepositionCleanup: (() => void) | undefined;
 let sidebarLayout: ReturnType<typeof installSidebarLayout>;
 let navigation: PageNavigation | undefined;
+let workspaceTabs: WorkspaceTabs | undefined;
 const backlinks = new PageBacklinks();
 
 function updateNavigationButtons() {
@@ -140,6 +143,24 @@ function updateNavigationButtons() {
   const forward = document.querySelector<HTMLButtonElement>('[data-action="history-forward"]');
   if (back) back.disabled = !navigation?.canBack;
   if (forward) forward.disabled = !navigation?.canForward;
+  if (navigation && !navigation.loading) workspaceTabs?.sync(navigation.route);
+}
+
+function renderTabs() {
+  const host = document.querySelector<HTMLElement>("#workspace-tabs");
+  if (!host || !workspaceTabs) return;
+  // A newly mounted page must not accept input until its tab view is restored.
+  const panel = document.querySelector<HTMLElement>("#main");
+  if (panel) panel.inert = workspaceTabs.busy;
+  renderWorkspaceTabs(host, workspaceTabs, route => {
+    const page = route.kind === "page" ? (current?.id === route.id ? current : pages.find(page => page.id === route.id || page.legacyIds?.includes(route.id))) : undefined;
+    const database = route.kind === "database" ? databases.find(database => database.id === route.id) : undefined;
+    const host = database && pages.find(page => page.id === (database.pageId ?? database.id));
+    return { title: page?.title ?? host?.title ?? database?.title ?? (route.kind === "page" ? "Page unavailable" : route.kind === "database" ? "Databases" : route.view === "graph" ? "Graph" : "Vault"),
+      icon: pageIconElement(page?.icon ?? host?.icon ?? (route.kind === "database" ? "🗃️" : route.kind === "vault" ? "📚" : "📄")) };
+  }, dirty || editorChanged || !!conflict);
+  const add = document.querySelector<HTMLButtonElement>('[data-action="new-tab"]');
+  if (add) add.disabled = workspaceTabs.busy;
 }
 // Keep existing preferences and window-specific drafts across the app rename.
 for (const storageName of ["localStorage", "sessionStorage"] as const) {
@@ -231,6 +252,7 @@ function readDraft(id: string) {
   }
 }
 function status(text: string, kind = "") {
+  renderTabs();
   const el = document.querySelector("#save-status");
   if (el) {
     if (el.className === kind && el.querySelector("span")?.textContent === text) return;
@@ -249,6 +271,7 @@ function markDirty() {
   updateCounts();
 }
 async function save(): Promise<boolean> {
+  if (editor?.isComposing() || workspace?.source.composing) return false;
   if (databaseWorkspace && !(await databaseWorkspace.flush())) return false;
   if (workspace && !(await workspace.blocks.flushDatabaseViews())) return false;
   captureEditor();
@@ -331,6 +354,7 @@ function pageIcon(page: Page) {
 }
 let sidebarSnapshot: { container: Element; key: string } | undefined;
 function renderSidebar() {
+  renderTabs();
   if (sidebarDrag.isDragging()) return;
   const container = document.querySelector("#page-tree");
   if (!container) return;
@@ -391,6 +415,17 @@ function shell() {
     <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="new-database">${icon("table-2")}New database</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button><button class="new-page" data-action="import-notion">${icon("globe")}Import from Notion API</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
     <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
   </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
+  app.classList.add("workspace-layout");
+  document.body.classList.toggle("desktop-window", !!window.notdownDesktop);
+  const chrome = document.createElement("header"); chrome.className = "workspace-chrome";
+  chrome.innerHTML = `<div class="workspace-chrome-tools"><img src="${notdownIcon}" width="20" height="20" alt="Notdown"><span class="workspace-chrome-name">Notdown</span></div><div class="workspace-tab-area"><div id="workspace-tabs" role="tablist" aria-label="Workspace tabs"></div><button type="button" class="workspace-new-tab" data-action="new-tab" aria-label="New tab" title="New tab">+</button><div class="workspace-drag-space"></div></div>`;
+  chrome.querySelector(".workspace-chrome-tools")!.append(app.querySelector('.topbar > [data-action="sidebar"]')!);
+  chrome.querySelector(".workspace-tab-area")!.prepend(app.querySelector(".page-history")!);
+  app.prepend(chrome);
+  const pageList = document.createElement("div"); pageList.className = "sidebar-pages";
+  const favorites = app.querySelector("#favorite-pages")!;
+  favorites.before(pageList);
+  pageList.append(favorites, app.querySelector("[data-page-root-drop]")!, app.querySelector("#page-tree")!);
   const resizer = document.createElement("div");
   resizer.className = "sidebar-resizer";
   resizer.tabIndex = 0;
@@ -1311,7 +1346,9 @@ function pageActionForm(page: Page, action: "rename" | "move") {
 }
 
 async function handlePageAction(page: Page, action: PageAction) {
-  if (action === "link") {
+  if (action === "open-tab") {
+    await workspaceTabs?.open(page.databaseId ? { kind: "database", id: page.databaseId } : { kind: "page", id: page.id });
+  } else if (action === "link") {
     const url = new URL(location.href);
     url.hash = pageUrl(page.id);
     try { await navigator.clipboard.writeText(url.href); toast("Page link copied."); }
@@ -2452,6 +2489,45 @@ async function exportHTML() {
   toast("HTML exported. Attachments use relative paths; keep the assets folder alongside the export.");
 }
 
+function routeForNewTab(target: EventTarget | null): PageRoute | undefined {
+  const element = target instanceof Element ? target.closest<HTMLElement>("[data-open-database],[data-open],a[href]") : null;
+  if (!element || element.closest("#workspace-tabs")) return;
+  if (element.dataset.openDatabase) return { kind: "database", id: element.dataset.openDatabase };
+  if (element.dataset.open) {
+    const page = pages.find(page => page.id === element.dataset.open);
+    if (page) return page.databaseId ? { kind: "database", id: page.databaseId } : { kind: "page", id: page.id };
+  }
+  const href = element.getAttribute("href");
+  if (!href?.startsWith("#page/")) return;
+  const reference = internalReference(href, (element.dataset.referenceSyntax || "markdown") as ReferenceSyntax);
+  const page = reference && resolveReferencePage(reference, pages, current?.id);
+  if (page) return { kind: "page", id: page.id, ...(reference?.fragment ? { fragment: reference.fragment } : {}) };
+}
+for (const type of ["click", "auxclick"] as const) document.addEventListener(type, event => {
+  if (!workspaceTabs || !(event.button === 1 || event.button === 0 && (event.ctrlKey || event.metaKey) && !event.altKey)) return;
+  const route = routeForNewTab(event.target);
+  if (!route) return;
+  event.preventDefault(); event.stopPropagation();
+  void workspaceTabs.open(route, !event.shiftKey);
+}, true);
+document.addEventListener("mousedown", event => { if (event.button === 1 && routeForNewTab(event.target)) event.preventDefault(); }, true);
+document.addEventListener("keydown", event => {
+  if (!window.notdownDesktop || !workspaceTabs || event.isComposing || editor?.isComposing() || workspace?.source.composing ||
+      !(event.ctrlKey || event.metaKey) || event.altKey || document.querySelector("#dialog, dialog[open]")) return;
+  const key = event.key.toLowerCase(), tabs = workspaceTabs;
+  let action: (() => Promise<boolean>) | undefined;
+  if (key === "t") action = () => event.shiftKey ? tabs.reopen() : tabs.open();
+  else if (key === "w" && !event.shiftKey) action = () => tabs.close(tabs.activeId);
+  else if (key === "tab") {
+    const index = tabs.tabs.findIndex(tab => tab.id === tabs.activeId);
+    action = () => tabs.activate(tabs.tabs[(index + (event.shiftKey ? -1 : 1) + tabs.tabs.length) % tabs.tabs.length].id);
+  } else if (/^[1-9]$/.test(key) && !event.shiftKey) {
+    const tab = key === "9" ? tabs.tabs.at(-1) : tabs.tabs[Number(key) - 1];
+    if (tab) action = () => tabs.activate(tab.id);
+  }
+  if (action) { event.preventDefault(); event.stopImmediatePropagation(); void action(); }
+}, true);
+
 document.addEventListener("click", (event) => {
   const target = event.target as Element;
   const actionEl = target.closest<HTMLElement>(
@@ -2549,6 +2625,9 @@ document.addEventListener("click", (event) => {
       return;
     }
     switch (actionEl.dataset.action) {
+      case "new-tab":
+        await workspaceTabs?.open();
+        break;
       case "attachments":
         await showAttachments();
         break;
@@ -2899,6 +2978,7 @@ const sidebarDrag = installSidebarDrag({
 });
 
 window.addEventListener("beforeunload", (event) => {
+  workspaceTabs?.capture();
   captureEditor();
   if (dirty || saving || databaseWorkspace?.dirty || workspace?.blocks.databaseViewsDirty) {
     event.preventDefault();
@@ -2954,6 +3034,7 @@ async function boot() {
   navigation = new PageNavigation(
     databaseRoute ?? (current && !library ? { kind: "page", id: current.id, ...(route?.kind === "page" && route.id === current.id && route.fragment ? { fragment: route.fragment } : {}) } : { kind: "vault", view: libraryView }),
     async (route, isCurrent, allowTrashed) => {
+      workspaceTabs?.capture();
       if (route.kind === "database") return loadDatabases(route.id, isCurrent);
       if (route.kind === "vault") return loadLibrary(route.view, isCurrent);
       const loaded = await loadPage(route.id, allowTrashed, isCurrent);
@@ -2964,6 +3045,29 @@ async function boot() {
     report,
   );
   updateNavigationButtons();
+  workspaceTabs = new WorkspaceTabs(navigation.route, {
+    storage: sessionStorage, key: `notdown-workspace-tabs:${vaultPath}`,
+    navigate: route => navigation!.navigate(route), currentRoute: () => navigation!.route,
+    capture: () => ({ mode: view, scroll: document.querySelector("#main")!.scrollTop, sourceScroll: workspace?.source.scrollDOM.scrollTop ?? 0 }),
+    restore: async state => {
+      if (current && !library && !databaseRoute) {
+        view = (state?.mode ?? "document") as View;
+        if (workspace && ["document", "source", "split"].includes(view)) await workspace.setMode(view as EditMode);
+        else renderContent();
+        document.querySelector("#page-options")!.innerHTML = pageOptions(); renderToc();
+      }
+      document.querySelector("#main")!.scrollTop = state?.scroll ?? 0;
+      if (workspace) workspace.source.scrollDOM.scrollTop = state?.sourceScroll ?? 0;
+    },
+    changed: renderTabs, report,
+  });
+  renderTabs();
+  await workspaceTabs.restoreActive();
+  window.addEventListener("resize", renderTabs);
+  window.notdownDesktop?.onOpenTab?.(url => {
+    const destination = new URL(url, location.href), route = parseRoute(destination.hash);
+    if (destination.origin === location.origin && destination.pathname === location.pathname && route) void workspaceTabs?.open(route);
+  });
   if (route?.kind === "page" && route.fragment && current?.id === route.id)
     revealReference(internalReference("#" + encodeURIComponent(route.fragment))!);
   app.inert = false;

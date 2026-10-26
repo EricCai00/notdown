@@ -1,7 +1,7 @@
 import { escape as e, type Page } from "../../shared/types";
 import { refreshIcons } from "../../shared/icons";
 
-export type PageAction = "favorite" | "link" | "duplicate" | "rename" | "move" | "trash";
+export type PageAction = "favorite" | "link" | "open-tab" | "duplicate" | "rename" | "move" | "trash";
 let dismiss: (() => void) | undefined;
 
 export function closePageContextMenu() { dismiss?.(); }
@@ -10,6 +10,7 @@ export function pageActionsHTML(page: Page, attribute = "data-page-action") {
   const items: [PageAction, string, string][] = [
     ["favorite", "star", page.favorite ? "Remove from Favorites" : "Add to Favorites"],
     ["link", "link-2", "Copy link"],
+    ["open-tab", "panels-top-left", "Open in new tab"],
     ["duplicate", "files", "Duplicate"],
     ["rename", "pen-line", "Rename"],
     ["move", "folder-tree", "Move to"],

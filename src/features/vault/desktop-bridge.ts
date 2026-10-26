@@ -2,6 +2,7 @@ declare global {
   interface Window {
     notdownDesktop?: {
       openVaultWindow(): Promise<void>;
+      onOpenTab?(callback: (url: string) => void): void;
       onCloseRequested(callback: (id: string) => void): void;
       finishClose(id: string, saved: boolean): void;
     };

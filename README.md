@@ -21,7 +21,7 @@ Notdown is a local note-taking app that combines block editing with Markdown fil
 
 ## Features
 
-- **Write your way.** Page, Source and Split views, slash commands, inline formatting, and blocks you can select and move.
+- **Write your way.** Keep pages in tabs on desktop or in your browser. Use Page, Source and Split views, slash commands, inline formatting, and blocks you can select and move.
 - **Connect your notes.** Nested pages, search, favorites, backlinks, an outline, a mind map and a page graph.
 - **Work with rich content.** Images and media, tables, callouts, equations, Mermaid diagrams, footnotes and citations, with selectable Markdown dialects. Browse and reuse local files in the [attachment library](docs/features/MEDIA-AND-EMBEDS.md).
 - **Organize structured information.** Full-page and inline databases on desktop and Android, with table views, typed properties and records backed by Markdown pages.

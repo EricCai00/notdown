@@ -1,0 +1,56 @@
+#app.workspace-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 240px) minmax(0, 1fr);
+  grid-template-rows: 36px minmax(0, 1fr);
+  overflow: hidden;
+}
+.workspace-layout > .sidebar { grid-column: 1; grid-row: 2; min-height: 0; overflow: hidden; }
+.workspace-layout > .sidebar > * { flex-shrink: 0; }
+.workspace-layout .sidebar-pages { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.workspace-layout > .sidebar > .new-page { margin: 2px 0; min-height: 30px; padding: 5px 10px; }
+.workspace-layout > .main-shell { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; }
+.workspace-layout > .sidebar-resizer { top: 36px; }
+.workspace-chrome {
+  grid-column: 1 / -1; grid-row: 1;
+  display: grid; grid-template-columns: var(--sidebar-width, 240px) minmax(0, 1fr);
+  min-width: 0; height: 36px; background: #f7f7f5; color: #787774;
+  user-select: none; -webkit-app-region: drag;
+}
+.workspace-chrome-tools { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px 0 14px; }
+.workspace-chrome-name { font-size: 12px; margin-right: auto; }
+.workspace-chrome-tools img { object-fit: contain; flex-shrink: 0; }
+.workspace-tab-area { display: flex; min-width: 0; align-items: stretch; }
+.workspace-tab-area .page-history { display: flex; align-items: center; padding: 0 4px; flex-shrink: 0; }
+.workspace-chrome button, #workspace-tabs { -webkit-app-region: no-drag; }
+#workspace-tabs { display: flex; align-items: stretch; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+#workspace-tabs::-webkit-scrollbar { display: none; }
+.workspace-tab { display: flex; flex: 0 0 auto; align-items: center; width: 190px; max-width: 230px; min-width: 100px; border-right: 1px solid #e9e9e7; }
+.workspace-tab:hover { background: #eeedeb; }
+.workspace-tab.active { background: #fff; color: #37352f; }
+.workspace-tab > [role="tab"] { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; height: 100%; padding: 0 4px 0 12px; text-align: left; font-size: 13px; color: inherit; }
+.workspace-tab > [role="tab"] > span:not(.workspace-tab-dirty) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.workspace-tab .workspace-tab-icon { width: 16px; height: 16px; font-size: 14px; flex-shrink: 0; object-fit: contain; }
+.workspace-tab-close { flex-shrink: 0; width: 24px; height: 24px; margin-right: 4px; border-radius: 4px; color: #787774; font-size: 18px; line-height: 1; opacity: 0; }
+.workspace-tab.active .workspace-tab-close, .workspace-tab:hover .workspace-tab-close, .workspace-tab:focus-within .workspace-tab-close { opacity: 1; }
+.workspace-tab-close:hover { background: #0000000c; }
+.workspace-tab-dirty { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: #a8a7a3; }
+.workspace-new-tab { width: 36px; min-width: 36px; height: 36px; font-size: 23px; font-weight: 300; color: #9b9a97; }
+.workspace-new-tab:hover { background: #00000008; color: #37352f; }
+.workspace-drag-space { flex: 1; min-width: 24px; }
+.desktop-window .workspace-chrome { margin-right: max(138px, calc(100vw - env(titlebar-area-width, 100vw))); }
+.workspace-layout .topbar { height: 44px; padding-left: 16px; }
+.sidebar-collapsed #app.workspace-layout { grid-template-columns: 0 minmax(0, 1fr); }
+.sidebar-collapsed .workspace-chrome { grid-template-columns: 120px minmax(0, 1fr); }
+.sidebar-collapsed .workspace-chrome-name { display: none; }
+.sidebar-collapsed .workspace-chrome-tools { justify-content: space-between; }
+@media (max-width: 720px) {
+  #app.workspace-layout { grid-template-columns: 0 minmax(0, 1fr); }
+  .workspace-chrome, .sidebar-collapsed .workspace-chrome { grid-template-columns: 68px minmax(0, 1fr); }
+  .workspace-chrome-name { display: none; }
+  .workspace-chrome-tools { padding: 0 6px; gap: 4px; }
+  .workspace-chrome .page-history { display: none; }
+  .workspace-tab { width: 150px; }
+  .workspace-tab-close { opacity: 1; }
+  .workspace-layout > .sidebar { top: 36px; bottom: 0; height: auto; }
+  .workspace-layout .topbar { padding-left: 8px; }
+}

@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("notdownDesktop", {
   openVaultWindow: () => ipcRenderer.invoke("vault:welcome"),
+  onOpenTab: (callback: (url: string) => void) => {
+    ipcRenderer.on("vault:open-tab", (_event, url: string) => callback(url));
+  },
   onCloseRequested: (callback: (id: string) => void) => {
     ipcRenderer.on("vault:save-before-close", (_event, id: string) => callback(id));
   },

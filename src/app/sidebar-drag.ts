@@ -11,12 +11,14 @@ export function installSidebarDrag(options: {
   let pending: { id: string; x: number; y: number; pointer: number } | null = null;
   let cursorX = 0, cursorY = 0, frame = 0, suppressClickUntil = 0;
   let ghost: HTMLElement | null = null;
+  let edgeStart = 0, edgeDirection = 0;
   const clearHover = () => { hover?.element.removeAttribute("data-page-drop"); hover = null; };
   const finish = () => {
     const active = sourceId !== null;
     const sidebar = document.querySelector<HTMLElement>(".sidebar");
     if (pending && sidebar?.hasPointerCapture(pending.pointer)) sidebar.releasePointerCapture(pending.pointer);
     pending = null; sourceId = null; snapshot = []; clearHover(); cancelAnimationFrame(frame);
+    edgeStart = 0; edgeDirection = 0;
     sidebar?.classList.remove("is-page-dragging");
     document.querySelectorAll(".is-page-drag-source").forEach((row) => row.classList.remove("is-page-drag-source"));
     ghost?.remove(); ghost = null;
@@ -54,11 +56,14 @@ export function installSidebarDrag(options: {
   };
   const scroll = () => {
     if (!sourceId) return;
-    const sidebar = document.querySelector<HTMLElement>(".sidebar");
+    const sidebar = document.querySelector<HTMLElement>(".sidebar-pages") ?? document.querySelector<HTMLElement>(".sidebar");
     if (sidebar) {
       const rect = sidebar.getBoundingClientRect();
-      const speed = cursorX < rect.left || cursorX > rect.right ? 0 : cursorY < rect.top + 48 ? -9 : cursorY > rect.bottom - 48 ? 9 : 0;
-      if (speed) { sidebar.scrollTop += speed; updateHover(); }
+      const speed = cursorX < rect.left || cursorX > rect.right || cursorY < rect.top || cursorY > rect.bottom
+        ? 0 : cursorY < rect.top + 48 ? -9 : cursorY > rect.bottom - 48 ? 9 : 0;
+      if (speed !== edgeDirection) { edgeDirection = speed; edgeStart = performance.now(); }
+      // Briefly targeting an edge row should not scroll it away before release.
+      if (speed && performance.now() - edgeStart >= 250) { sidebar.scrollTop += speed; updateHover(); }
     }
     frame = requestAnimationFrame(scroll);
   };

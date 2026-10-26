@@ -66,6 +66,8 @@
 
 ## 审计与验证记录
 
+- [标签页与集成标题栏（2026-10-26）](verification/WORKSPACE-TABS-2026-10-26.md)
+
 - [手机方言与 0.1.1 构建（2026-10-26）](verification/MOBILE-DIALECT-AND-RELEASE-2026-10-26.md)
 
 - [浏览器知识库管理、设置与侧栏（2026-10-25）](verification/BROWSER-VAULTS-AND-SETTINGS-2026-10-25.md)

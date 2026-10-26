@@ -43,6 +43,36 @@ test.beforeEach(async () => {
   desktop = await electron.launch({ executablePath: packaged, args: packaged ? [`--user-data-dir=${path.join(root, "profile")}`] : [path.resolve(".")], env });
   expect(await desktop.evaluate(({ app }) => app.getPath("userData"))).toBe(path.join(root, "profile"));
 });
+test("integrated title bar keeps native controls and desktop tab shortcuts save before switching", async () => {
+  const vaultPath = path.join(root, "Tabs"); await fs.mkdir(vaultPath);
+  const page = await chooseFolder(vaultPath, "create");
+  const chrome = await desktop.evaluate(({ BrowserWindow, Menu }, origin) => {
+    const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().startsWith(origin))!;
+    return { menu: Menu.getApplicationMenu() === null, menuVisible: window.isMenuBarVisible(), bounds: window.getBounds(), content: window.getContentBounds() };
+  }, new URL(page.url()).origin);
+  expect(chrome.menu).toBe(true); expect(chrome.menuVisible).toBe(false);
+  expect(chrome.bounds.height - chrome.content.height).toBeLessThan(25);
+  await page.locator('.new-page[data-action="new"]').click();
+  await page.locator("#page-title").fill("Desktop first tab");
+  await page.locator("#editor .pm-document").fill("First tab body");
+  await page.keyboard.press("Control+t");
+  await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(2);
+  await page.locator('.new-page[data-action="new"]').click();
+  await page.locator("#page-title").fill("Desktop second tab");
+  await page.locator("#editor .pm-document").fill("Pending second tab text");
+  await page.keyboard.press("Control+1");
+  await expect(page.locator("#page-title")).toHaveValue("Desktop first tab");
+  expect((await readNotes(vaultPath)).some(note => note.body.includes("Pending second tab text"))).toBe(true);
+  await page.keyboard.press("Control+w");
+  await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(1);
+  await expect(page.locator("#page-title")).toHaveValue("Desktop second tab");
+  await page.keyboard.press("Control+Shift+t");
+  await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(2);
+  await expect(page.locator("#page-title")).toHaveValue("Desktop first tab");
+  await page.evaluate(() => { window.open(location.href, "_blank"); });
+  await expect.poll(async () => (await desktop.windows()).length).toBe(1);
+});
+
 test("two vaults isolate drafts and folder import copies its sources", async () => {
   const firstPath = path.join(root, "First"); await fs.mkdir(firstPath);
   const first = await chooseFolder(firstPath, "create");

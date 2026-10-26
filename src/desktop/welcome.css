@@ -25,3 +25,4 @@ footer { font-size: 11px; color: #8b897f; margin-top: 26px; }
 #managed-vaults { display: grid; gap: 6px; max-height: 110px; overflow: auto; }
 #managed-vaults button { padding: 7px 12px; }
 #data-path { margin: 0 0 12px; overflow-wrap: anywhere; }
+.welcome-titlebar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 150px 0 14px; color: #66645f; background: #f7f7f5; font-size: 12px; user-select: none; -webkit-app-region: drag; }

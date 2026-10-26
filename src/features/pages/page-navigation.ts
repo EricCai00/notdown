@@ -70,6 +70,8 @@ export class PageNavigation {
   }
 
   private get storageKey() { return `notdown-navigation:${this.active.session}`; }
+  get route(): PageRoute { return structuredClone(this.active.route); }
+  get loading() { return this.pending || this.restoring; }
   get canBack() { return !this.pending && !this.restoring && this.active.index > 0; }
   get canForward() { return !this.pending && !this.restoring && this.active.index < this.upper; }
   back() { if (this.canBack) history.back(); }

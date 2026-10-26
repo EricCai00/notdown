@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -10,6 +10,9 @@ import { createManagedVaultFolder, listManagedVaults, loadLocalEnv, resolveVault
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const welcomeURL = pathToFileURL(path.join(directory, "welcome.html")).href;
 const preload = path.join(directory, "preload.cjs");
+const integratedTitleBar: BrowserWindowConstructorOptions = {
+  titleBarStyle: "hidden", titleBarOverlay: { color: "#f7f7f5", symbolColor: "#66645f", height: 36 },
+};
 type VaultWindow = { origin: string; server: Server; windows: Set<BrowserWindow>; primary: BrowserWindow };
 const vaults = new Map<string, VaultWindow>();
 const launchers = new Set<BrowserWindow>();
@@ -51,6 +54,15 @@ function remember(root: string) {
   return recentsQueue;
 }
 function configureWindow(window: BrowserWindow, origin?: string) {
+  window.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    if (input.key === "F11") { event.preventDefault(); window.setFullScreen(!window.isFullScreen()); }
+    else if ((input.control || input.meta) && !input.alt && ["+", "=", "-", "0"].includes(input.key)) {
+      event.preventDefault();
+      const level = window.webContents.getZoomLevel();
+      window.webContents.setZoomLevel(input.key === "0" ? 0 : Math.max(-3, Math.min(3, level + (input.key === "-" ? -0.5 : 0.5))));
+    }
+  });
   window.webContents.on("will-navigate", (event, url) => {
     if (origin && new URL(url).origin === origin) return;
     event.preventDefault();
@@ -58,6 +70,11 @@ function configureWindow(window: BrowserWindow, origin?: string) {
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (origin && new URL(url).origin === origin) {
+      const destination = new URL(url);
+      if (destination.pathname === "/" && /^(?:#page\/|#vault\/|#database\/|#databases$)/.test(destination.hash)) {
+        window.webContents.send("vault:open-tab", url);
+        return { action: "deny" };
+      }
       const vault = [...vaults.values()].find(v => v.origin === origin);
       if (vault) {
         const child = new BrowserWindow({ width: 1200, height: 850, show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { session: window.webContents.session, contextIsolation: true, sandbox: true, nodeIntegration: false } });
@@ -80,7 +97,7 @@ function releaseWindow(vault: VaultWindow, window: BrowserWindow) {
   }
 }
 function showWelcome() {
-  const window = new BrowserWindow({ width: 760, height: 820, minWidth: 540, minHeight: 650, title: "Notdown", icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, contextIsolation: true, sandbox: true, nodeIntegration: false } });
+  const window = new BrowserWindow({ ...integratedTitleBar, width: 760, height: 820, minWidth: 540, minHeight: 650, title: "Notdown", icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, contextIsolation: true, sandbox: true, nodeIntegration: false } });
   launchers.add(window);
   window.on("closed", () => launchers.delete(window));
   configureWindow(window);
@@ -115,7 +132,7 @@ async function openVaultNow(selected: string, create: boolean) {
   vaultSession.setPermissionRequestHandler((_contents, permission, callback, details) => callback(details.requestingUrl.startsWith(`${origin}/`) && permission === "clipboard-sanitized-write"));
   vaultSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) => requestingOrigin === origin && permission === "clipboard-sanitized-write");
   vaultSession.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => callback({ requestHeaders: { ...details.requestHeaders, "X-Notdown-Desktop": token } }));
-  const window = new BrowserWindow({ width: 1440, height: 950, minWidth: 700, minHeight: 540, title: `Notdown — ${path.basename(root)}`, icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, session: vaultSession, contextIsolation: true, sandbox: true, nodeIntegration: false } });
+  const window = new BrowserWindow({ ...integratedTitleBar, width: 1440, height: 950, minWidth: 700, minHeight: 540, title: `Notdown — ${path.basename(root)}`, icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, session: vaultSession, contextIsolation: true, sandbox: true, nodeIntegration: false } });
   const vault = { origin, server, windows: new Set([window]), primary: window };
   vaults.set(root, vault);
   configureWindow(window, origin);
@@ -145,7 +162,7 @@ else {
     if (windows.length) { event.preventDefault(); for (const window of windows) window.close(); }
   });
   void app.whenReady().then(async () => {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: "File", submenu: [{ label: "Open vault…", click: () => showWelcome() }, { role: "close" }, { role: "quit" }] }, { role: "editMenu" }, { label: "View", submenu: [{ role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" }, { role: "togglefullscreen" }] }]));
+    Menu.setApplicationMenu(null);
     ipcMain.handle("vault:welcome", event => { trusted(event); showWelcome(); });
     ipcMain.handle("vault:recents", event => { trusted(event, true); return recents(); });
     ipcMain.handle("vault:managed", async event => { trusted(event, true); return { dataPath, vaults: await listManagedVaults(dataPath) }; });

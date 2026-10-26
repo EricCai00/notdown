@@ -25,7 +25,7 @@ test("top-right menu shares all page actions and trashes the current page with p
   await page.goto(`/#page/${note.id}`);
   await expect(page.locator("#page-title")).toHaveValue(note.title);
   let actions = await topMenu(page);
-  await expect(actions.locator("[data-current-page-action]")).toHaveCount(6);
+  await expect(actions.locator("[data-current-page-action]")).toHaveCount(7);
   await actions.getByRole("menuitem", { name: "Add to Favorites", exact: true }).click();
   await expect(page.locator(`#favorite-pages [data-open="${note.id}"]`)).toBeVisible();
   actions = await topMenu(page);
@@ -120,7 +120,7 @@ test("sidebar menu targets the clicked page; favorites, rename, move and links p
   await page.goto(`/#page/${active.id}`);
   await expect(page.locator("#page-title")).toHaveValue(active.title);
   let actions = await menu(page, target.id);
-  await expect(actions.getByRole("menuitem")).toHaveCount(6);
+  await expect(actions.getByRole("menuitem")).toHaveCount(7);
   await actions.getByRole("menuitem", { name: "Add to Favorites", exact: true }).click();
   await expect(page.locator(`#favorite-pages [data-open="${target.id}"]`)).toBeVisible();
   await expect(page.locator("#page-title")).toHaveValue(active.title);
