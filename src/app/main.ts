@@ -410,7 +410,7 @@ function shell() {
   app.inert = true;
   app.setAttribute("aria-busy", "true");
   app.innerHTML = `<aside class="sidebar" id="sidebar">
-    <button class="workspace-switch" data-action="vaults" aria-label="Open knowledge bases: ${e(vaultName)}" title="${e(vaultName)} · Manage knowledge bases"><span><strong>${e(vaultName)}</strong></span>${icon("chevron-down")}</button>
+    <button class="workspace-switch" data-action="vaults" aria-label="Open knowledge bases: ${e(vaultName)}" title="${e(vaultName)} · Manage knowledge bases"><span><strong>${e(vaultName)}</strong></span>${icon("chevrons-up-down")}</button>
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="attachments">${icon("paperclip")}Attachments</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
