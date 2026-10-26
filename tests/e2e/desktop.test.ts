@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { parse } from "yaml";
+import { spawn } from "node:child_process";
 
 async function readNotes(vaultPath: string) {
   const files = await fs.readdir(path.join(vaultPath, "pages"));
@@ -34,13 +35,32 @@ test("managed vaults use sibling named folders and remain separate", async () =>
 
 let root: string;
 let desktop: ElectronApplication;
+let launchArgs: string[];
+let launchEnv: NodeJS.ProcessEnv;
+
+async function trayAction(action: "open" | "click" | "quit") {
+  await desktop.evaluate(async ({ app }, action) => {
+    const require = process.getBuiltinModule("module").createRequire(app.getAppPath() + "/package.json");
+    const { desktopLifecycle } = require("./desktop-dist/main.mjs");
+    if (action === "click") desktopLifecycle.tray.emit("click");
+    else desktopLifecycle.menu.getMenuItemById(action).click();
+  }, action);
+}
+
+async function launchAgain() {
+  const executable = await desktop.evaluate(() => process.execPath);
+  const child = spawn(executable, launchArgs, { env: launchEnv, windowsHide: true, stdio: "ignore" });
+  const code = await new Promise<number | null>((resolve, reject) => { child.once("error", reject); child.once("exit", resolve); });
+  expect(code).toBe(0);
+}
 test.beforeEach(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-desktop-test-"));
   const env = { ...process.env, NOTDOWN_DESKTOP_PROFILE: path.join(root, "profile"), NOTDOWN_DATA_PATH: path.join(root, "profile", "vault-data"), NOTDOWN_DESKTOP_HEADLESS: "1" };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.VAULT_PATH;
   const packaged = process.env.NOTDOWN_PACKAGED_EXE;
-  desktop = await electron.launch({ executablePath: packaged, args: packaged ? [`--user-data-dir=${path.join(root, "profile")}`] : [path.resolve(".")], env });
+  launchArgs = packaged ? [`--user-data-dir=${path.join(root, "profile")}`] : [path.resolve(".")]; launchEnv = env;
+  desktop = await electron.launch({ executablePath: packaged, args: launchArgs, env });
   expect(await desktop.evaluate(({ app }) => app.getPath("userData"))).toBe(path.join(root, "profile"));
 });
 test("integrated title bar keeps native controls and desktop tab shortcuts save before switching", async () => {
@@ -135,7 +155,7 @@ async function chooseFolder(folder: string, mode: "create" | "open") {
   await expect(page.locator(".sidebar")).toBeVisible();
   return page;
 }
-test("first launch creates an empty vault, remembers it and saves pending input on close", async () => {
+test("closing saves pending input to the vault, hides to tray and restores the same window and tabs", async () => {
   const welcome = await desktop.firstWindow();
   await expect(welcome.getByRole("heading", { name: "A home for your notes." })).toBeVisible();
   const vaultPath = path.join(root, "My vault"); await fs.mkdir(vaultPath);
@@ -147,21 +167,113 @@ test("first launch creates an empty vault, remembers it and saves pending input 
   await page.locator(".page-pane .ProseMirror").fill("Pending body is saved on close");
   const origin = new URL(page.url()).origin;
   expect((await fetch(`${origin}/api/pages`)).status).toBe(403);
-  // Leave a launcher open so the app stays alive while its editing window closes.
-  const launcherPromise = desktop.waitForEvent("window");
-  await page.evaluate(() => (window as any).notdownDesktop.openVaultWindow());
-  const launcher = await launcherPromise;
+  const pid = desktop.process().pid;
   await desktop.evaluate(({ BrowserWindow }, url) => { BrowserWindow.getAllWindows().find(w => w.webContents.getURL().startsWith(url))!.close(); }, origin);
-  await expect.poll(() => page.isClosed()).toBe(true);
+  await expect.poll(() => desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().every(window => !window.isVisible()))).toBe(true);
+  expect(page.isClosed()).toBe(false); expect(desktop.process().pid).toBe(pid);
+  await expect.poll(async () => (await readNotes(vaultPath))[0]?.body).toContain("Pending body is saved on close");
+  await expect.poll(async () => (await readNotes(vaultPath))[0]?.title).toBe("Desktop note");
   const notes = await readNotes(vaultPath);
   expect(notes).toHaveLength(1);
   expect(notes[0].title).toBe("Desktop note");
   expect(notes[0].body).toContain("Pending body is saved on close");
-  await expect(launcher.locator("#recents")).toContainText("My vault");
-  const reopenedPromise = desktop.waitForEvent("window");
-  await launcher.locator("#recents button").click();
-  const reopened = await reopenedPromise;
-  await expect(reopened.locator("#page-title")).toHaveValue("Desktop note");
+  await trayAction("click");
+  await expect.poll(() => desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.isVisible()))).toBe(true);
+  await expect(page.locator("#page-title")).toHaveValue("Desktop note");
+  await expect(page.locator(".pm-document")).toContainText("Pending body is saved on close");
+  expect((await desktop.windows()).length).toBe(1);
+  expect(JSON.parse(await fs.readFile(path.join(root, "profile", "vaults.json"), "utf8"))).toContain(vaultPath);
+});
+
+test("tray exists, welcome can hide, and quitting from tray exits the process", async () => {
+  const welcome = await desktop.firstWindow();
+  await welcome.waitForLoadState("domcontentloaded");
+  const state = await desktop.evaluate(async ({ app }) => {
+    const require = process.getBuiltinModule("module").createRequire(app.getAppPath() + "/package.json");
+    const { desktopLifecycle } = require("./desktop-dist/main.mjs");
+    return { tray: !desktopLifecycle.tray.isDestroyed(), labels: desktopLifecycle.menu.items.map((item: { label: string }) => item.label) };
+  });
+  expect(state.tray).toBe(true); expect(state.labels).toEqual(["Open Notdown", "", "Quit Notdown"]);
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  expect(welcome.isClosed()).toBe(false);
+  await trayAction("open");
+  await expect.poll(() => desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
+  const closed = desktop.waitForEvent("close"); await trayAction("quit"); await closed;
+});
+
+test("launching again restores hidden or minimized windows without another instance or launcher", async () => {
+  const vaultPath = path.join(root, "Single instance"); await fs.mkdir(vaultPath);
+  const page = await chooseFolder(vaultPath, "create");
+  const pid = desktop.process().pid;
+  const windowId = await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].id);
+  await desktop.evaluate(({ app }) => {
+    (app as unknown as { testSecondLaunches: number }).testSecondLaunches = 0;
+    app.on("second-instance", () => { (app as unknown as { testSecondLaunches: number }).testSecondLaunches++; });
+  });
+  await page.locator('#sidebar .section-label [data-action="new"]').click();
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let saving = false;
+  await page.route("**/api/pages/*", async route => {
+    if (route.request().method() === "PUT") { saving = true; await held; }
+    await route.continue();
+  });
+  await page.locator(".pm-document").fill("Pending input during relaunch");
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  await expect.poll(() => saving).toBe(true);
+  await launchAgain();
+  await expect.poll(() => desktop.evaluate(({ BrowserWindow, app }) => ({
+    lock: app.hasSingleInstanceLock(), notifications: (app as unknown as { testSecondLaunches: number }).testSecondLaunches,
+    windows: BrowserWindow.getAllWindows().map(window => ({ id: window.id, visible: window.isVisible(), minimized: window.isMinimized(), url: window.webContents.getURL() })),
+  }))).toMatchObject({ lock: true, notifications: 1, windows: [{ id: windowId, visible: true, minimized: false }] });
+  release();
+  await expect(page.locator("#save-status")).toContainText("Saved");
+  await page.unroute("**/api/pages/*");
+  expect(await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].minimize());
+  await launchAgain();
+  await expect.poll(() => desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized())).toBe(false);
+  expect(await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => window.id))).toEqual([windowId]);
+  expect(desktop.process().pid).toBe(pid); expect(page.isClosed()).toBe(false);
+});
+
+test("quit keeps all windows frozen until all saves finish and preserves drafts when any save fails", async () => {
+  const firstPath = path.join(root, "Quit first"); await fs.mkdir(firstPath);
+  const first = await chooseFolder(firstPath, "create");
+  await first.locator('#sidebar .section-label [data-action="new"]').click();
+  await first.locator("#page-title").fill("First quit draft");
+  const launcherPromise = desktop.waitForEvent("window"); await first.locator(".workspace-switch").click();
+  const launcher = await launcherPromise;
+  const secondPath = path.join(root, "Quit second"); await fs.mkdir(secondPath);
+  await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, secondPath);
+  const next = desktop.waitForEvent("window"); await launcher.locator("#create").click(); const second = await next;
+  await second.locator('#sidebar .section-label [data-action="new"]').click();
+  await second.locator("#page-title").fill("Second quit draft");
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let saveStarted = false;
+  await second.route("**/api/pages/*", async route => {
+    if (route.request().method() !== "PUT") { await route.continue(); return; }
+    saveStarted = true; await held;
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Temporary test save failure" }) });
+  });
+  await first.locator(".pm-document").evaluate(element => element.textContent = "First pending quit body");
+  await second.locator(".pm-document").evaluate(element => element.textContent = "Second pending quit body");
+  await trayAction("quit");
+  await expect.poll(() => saveStarted).toBe(true);
+  await expect.poll(async () => (await readNotes(firstPath))[0]?.body).toContain("First pending quit body");
+  await expect(first.locator("#app")).toHaveAttribute("inert", "");
+  release();
+  await expect(second.locator("#save-status")).toContainText("Save failed");
+  await expect(first.locator("#app")).not.toHaveAttribute("inert", "");
+  await expect(second.locator("#app")).not.toHaveAttribute("inert", "");
+  expect(first.isClosed()).toBe(false); expect(second.isClosed()).toBe(false);
+  await second.unroute("**/api/pages/*");
+  const closed = desktop.waitForEvent("close");
+  await second.getByRole("button", { name: "Notdown menu", exact: true }).click();
+  await second.getByRole("menuitem", { name: "Quit Notdown", exact: true }).click();
+  await closed;
+  expect((await readNotes(secondPath))[0].body).toContain("Second pending quit body");
 });
 test("failed conflict save prevents close and preserves both versions", async () => {
   const vaultPath = path.join(root, "Existing");

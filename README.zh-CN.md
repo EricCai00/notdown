@@ -46,6 +46,8 @@ npm run desktop
 
 选择 **Create new vault**，在空文件夹中新建知识库；或用 **Open existing vault** 打开已有 Notdown 知识库。点击 **New page** 即可开始写作。
 
+关闭桌面窗口后，应用继续驻留系统托盘；可从托盘恢复窗口或退出应用。
+
 运行 `npm run desktop:dist` 可生成 Windows x64 安装包，输出在 `.run/desktop-release/`。安装后的用户无需 Node.js。打包和知识库选择详见[桌面版指南](docs/features/DESKTOP-AND-IMPORT.md)。
 
 ### 浏览器版

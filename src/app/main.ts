@@ -432,6 +432,7 @@ function shell() {
         { action: "import", label: "Import…", disabled: busy },
         { action: "vaults", label: "Manage knowledge bases…", disabled: busy },
         { action: "close-tab", label: "Close tab", shortcut: window.notdownDesktop ? "Ctrl+W" : undefined, disabled: busy },
+        ...(window.notdownDesktop ? [{ action: "quit-app", label: "Quit Notdown", disabled: busy }] : []),
       ] },
       { label: "View", items: [
         { action: "sidebar", label: "Toggle sidebar" },
@@ -2648,6 +2649,9 @@ document.addEventListener("click", (event) => {
         break;
       case "close-tab":
         if (workspaceTabs) await workspaceTabs.close(workspaceTabs.activeId);
+        break;
+      case "quit-app":
+        await window.notdownDesktop?.quit();
         break;
       case "reopen-tab":
         await workspaceTabs?.reopen();

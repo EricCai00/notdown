@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Server } from "node:http";
 import { createApp } from "../../server/app.js";
 import { createManagedVaultFolder, listManagedVaults, loadLocalEnv, resolveVaultLocation } from "../../server/vault-location.js";
+import { DesktopLifecycle } from "./lifecycle.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const welcomeURL = pathToFileURL(path.join(directory, "welcome.html")).href;
@@ -16,8 +17,9 @@ const integratedTitleBar: BrowserWindowConstructorOptions = {
 type VaultWindow = { origin: string; server: Server; windows: Set<BrowserWindow>; primary: BrowserWindow };
 const vaults = new Map<string, VaultWindow>();
 const launchers = new Set<BrowserWindow>();
-const pendingCloses = new Map<number, { id: string; timer: NodeJS.Timeout }>();
-const allowedCloses = new Set<number>();
+const pendingCloses = new Map<number, { id: string; timer: NodeJS.Timeout; promise: Promise<boolean>; resolve(saved: boolean): void }>();
+export let desktopLifecycle: DesktopLifecycle;
+let startup: Promise<void>;
 let recentsQueue = Promise.resolve();
 let openingQueue = Promise.resolve();
 app.setName("Notdown");
@@ -79,6 +81,7 @@ function configureWindow(window: BrowserWindow, origin?: string) {
       if (vault) {
         const child = new BrowserWindow({ width: 1200, height: 850, show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { session: window.webContents.session, contextIsolation: true, sandbox: true, nodeIntegration: false } });
         vault.windows.add(child);
+        desktopLifecycle.track(child, false);
         child.on("closed", () => releaseWindow(vault, child));
         configureWindow(child, origin);
         void child.loadURL(url);
@@ -97,8 +100,11 @@ function releaseWindow(vault: VaultWindow, window: BrowserWindow) {
   }
 }
 function showWelcome() {
+  const existing = [...launchers].find(window => !window.isDestroyed());
+  if (existing) { desktopLifecycle.show(existing); return existing; }
   const window = new BrowserWindow({ ...integratedTitleBar, width: 760, height: 820, minWidth: 540, minHeight: 650, title: "Notdown", icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, contextIsolation: true, sandbox: true, nodeIntegration: false } });
   launchers.add(window);
+  desktopLifecycle.track(window, false);
   window.on("closed", () => launchers.delete(window));
   configureWindow(window);
   void window.loadURL(welcomeURL);
@@ -114,7 +120,7 @@ async function openVaultNow(selected: string, create: boolean) {
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("Choose a real folder, not a file or shortcut.");
   const root = await fs.realpath(selected);
   const existing = vaults.get(root);
-  if (existing && !existing.primary.isDestroyed()) { existing.primary.show(); existing.primary.focus(); return; }
+  if (existing && !existing.primary.isDestroyed()) { desktopLifecycle.show(existing.primary); return; }
   if (existing) throw new Error("Close the other windows for this vault before reopening it.");
   const names = await fs.readdir(root);
   if (create && names.length) throw new Error("Create a vault in an empty folder. Import existing Markdown after opening the new vault.");
@@ -136,33 +142,53 @@ async function openVaultNow(selected: string, create: boolean) {
   const vault = { origin, server, windows: new Set([window]), primary: window };
   vaults.set(root, vault);
   configureWindow(window, origin);
-  window.on("close", event => {
-    if (allowedCloses.has(window.id)) return;
-    event.preventDefault();
-    if (pendingCloses.has(window.id)) return;
-    const id = randomUUID();
-    const timer = setTimeout(() => {
-      pendingCloses.delete(window.id);
-      if (!window.isDestroyed()) void dialog.showMessageBox(window, { type: "warning", message: "The editor has not confirmed that your changes are saved.", detail: "The window will stay open. Wait for the editor or resolve the save error before closing.", buttons: ["Keep open"] });
-    }, 15_000);
-    pendingCloses.set(window.id, { id, timer });
-    window.webContents.send("vault:save-before-close", id);
-  });
-  window.on("closed", () => { const pending = pendingCloses.get(window.id); if (pending) clearTimeout(pending.timer); pendingCloses.delete(window.id); allowedCloses.delete(window.id); releaseWindow(vault, window); });
+  desktopLifecycle.track(window, true);
+  const windowId = window.id;
+  window.on("closed", () => { finishSave(windowId, false); releaseWindow(vault, window); });
   await window.loadURL(origin);
   await remember(root).catch(error => console.warn("Recent vault not saved", error));
 }
 
+function finishSave(windowId: number, saved: boolean) {
+  const pending = pendingCloses.get(windowId);
+  if (!pending) return;
+  clearTimeout(pending.timer); pendingCloses.delete(windowId); pending.resolve(saved);
+}
+
+function requestSave(window: BrowserWindow): Promise<boolean> {
+  if (window.isDestroyed()) return Promise.resolve(false);
+  const pending = pendingCloses.get(window.id);
+  if (pending) return pending.promise;
+  const windowId = window.id, id = randomUUID();
+  let resolve!: (saved: boolean) => void;
+  const promise = new Promise<boolean>(done => { resolve = done; });
+  const timer = setTimeout(() => {
+    finishSave(windowId, false);
+    if (!window.isDestroyed()) {
+      desktopLifecycle.show(window);
+      void dialog.showMessageBox(window, { type: "warning", message: "The editor has not confirmed that your changes are saved.", detail: "The window will stay open. Wait for the editor or resolve the save error before closing.", buttons: ["Keep open"] });
+    }
+  }, 15_000);
+  pendingCloses.set(windowId, { id, timer, promise, resolve });
+  window.webContents.send("vault:save-before-close", id);
+  return promise;
+}
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on("second-instance", () => showWelcome());
-  app.on("window-all-closed", () => app.quit());
-  app.on("before-quit", event => {
-    const windows = BrowserWindow.getAllWindows();
-    if (windows.length) { event.preventDefault(); for (const window of windows) window.close(); }
-  });
-  void app.whenReady().then(async () => {
+  app.on("second-instance", () => { void startup.then(() => desktopLifecycle.restore()); });
+  // The tray keeps the single process available even if all windows are destroyed.
+  app.on("window-all-closed", () => {});
+  startup = app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
+    desktopLifecycle = new DesktopLifecycle({ icon: path.join(directory, "icon.png"),
+      saveTargets: () => [...vaults.values()].map(vault => vault.primary), save: requestSave, welcome: showWelcome,
+      setQuitting: active => {
+        for (const { primary } of vaults.values()) {
+          if (!primary.isDestroyed() && !primary.webContents.isDestroyed()) primary.webContents.send("vault:quit-state", active);
+        }
+      } });
+    ipcMain.handle("app:quit", event => { trusted(event); void desktopLifecycle.requestQuit(); });
     ipcMain.handle("vault:welcome", event => { trusted(event); showWelcome(); });
     ipcMain.handle("vault:recents", event => { trusted(event, true); return recents(); });
     ipcMain.handle("vault:managed", async event => { trusted(event, true); return { dataPath, vaults: await listManagedVaults(dataPath) }; });
@@ -170,12 +196,12 @@ else {
       const owner = trusted(event, true);
       if (typeof name !== "string") throw new Error("Enter a vault name.");
       const selected = await createManagedVaultFolder(dataPath, name);
-      await openVault(selected, true); owner.close();
+      await openVault(selected, true); owner.destroy();
     });
     ipcMain.handle("vault:open-managed", async (event, selected: unknown) => {
       const owner = trusted(event, true);
       if (typeof selected !== "string" || !(await listManagedVaults(dataPath)).some(vault => vault.path === selected)) throw new Error("Choose an existing vault.");
-      await openVault(selected, false); owner.close();
+      await openVault(selected, false); owner.destroy();
     });
     ipcMain.handle("vault:choose", async (event, mode: unknown) => {
       const owner = trusted(event, true);
@@ -183,20 +209,19 @@ else {
       const result = await dialog.showOpenDialog(owner, { title: mode === "create" ? "Choose an empty folder for your new vault" : "Open a Notdown vault", properties: ["openDirectory", "createDirectory"] });
       if (result.canceled || !result.filePaths[0]) return;
       await openVault(result.filePaths[0], mode === "create");
-      owner.close();
+      owner.destroy();
     });
     ipcMain.handle("vault:recent", async (event, selected: unknown) => {
       const owner = trusted(event, true);
       if (typeof selected !== "string" || !(await recents()).includes(selected)) throw new Error("Choose a folder using Open vault");
-      await openVault(selected, false); owner.close();
+      await openVault(selected, false); owner.destroy();
     });
     ipcMain.on("vault:close-result", (event, id: unknown, saved: unknown) => {
       let owner: BrowserWindow;
       try { owner = trusted(event); } catch { return; }
       const pending = pendingCloses.get(owner.id);
       if (!pending || pending.id !== id) return;
-      clearTimeout(pending.timer); pendingCloses.delete(owner.id);
-      if (saved === true) { allowedCloses.add(owner.id); owner.close(); }
+      finishSave(owner.id, saved === true);
     });
     const argument = process.argv.find(arg => arg.startsWith("--vault="));
     if (argument) {

@@ -46,6 +46,8 @@ npm run desktop
 
 Choose **Create new vault** for an empty folder or **Open existing vault** for a Notdown vault, then click **New page** to start writing.
 
+Closing the desktop window keeps the app in the system tray. Use the tray to reopen it or quit.
+
 To build a Windows x64 installer, run `npm run desktop:dist`; the output is in `.run/desktop-release/`. Installed users do not need Node.js. See the [desktop guide](docs/features/DESKTOP-AND-IMPORT.md) for packaging and vault details.
 
 ### In your browser

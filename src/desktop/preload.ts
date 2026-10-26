@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("notdownDesktop", {
+  quit: () => ipcRenderer.invoke("app:quit"),
+  onQuitState: (callback: (active: boolean) => void) => {
+    ipcRenderer.on("vault:quit-state", (_event, active: boolean) => callback(active));
+  },
   openVaultWindow: () => ipcRenderer.invoke("vault:welcome"),
   onOpenTab: (callback: (url: string) => void) => {
     ipcRenderer.on("vault:open-tab", (_event, url: string) => callback(url));

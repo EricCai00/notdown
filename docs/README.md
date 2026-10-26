@@ -66,6 +66,8 @@
 
 ## 审计与验证记录
 
+- [Windows 托盘驻留、关闭保存与单实例（2026-10-26）](verification/TRAY-AND-SINGLE-INSTANCE-2026-10-26.md)
+
 - [侧栏精简、整体滚动与安卓直接选择方言（2026-10-26）](verification/SIDEBAR-AND-MOBILE-DIALECT-2026-10-26.md)
 
 - [标签页与集成标题栏（2026-10-26）](verification/WORKSPACE-TABS-2026-10-26.md)
