@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("notdown-sidebar-hidden", "[]"));
+});
+
 test("conflicts and edited merge results show focused red/green differences without changing source", async ({
   page,
   request,

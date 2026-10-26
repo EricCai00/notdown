@@ -26,6 +26,14 @@ Source 和 Split 使用较宽的编辑区，源码支持语法高亮及标题、
 
 ## 常用操作
 
+侧栏顶部默认显示 **Search、Vault、Databases、Attachments**。在 **Workspace settings → Sidebar** 可开启 People、Graph、Conflicts and versions，或隐藏其他快捷入口；**Restore default shortcuts** 恢复上述四项，**Show all shortcuts** 显示全部普通快捷入口。偏好保存在当前浏览器／桌面知识库会话配置中。
+
+侧栏底部保留统一的 **Import**、**Trash** 和 **Workspace settings**。新建页面使用 **Private pages** 旁的 **+** 或 Vault 页面的 **New page**；新建数据库使用 **Databases → New database**；管理知识库点击左上角知识库名称，或 **Workspace settings → Manage knowledge bases**。
+
+侧栏内容超出窗口高度时整体滚动；收藏、页面树和底部操作共用一个滚动区，滚动侧栏不会带动正文。
+
+**Block Explorer** 与 **Markdown Lab** 为实验性工具，侧栏入口默认关闭。在 **Workspace settings → Experimental features** 分别开启后显示链接；开关保存在本机，不修改知识库内容。实验工具页面仍可通过原有 URL 访问。
+
 | 操作 | 入口 |
 | --- | --- |
 | 搜索页面 | `Ctrl+P`；正文编辑器外也可用 `Ctrl+K`。 |
@@ -56,7 +64,7 @@ Notion v2 页面在编辑或新建普通内容时优先使用 Markdown：标题 
 - Compatibility：PHP Markdown Extra → MultiMarkdown → Legacy GitHub Markdown。
 - Scientific writing：R Markdown → Quarto。
 
-Android 可从右上角 **Notebook options → Page dialect: 当前方言** 查看并更改当前页方言。切换前保存待处理输入，保存失败或冲突时停止切换。文件已在 YAML 声明 `syntax` 或 `bodyFormat` 时，显式切换同时更新已有的覆盖字段，保留未知字段与注释、换行格式和后续正文；没有这些字段时不自动添加应用 YAML。更改进入共用撤销历史。
+Android 可从右上角 **Notebook options** 中直接点 **Page dialect** 的当前值选择方言，不再打开单独的设置页。切换前保存待处理输入，保存失败或冲突时停止切换。文件已在 YAML 声明 `syntax` 或 `bodyFormat` 时，显式切换同时更新已有的覆盖字段，保留未知字段与注释、换行格式和后续正文；没有这些字段时不自动添加应用 YAML。更改进入共用撤销历史。
 
 ## 输入与格式
 

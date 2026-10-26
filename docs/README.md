@@ -66,6 +66,8 @@
 
 ## 审计与验证记录
 
+- [侧栏精简、整体滚动与安卓直接选择方言（2026-10-26）](verification/SIDEBAR-AND-MOBILE-DIALECT-2026-10-26.md)
+
 - [标签页与集成标题栏（2026-10-26）](verification/WORKSPACE-TABS-2026-10-26.md)
 
 - [手机方言与 0.1.1 构建（2026-10-26）](verification/MOBILE-DIALECT-AND-RELEASE-2026-10-26.md)

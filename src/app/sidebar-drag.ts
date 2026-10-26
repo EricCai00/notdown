@@ -56,7 +56,7 @@ export function installSidebarDrag(options: {
   };
   const scroll = () => {
     if (!sourceId) return;
-    const sidebar = document.querySelector<HTMLElement>(".sidebar-pages") ?? document.querySelector<HTMLElement>(".sidebar");
+    const sidebar = document.querySelector<HTMLElement>(".sidebar");
     if (sidebar) {
       const rect = sidebar.getBoundingClientRect();
       const speed = cursorX < rect.left || cursorX > rect.right || cursorY < rect.top || cursorY > rect.bottom

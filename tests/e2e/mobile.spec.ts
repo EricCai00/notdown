@@ -44,8 +44,10 @@ test("mobile page dialect preserves pending source and unknown settings across r
   await page.locator(".cm-content").click(); await page.keyboard.press("Control+End");
   await page.keyboard.insertText("\nPending source survives dialect changes.\n");
   await page.getByRole("button", { name: "Notebook options", exact: true }).click();
-  await page.getByRole("button", { name: "Page dialect: Obsidian", exact: true }).click();
-  const select = page.getByRole("combobox", { name: "Markdown dialect", exact: true });
+  const select = page.getByRole("combobox", { name: "Page dialect", exact: true });
+  await expect(page.locator("#mobile-menu-title")).toHaveText("Notebook");
+  await expect(select).toBeVisible();
+  await expect(page.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
   await expect(select).toHaveValue("obsidian");
   await expect(select.locator("option")).toHaveCount(14);
   await expect(select.locator("optgroup")).toHaveCount(4);
@@ -57,11 +59,11 @@ test("mobile page dialect preserves pending source and unknown settings across r
   }
   expect(await page.locator("#mobile-menu-items").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("mobile-page-dialect.png"), fullPage: true });
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Close menu", exact: true }).click();
   await page.reload(); await expect(page.locator("#mobile-workspace")).toHaveAttribute("data-variant", "quarto");
   await expect(page.locator(".pm-document")).toContainText("Pending source survives dialect changes.");
   await page.getByRole("button", { name: "Notebook options", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Page dialect: Quarto", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Page dialect", exact: true })).toHaveValue("quarto");
   await page.getByRole("button", { name: "Close menu", exact: true }).click();
   const files = unzipSync(await exportZip(page));
   const markdown = Object.entries(files).find(([name, data]) => name.startsWith("pages/") && name.endsWith(".md") && Buffer.from(data).toString().includes("future_note: preserve"))!;
@@ -80,12 +82,11 @@ test("mobile dialect switching stops on conflicts and retains both drafts", asyn
   await second.locator(".pm-document").fill("Keep this pending dialect draft");
   await expect(second.locator("#mobile-recovery")).toBeVisible();
   await second.getByRole("button", { name: "Notebook options", exact: true }).click();
-  await second.getByRole("button", { name: "Page dialect: Notdown", exact: true }).click();
-  const select = second.getByRole("combobox", { name: "Markdown dialect", exact: true });
+  const select = second.getByRole("combobox", { name: "Page dialect", exact: true });
   await select.selectOption("gfm");
   await expect(select).toBeEnabled(); await expect(select).toHaveValue("notdown");
   await expect(second.locator("#mobile-notice")).toContainText("dialect was not changed");
-  await second.getByRole("button", { name: "Done", exact: true }).click();
+  await second.getByRole("button", { name: "Close menu", exact: true }).click();
   await expect(second.locator(".pm-document")).toContainText("Keep this pending dialect draft");
   await second.getByRole("button", { name: "Save draft as new page" }).click(); await saved(second);
   const files = unzipSync(await exportZip(second));

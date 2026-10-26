@@ -29,7 +29,8 @@ async function expand(page: Page, id: string) {
 
 test("a root database is a single sidebar page and its records are children", async ({ page, request }) => {
   await page.goto("/");
-  await page.locator('[data-action="new-database"]').click();
+  await page.locator('#sidebar [data-action="databases"]').click();
+  await page.locator("#main").getByRole("button", { name: "New database", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("New database");
   await expect(page.getByRole("dialog", { name: "New database", exact: true })).toHaveCount(0);
   await renameDatabaseTitle(page, "Root collection E2E");

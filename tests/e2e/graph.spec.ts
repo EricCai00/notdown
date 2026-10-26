@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("notdown-sidebar-hidden", "[]"));
+});
+
 test("graph animates, drags without navigation, highlights neighbors, pans and zooms", async ({
   page,
   request,

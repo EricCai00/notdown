@@ -4,6 +4,7 @@ People 是当前知识库的联系人目录，不创建账号、协作成员、�
 
 ## 使用
 
+- People 快捷入口默认隐藏；在 **Workspace settings → Sidebar → People** 开启。正文中的联系人提及和管理入口仍可使用。
 - 侧栏 **People → New person**，填写姓名，以及可选邮箱、电话、组织和备注，选择 **Save person**。
 - 搜索支持上述字段，大小写不敏感，多词可以匹配不同字段。同名联系人保留不同 ID，选择时显示组织或邮箱帮助区分。
 - Page／Split 富文本区输入 `@` 后搜索联系人，鼠标或方向键／Enter 选择，Esc 取消。没有联系人时可进入 **Manage people…** 新建，再点击 **Mention person** 返回原输入位置。

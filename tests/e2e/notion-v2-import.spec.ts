@@ -5,6 +5,7 @@ test("v2 import renders real objects, local attachments and transcript; template
   const seed = await (await request.post("/api/pages", { data: { title: "V2 import start", body: "" } })).json();
   const beforeAssets = (await (await request.get("/api/assets")).json()).assets.length;
   await page.goto(`/#page/${seed.id}`);
+  await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Root);

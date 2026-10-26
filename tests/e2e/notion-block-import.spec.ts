@@ -5,6 +5,7 @@ test("Notdown import restores unknown blocks and keeps a child page and link to 
   const seed = await (await request.post("/api/pages", { data: { title: "Before restoration", body: "Keep" } })).json();
   await page.route("https://example.com/**", route => route.fulfill({ contentType: "text/html", body: "Test embed" }));
   await page.goto(`/#page/${seed.id}`);
+  await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Import dialect", exact: true })).toHaveValue("notdown");
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");

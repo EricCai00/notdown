@@ -64,7 +64,7 @@ Android 初版连接电脑已有的云端知识库，首次打开需要配置同
 
 ### 导入已有笔记
 
-在侧栏选择 **Import Markdown folder** 或 **Import from Notion API**，检查预览后点击 **Import copies**。导入保留原件；Notion 导入为单向复制，需要有权读取目标内容的 Notion integration。
+打开侧栏 **Import**，选择 **Import Markdown folder** 或 **Import from Notion API**，检查预览后点击 **Import copies**。导入保留原件；Notion 导入为单向复制，需要有权读取目标内容的 Notion integration。
 
 ## 你的文件
 

@@ -69,6 +69,7 @@ test("Notion API preview, exact Markdown import and duplicate snapshot preserve 
   await expect(page.locator("#page-title")).toHaveValue("Before Notion import");
   await page.locator("#page-title").fill("Save pending Notion import title");
   const open = async () => {
+    await page.getByRole("button", { name: "Import", exact: true }).click();
     await page
       .getByRole("button", { name: "Import from Notion API", exact: true })
       .click();
@@ -143,6 +144,7 @@ test("changing selection or a failed preview invalidates the old Notion import",
     })
   ).json();
   await page.goto(`/#page/${existing.id}`);
+  await page.getByRole("button", { name: "Import", exact: true }).click();
   await page
     .getByRole("button", { name: "Import from Notion API", exact: true })
     .click();
@@ -193,6 +195,7 @@ test("a failed pending-page save prevents committing a Notion preview", async ({
       : route.continue(),
   );
   await page.locator("#page-title").fill("Unsaved draft");
+  await page.getByRole("button", { name: "Import", exact: true }).click();
   await page
     .getByRole("button", { name: "Import from Notion API", exact: true })
     .click();

@@ -67,7 +67,7 @@ YAML / Pandoc 覆盖仍优先于 JSON：表格和页面属性区显示有效值�
 
 ## Notion 导入
 
-在侧栏 **Import from Notion API** 输入页面、数据库或数据源 URL / ID，预览后导入副本。数据库字段和记录会转为上述本地模型；正文继续使用 Enhanced Markdown，原始 JSON、Markdown 和视图配置保留在导入归档。具体权限、分页、重复提交及安全边界见 [Notion 导入](NOTION-IMPORT.md)。
+在侧栏 **Import → Import from Notion API** 输入页面、数据库或数据源 URL / ID，预览后导入副本。数据库字段和记录会转为上述本地模型；正文继续使用 Enhanced Markdown，原始 JSON、Markdown 和视图配置保留在导入归档。具体权限、分页、重复提交及安全边界见 [Notion 导入](NOTION-IMPORT.md)。
 
 | Notion 数据 | 当前行为 |
 | --- | --- |

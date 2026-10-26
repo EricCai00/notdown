@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { Buffer } from "buffer";
 import { MarkdownWorkspace, type EditMode } from "../markdown-engine/workspace";
-import { commandEnabled, defaultSyntax, dialects, dialectGroups, resetExtensions, validSyntax, syntaxFormat, type SyntaxConfig } from "../markdown-engine/config";
+import { commandEnabled, defaultSyntax, dialectGroups, resetExtensions, validSyntax, syntaxFormat, type SyntaxConfig } from "../markdown-engine/config";
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
 import type { Database, DatabaseDataSource } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
@@ -414,14 +414,13 @@ function showMenu(heading: string, buttons: { label: string; action: () => void;
   menu.showModal();
 }
 
-function showDialect() {
+function mountDialectPicker() {
   if (!workspace || !session) return;
   const target = workspace, draft = session;
-  showMenu("Page dialect", [{ label: "Done", action: () => {} }],
-    "Changes how this page is read while keeping its content. Supported extensions return to the chosen dialect's defaults.");
   const field = document.createElement("label"); field.className = "mobile-dialect-field";
-  field.textContent = "Markdown dialect";
+  field.textContent = "Page dialect";
   const select = document.createElement("select");
+  select.setAttribute("aria-label", "Page dialect");
   for (const group of dialectGroups) {
     const options = document.createElement("optgroup"); options.label = group.label;
     for (const dialect of group.dialects) options.append(new Option(dialect.label, dialect.id));
@@ -508,15 +507,17 @@ const actions: Record<string, () => void | Promise<unknown>> = {
   pages: () => { editingTools.closePanel(); dismissKeyboard(); renderPages(); drawer.showModal(); }, new: newPage,
   databases: async () => { if (await leavePage()) await openDatabases(); },
   "new-database": () => createDatabase(),
-  more: () => showMenu("Notebook", [
-    ...(workspace && session ? [{ label: `Page dialect: ${dialects.find(item => item.id === workspace!.session.snapshot.config.variant)!.label}`, action: showDialect }] : []),
-    { label: "New page", action: () => enqueue(newPage) },
-    { label: "Databases", action: () => enqueue(async () => { if (await leavePage()) await openDatabases(); }) },
-    { label: "New database", action: () => enqueue(() => createDatabase()) },
-    { label: "Import Markdown", action: () => actions.import() },
-    { label: "Export notebook ZIP", action: () => enqueue(backup) },
-    { label: "Cloud sync", action: () => enqueue(showSync) },
-  ], "Notes are saved on this device. Cloud sync runs while the app is open. Export a separate backup before uninstalling."),
+  more: () => {
+    showMenu("Notebook", [
+      { label: "New page", action: () => enqueue(newPage) },
+      { label: "Databases", action: () => enqueue(async () => { if (await leavePage()) await openDatabases(); }) },
+      { label: "New database", action: () => enqueue(() => createDatabase()) },
+      { label: "Import Markdown", action: () => actions.import() },
+      { label: "Export notebook ZIP", action: () => enqueue(backup) },
+      { label: "Cloud sync", action: () => enqueue(showSync) },
+    ], "Notes are saved on this device. Cloud sync runs while the app is open. Export a separate backup before uninstalling.");
+    mountDialectPicker();
+  },
   sync: showSync,
   save: async () => { await save(); }, retry: async () => { if (capture()) await session?.retry(); },
   "recover-copy": copyRecovery,

@@ -6,6 +6,7 @@ test("Notion shows live page counts and titles, cancels reading, and imports wit
   const count = (await (await request.get("/api/pages")).json()).length;
   await page.goto(`/#page/${before.id}`);
   const open = async () => {
+    await page.getByRole("button", { name: "Import", exact: true }).click();
     await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
     await page.getByRole("combobox", { name: "Import dialect", exact: true }).selectOption("notion-markdown");
     await page.getByLabel("Integration token", { exact: true }).fill("progress-test-notion-token");
@@ -50,6 +51,7 @@ test("Notion shows live page counts and titles, cancels reading, and imports wit
 test("a slow first Notion request shows its operation, request count and advancing wait time at zero pages", async ({ page, request }) => {
   const before = await (await request.post("/api/pages", { data: { title: "Slow start progress", body: "" } })).json();
   await page.goto(`/#page/${before.id}`);
+  await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
   await page.getByLabel("Integration token", { exact: true }).fill("progress-slow-start-token");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(notionRoot);

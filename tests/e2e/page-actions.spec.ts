@@ -1,5 +1,9 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("notdown-sidebar-hidden", "[]"));
+});
+
 async function create(request: APIRequestContext, title: string, parent: string | null = null) {
   const response = await request.post("/api/pages", { data: { title, parent, body: "Original body", properties: { custom: "keep" } } });
   expect(response.ok()).toBeTruthy();

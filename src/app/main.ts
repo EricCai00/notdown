@@ -412,8 +412,8 @@ function shell() {
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="attachments">${icon("paperclip")}Attachments</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
-    <button class="new-page" data-action="new">${icon("plus")}New page</button><button class="new-page" data-action="new-database">${icon("table-2")}New database</button><button class="new-page" data-action="import-folder">${icon("folder-input")}Import Markdown folder</button><button class="new-page" data-action="import-notion">${icon("globe")}Import from Notion API</button>${window.notdownDesktop ? `<button class="new-page" data-action="open-vault">${icon("folder-open")}Open another vault</button>` : ""}<button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
-    <div class="sidebar-bottom"><a class="markdown-lab-link" href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
+    <button class="new-page" data-action="import">${icon("folder-input")}Import</button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button>
+    <div class="sidebar-bottom"><a class="markdown-lab-link" data-experimental="block-explorer" data-sidebar-hidden href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" data-experimental="markdown-lab" data-sidebar-hidden href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
   </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   app.classList.add("workspace-layout");
   document.body.classList.toggle("desktop-window", !!window.notdownDesktop);
@@ -422,10 +422,6 @@ function shell() {
   chrome.querySelector(".workspace-chrome-tools")!.append(app.querySelector('.topbar > [data-action="sidebar"]')!);
   chrome.querySelector(".workspace-tab-area")!.prepend(app.querySelector(".page-history")!);
   app.prepend(chrome);
-  const pageList = document.createElement("div"); pageList.className = "sidebar-pages";
-  const favorites = app.querySelector("#favorite-pages")!;
-  favorites.before(pageList);
-  pageList.append(favorites, app.querySelector("[data-page-root-drop]")!, app.querySelector("#page-tree")!);
   const resizer = document.createElement("div");
   resizer.className = "sidebar-resizer";
   resizer.tabIndex = 0;
@@ -2693,7 +2689,13 @@ document.addEventListener("click", (event) => {
       case "settings":
         showSettings();
         break;
+      case "import": {
+        const dialog = modal("Import", `<p>Choose where to import your notes from.</p><div class="import-source-options"><button class="secondary-button" data-action="import-folder" aria-label="Import Markdown folder">${icon("folder-input")}<span>Import Markdown folder<small>Copy local Markdown files and attachments.</small></span></button><button class="secondary-button" data-action="import-notion" aria-label="Import from Notion API">${icon("globe")}<span>Import from Notion API<small>Import pages and databases from Notion.</small></span></button></div>`);
+        dialog.setAttribute("aria-label", "Import");
+        break;
+      }
       case "import-folder":
+        closeModal();
         openImportDialog({ save, complete: async ids => {
           pages = await refreshWorkspacePages();
           renderSidebar();
@@ -2704,6 +2706,7 @@ document.addEventListener("click", (event) => {
         } });
         break;
       case "import-notion":
+        closeModal();
         openNotionImportDialog({ save, complete: async ids => {
           pages = await refreshWorkspacePages();
           renderSidebar();
@@ -2712,9 +2715,6 @@ document.addEventListener("click", (event) => {
           else await showLibrary();
           toast("Notion Enhanced Markdown import complete. Source API content was preserved.");
         } });
-        break;
-      case "open-vault":
-        if (await save()) await window.notdownDesktop?.openVaultWindow();
         break;
       case "vaults":
         if (window.notdownDesktop) { if (await save()) await window.notdownDesktop.openVaultWindow(); }

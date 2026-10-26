@@ -23,7 +23,7 @@ test("managed vaults use sibling named folders and remain separate", async () =>
   const first = await firstPromise; await expect(first.locator(".sidebar")).toBeVisible();
   const managedRoot = path.join(root, "profile", "vault-data");
   expect(await fs.readdir(path.join(managedRoot, "Work", "pages"))).toEqual([]);
-  const launcherPromise = desktop.waitForEvent("window"); await first.locator('[data-action="open-vault"]').click();
+  const launcherPromise = desktop.waitForEvent("window"); await first.locator('.workspace-switch[data-action="vaults"]').click();
   const launcher = await launcherPromise; await expect(launcher.locator("#managed-vaults")).toContainText("Work");
   await launcher.locator("#vault-name").fill("Personal");
   const secondPromise = desktop.waitForEvent("window"); await launcher.locator("#managed-create").click();
@@ -52,12 +52,14 @@ test("integrated title bar keeps native controls and desktop tab shortcuts save 
   }, new URL(page.url()).origin);
   expect(chrome.menu).toBe(true); expect(chrome.menuVisible).toBe(false);
   expect(chrome.bounds.height - chrome.content.height).toBeLessThan(25);
-  await page.locator('.new-page[data-action="new"]').click();
+  await expect(page.locator(".sidebar-pages")).toHaveCount(0);
+  await expect(page.locator("#sidebar")).toHaveCSS("overflow-y", "auto");
+  await page.locator('#sidebar .section-label [data-action="new"]').click();
   await page.locator("#page-title").fill("Desktop first tab");
   await page.locator("#editor .pm-document").fill("First tab body");
   await page.keyboard.press("Control+t");
   await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(2);
-  await page.locator('.new-page[data-action="new"]').click();
+  await page.locator('#sidebar .section-label [data-action="new"]').click();
   await page.locator("#page-title").fill("Desktop second tab");
   await page.locator("#editor .pm-document").fill("Pending second tab text");
   await page.keyboard.press("Control+1");
@@ -76,10 +78,10 @@ test("integrated title bar keeps native controls and desktop tab shortcuts save 
 test("two vaults isolate drafts and folder import copies its sources", async () => {
   const firstPath = path.join(root, "First"); await fs.mkdir(firstPath);
   const first = await chooseFolder(firstPath, "create");
-  await first.locator('.new-page[data-action="new"]').click();
+  await first.locator('#sidebar .section-label [data-action="new"]').click();
   await first.locator("#page-title").fill("First vault draft");
   const launcherPromise = desktop.waitForEvent("window");
-  await first.locator('[data-action="open-vault"]').click();
+  await first.locator('.workspace-switch[data-action="vaults"]').click();
   const launcher = await launcherPromise;
   const secondPath = path.join(root, "Second"); await fs.mkdir(secondPath);
   await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, secondPath);
@@ -91,6 +93,7 @@ test("two vaults isolate drafts and folder import copies its sources", async () 
   const sourcePath = path.join(root, "Source notes"); await fs.mkdir(sourcePath);
   const source = "# Imported note\n\nOriginal body";
   await fs.writeFile(path.join(sourcePath, "Note.md"), source);
+  await second.getByRole("button", { name: "Import", exact: true }).click();
   await second.locator('[data-action="import-folder"]').click();
   await second.locator("#import-files").setInputFiles(sourcePath);
   await expect(second.locator("#import-commit")).toBeEnabled();
@@ -131,7 +134,7 @@ test("first launch creates an empty vault, remembers it and saves pending input 
   const vaultPath = path.join(root, "My vault"); await fs.mkdir(vaultPath);
   const page = await chooseFolder(vaultPath, "create");
   expect(await fs.readdir(path.join(vaultPath, "pages"))).toEqual([]);
-  await page.locator('.new-page[data-action="new"]').click();
+  await page.locator('#sidebar .section-label [data-action="new"]').click();
   await expect(page.locator("#page-title")).toBeVisible();
   await page.locator("#page-title").fill("Desktop note");
   await page.locator(".page-pane .ProseMirror").fill("Pending body is saved on close");

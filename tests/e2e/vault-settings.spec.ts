@@ -1,5 +1,58 @@
 import { test, expect } from "@playwright/test";
 
+test("default sidebar is compact; optional shortcuts and experimental tools are opt-in and persist", async ({ page, context }) => {
+  await page.goto("/");
+  const sidebar = page.locator("#sidebar");
+  await expect(sidebar.locator('.search-launch:visible, .main-nav > button:visible')).toHaveText(["SearchCtrl K", /^Vault\d+$/, "Databases", "Attachments"]);
+  await expect(sidebar.locator('.new-page')).toHaveText(["Import", "Trash"]);
+  await expect(sidebar.locator('[data-action="new-database"], [data-action="open-vault"]')).toHaveCount(0);
+  await expect(sidebar.getByRole("button", { name: "New page", exact: true })).toHaveCount(1);
+  const explorer = sidebar.getByRole("link", { name: "Block Explorer", exact: true, includeHidden: true });
+  const lab = sidebar.getByRole("link", { name: "Markdown Lab", exact: true, includeHidden: true });
+  await expect(explorer).toBeHidden(); await expect(lab).toBeHidden();
+  await sidebar.getByRole("button", { name: "Workspace settings" }).click();
+  const preferences = page.locator(".sidebar-preferences");
+  for (const name of ["People", "Graph", "Conflicts and versions"]) await expect(preferences.getByLabel(name, { exact: true })).not.toBeChecked();
+  await preferences.getByLabel("People", { exact: true }).check();
+  const experimental = page.locator(".experimental-preferences");
+  await expect(experimental.getByLabel("Block Explorer", { exact: true })).not.toBeChecked();
+  await expect(experimental.getByLabel("Markdown Lab", { exact: true })).not.toBeChecked();
+  await experimental.getByLabel("Block Explorer", { exact: true }).check();
+  await page.keyboard.press("Escape");
+  await expect(explorer).toBeVisible(); await expect(lab).toBeHidden();
+  await expect(sidebar.getByRole("button", { name: "People", exact: true })).toBeVisible();
+  await page.reload(); await expect(explorer).toBeVisible(); await expect(lab).toBeHidden();
+  const other = await context.newPage(); await other.goto("/");
+  await other.locator('#sidebar [data-action="settings"]').click();
+  await other.locator(".experimental-preferences").getByLabel("Block Explorer", { exact: true }).uncheck();
+  await other.locator(".experimental-preferences").getByLabel("Markdown Lab", { exact: true }).check();
+  await expect(explorer).toBeHidden(); await expect(lab).toBeVisible();
+  await other.close();
+  await sidebar.getByRole("button", { name: "Workspace settings" }).click();
+  await page.getByRole("button", { name: "Restore default shortcuts" }).click();
+  await page.locator(".experimental-preferences").getByLabel("Markdown Lab", { exact: true }).uncheck();
+  await page.keyboard.press("Escape");
+  await expect(sidebar.getByRole("button", { name: "People", exact: true, includeHidden: true })).toBeHidden();
+  await expect(lab).toBeHidden();
+  await page.reload();
+  await expect(sidebar.locator('[data-action="settings"]')).toBeVisible();
+  await expect(page.locator("#app")).not.toHaveAttribute("inert", "");
+  await expect(explorer).toBeHidden(); await expect(lab).toBeHidden();
+  await page.screenshot({ path: ".run/logs/sidebar-defaults.png" });
+});
+
+test("one Import entry offers both sources and can be dismissed", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('#sidebar [data-action="import"]').click();
+  const chooser = page.getByRole("dialog", { name: "Import", exact: true });
+  await expect(chooser.getByRole("button", { name: "Import Markdown folder", exact: true })).toBeVisible();
+  await expect(chooser.getByRole("button", { name: "Import from Notion API", exact: true })).toBeVisible();
+  await page.screenshot({ path: ".run/logs/import-chooser.png" });
+  await page.keyboard.press("Escape"); await expect(chooser).toHaveCount(0);
+  await page.locator('#sidebar [data-action="import"]').click();
+  await chooser.getByRole("button", { name: "Close", exact: true }).click(); await expect(chooser).toHaveCount(0);
+});
+
 test("settings header stays visible; Escape, backdrop and close button dismiss settings", async ({ page }) => {
   await page.goto("/");
   const open = () => page.locator('#sidebar [data-action="settings"]').click();

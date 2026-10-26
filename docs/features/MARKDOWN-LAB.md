@@ -1,5 +1,7 @@
 # Markdown Lab：外部渲染器、方言与 HTML 输出
 
+Markdown Lab 为实验性工具，侧栏入口默认关闭。在 **Workspace settings → Experimental features → Markdown Lab** 开启；同组的 **Block Explorer** 也需单独开启。开关只控制侧栏入口，原有页面 URL 仍可直接访问。
+
 2026-09-15，独立页面入口 `/markdown-lab.html`。
 
 主应用现已接入独立的 [原生编辑核心](../architecture/MARKDOWN-ENGINE.md)：三种视图、双向编辑和知识库保存不经过本页的外部程序请求链路。此文仅描述 Lab。

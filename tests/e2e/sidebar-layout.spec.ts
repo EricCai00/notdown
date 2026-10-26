@@ -4,6 +4,30 @@ const sidebar = (page: Page) => page.locator("#sidebar");
 const handle = (page: Page) => page.getByRole("separator", { name: "Resize sidebar" });
 const toggle = (page: Page) => page.getByRole("button", { name: "Toggle sidebar", exact: true });
 
+test("long favorites and page trees share the whole sidebar scroll without moving the document", async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
+  const note = await (await request.post("/api/pages", { data: { title: "Unified sidebar scroll", body: Array.from({ length: 60 }, (_, index) => `Document paragraph ${index}`).join("\n\n") } })).json();
+  for (let index = 0; index < 28; index++) {
+    await request.post("/api/pages", { data: { title: `Sidebar scroll page ${index}`, favorite: index < 12 } });
+  }
+  await page.goto(`/#page/${note.id}`);
+  await expect(page.locator("#page-title")).toHaveValue(note.title);
+  await expect(page.locator("#app")).not.toHaveAttribute("inert", "");
+  await expect(page.locator(".sidebar-pages")).toHaveCount(0);
+  await expect(page.locator("#favorite-pages")).toHaveCSS("overflow-y", "visible");
+  await expect(page.locator("#page-tree")).toHaveCSS("overflow-y", "visible");
+  const documentScroll = await page.locator("#main").evaluate(element => element.scrollTop);
+  await page.locator(".workspace-switch").hover();
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => sidebar(page).evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  expect(await page.locator("#main").evaluate(element => element.scrollTop)).toBe(documentScroll);
+  await sidebar(page).evaluate(element => element.scrollTop = element.scrollHeight);
+  await expect(sidebar(page).getByRole("button", { name: "Workspace settings" })).toBeInViewport();
+  await expect(sidebar(page).getByRole("button", { name: "Import", exact: true })).toBeInViewport();
+  await expect(sidebar(page).getByRole("button", { name: "Trash", exact: true })).toBeInViewport();
+  await page.screenshot({ path: ".run/logs/sidebar-unified-scroll.png" });
+});
+
 test("parent arrows replace icons without shifting titles and keep keyboard expansion usable", async ({ page, request }) => {
   const create = async (title: string, parent: string | null = null, icon = "📁") =>
     (await request.post("/api/pages", { data: { title, parent, icon, body: "Sidebar content" } })).json();

@@ -1,6 +1,6 @@
 # Notion API 单向导入（Markdown v2）
 
-侧栏 **Import from Notion API** 将有权读取的页面、数据库和数据源导入为本地副本。新导入使用 `GET /v1/pages/{id}/markdown?markdown_version=v2&include_transcript=true`，API header 仍为 `Notion-Version: 2026-03-11`。不使用应用的 Markdown/CSV 导出，不写回 Notion。
+侧栏 **Import → Import from Notion API** 将有权读取的页面、数据库和数据源导入为本地副本。新导入使用 `GET /v1/pages/{id}/markdown?markdown_version=v2&include_transcript=true`，API header 仍为 `Notion-Version: 2026-03-11`。不使用应用的 Markdown/CSV 导出，不写回 Notion。
 
 ## 使用
 

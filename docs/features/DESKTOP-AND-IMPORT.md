@@ -10,15 +10,15 @@
 
 1. 安装并启动 Notdown。首次欢迎页选择 **Create new vault**，在系统目录选择器中选择或新建空文件夹。
 2. 已有 Notdown 知识库使用 **Open existing vault**；目录必须包含 `pages/`。欢迎页记录最近十个目录，失效目录会报错，不会自动新建替代库。
-3. 点击 **New page** 开始写作。正文写入 `pages/*.md`，通用页面属性写入 `metadata.json`；文档内 YAML／Pandoc title block 可覆盖默认属性，详见[知识库元数据](VAULT-METADATA.md)。新建桌面知识库不自动填充演示内容。
-4. 要带入已有笔记，点击 **Import Markdown folder**，选择 GFM、Obsidian 或 Notdown 作为缺省方言，再选择源目录。
+3. 点击 **Private pages** 旁的 **+** 或 Vault 页面的 **New page** 开始写作。正文写入 `pages/*.md`，通用页面属性写入 `metadata.json`；文档内 YAML／Pandoc title block 可覆盖默认属性，详见[知识库元数据](VAULT-METADATA.md)。新建桌面知识库不自动填充演示内容。
+4. 要带入已有笔记，点击侧栏 **Import → Import Markdown folder**，选择 GFM、Obsidian 或 Notdown 作为缺省方言，再选择源目录。同一 **Import** 入口也提供 **Import from Notion API**。
 5. 预览页面、附件、无效文件及链接提示。存在无效文件时必须明确选择跳过，才能提交可读文件。点击 **Import copies** 前会保存当前页，冲突会阻止导入。
 
 欢迎页的 **Your Notdown vaults** 显示统一数据目录及其已有知识库。填写 **New vault name** 后点击 **Create vault here**，会新建“数据目录／库名”，不复用已有同名目录。库名不能包含路径分隔符或 Windows 保留名称；各库的正文、附件、配置、同步身份和历史互相独立。数据目录与环境变量见[选择知识库](../architecture/DEVELOPMENT.md#选择知识库)。
 
 需要长期文本历史时，可在 **Settings - History** 启用本机 Git；安装版仍需要另外安装 Git 才能启用此可选功能。正常保存不依赖 Git。页面菜单的 **Page history** 支持预览与恢复，范围和限制见[历史与恢复](VAULT-METADATA.md#自动历史与版本恢复)。
 
-导入功能也可在浏览器模式使用。桌面的 **Open another vault** 先保存当前页，再打开欢迎窗口；现有库保持独立窗口，不在原编辑器内替换库及 revision。主窗口使用与系统窗口按钮合并的标签栏，不显示 File / Edit 菜单；知识库操作仍从侧栏进入。同一知识库的页面与数据库可在应用内标签页中打开，操作见[标签页与窗口](WRITING-AND-NAVIGATION.md#标签页与窗口)。每库独立本地服务、会话分区及访问令牌；未携带令牌的本地 HTTP 请求被拒绝。窗口关闭通过受限 preload 请求编辑器收取并保存输入，失败或冲突时保持窗口打开。
+导入功能也可在浏览器模式使用。桌面点击左上角知识库名称或 **Workspace settings → Manage knowledge bases**，先保存当前页，再打开欢迎窗口；现有库保持独立窗口，不在原编辑器内替换库及 revision。主窗口使用与系统窗口按钮合并的标签栏，不显示 File / Edit 菜单；知识库操作仍从侧栏进入。同一知识库的页面与数据库可在应用内标签页中打开，操作见[标签页与窗口](WRITING-AND-NAVIGATION.md#标签页与窗口)。每库独立本地服务、会话分区及访问令牌；未携带令牌的本地 HTTP 请求被拒绝。窗口关闭通过受限 preload 请求编辑器收取并保存输入，失败或冲突时保持窗口打开。
 
 ## 导入和恢复边界
 

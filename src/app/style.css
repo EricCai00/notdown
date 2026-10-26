@@ -970,6 +970,10 @@ textarea#source-editor,
 .dialog-heading .icon-button {
   color: #b6b6b6;
 }
+.import-source-options { display: grid; gap: 10px; margin: 18px 0 4px; }
+.import-source-options > button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 14px; text-align: left; }
+.import-source-options svg { width: 20px; height: 20px; flex-shrink: 0; }
+.import-source-options small { display: block; margin-top: 5px; color: var(--muted); font-weight: normal; }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -1624,7 +1628,6 @@ kbd {
 .trash-row-actions { display: flex; flex-shrink: 0; gap: 6px; }
 .trash-row-actions .danger { color: #b34236; }
 .trash-row-actions button:disabled { opacity: .5; cursor: wait; }
-#favorite-pages { max-height: 25vh; overflow-y: auto; flex-shrink: 0; }
 .tree-row {
   --tree-inset: calc(3px + var(--depth) * 10px);
   display: flex;

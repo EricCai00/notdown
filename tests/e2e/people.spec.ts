@@ -1,12 +1,17 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { expectSource } from "./source-helper";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("notdown-sidebar-hidden", "[]"));
+});
+
 async function open(page: Page, request: APIRequestContext, body = "") {
   const response = await request.post("/api/pages", { data: { title: "People interactions", body, bodyFormat: "notion-markdown", syntax: { version: 1, variant: "notdown", extensions: {} } } });
   expect(response.status()).toBe(201);
   const note = await response.json();
   await page.goto(`/#page/${note.id}`);
-  await page.getByRole("button", { name: "Page", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue(note.title);
+  await page.locator(".editing-modes").getByRole("button", { name: "Page", exact: true }).click();
   await expect(page.locator(".pm-document")).toBeVisible();
   return note;
 }
@@ -174,7 +179,8 @@ test("missing and imported users remain readable; disabled mentions never create
   const response = await request.post("/api/pages", { data: { title: "Disabled person mentions", body: "Plain", syntax: { version: 1, variant: "notdown", extensions: { notion_mentions: false } } } });
   const note = await response.json();
   await page.goto(`/#page/${note.id}`);
-  await page.getByRole("button", { name: "Page", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue(note.title);
+  await page.locator(".editing-modes").getByRole("button", { name: "Page", exact: true }).click();
   await page.locator(".pm-document").click();
   await page.keyboard.press("End");
   await page.keyboard.type(" @Shared Person");

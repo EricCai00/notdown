@@ -12,6 +12,7 @@ test("folder preview, import, editing and repeated import preserve existing page
     const original = await (await request.post("/api/pages", { data: { title: "Before import", body: "Existing content" } })).json();
     await page.goto(`/#page/${original.id}`);
     await page.locator("#page-title").fill("Saved before import");
+    await page.getByRole("button", { name: "Import", exact: true }).click();
     await page.getByRole("button", { name: "Import Markdown folder", exact: true }).click();
     await page.locator("#import-files").setInputFiles(source);
     await expect(page.locator("#import-status")).toContainText("Ready");
@@ -32,6 +33,7 @@ test("folder preview, import, editing and repeated import preserve existing page
     await page.keyboard.press("Control+s");
     await expect(page.locator("#save-status")).toContainText("Saved locally");
     await expect.poll(async () => (await (await request.get(`/api/pages/${child.id}`)).json()).body).toContain("Edited imported child");
+    await page.getByRole("button", { name: "Import", exact: true }).click();
     await page.getByRole("button", { name: "Import Markdown folder", exact: true }).click();
     await page.locator("#import-files").setInputFiles(source);
     await expect(page.locator("#import-status")).toContainText("Ready");

@@ -64,7 +64,7 @@ The early Android app connects to an existing cloud notebook from your computer.
 
 ### Bring your notes
 
-Use **Import Markdown folder** or **Import from Notion API** in the sidebar. Review the preview, then choose **Import copies**. Imports preserve their originals; Notion import is one-way and requires a Notion integration with access to the selected content.
+Open **Import** in the sidebar and choose **Import Markdown folder** or **Import from Notion API**. Review the preview, then choose **Import copies**. Imports preserve their originals; Notion import is one-way and requires a Notion integration with access to the selected content.
 
 ## Your files
 
