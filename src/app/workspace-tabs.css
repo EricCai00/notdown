@@ -15,8 +15,8 @@
   min-width: 0; height: 36px; background: #f7f7f5; color: #787774;
   user-select: none; -webkit-app-region: drag;
 }
-.workspace-chrome-tools { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px 0 14px; }
-.workspace-chrome-name { font-size: 12px; margin-right: auto; }
+.workspace-chrome-tools { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px 0 8px; }
+.workspace-chrome-tools > [data-action="sidebar"] { margin-left: auto; }
 .workspace-chrome-tools img { object-fit: contain; flex-shrink: 0; }
 .workspace-tab-area { display: flex; min-width: 0; align-items: stretch; }
 .workspace-tab-area .page-history { display: flex; align-items: center; padding: 0 4px; flex-shrink: 0; }
@@ -40,12 +40,10 @@
 .workspace-layout .topbar { height: 44px; padding-left: 16px; }
 .sidebar-collapsed #app.workspace-layout { grid-template-columns: 0 minmax(0, 1fr); }
 .sidebar-collapsed .workspace-chrome { grid-template-columns: 120px minmax(0, 1fr); }
-.sidebar-collapsed .workspace-chrome-name { display: none; }
 .sidebar-collapsed .workspace-chrome-tools { justify-content: space-between; }
 @media (max-width: 720px) {
   #app.workspace-layout { grid-template-columns: 0 minmax(0, 1fr); }
-  .workspace-chrome, .sidebar-collapsed .workspace-chrome { grid-template-columns: 68px minmax(0, 1fr); }
-  .workspace-chrome-name { display: none; }
+  .workspace-chrome, .sidebar-collapsed .workspace-chrome { grid-template-columns: 76px minmax(0, 1fr); }
   .workspace-chrome-tools { padding: 0 6px; gap: 4px; }
   .workspace-chrome .page-history { display: none; }
   .workspace-tab { width: 150px; }

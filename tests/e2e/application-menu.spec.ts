@@ -1,0 +1,74 @@
+import { test, expect } from "@playwright/test";
+
+test("vault heading is distinct from the application icon and sidebar groups have space", async ({ page, request }) => {
+  const vault = await (await request.post("/api/vaults/open", { data: { mode: "create", name: `Research notebook ${Date.now()}` } })).json();
+  const favorite = await (await request.post(`${vault.url}api/pages`, { data: { title: "Pinned research", favorite: true, body: "Notes" } })).json();
+  await request.post(`${vault.url}api/pages`, { data: { title: "Project notes", body: "Private note" } });
+  await page.goto(`${vault.url}#page/${favorite.id}`);
+  await expect(page.locator("#page-title")).toHaveValue(favorite.title);
+  await expect(page.locator(".workspace-switch strong")).toHaveText(vault.name);
+  await expect(page.locator(".workspace-switch img")).toHaveCount(0);
+  await expect(page.locator(".workspace-chrome-tools img")).toHaveCount(1);
+  const favoriteBox = (await page.locator("#favorite-pages").boundingBox())!;
+  const privateBox = (await page.locator("[data-page-root-drop]").boundingBox())!;
+  expect(privateBox.y - favoriteBox.y - favoriteBox.height).toBeGreaterThanOrEqual(20);
+  const navBox = (await page.locator('#sidebar [data-action="attachments"]').boundingBox())!;
+  expect(favoriteBox.y - navBox.y - navBox.height).toBeGreaterThanOrEqual(16);
+  await page.screenshot({ path: ".run/logs/sidebar-vault-heading.png" });
+  const trigger = page.getByRole("button", { name: "Notdown menu", exact: true });
+  const menu = page.getByRole("menu", { name: "Notdown menu", exact: true });
+  await trigger.click();
+  await expect(menu).toBeVisible(); await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(menu.getByRole("menuitem", { name: "Back", exact: true })).toBeDisabled();
+  await expect(menu.getByRole("menuitem", { name: "New tab", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowDown"); await expect(menu.getByRole("menuitem", { name: "New page", exact: true })).toBeFocused();
+  await page.keyboard.press("End"); await expect(menu.getByRole("menuitem", { name: "Workspace settings…", exact: true })).toBeFocused();
+  await page.screenshot({ path: ".run/logs/application-menu.png" });
+  await page.keyboard.press("Escape"); await expect(menu).toBeHidden(); await expect(trigger).toBeFocused();
+  await page.keyboard.press("ArrowDown"); await expect(menu).toBeVisible();
+  await page.locator("#page-title").click(); await expect(menu).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.locator(".workspace-chrome-tools").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await trigger.click(); await expect(menu).toBeVisible();
+  const menuBox = (await menu.boundingBox())!;
+  expect(menuBox.x).toBeGreaterThanOrEqual(0); expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(390);
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator(".workspace-switch").click();
+  await expect(page.locator("[data-vault-create]")).toBeVisible();
+});
+
+test("application menu tab commands save pending input and reuse the Import and settings dialogs", async ({ page, request }) => {
+  const note = await (await request.post("/api/pages", { data: { title: "Menu tab save", body: "Original" } })).json();
+  await page.goto(`/#page/${note.id}`); await expect(page.locator("#page-title")).toHaveValue(note.title);
+  const open = () => page.getByRole("button", { name: "Notdown menu", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "Notdown menu", exact: true });
+  await page.locator("#editor .pm-document").fill("Pending menu input");
+  await open(); await menu.getByRole("menuitem", { name: "New tab", exact: true }).click();
+  await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(2);
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Pending menu input");
+  await page.getByRole("tab", { name: note.title, exact: true }).click();
+  await open(); await menu.getByRole("menuitem", { name: "Close tab", exact: true }).click();
+  await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(1);
+  await open(); await menu.getByRole("menuitem", { name: "Reopen closed tab", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue(note.title);
+  await expect(page.locator("#editor .pm-document")).toContainText("Pending menu input");
+  await open(); await menu.getByRole("menuitem", { name: "Import…", exact: true }).click();
+  await expect(menu).toBeHidden(); await expect(page.getByRole("dialog", { name: "Import", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await open(); await menu.getByRole("menuitem", { name: "Workspace settings…", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Workspace settings", exact: true })).toBeVisible();
+});
+
+test("application menu cannot close a tab over a conflicting draft", async ({ page, request }) => {
+  const note = await (await request.post("/api/pages", { data: { title: "Menu conflict", body: "Original" } })).json();
+  await page.goto(`/#page/${note.id}`); await expect(page.locator("#page-title")).toHaveValue(note.title);
+  await request.put(`/api/pages/${note.id}`, { data: { body: "Other window saved text", baseRevision: note.revision } });
+  await page.locator("#editor .pm-document").fill("Pending menu conflict draft");
+  await page.getByRole("button", { name: "Notdown menu", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Close tab", exact: true }).click();
+  await expect(page.locator("#save-status")).toContainText("Conflict");
+  await expect(page.locator('#workspace-tabs [role="tab"]')).toHaveCount(1);
+  await expect(page.locator("#page-title")).toHaveValue(note.title);
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe("Other window saved text");
+});

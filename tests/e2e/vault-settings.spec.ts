@@ -145,5 +145,5 @@ test("settings opens an existing vault in this tab without changing the root vau
   await expect(page.locator(".workspace-switch")).toContainText(entry.name);
   const other = await context.newPage(); await other.goto("/");
   const stillDefault = await (await request.get("/api/status")).json(); expect(stillDefault.vaultPath).toBe(root.vaultPath);
-  await expect(other.locator(".workspace-switch small")).not.toHaveText(entry.name);
+  await expect(other.locator(".workspace-switch strong")).not.toHaveText(entry.name);
 });

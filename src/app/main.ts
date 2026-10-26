@@ -13,6 +13,7 @@ import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { openVaultManager } from "../features/vault/vault-manager";
 import { applySidebarPreferences, mountSidebarPreferences } from "./sidebar-preferences";
 import { WorkspaceTabs, renderWorkspaceTabs } from "./workspace-tabs";
+import { mountApplicationMenu } from "./application-menu";
 import "./workspace-tabs.css";
 import { vaultAssetUrl, vaultPageUrl, vaultPrefix } from "../shared/vault-url";
 import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
@@ -405,10 +406,11 @@ function renderSidebar() {
 }
 
 function shell() {
+  const vaultName = vaultPath.split(/[\\/]/).filter(Boolean).pop() || "Vault";
   app.inert = true;
   app.setAttribute("aria-busy", "true");
   app.innerHTML = `<aside class="sidebar" id="sidebar">
-    <button class="workspace-switch" data-action="vaults" aria-label="Open knowledge bases"><img class="workspace-avatar" src="${notdownIcon}" width="28" height="28" alt="" /><span><strong>Notdown workspace</strong><small>${e(vaultPath.split(/[\\/]/).pop() || "")}</small></span>${icon("chevrons-up-down")}</button>
+    <button class="workspace-switch" data-action="vaults" aria-label="Open knowledge bases: ${e(vaultName)}" title="${e(vaultName)} · Manage knowledge bases"><span><strong>${e(vaultName)}</strong></span>${icon("chevron-down")}</button>
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="attachments">${icon("paperclip")}Attachments</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
@@ -417,10 +419,31 @@ function shell() {
   app.classList.add("workspace-layout");
   document.body.classList.toggle("desktop-window", !!window.notdownDesktop);
   const chrome = document.createElement("header"); chrome.className = "workspace-chrome";
-  chrome.innerHTML = `<div class="workspace-chrome-tools"><img src="${notdownIcon}" width="20" height="20" alt="Notdown"><span class="workspace-chrome-name">Notdown</span></div><div class="workspace-tab-area"><div id="workspace-tabs" role="tablist" aria-label="Workspace tabs"></div><button type="button" class="workspace-new-tab" data-action="new-tab" aria-label="New tab" title="New tab">+</button><div class="workspace-drag-space"></div></div>`;
+  chrome.innerHTML = `<div class="workspace-chrome-tools"><button type="button" class="workspace-app-menu" aria-label="Notdown menu" title="Notdown menu"><img src="${notdownIcon}" width="18" height="18" alt=""></button></div><div class="workspace-tab-area"><div id="workspace-tabs" role="tablist" aria-label="Workspace tabs"></div><button type="button" class="workspace-new-tab" data-action="new-tab" aria-label="New tab" title="New tab">+</button><div class="workspace-drag-space"></div></div>`;
   chrome.querySelector(".workspace-chrome-tools")!.append(app.querySelector('.topbar > [data-action="sidebar"]')!);
   chrome.querySelector(".workspace-tab-area")!.prepend(app.querySelector(".page-history")!);
   app.prepend(chrome);
+  mountApplicationMenu(chrome.querySelector<HTMLButtonElement>(".workspace-app-menu")!, () => {
+    const busy = !workspaceTabs || workspaceTabs.busy;
+    return [
+      { label: "File", items: [
+        { action: "new-tab", label: "New tab", shortcut: window.notdownDesktop ? "Ctrl+T" : undefined, disabled: busy },
+        { action: "new", label: "New page", disabled: busy },
+        { action: "import", label: "Import…", disabled: busy },
+        { action: "vaults", label: "Manage knowledge bases…", disabled: busy },
+        { action: "close-tab", label: "Close tab", shortcut: window.notdownDesktop ? "Ctrl+W" : undefined, disabled: busy },
+      ] },
+      { label: "View", items: [
+        { action: "sidebar", label: "Toggle sidebar" },
+        { action: "settings", label: "Workspace settings…" },
+      ] },
+      { label: "History", items: [
+        { action: "history-back", label: "Back", disabled: busy || !navigation?.canBack },
+        { action: "history-forward", label: "Forward", disabled: busy || !navigation?.canForward },
+        { action: "reopen-tab", label: "Reopen closed tab", shortcut: window.notdownDesktop ? "Ctrl+Shift+T" : undefined, disabled: busy || !workspaceTabs?.canReopen },
+      ] },
+    ];
+  });
   const resizer = document.createElement("div");
   resizer.className = "sidebar-resizer";
   resizer.tabIndex = 0;
@@ -2622,6 +2645,12 @@ document.addEventListener("click", (event) => {
     switch (actionEl.dataset.action) {
       case "new-tab":
         await workspaceTabs?.open();
+        break;
+      case "close-tab":
+        if (workspaceTabs) await workspaceTabs.close(workspaceTabs.activeId);
+        break;
+      case "reopen-tab":
+        await workspaceTabs?.reopen();
         break;
       case "attachments":
         await showAttachments();

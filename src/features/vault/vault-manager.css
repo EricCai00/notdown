@@ -9,4 +9,3 @@
 .sidebar-preferences .switch-row { margin: 8px 0; }
 [data-sidebar-hidden] { display: none !important; }
 .workspace-switch > span { min-width: 0; }
-.workspace-switch small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

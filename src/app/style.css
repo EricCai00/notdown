@@ -1446,10 +1446,10 @@ kbd {
   display: flex;
   align-items: center;
   text-align: left;
-  margin: 0 0 7px;
+  margin: 4px 0 12px;
   border: 0;
   box-shadow: none;
-  min-height: 36px;
+  min-height: 42px;
   padding: 5px 8px;
   border-radius: 5px;
   background: transparent;
@@ -1458,24 +1458,15 @@ kbd {
 .workspace-switch:hover {
   background: var(--hover);
 }
-.workspace-avatar {
-  display: block;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  object-fit: contain;
-}
 .workspace-switch strong {
   display: block;
-  font-size: 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
   font-weight: 600;
 }
-.workspace-switch small {
-  font-size: 10px;
-  color: #9d9d9d;
-  margin-top: 4px;
-  display: none;
-}
+.workspace-switch > span { flex: 1; min-width: 0; }
 .workspace-switch > svg {
   margin-left: auto;
   width: 14px;
@@ -1514,7 +1505,7 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 0 0 20px;
+  padding: 0 0 16px;
 }
 .main-nav > button {
   display: flex;
@@ -1550,7 +1541,8 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
   min-height: 28px;
   color: #9b9a97;
   font-size: 12px;
@@ -1628,6 +1620,7 @@ kbd {
 .trash-row-actions { display: flex; flex-shrink: 0; gap: 6px; }
 .trash-row-actions .danger { color: #b34236; }
 .trash-row-actions button:disabled { opacity: .5; cursor: wait; }
+#favorite-pages:not(:empty) { margin-bottom: 20px; }
 .tree-row {
   --tree-inset: calc(3px + var(--depth) * 10px);
   display: flex;

@@ -1,0 +1,16 @@
+.application-menu {
+  position: fixed; inset: auto; margin: 0; width: 260px; max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 54px); overflow-y: auto; padding: 5px;
+  background: white; color: #37352f; border: 1px solid #e9e9e7; border-radius: 9px;
+  box-shadow: 0 8px 28px #0002; font: 13px/1.4 "Segoe UI", sans-serif;
+}
+.application-menu > [role="group"] { padding: 4px 0; border-bottom: 1px solid #eeedeb; }
+.application-menu > [role="group"]:last-child { border-bottom: 0; }
+.application-menu-heading { padding: 4px 8px; color: #9b9a97; font-size: 11px; font-weight: 600; }
+.application-menu button { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 32px; padding: 6px 8px; border-radius: 4px; text-align: left; font: inherit; }
+.application-menu button:hover:not(:disabled), .application-menu button:focus-visible { background: #f1f1ef; outline: none; }
+.application-menu button:disabled { opacity: .4; cursor: default; }
+.application-menu kbd { margin: 0; border: 0; padding: 0; background: none; color: #9b9a97; font-size: 11px; }
+.workspace-app-menu { display: grid; place-items: center; width: 30px; height: 28px; flex-shrink: 0; border-radius: 5px; }
+.workspace-app-menu:hover, .workspace-app-menu[aria-expanded="true"] { background: #eae9e6; }
+.workspace-app-menu:focus-visible { outline: 2px solid #2383e2; outline-offset: 1px; }

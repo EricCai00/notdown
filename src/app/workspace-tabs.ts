@@ -44,6 +44,7 @@ export class WorkspaceTabs {
     this.persist();
   }
   get active() { return this.tabs.find(tab => tab.id === this.activeId)!; }
+  get canReopen() { return this.closed.length > 0; }
   restoreActive() { return this.options.restore(this.active.state); }
   capture() { this.active.state = this.options.capture(); this.persist(); }
   sync(route: PageRoute) {
