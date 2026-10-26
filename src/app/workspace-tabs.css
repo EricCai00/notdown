@@ -6,7 +6,7 @@
 }
 .workspace-layout > .sidebar { grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .workspace-layout > .sidebar > * { flex-shrink: 0; }
-.workspace-layout > .sidebar > .new-page { margin: 2px 0; min-height: 30px; padding: 5px 10px; }
+.workspace-layout .sidebar-bottom > .new-page { margin: 2px 0; min-height: 30px; padding: 5px 10px; }
 .workspace-layout > .main-shell { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; }
 .workspace-layout > .sidebar-resizer { top: 36px; }
 .workspace-chrome {

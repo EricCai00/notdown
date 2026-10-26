@@ -507,11 +507,11 @@ button kbd {
 .tree-row:focus-within .tree-add {
   opacity: 1;
 }
-.sidebar-bottom button svg {
+.sidebar-bottom [data-action="settings"] svg {
   width: 15px;
   height: 15px;
 }
-.sidebar-bottom button svg:last-child {
+.sidebar-bottom [data-action="settings"] svg:last-child {
   margin-left: auto;
   width: 12px;
 }
@@ -1777,7 +1777,7 @@ kbd {
   margin-top: auto;
   border-top: 1px solid #e6e6e6;
   border: 0;
-  padding-top: 12px;
+  padding-top: 24px;
 }
 .local-badge {
   display: flex;

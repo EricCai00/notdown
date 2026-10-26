@@ -54,6 +54,8 @@ test("integrated title bar keeps native controls and desktop tab shortcuts save 
   expect(chrome.bounds.height - chrome.content.height).toBeLessThan(25);
   await expect(page.locator(".sidebar-pages")).toHaveCount(0);
   await expect(page.locator("#sidebar")).toHaveCSS("overflow-y", "auto");
+  await expect(page.locator('.sidebar-bottom > [data-action="import"]')).toBeInViewport();
+  await expect(page.locator('.sidebar-bottom > [data-action="trash"]')).toBeInViewport();
   await page.locator('#sidebar .section-label [data-action="new"]').click();
   await page.locator("#page-title").fill("Desktop first tab");
   await page.locator("#editor .pm-document").fill("First tab body");

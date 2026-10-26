@@ -30,7 +30,7 @@ Source 和 Split 使用较宽的编辑区，源码支持语法高亮及标题、
 
 侧栏底部保留统一的 **Import**、**Trash** 和 **Workspace settings**。新建页面使用 **Private pages** 旁的 **+** 或 Vault 页面的 **New page**；新建数据库使用 **Databases → New database**；管理知识库点击左上角知识库名称，或 **Workspace settings → Manage knowledge bases**。
 
-侧栏内容超出窗口高度时整体滚动；收藏、页面树和底部操作共用一个滚动区，滚动侧栏不会带动正文。
+Import、Trash、实验工具入口、本地状态和设置集中在侧栏底部，页面较少时整体靠下，与页面列表保留空隙。内容超出窗口高度时整个侧栏滚动，底部操作与页面树之间仍保留间距；滚动侧栏不会带动正文。
 
 **Block Explorer** 与 **Markdown Lab** 为实验性工具，侧栏入口默认关闭。在 **Workspace settings → Experimental features** 分别开启后显示链接；开关保存在本机，不修改知识库内容。实验工具页面仍可通过原有 URL 访问。
 

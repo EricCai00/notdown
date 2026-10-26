@@ -4,6 +4,27 @@ const sidebar = (page: Page) => page.locator("#sidebar");
 const handle = (page: Page) => page.getByRole("separator", { name: "Resize sidebar" });
 const toggle = (page: Page) => page.getByRole("button", { name: "Toggle sidebar", exact: true });
 
+test("short page lists keep Import and Trash together with the bottom settings and leave a gap", async ({ page, request }) => {
+  const vault = await (await request.post("/api/vaults/open", { data: { mode: "create", name: `Sidebar footer ${Date.now()}` } })).json();
+  const note = await (await request.post(`${vault.url}api/pages`, { data: { title: "Footer placement", body: "Short page list" } })).json();
+  await page.goto(`${vault.url}#page/${note.id}`);
+  await expect(page.locator("#page-title")).toHaveValue(note.title);
+  const footer = sidebar(page).locator(".sidebar-bottom");
+  await expect(footer.getByRole("button", { name: "Import", exact: true })).toBeVisible();
+  await expect(footer.getByRole("button", { name: "Trash", exact: true })).toBeVisible();
+  await expect(footer.getByRole("button", { name: "Workspace settings" })).toBeInViewport();
+  const treeBox = (await page.locator("#page-tree").boundingBox())!;
+  const importBox = (await footer.getByRole("button", { name: "Import", exact: true }).boundingBox())!;
+  const importIconBox = (await footer.getByRole("button", { name: "Import", exact: true }).locator("svg").boundingBox())!;
+  const footerBox = (await footer.boundingBox())!;
+  const sidebarBox = (await sidebar(page).boundingBox())!;
+  expect(importBox.y - treeBox.y - treeBox.height).toBeGreaterThan(100);
+  expect(importIconBox.x - importBox.x).toBeLessThanOrEqual(12);
+  expect(sidebarBox.y + sidebarBox.height - footerBox.y - footerBox.height).toBeLessThanOrEqual(10);
+  expect(await sidebar(page).evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+  await page.screenshot({ path: ".run/logs/sidebar-footer-short-list.png" });
+});
+
 test("long favorites and page trees share the whole sidebar scroll without moving the document", async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 700 });
   const note = await (await request.post("/api/pages", { data: { title: "Unified sidebar scroll", body: Array.from({ length: 60 }, (_, index) => `Document paragraph ${index}`).join("\n\n") } })).json();
@@ -25,6 +46,9 @@ test("long favorites and page trees share the whole sidebar scroll without movin
   await expect(sidebar(page).getByRole("button", { name: "Workspace settings" })).toBeInViewport();
   await expect(sidebar(page).getByRole("button", { name: "Import", exact: true })).toBeInViewport();
   await expect(sidebar(page).getByRole("button", { name: "Trash", exact: true })).toBeInViewport();
+  const treeBottom = await page.locator("#page-tree").evaluate(element => element.getBoundingClientRect().bottom);
+  const importTop = await sidebar(page).getByRole("button", { name: "Import", exact: true }).evaluate(element => element.getBoundingClientRect().top);
+  expect(importTop - treeBottom).toBeGreaterThanOrEqual(24);
   await page.screenshot({ path: ".run/logs/sidebar-unified-scroll.png" });
 });
 

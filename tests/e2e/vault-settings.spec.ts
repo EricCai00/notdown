@@ -99,7 +99,7 @@ test("browser creates a vault in another tab after saving; tabs keep separate co
   const popup = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Create vault", exact: true }).click();
   const other = await popup;
-  await expect(other).toHaveURL(/\/v\/[a-f0-9]{64}\/$/);
+  await expect(other).toHaveURL(url => /^\/v\/[a-f0-9]{64}\/$/.test(url.pathname));
   await expect(other.locator(".workspace-switch")).toContainText("Browser test");
   const source = await (await request.get(`/api/pages/${note.id}`)).json(); expect(source.body).toContain("Pending before vault switch");
   await expect(page.locator("#page-title")).toHaveValue(note.title);
