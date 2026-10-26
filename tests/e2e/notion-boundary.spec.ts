@@ -51,14 +51,15 @@ test("pasting a Notion media image splits prose into blocks and survives save", 
     clipboardData.setData("text/plain", "![Caption](/notion-test-image.svg)");
     el.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData }));
   });
-  await expect(editor.locator(":scope > p")).toHaveCount(3);
+  await expect(editor.locator(":scope > p")).toHaveCount(2);
   await expect(editor.locator(":scope > p").first()).toHaveText("Before");
-  await expect(editor.locator(":scope > p").nth(1).locator('img[alt="Caption"]')).toHaveCount(1);
+  await expect(editor.getByRole("figure", { name: "Caption", exact: true }).locator('img[alt="Caption"]')).toHaveCount(1);
   await expect(editor.locator('img[alt="Caption"]')).toHaveJSProperty("naturalWidth", 10);
   await expect(editor.locator(":scope > p").last()).toHaveText("After");
   await page.keyboard.press("Control+s");
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe("Before\n\n![Caption](/notion-test-image.svg)\n\nAfter");
   await page.reload();
-  await expect(editor.locator(":scope > p")).toHaveCount(3);
+  await expect(editor.locator(":scope > p")).toHaveCount(2);
+  await expect(editor.getByRole("figure", { name: "Caption", exact: true })).toBeVisible();
   await expect(editor.locator('img[alt="Caption"]')).toHaveCount(1);
 });

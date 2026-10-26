@@ -1,11 +1,13 @@
 node_modules/
 dist/
 desktop-dist/
+# Local user content must never enter the source repository.
 /vault/
 test-results/
 *.log
 public/vendor/
 .run/
+# Machine-local paths and service credentials.
 .env
 .env.*
 !.env.example

@@ -5,11 +5,14 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Base64;
 import androidx.activity.result.ActivityResult;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.*;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.*;
 import java.nio.file.*;
+import java.util.*;
 
 @CapacitorPlugin(name = "NotdownVault")
 public class NotdownVaultPlugin extends Plugin {
@@ -45,10 +48,31 @@ public class NotdownVaultPlugin extends Plugin {
     @PluginMethod public void replace(PluginCall call) {
         execute(call, () -> { String expected = call.getString("expected"); files.replace(call.getString("from"), call.getString("to"), expected == null ? null : bytes(expected)); return new JSObject(); });
     }
+    @PluginMethod public void replaceMany(PluginCall call) {
+        execute(call, () -> {
+            JSArray records = call.getArray("files");
+            if (records == null || records.length() > 128) throw new VaultFileStore.StorageException("EINVAL", "Invalid storage batch");
+            List<VaultFileStore.Replacement> changes = new ArrayList<>(); long encoded = 0;
+            for (int i = 0; i < records.length(); i++) {
+                org.json.JSONObject record = records.getJSONObject(i);
+                String expected = record.isNull("expected") ? null : record.getString("expected"), data = record.getString("data");
+                encoded += data.length() + (expected == null ? 0L : expected.length());
+                if (encoded > 40L * 1024 * 1024) throw new VaultFileStore.StorageException("EFBIG", "Storage batch is too large");
+                changes.add(new VaultFileStore.Replacement(record.getString("path"), expected == null ? null : bytes(expected), bytes(data)));
+            }
+            files.replaceMany(changes); return new JSObject();
+        });
+    }
     @PluginMethod public void acquire(PluginCall call) { execute(call, () -> new JSObject().put("token", files.acquire(call.getString("path")))); }
     @PluginMethod public void release(PluginCall call) { execute(call, () -> { files.release(call.getString("token")); return new JSObject(); }); }
     @PluginMethod public void background(PluginCall call) {
         getActivity().runOnUiThread(() -> { getActivity().moveTaskToBack(true); call.resolve(); });
+    }
+    @PluginMethod public void hideKeyboard(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            WindowCompat.getInsetsController(getActivity().getWindow(), getBridge().getWebView()).hide(WindowInsetsCompat.Type.ime());
+            call.resolve();
+        });
     }
     @PluginMethod public void exportDocument(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);

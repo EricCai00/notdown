@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Server } from "node:http";
 import { createApp } from "../../server/app.js";
+import { createManagedVaultFolder, listManagedVaults, loadLocalEnv, resolveVaultLocation } from "../../server/vault-location.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const welcomeURL = pathToFileURL(path.join(directory, "welcome.html")).href;
@@ -19,6 +20,10 @@ let openingQueue = Promise.resolve();
 app.setName("Notdown");
 // Test invocations use a separate profile; packaged user launches always use Electron's normal profile.
 if (!app.isPackaged && process.env.NOTDOWN_DESKTOP_PROFILE) app.setPath("userData", path.resolve(process.env.NOTDOWN_DESKTOP_PROFILE));
+if (!app.isPackaged && !process.env.NOTDOWN_DESKTOP_PROFILE) loadLocalEnv();
+const dataPath = resolveVaultLocation(!app.isPackaged && process.env.NOTDOWN_DESKTOP_PROFILE
+  ? { ...process.env, NOTDOWN_DATA_PATH: path.join(process.env.NOTDOWN_DESKTOP_PROFILE, "vault-data"), VAULT_PATH: undefined }
+  : process.env).dataPath;
 
 function trusted(event: IpcMainInvokeEvent | Electron.IpcMainEvent, welcomeOnly = false) {
   const frame = event.senderFrame;
@@ -143,6 +148,18 @@ else {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: "File", submenu: [{ label: "Open vault…", click: () => showWelcome() }, { role: "close" }, { role: "quit" }] }, { role: "editMenu" }, { label: "View", submenu: [{ role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" }, { role: "togglefullscreen" }] }]));
     ipcMain.handle("vault:welcome", event => { trusted(event); showWelcome(); });
     ipcMain.handle("vault:recents", event => { trusted(event, true); return recents(); });
+    ipcMain.handle("vault:managed", async event => { trusted(event, true); return { dataPath, vaults: await listManagedVaults(dataPath) }; });
+    ipcMain.handle("vault:create-managed", async (event, name: unknown) => {
+      const owner = trusted(event, true);
+      if (typeof name !== "string") throw new Error("Enter a vault name.");
+      const selected = await createManagedVaultFolder(dataPath, name);
+      await openVault(selected, true); owner.close();
+    });
+    ipcMain.handle("vault:open-managed", async (event, selected: unknown) => {
+      const owner = trusted(event, true);
+      if (typeof selected !== "string" || !(await listManagedVaults(dataPath)).some(vault => vault.path === selected)) throw new Error("Choose an existing vault.");
+      await openVault(selected, false); owner.close();
+    });
     ipcMain.handle("vault:choose", async (event, mode: unknown) => {
       const owner = trusted(event, true);
       if (mode !== "open" && mode !== "create") throw new Error("Invalid folder action");

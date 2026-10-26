@@ -35,6 +35,19 @@ Source 和 Split 使用较宽的编辑区，源码支持语法高亮及标题、
 
 **View source** 显示所选块及其子内容的只读 Markdown，可复制；编辑过或嵌套的块可能使用规范化编码。右上角 **Open source file** 可在新标签查看完整文件、交给系统默认 Markdown 应用打开，或复制绝对路径。打开前先保存，冲突阻止打开；复制路径不要求保存，系统打开需要本地文件关联。
 
+Notion v2 页面在编辑或新建普通内容时优先使用 Markdown：标题 `#`、列表 `-` / `1.`、任务 `- [ ]`、引用 `>`、粗体 `**`、斜体 `*`、删除线 `~~`、图片 `![]()`、公式 `$$` 和普通表格。需要属性、子块、边缘空白或无法用 Markdown 无损表达时保留 Notion 官方标签；下划线与颜色本来就需要对应标签。未修改块继续保留原文，不批量转换已有文件。详细边界见 [Notion 格式参考](../reference/NOTION-MCP-SYNTAX.md#notion-v2-的保存规则)。
+
+## 方言选择
+
+**Dialect** 下拉框按以下顺序分组，Block Explorer 使用相同顺序：
+
+- Applications：Notdown → Notion-flavored Markdown → Obsidian → Typora。
+- Markdown：Pandoc Markdown → CommonMark X → GitHub-flavored Markdown → CommonMark → Original Markdown。
+- Compatibility：PHP Markdown Extra → MultiMarkdown → Legacy GitHub Markdown。
+- Scientific writing：R Markdown → Quarto。
+
+Android 可从右上角 **Notebook options → Page dialect: 当前方言** 查看并更改当前页方言。切换前保存待处理输入，保存失败或冲突时停止切换。文件已在 YAML 声明 `syntax` 或 `bodyFormat` 时，显式切换同时更新已有的覆盖字段，保留未知字段与注释、换行格式和后续正文；没有这些字段时不自动添加应用 YAML。更改进入共用撤销历史。
+
 ## 输入与格式
 
 - 斜杠菜单保持正文焦点，跟随输入行，支持过滤、键盘选择和 Escape 关闭。
@@ -69,6 +82,10 @@ HTML 块在悬停或聚焦时显示 `</>` 按钮，可展开带高亮和实时�
 启用 comments 后，`%%` 或斜杠菜单可打开注释输入面板，`Ctrl/⌘+Enter` 提交，Escape 取消；在段落开头输入 `%%` 后对空输入按 Enter 可改为块注释。注释和 CriticMarkup 注释在 Page 中隐藏，已有内容可在 Source 中编辑。
 
 ## 页面与链接
+
+**Workspace settings → Sidebar** 可分别显示或隐藏 Search、Vault、Databases、Attachments、People、Graph 和 Conflicts and versions；设置在当前浏览器保存，立即生效，**Show all shortcuts** 恢复全部入口。隐藏入口不会删除内容或禁用功能，搜索快捷键 Ctrl/⌘ K 继续可用，知识库管理和设置入口始终保留。
+
+设置窗口的标题栏与关闭按钮固定，内容区独立滚动。点击关闭按钮、按 Esc 或点击窗口外的遮罩均可退出；下拉选择器等子面板打开时，Esc 可能先关闭子面板。开关类偏好即时保存；带 Save 按钮的配置需点击对应按钮提交。
 
 侧栏支持父子页面、排序、收藏、搜索和 Trash。页面可设置图标、封面与属性；底部 **Child page** 列表按实际层级生成。子页少于或等于五个时默认展开，更多时默认折叠，手动选择在当前会话保留。
 

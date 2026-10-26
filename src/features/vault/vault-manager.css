@@ -1,0 +1,12 @@
+.vault-manager-list { display: grid; gap: 8px; margin: 18px 0; }
+.vault-manager-list button { display: grid; text-align: left; gap: 4px; }
+.vault-manager-list small { overflow-wrap: anywhere; font-weight: normal; }
+.vault-manager-dialog form { display: grid; gap: 12px; }
+.vault-manager-dialog .vault-path { overflow-wrap: anywhere; }
+.workspace-settings-dialog[open] { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.workspace-settings-dialog > .dialog-heading { flex: none; padding: 22px 25px; margin: 0; border-bottom: 1px solid var(--line); background: white; }
+.settings-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 25px 25px; }
+.sidebar-preferences .switch-row { margin: 8px 0; }
+[data-sidebar-hidden] { display: none !important; }
+.workspace-switch > span { min-width: 0; }
+.workspace-switch small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

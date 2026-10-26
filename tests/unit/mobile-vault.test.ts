@@ -14,6 +14,7 @@ import { readVaultZip, writeVaultZip } from "../../src/mobile/backup";
 import { zipSync } from "fflate";
 import { mobileVaultApi } from "../../src/mobile/vault-api";
 import { ApiError } from "../../src/shared/types";
+import { mobileNotebookReady } from "../../src/mobile/notebook-policy";
 
 const temporary = async (t: test.TestContext) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-mobile-"));
@@ -102,4 +103,19 @@ test("local editor transport returns API conflicts without network access", asyn
   await vault.update(page.id, { body: "new version" }, page.revision);
   await assert.rejects(api(`/pages/${page.id}`, { method: "PUT", body: JSON.stringify({ body: "draft", baseRevision: page.revision }) }),
     (error: unknown) => error instanceof ApiError && error.status === 409);
+});
+
+test("mobile cannot create a cloud notebook through its local API", async t => {
+  const vault = createVault(await temporary(t)), api = mobileVaultApi(() => vault);
+  await assert.rejects(api("/sync/connect", { method: "POST", body: JSON.stringify({ name: "Independent mobile notebook" }) }),
+    (error: unknown) => error instanceof ApiError && error.status === 400 && /existing cloud notebook/.test(error.message));
+  assert.equal((await vault.sync.status()).signedIn, false);
+  assert.deepEqual(await vault.list(), []);
+});
+
+test("mobile editing requires a cloud binding and completed initial sync", () => {
+  assert.equal(mobileNotebookReady({ signedIn: false }), false);
+  assert.equal(mobileNotebookReady({ signedIn: true, vaultId: "existing-cloud" }), false);
+  assert.equal(mobileNotebookReady({ signedIn: true, lastSyncedAt: "2026-10-24T00:00:00Z" }), false);
+  assert.equal(mobileNotebookReady({ signedIn: true, vaultId: "existing-cloud", lastSyncedAt: "2026-10-24T00:00:00Z" }), true);
 });

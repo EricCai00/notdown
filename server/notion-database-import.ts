@@ -1,4 +1,5 @@
 import type { DatabaseResources, DatabaseProperty } from "../src/features/databases/database-model.js";
+import { notionTableProperties } from "../src/features/databases/database-columns.js";
 import { VaultError } from "./vault.js";
 
 type Json = Record<string, any>;
@@ -12,6 +13,7 @@ export function notionDatabaseImport(options: {
   normalizeId: (value: unknown) => string;
   warn: (message: string) => void;
   enqueue: (id: string, parent: string | null, record?: Json) => void;
+  onResource?: (title: string) => void;
 }) {
   const { read, normalizeId, warn, enqueue } = options;
   const databases = new Map<string, Json>();
@@ -50,6 +52,7 @@ export function notionDatabaseImport(options: {
     if (raw.object !== "database" || typeof raw.id !== "string" || !sameId(raw.id, id) || !Array.isArray(raw.data_sources))
       throw new VaultError(502, "Notion did not return the requested database and data sources.");
     const title = (plain(raw.title).trim() || "Untitled database").slice(0, 500);
+    options.onResource?.(title);
     databases.set(id, { ...raw, localTitle: title });
     for (const sourceRef of raw.data_sources) {
       const sourceId = normalizeId(sourceRef.id);
@@ -92,6 +95,7 @@ export function notionDatabaseImport(options: {
 
   async function pageProperties(pageId: string, page: Json): Promise<void> {
     if (!sourceByPage.has(pageId) || completedProperties.has(pageId)) return;
+    options.onResource?.(Object.values<Json>(page.properties ?? {}).filter(property => property.type === "title").map(property => plain(property.title)).join("").trim().slice(0, 500) || "Untitled");
     const properties: Json = { ...page.properties };
     for (const [name, property] of Object.entries<Json>(properties)) {
       const type = property.type;
@@ -135,7 +139,7 @@ export function notionDatabaseImport(options: {
         fields.push(field); byName.set(name, field);
       }
       fieldMaps.set(id, byName);
-      resources.dataSources[localId(id)] = { id: localId(id), title: (plain(raw.title).trim() || "Imported data source").slice(0, 500), properties: fields, revision: "", notion: raw };
+      resources.dataSources[localId(id)] = { id: localId(id), title: (plain(raw.title).trim() || "Imported data source").slice(0, 500), properties: notionTableProperties(fields, [], id), revision: "", notion: raw };
     }
     for (const [id, raw] of databases) {
       const sourceIds = raw.data_sources.map((source: Json) => localId(normalizeId(source.id)));
@@ -146,7 +150,9 @@ export function notionDatabaseImport(options: {
         // Keep the data source query's discovery order across local reloads.
         // This does not reproduce a remote Notion view's manual ordering.
         const rowOrder = [...sourceByPage].filter(([pageId, remoteSourceId]) => importedPages.has(pageId) && localId(remoteSourceId) === sourceId).map(([pageId]) => localId(pageId));
-        resources.views[viewId] = { id: viewId, databaseId: localId(id), dataSourceId: sourceId, name: sourceIds.length > 1 ? resources.dataSources[sourceId].title : "All records", type: "table", propertyIds: resources.dataSources[sourceId].properties.map(field => field.id), rowOrder, revision: "" };
+        const remoteSourceId = raw.data_sources.find((source: Json) => localId(normalizeId(source.id)) === sourceId).id;
+        const fields = notionTableProperties(resources.dataSources[sourceId].properties, viewsByDatabase.get(id), remoteSourceId);
+        resources.views[viewId] = { id: viewId, databaseId: localId(id), dataSourceId: sourceId, name: sourceIds.length > 1 ? resources.dataSources[sourceId].title : "All records", type: "table", propertyIds: fields.map(field => field.id), rowOrder, revision: "" };
       }
       resources.databases[localId(id)] = { id: localId(id), title: raw.localTitle, pageId: localId(id), dataSourceIds: sourceIds, viewIds, revision: "", notion: raw, notionViews: viewsByDatabase.get(id) ?? [] };
     }

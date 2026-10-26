@@ -9,6 +9,8 @@ import { createWebDavClient, webDavAddress, type WebDavConnection } from "../../
 import { createWebDavFixture, davCredentials } from "./webdav-fixture";
 import { itemRevision } from "../../src/sync/protocol";
 import { hashBytes } from "../../src/vault/crypto";
+import { createApp } from "../../server/app";
+import type { AddressInfo } from "node:net";
 
 async function setup(t: test.TestContext) {
   const dav = await createWebDavFixture(); t.after(dav.close);
@@ -39,6 +41,21 @@ test("WebDAV sync preserves Markdown, attachments and conflicts even when If-Non
   assert.equal((await a.exportFiles()).some(file => Buffer.from(file.data).includes(davCredentials.password)), false);
 });
 
+test("WebDAV reports reading records and verified attachment chunk progress", async t => {
+  const { a, connect, connection } = await setup(t); await connect();
+  await a.create({ body: "Progress record" }); await a.sync.run();
+  const settings = await a.sync.status();
+  const client = createWebDavClient({ ...connection(), vaultId: settings.vaultId }, async () => {});
+  const records: number[][] = [];
+  const pulled = await client.remote.pull(0, (done, total) => records.push([done, total]));
+  assert.deepEqual(records[0], [0, pulled.items.length]); assert.deepEqual(records.at(-1), [pulled.items.length, pulled.items.length]);
+  const bytes = Buffer.alloc(1024 * 1024 + 71, 123), hash = hashBytes(bytes), upload: number[][] = [], download: number[][] = [];
+  await client.remote.upload(hash, bytes, (done, total) => upload.push([done, total]));
+  assert.deepEqual(upload, [[0, bytes.length], [1024 * 1024, bytes.length], [bytes.length, bytes.length]]);
+  assert.deepEqual(await client.remote.download(hash, (done, total) => download.push([done, total])), Uint8Array.from(bytes));
+  assert.deepEqual(download, upload);
+});
+
 test("unsupported conditional writes or weak ETags cannot enable sync", async t => {
   const { a, dav, credentials } = await setup(t);
   dav.flags.ignoreIfMatch = true; await assert.rejects(a.sync.handle("sign-in", "POST", credentials), /ignores conditional/);
@@ -46,6 +63,51 @@ test("unsupported conditional writes or weak ETags cannot enable sync", async t 
   dav.flags.ignoreIfMatch = false; dav.flags.weakEtag = true;
   await assert.rejects(a.sync.handle("sign-in", "POST", credentials), /strong ETag/);
   assert.equal((await a.sync.status()).signedIn, false);
+});
+
+test("connection probes support Nutstore names, bare ETags and nested-only cleanup", async t => {
+  const { a, dav, credentials } = await setup(t);
+  await a.sync.handle("sign-in", "POST", credentials);
+  assert.equal((await a.sync.status()).signedIn, true);
+  assert.deepEqual([...dav.directories], ["/dav/", "/dav/Notdown-checks/"]);
+  assert.equal(dav.files.size, 0);
+  const creates = dav.requests.filter(request => request.method === "MKCOL");
+  assert.ok(creates.every(request => request.path.split("/").filter(Boolean).every(part => part.length <= 30)));
+  const [cleanup] = dav.requests.filter(request => request.method === "DELETE");
+  assert.match(cleanup.path, /^\/dav\/Notdown-checks\/nd-[a-f0-9]{24}\/$/);
+  assert.ok(dav.requests.some(request => request.ifMatch && !request.ifMatch.startsWith('"')));
+  dav.flags.bareEtag = false;
+  dav.flags.idempotentMkcol = false;
+  await a.sync.handle("sign-in", "POST", credentials);
+  assert.equal(dav.files.size, 0);
+});
+
+test("idempotent MKCOL cannot reinitialize an existing notebook", async t => {
+  const { connection, dav } = await setup(t);
+  const client = createWebDavClient(connection(), async () => {});
+  await client.createVault(randomUUID(), "Existing notebook");
+  const before = Buffer.from(dav.files.get("/dav/Notdown/Test/head.json")!);
+  await assert.rejects(client.createVault(randomUUID(), "Replacement"), /already exists/);
+  assert.deepEqual(dav.files.get("/dav/Notdown/Test/head.json"), before);
+});
+
+test("sync HTTP errors preserve WebDAV status and useful messages without leaking credentials", async t => {
+  const { a, dav, credentials } = await setup(t);
+  const app = createApp({ vaultPath: a.vaultPath }), server = app.listen(0, "127.0.0.1");
+  await new Promise<void>(resolve => server.once("listening", resolve));
+  t.after(async () => { app.locals.closeRNotebook(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); });
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/sync/sign-in`;
+  for (const status of [400, 401, 429, 500]) {
+    dav.flags.mkcolStatus = status;
+    const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(credentials) });
+    assert.equal(response.status, status);
+    const body = await response.json();
+    assert.match(body.error, /WebDAV/);
+    assert.doesNotMatch(body.error, /Local file operation/);
+    assert.equal(JSON.stringify(body).includes(credentials.password), false);
+    if (status === 429) assert.ok(body.retryAt > Date.now());
+    assert.equal((await a.sync.status()).signedIn, false);
+  }
 });
 
 test("a lost successful commit response is replayed exactly after restart", async t => {

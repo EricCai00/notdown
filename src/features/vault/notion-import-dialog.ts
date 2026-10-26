@@ -1,4 +1,5 @@
 import { api, escape as e } from "../../shared/types";
+import type { ImportProgress } from "../../shared/import-progress";
 import "./import-dialog.css";
 
 type Preview = {
@@ -28,6 +29,10 @@ export function openNotionImportDialog(options: {
     <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and automations remain in Notion.</p>
     <div id="notion-preview" aria-live="polite"></div>
     <p id="notion-status" role="status"></p>
+    <p id="notion-step" role="status" hidden></p>
+    <p id="notion-timing" class="import-hint" aria-live="off" hidden></p>
+    <progress id="notion-progress" aria-label="Notion import progress" hidden></progress>
+    <details id="notion-progress-details" hidden><summary>Recent steps</summary><ol id="notion-progress-history"></ol></details>
     <footer><button id="notion-cancel">Cancel</button><button id="notion-preview-button" class="primary-button">Preview</button><button id="notion-commit" class="primary-button" disabled>Import copies</button></footer>`;
   document.body.append(dialog);
   const token = dialog.querySelector<HTMLInputElement>("#notion-token")!;
@@ -40,6 +45,60 @@ export function openNotionImportDialog(options: {
   )!;
   const commit = dialog.querySelector<HTMLButtonElement>("#notion-commit")!;
   const status = dialog.querySelector<HTMLElement>("#notion-status")!;
+  const progress = dialog.querySelector<HTMLProgressElement>("#notion-progress")!;
+  const step = dialog.querySelector<HTMLElement>("#notion-step")!;
+  const timing = dialog.querySelector<HTMLElement>("#notion-timing")!;
+  const progressDetails = dialog.querySelector<HTMLDetailsElement>("#notion-progress-details")!;
+  const history = dialog.querySelector<HTMLOListElement>("#notion-progress-history")!;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  let startedAt = 0, stepStartedAt = 0, lastUpdateAt = 0, lastStep = "";
+  const updateTiming = () => {
+    const now = Date.now();
+    const seconds = (since: number) => Math.max(0, Math.floor((now - since) / 1000));
+    timing.textContent = `Elapsed: ${seconds(startedAt)}s · This step: ${seconds(stepStartedAt)}s · Last update: ${seconds(lastUpdateAt)}s ago`;
+  };
+  const finishProgress = () => {
+    if (timer !== undefined) { clearInterval(timer); timer = undefined; updateTiming(); }
+    if (!step.hidden && step.textContent && !step.textContent.startsWith("Last step: ")) step.textContent = `Last step: ${step.textContent}`;
+    progress.hidden = true;
+  };
+  const clearProgress = () => {
+    finishProgress();
+    step.hidden = timing.hidden = progressDetails.hidden = true;
+    history.replaceChildren();
+    lastStep = "";
+  };
+  const showProgress = (value: ImportProgress) => {
+    if (!dialog.isConnected) return;
+    const now = Date.now();
+    if (timer === undefined) {
+      startedAt = stepStartedAt = now;
+      timing.hidden = false;
+      timer = setInterval(updateTiming, 1000);
+    }
+    lastUpdateAt = now;
+    progress.hidden = false;
+    if (value.total !== undefined) {
+      progress.max = Math.max(1, value.total);
+      progress.value = value.completed;
+    } else progress.removeAttribute("value");
+    const count = value.total === undefined ? `${value.completed} pages read` : `${value.completed} / ${value.total} pages imported`;
+    const phase = { reading: "Reading pages", restoring: "Restoring page content", attachments: "Downloading attachments", importing: "Importing pages", finalizing: "Finalizing" }[value.phase];
+    status.textContent = `${count}. ${phase}…${value.currentTitle ? ` Current page: ${value.currentTitle}` : ""}`;
+    step.hidden = !value.step;
+    step.textContent = [value.step, value.requestCount === undefined ? "" : `Notion requests: ${value.requestCount}`, value.discovered === undefined ? "" : `Pages discovered: ${value.discovered}`].filter(Boolean).join(" · ");
+    const key = `${value.phase}|${value.step ?? phase}|${value.currentTitle ?? ""}|${value.requestCount ?? ""}`;
+    if (key !== lastStep) {
+      stepStartedAt = now;
+      lastStep = key;
+      const entry = document.createElement("li");
+      entry.textContent = `${Math.floor((now - startedAt) / 1000)}s · ${value.step ?? phase}${value.currentTitle ? ` · ${value.currentTitle}` : ""}`;
+      history.append(entry);
+      while (history.children.length > 8) history.firstElementChild!.remove();
+      progressDetails.hidden = false;
+    }
+    updateTiming();
+  };
   const preview = dialog.querySelector<HTMLElement>("#notion-preview")!;
   const cancel = dialog.querySelector<HTMLButtonElement>("#notion-cancel")!;
   const close = dialog.querySelector<HTMLButtonElement>("#notion-close")!;
@@ -56,6 +115,7 @@ export function openNotionImportDialog(options: {
     summary = null;
     preview.replaceChildren();
     status.textContent = "";
+    clearProgress();
     update();
   };
   for (const input of [token, page, children, attachments, variant])
@@ -69,6 +129,7 @@ export function openNotionImportDialog(options: {
     if (state === "commit") event.preventDefault();
   });
   dialog.addEventListener("close", () => {
+    finishProgress();
     controller?.abort();
     token.value = "";
     summary = null;
@@ -90,8 +151,7 @@ export function openNotionImportDialog(options: {
     state = "preview";
     update();
     controller = new AbortController();
-    status.textContent =
-      "Reading Enhanced Markdown and page hierarchy from Notion… Large page trees may take several minutes.";
+    showProgress({ phase: "reading", completed: 0, step: "Connecting to the local import service" });
     try {
       const result = await api<Preview>("/notion/import/preview", {
         method: "POST",
@@ -103,7 +163,7 @@ export function openNotionImportDialog(options: {
           downloadAssets: attachments.checked,
           variant: variant.value,
         }),
-      });
+      }, showProgress);
       if (!dialog.isConnected) return;
       summary = result;
       preview.innerHTML = `<h3>${e(result.name)}</h3><p>${result.pages} pages · ${variant.value === "notdown" ? "Notdown" : "Notion Markdown"}</p>
@@ -126,6 +186,7 @@ export function openNotionImportDialog(options: {
           error instanceof Error ? error.message : String(error);
     } finally {
       token.value = "";
+      finishProgress();
       state = "idle";
       update();
     }
@@ -140,17 +201,19 @@ export function openNotionImportDialog(options: {
         throw new Error(
           "Save or resolve the current page conflict before importing.",
         );
-      status.textContent = "Importing the previewed snapshot…";
+      clearProgress();
+      showProgress({ phase: "importing", completed: 0, total: summary!.pages, step: "Preparing the local import" });
       const result = await api<{ pageIds: string[] }>("/import/commit", {
         method: "POST",
         body: JSON.stringify({ id }),
-      });
+      }, showProgress);
       await options.complete(result.pageIds);
       dialog.close();
     } catch (error) {
       status.textContent =
         error instanceof Error ? error.message : String(error);
     } finally {
+      finishProgress();
       state = "idle";
       update();
     }

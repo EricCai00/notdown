@@ -10,7 +10,12 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
     const input = typeof options.body === "string" ? JSON.parse(options.body) : {};
     const vault = current();
     try {
-      if (resource === "sync" && id) return await vault.sync.handle(id, method, input);
+      if (resource === "status" && method === "GET") return { vaultPath: vault.vaultPath };
+      if (resource === "sync" && id) {
+        if (method === "POST" && id === "connect" && !input.vaultId)
+          throw new ApiError(400, { error: "Choose an existing cloud notebook created on your computer." });
+        return await vault.sync.handle(id, method, input);
+      }
       if (resource === "conflicts") {
         if (method === "GET" && !id) return await vault.listConflicts();
         if (method === "POST" && operation === "resolve") { const { baseRevision, schemaRevision, ...patch } = input; return await vault.resolveConflict(id, patch, baseRevision, schemaRevision); }
@@ -29,10 +34,13 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
       }
       if (resource === "databases") {
         if (method === "GET") return await (id ? vault.databases.get(id) : vault.databases.list());
+        if (method === "POST" && !id) return await vault.databases.create(input);
+        if (method === "POST" && operation === "views") { const { baseRevision, ...patch } = input; return await vault.databases.createView(id, patch, baseRevision); }
         if (method === "PUT" && id) return await (operation === "icon" ? vault.databases.updateIcon(id, input) : vault.databases.updatePresentation(id, input));
       }
       if (resource === "data-sources") {
         if (method === "GET" && id) return await vault.databases.getSource(id);
+        if (method === "PUT" && id && !operation) { const { baseRevision, ...patch } = input; return await vault.databases.updateSource(id, patch, baseRevision); }
         if (method === "PUT" && operation === "records" && child) return await vault.databases.updateCell(id, child, input);
         if (method === "POST" && operation === "records" && !child) return await vault.databases.createRecord(id, input, input.baseRevision);
       }

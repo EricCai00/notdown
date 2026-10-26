@@ -92,6 +92,38 @@ public final class VaultFileStore implements AutoCloseable {
         if (!Arrays.equals(expected, current)) throw new StorageException("ESTALE", "File changed during save; recovery content was preserved");
         move(from, to);
     }
+    public static final class Replacement {
+        final String path;
+        final byte[] expected;
+        final byte[] data;
+        public Replacement(String path, byte[] expected, byte[] data) { this.path = path; this.expected = expected; this.data = data; }
+    }
+    private byte[] existing(String virtual) throws IOException {
+        return Files.exists(resolve(virtual), LinkOption.NOFOLLOW_LINKS) ? read(virtual) : null;
+    }
+    /** The caller durably saves its recovery journal before invoking this bounded storage primitive. */
+    public void replaceMany(List<Replacement> changes) throws IOException {
+        if (changes.size() > 128) throw new StorageException("EFBIG", "Too many files in a storage batch");
+        Set<Path> paths = new HashSet<>(); long size = 0;
+        // Validate every original before changing any file; identical final bytes allow interrupted replay.
+        for (Replacement change : changes) {
+            if (!paths.add(resolve(change.path))) throw new StorageException("EINVAL", "Duplicate file in storage batch");
+            size += change.data.length + (change.expected == null ? 0L : change.expected.length);
+            if (size > 32L * 1024 * 1024) throw new StorageException("EFBIG", "Storage batch exceeds 32 MB");
+            byte[] current = existing(change.path);
+            if (!Arrays.equals(current, change.expected) && !Arrays.equals(current, change.data))
+                throw new StorageException("ESTALE", "A batch file changed; recovery content was preserved");
+        }
+        for (Replacement change : changes) {
+            byte[] current = existing(change.path);
+            if (Arrays.equals(current, change.data)) continue;
+            if (!Arrays.equals(current, change.expected)) throw new StorageException("ESTALE", "A file changed during batch replacement; recovery content was preserved");
+            Files.createDirectories(resolve(change.path).getParent());
+            String temporary = change.path.substring(0, change.path.lastIndexOf('/') + 1) + ".sync-" + UUID.randomUUID() + ".tmp";
+            try { write(temporary, change.data, true); replace(temporary, change.path, current); }
+            finally { remove(temporary, true); }
+        }
+    }
     public synchronized String acquire(String virtual) throws IOException {
         if (virtual == null || !virtual.matches("/vaults/[a-zA-Z0-9-]{1,64}")) throw new StorageException("EACCES", "Invalid vault lock identity");
         resolve(virtual);

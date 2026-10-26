@@ -70,8 +70,11 @@ test("production Supabase SQL, account isolation, REST sync, attachments and rep
   await t.test("chunk replay and token refresh use the same immutable bytes", async () => {
     const connection = await signInCloud(credentials); connection.vaultId = status.vaultId; connection.session.expires_at = 0;
     let refreshes = 0; const client = createCloudClient(connection, async () => { refreshes++; });
-    await client.remote.upload(hashBytes(data), data); assert.equal(refreshes, 1); assert.equal(cloud.blobs.size, 3);
-    assert.deepEqual(Buffer.from(await client.remote.download(hashBytes(data))), data);
+    const uploaded: number[][] = [], downloaded: number[][] = [];
+    await client.remote.upload(hashBytes(data), data, (done, total) => uploaded.push([done, total])); assert.equal(refreshes, 1); assert.equal(cloud.blobs.size, 3);
+    assert.deepEqual(Buffer.from(await client.remote.download(hashBytes(data), (done, total) => downloaded.push([done, total]))), data);
+    assert.deepEqual(uploaded, [[0, data.length], [1024 * 1024, data.length], [data.length, data.length]]);
+    assert.deepEqual(downloaded, uploaded);
   });
   await t.test("migration can be reapplied without resetting the notebook", async () => {
     await cloud.db.exec(cloud.schema);

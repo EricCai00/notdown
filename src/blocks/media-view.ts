@@ -26,9 +26,9 @@ export class MediaView implements NodeView {
     const size = this.dom.querySelector<HTMLElement>(".pm-file-size");
     if (!size || !this.node.attrs.src) return;
     let url: URL;
-    try { url = new URL(this.node.attrs.src, document.baseURI); } catch { return; }
+    try { url = new URL(assetDisplayUrl(this.node.attrs.src), document.baseURI); } catch { return; }
     // No cross-origin probes, full-file downloads or persistence of derived sizes.
-    if (url.origin !== location.origin || !/^\/assets\/[^/]+$/.test(url.pathname)) return;
+    if (url.origin !== location.origin || !/^(?:\/v\/[a-f0-9]{64})?\/assets\/[^/]+$/.test(url.pathname)) return;
     const controller = this.request = new AbortController();
     void fetch(url, { method: "HEAD", signal: controller.signal }).then(response => {
       const length = response.headers.get("content-length");

@@ -2,10 +2,11 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createApp } from "../../server/app.js";
+import { createBrowserApp } from "../../server/browser-vaults.js";
 import { enrichmentFixture } from "../unit/notion-block-import-fixture.js";
 import { inlineDatabaseFixture } from "../unit/notion-inline-database-fixture.js";
 import { v2Fixture, v2Asset } from "../unit/notion-v2-fixture.js";
+import { setTimeout as delay } from "node:timers/promises";
 
 // This test server deliberately does not read VAULT_PATH, the normal seed, or
 // the application's user vault. A new temporary vault is created on every run.
@@ -20,8 +21,16 @@ const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-e2e-"));
 // Browser tests use a private stand-in; native Windows recycling is tested separately.
 const recyclePath = path.join(vaultPath, "test-system-recycle-bin");
 await fs.mkdir(recyclePath);
-const app = createApp({ vaultPath, frontendDir, recycleFile: (file) => fs.rename(file, path.join(recyclePath, path.basename(file))),
-  notionImportTransport: { fetch: v2Fixture(inlineDatabaseFixture(enrichmentFixture())), readAsset: v2Asset, wait: async () => {} },
+const notionFetch = v2Fixture(inlineDatabaseFixture(enrichmentFixture()));
+const app = await createBrowserApp({ vaultPath, dataPath: path.join(vaultPath, "test-managed-vaults"), frontendDir, recycleFile: (file) => fs.rename(file, path.join(recyclePath, path.basename(file))),
+  notionImportTransport: { fetch: async (input, init) => {
+    // Only the progress test simulates network latency; abort cancels its delay.
+    if (new Headers(init?.headers).get("Authorization") === "Bearer progress-test-notion-token")
+      await delay(new URL(String(input)).pathname.endsWith("/markdown") ? 1000 : 350, undefined, { signal: init?.signal ?? undefined });
+    if (new Headers(init?.headers).get("Authorization") === "Bearer progress-slow-start-token")
+      await delay(5000, undefined, { signal: init?.signal ?? undefined });
+    return notionFetch(input, init);
+  }, readAsset: v2Asset, wait: async () => {} },
 });
 const vault = app.locals.vault;
 await vault.init();

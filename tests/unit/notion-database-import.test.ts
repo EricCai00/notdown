@@ -63,6 +63,16 @@ function fixture(calls: { url: string; method: string; body?: any }[] = [], opti
 const input = { token: "test-token-not-persisted", pageId: database, includeChildren: false };
 const wait = async () => {};
 
+test("database discovery reports titles and query pagination before any page body is read", async () => {
+  const progress: import("../../src/shared/import-progress.js").ImportProgress[] = [];
+  await prepareNotionImport(input, { fetch: fixture(), wait, onProgress: value => progress.push(value) });
+  assert.ok(progress.some(value => value.completed === 0 && value.currentTitle === "Project" && value.step?.includes("Reading data source schema")));
+  assert.ok(progress.some(value => value.completed === 0 && value.currentTitle === "Project" && value.step?.includes("Querying database records (page 1)")));
+  assert.ok(progress.some(value => value.completed === 0 && value.step?.includes("Querying database records (page 2)")));
+  assert.ok(progress.some(value => value.step?.includes("Reading complete page properties (page 2)")));
+  assert.ok(!JSON.stringify(progress).includes("next query"));
+});
+
 test("database Files download into local assets while preserving source URLs and archived JSON", async t => {
   const base = fixture(), remote = "https://files.example.test/report.pdf";
   const plan = await prepareNotionImport(input, { wait, readAsset: async () => ({ data: Buffer.from("%PDF fixture"), contentType: "application/pdf" }), fetch: async (input, init) => {

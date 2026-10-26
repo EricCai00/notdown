@@ -90,14 +90,12 @@ if ($restartProcessId) {
     }
 }
 
-$vaultSetting = $env:VAULT_PATH
-if ([string]::IsNullOrWhiteSpace($vaultSetting)) {
-    $expectedVault = Join-Path $projectRoot 'vault'
-} elseif ([System.IO.Path]::IsPathRooted($vaultSetting)) {
-    $expectedVault = [System.IO.Path]::GetFullPath($vaultSetting)
-} else {
-    $expectedVault = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $vaultSetting))
-}
+Push-Location -LiteralPath $projectRoot
+try {
+    # Resolve the same local .env and shell overrides as server/index.ts.
+    $expectedVault = & $node --env-file-if-exists=.env --import tsx --input-type=module -e "import { resolveVaultLocation } from './server/vault-location.ts'; console.log(resolveVaultLocation().vaultPath)"
+    if ($LASTEXITCODE -ne 0) { throw 'The local vault configuration could not be read.' }
+} finally { Pop-Location }
 
 function Test-VaultService([int]$Port) {
     try {

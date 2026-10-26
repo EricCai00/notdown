@@ -1,3 +1,6 @@
+import type { ImportProgress } from "./import-progress";
+import { apiUrl } from "./vault-url";
+
 export interface Page {
   dataSourceId?: string;
   databaseId?: string;
@@ -34,12 +37,39 @@ export function setApiTransport(transport: ApiTransport | undefined) { localTran
 export async function api<T>(
   path: string,
   options: RequestInit = {},
+  onProgress?: (progress: ImportProgress) => void,
 ): Promise<T> {
   if (localTransport) return await localTransport(path, options) as T;
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: { "Content-Type": "application/json", ...(onProgress ? { Accept: "application/x-ndjson" } : {}), ...options.headers },
   });
+  if (response.ok && onProgress && response.headers.get("content-type")?.includes("application/x-ndjson")) {
+    if (!response.body) throw new Error("Import progress stream is unavailable.");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        if (done && buffer) { lines.push(buffer); buffer = ""; }
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          if (event.type === "error") throw new Error(event.error);
+          if (event.type === "result") return event.result as T;
+          if (event.type === "progress") onProgress(event);
+        }
+        if (done) throw new Error("Import connection closed before completion. Review the import before retrying.");
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+  }
   const result = await response.json();
   if (!response.ok) throw new ApiError(response.status, result);
   return result;

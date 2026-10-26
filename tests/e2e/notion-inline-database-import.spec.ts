@@ -22,6 +22,21 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2014");
   await expect(used.getByLabel("Markdown: Xiaomi Notes", { exact: true })).toContainText("Not supported");
   await expect(unused.getByLabel("Comments: Anytype", { exact: true })).toHaveValue("Notion-like; Object Oriented Programming-like");
+  const headers = used.locator("thead th[data-type]");
+  await expect(headers).toHaveText(["Name", "Since", "Markdown", "Comments"]);
+  await expect(unused.locator("thead th[data-type]")).toHaveText(["Name", "Comments"]);
+  const newButton = used.getByRole("button", { name: "Add row", exact: true });
+  const newOptions = used.locator("summary[aria-label='New options']");
+  const buttonBox = (await newButton.boundingBox())!, optionsBox = (await newOptions.boundingBox())!;
+  expect(Math.abs(buttonBox.y - optionsBox.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(buttonBox.height - optionsBox.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(buttonBox.x + buttonBox.width - optionsBox.x)).toBeLessThanOrEqual(1);
+  await newOptions.click();
+  await expect(used.getByRole("button", { name: "New page", exact: true }).first()).toBeVisible();
+  await newOptions.click();
+  await used.getByRole("button", { name: "View settings", exact: true }).click();
+  await page.getByRole("button", { name: "Save view", exact: true }).click();
+  await expect(headers).toHaveText(["Name", "Since", "Markdown", "Comments"]);
   for (let index = 0; index < 2; index++) {
     const link = databases.nth(index).locator(":scope > .pm-database-reference");
     await expect(link).toContainText(inlineTitles[index]);
@@ -40,6 +55,7 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await page.reload();
   await expect(databases).toHaveCount(2);
   await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2015");
+  await expect(headers).toHaveText(["Name", "Since", "Markdown", "Comments"]);
   await unused.getByRole("button", { name: "Open Anytype", exact: true }).click();
   await unused.getByRole("button", { name: "Open as full page", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#page/${local(inlineRecords[1])}$`));
@@ -51,4 +67,38 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await expect(page.getByRole("button", { name: "Open Xiaomi Notes", exact: true })).toBeVisible();
   expect((await (await request.get(`/api/pages/${rootId}`)).json()).body).toBe(original);
   expect(errors).toEqual([]);
+});
+
+test("existing imported default columns are repaired on read without rewriting their stored revisions", async ({ page, request }) => {
+  const response = await request.post("/api/notion/import/preview", { data: { token: "test-secret-not-saved", pageId: inlineRoot, variant: "notdown" } });
+  expect(response.ok()).toBeTruthy();
+  const preview = await response.json();
+  expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
+  const local = (id: string) => stablePageUuid(`notion-${preview.id.slice(0, 24)}-${id}`);
+  const databaseId = local(inlineDatabases[0]);
+  const snapshot = await (await request.get(`/api/databases/${databaseId}`)).json();
+  const schema = snapshot.dataSources[0], view = snapshot.views[0];
+  const legacyFields = ["Comments", "Markdown", "Since", "Name"].map(name => schema.properties.find((field: any) => field.name === name));
+  expect((await request.put(`/api/data-sources/${schema.id}`, { data: { baseRevision: schema.revision, properties: legacyFields } })).ok()).toBeTruthy();
+  expect((await request.put(`/api/database-views/${view.id}`, { data: { baseRevision: view.revision, propertyIds: legacyFields.map(field => field.id) } })).ok()).toBeTruthy();
+  const original = await (await request.get(`/api/databases/${databaseId}`)).json();
+  await page.goto(`/#page/${local(inlineRoot)}`);
+  const inline = page.getByRole("region", { name: "Inline database", exact: true }).first();
+  await expect(inline.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);
+  await inline.locator(":scope > .pm-database-reference").click();
+  await expect(page).toHaveURL(new RegExp(`#database/${databaseId}$`));
+  await expect(page.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);
+  const newButton = (await page.getByRole("button", { name: "Add row", exact: true }).boundingBox())!;
+  const menu = (await page.locator("summary[aria-label='New options']").boundingBox())!;
+  expect(Math.abs(newButton.y - menu.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(newButton.height - menu.height)).toBeLessThanOrEqual(1);
+  expect(await (await request.get(`/api/databases/${databaseId}`)).json()).toEqual(original);
+  await page.getByRole("button", { name: "View settings", exact: true }).click();
+  await page.getByRole("button", { name: "Save view", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);
+  const saved = await (await request.get(`/api/databases/${databaseId}`)).json();
+  expect(saved.dataSources).toEqual(original.dataSources);
+  expect(saved.views[0].propertyIds).toEqual(["Name", "Since", "Markdown", "Comments"].map(name => schema.properties.find((field: any) => field.name === name).id));
 });

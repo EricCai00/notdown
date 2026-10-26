@@ -167,8 +167,8 @@ md.inline.ruler.before("link", "legacy_page_mention", (state, silent) => {
   return true;
 });
 
-export const notionInline = (source: string): PMNode[] =>
-  parseInline(md.parseInline(source, {})[0]?.children ?? []);
+export const notionInline = (source: string, version?: "v2"): PMNode[] =>
+  parseInline(md.parseInline(source, { notionV2: version === "v2" })[0]?.children ?? []);
 const kids = (node: PMNode): PMNode[] => {
   const result: PMNode[] = [];
   node.forEach((child) => result.push(child));

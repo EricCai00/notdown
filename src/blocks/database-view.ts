@@ -34,7 +34,7 @@ export class DatabaseBlockView implements NodeView {
   private events = new AbortController();
   constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined,
     private pages: () => BreadcrumbPage[], private currentPage?: () => BreadcrumbPage | undefined,
-    private onOpenPage?: (id: string) => void, private savePage?: () => Promise<boolean>) {
+    private onOpenPage?: (id: string) => void, private savePage?: () => Promise<boolean>, private interactionMode?: "desktop" | "touch") {
     this.dom.contentEditable = "false";
     this.link.className = "pm-database-reference pm-notion-database child-page-node child-page";
     this.mount.className = "pm-inline-database-mount";
@@ -101,6 +101,7 @@ export class DatabaseBlockView implements NodeView {
       const [{ DatabaseWorkspace }, vaultPath] = await Promise.all([import("../features/databases/database-workspace"), vaultPaths.get(this.view)!]);
       if (this.disposed || epoch !== this.epoch) return;
       const workspace = new DatabaseWorkspace(this.mount, {
+        interactionMode: this.interactionMode,
         vaultKey: this.draftScope(vaultPath, hostId),
         openPage: id => this.openPage(id), openDatabase: id => this.openDatabase(id),
         changed: saved => {

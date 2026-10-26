@@ -42,6 +42,8 @@ export interface VaultPlatform {
   environment: Record<string, string | undefined>;
   withLock<T>(root: string, operation: () => Promise<T>): Promise<T>;
   replaceFile(temporary: string, destination: string, expected: Buffer | null): Promise<void>;
+  /** Recover a bounded set of already-journaled replacements, accepting only original or final bytes. */
+  replaceFiles?(files: { path: string; before: Buffer | null; after: Buffer }[]): Promise<void>;
   recycleFile(file: string): Promise<void>;
 }
 export type StorageError = Error & { code?: string };

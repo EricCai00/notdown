@@ -1,7 +1,9 @@
+import { vaultAssetUrl } from "../shared/vault-url";
 import { editorKind, isEditorKind } from "../document/node-identity";
 import { removedChildPages } from "./child-page-deletion";
 import { insertFormats } from "./insert-format";
 import { inlineColors } from "../document/notion-syntax";
+import { inlineColorTransaction, selectedInlineColor, type InlineColorKind } from "./inline-colors";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
 import { findReferenceLocation } from "../document/reference-locations";
 import { showLinkPicker } from "./link-picker";
@@ -46,6 +48,9 @@ import { blockProperties, blockPropertyFields, openBlockProperties } from "./blo
 import { definitionControls } from "./definition-commands";
 import { markProperties } from "./mark-properties";
 import { selectionMenu } from "./selection-menu";
+import { selectionBlock, selectionBlockAction, type SelectionBlockAction } from "./selection-block-actions";
+import { editTable, type TableAction } from "./table-commands";
+import { installTouchBlockDrag } from "./touch-block-drag";
 import { blockSource, openBlockSource } from "./block-source";
 import { exampleLists } from "./example-lists";
 import { numberedListDisplayPlugin } from "./numbered-list-display";
@@ -175,6 +180,8 @@ type BlockType =
   | "code"
   | "divider";
 interface Options {
+  interactionMode?: "desktop" | "touch";
+  canTouchDrag?: () => boolean;
   metadataHost?: HTMLElement;
   value: string;
   bodyFormat?: BodyFormat;
@@ -291,6 +298,7 @@ export class BlockEditor {
   private linkDialog?: HTMLDialogElement;
   private sourceDialog?: HTMLDialogElement;
   private destroyed = false;
+  private stopTouchDrag?: () => void;
   private confirmingChildDeletion = false;
   private folded = new Set<number>();
   private bodyFormat: BodyFormat;
@@ -488,22 +496,22 @@ export class BlockEditor {
           latexMacroEditing(),
           tableAppearance(),
           tableColumnWidths(),
-          tableSelections(),
+          ...(options.interactionMode === "touch" ? [] : [tableSelections()]),
           tableEditing(),
-          tableControls(options.canCommand),
+          ...(options.interactionMode === "touch" ? [] : [tableControls(options.canCommand)]),
           definitionControls(),
           markProperties(),
           blockProperties(() => options.canCommand?.("notion_custom") === true),
-          selectionMenu({
+          ...(options.interactionMode === "touch" ? [] : [selectionMenu({
             canCombineColors: () => options.canCommand?.("notion_custom") === true,
             canCommand: name => options.canCommand?.(name) ?? (name !== "color" && name !== "underline" || this.bodyFormat === "notion-markdown"),
             convert: type => { this.bookmark = undefined; this.insertBlockType(type); },
             link: () => this.showLinkEditor(),
-          }),
+          })]),
           exampleLists(),
           numberedListDisplayPlugin(),
           objectProperties(source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), () => options.canCommand?.("notion_custom") === true, () => options.canCommand?.("notion_image_caption") === true),
-          createSlashPlugin((match) =>
+          ...(options.interactionMode === "touch" ? [] : [createSlashPlugin((match) =>
             queueMicrotask(() => {
               if (this.destroyed) return;
               if (
@@ -516,7 +524,7 @@ export class BlockEditor {
                 new CustomEvent("editor-slash-update", { bubbles: true }),
               );
             }),
-          ),
+          )]),
           markdownRules(options.canCommand, target => {
             const reference = internalReference(target, "wiki");
             const page = reference && resolveReferencePage(reference, options.pages(), options.currentPage?.()?.id);
@@ -544,7 +552,7 @@ export class BlockEditor {
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
         executable_chunk: (node, view, getPos) => new RChunkView(node, view, getPos, () => options.canCommand?.("quarto_python") !== false),
         executable_inline: (node, view, getPos) => rInlineView(node, view, getPos, () => options.canCommand?.("quarto_python") !== false),
-        ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true, options.onSavePage),
+        ...objectNodeViews(options.pages, options.currentPage, source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), options.onOpenPage, () => options.canCommand?.("notion_custom") === true, options.onSavePage, options.interactionMode),
         image_block: (node, view, getPos) => new ImageBlockView(node, view, getPos, () => options.canCommand?.("image_layout") === true),
         syntax_block: (node, view, getPos) =>
           options.metadataHost && node.attrs.kind === "metadata"
@@ -616,6 +624,14 @@ export class BlockEditor {
         const link = (event.target as Element).closest("a[href]");
         if (!link) return;
         const href = link.getAttribute("href") || "";
+        const asset = vaultAssetUrl(href);
+        if (asset !== href) {
+          event.preventDefault();
+          const download = document.createElement("a"); download.href = asset;
+          if (link.hasAttribute("download")) download.download = link.getAttribute("download") || "";
+          download.target = link.getAttribute("target") || "_self"; download.rel = "noopener noreferrer";
+          download.click(); return;
+        }
         if (/^(https?:|mailto:)/i.test(href)) {
           event.preventDefault();
           window.open(href, "_blank", "noopener,noreferrer");
@@ -639,6 +655,15 @@ export class BlockEditor {
       },
       { signal: this.abort.signal },
     );
+    // Touch editing uses the host's keyboard toolbar and native text selection.
+    // Do not register desktop gutter, marquee or drag handlers on that surface.
+    if (options.interactionMode === "touch") {
+      this.stopTouchDrag = installTouchBlockDrag(this.view, {
+        allowed: () => options.canTouchDrag?.() === true,
+        flush: () => { this.getValue(); }, candidate: (x, y) => this.candidate(x, y),
+      });
+      return;
+    }
     this.handle.className = "pm-block-handle";
     this.handle.type = "button";
     this.handle.draggable = true;
@@ -861,6 +886,7 @@ export class BlockEditor {
         this.addButton.classList.remove("visible");
         this.hovered = null;
       }
+      if (this.options.interactionMode === "touch") this.root.dispatchEvent(new Event("editor-selection-change", { bubbles: true }));
     } catch (error) {
       this.options.onError(error);
     }
@@ -1021,6 +1047,75 @@ export class BlockEditor {
   }
   captureSelection() {
     this.bookmark = this.view.state.selection.getBookmark();
+  }
+  /** A sheet owns this selection until dismissed; background changes invalidate it. */
+  touchSelection(flush = true) {
+    if (this.destroyed || !this.view.editable || this.isComposing()) return null;
+    if (flush) this.getValue();
+    const state = this.view.state, block = selectionBlock(state);
+    const restore = () => {
+      if (this.destroyed || !this.view.editable || this.isComposing() || !this.view.state.doc.eq(state.doc)) return false;
+      this.bookmark = undefined;
+      this.view.dispatch(this.view.state.tr.setSelection(state.selection).setStoredMarks(state.storedMarks));
+      return true;
+    };
+    const apply = (tr: Transaction | null) => {
+      if (!tr) return false;
+      this.view.dispatch(closeHistory(tr).setMeta("isolateHistory", true).scrollIntoView());
+      this.view.focus();
+      return true;
+    };
+    const encoding = this.options.canCommand?.("table_grid") ? "grid" : this.options.canCommand?.("table_mmd") ? "mmd" : null;
+    const allowed = (action: SelectionBlockAction) => action !== "indent" || this.options.canCommand?.("nesting") !== false || !!itemAtSelection(state);
+    return {
+      label: block ? blockTypeLabel(block.node, block.listNode) : "Text selection",
+      preview: block?.node.textContent.slice(0, 90) || "",
+      canConvert: !!block && !inTableCell(state) && state.selection.$from.parent.isTextblock,
+      inTable: inTableCell(state),
+      activeFormat: (id: string) => {
+        const format = insertFormats[id];
+        if (!format) return false;
+        const mark = schema.marks[format.mark], { from, to, empty, $from } = state.selection;
+        const matches = (marks: PMNode["marks"]) => marks.some(value => {
+          if (value.type !== mark) return false;
+          if (format.mark === "color") {
+            const colors = inlineColors(value.attrs);
+            return !!colors[id === "background" ? "bg_color" : "color"];
+          }
+          return !format.attrs || Object.entries(format.attrs).every(([key, expected]) => value.attrs[key] === expected);
+        });
+        if (empty) return matches(state.storedMarks ?? $from.marks());
+        let found = false, all = true;
+        state.doc.nodesBetween(from, to, node => { if (node.isText) { found = true; all &&= matches(node.marks); } });
+        return found && all;
+      },
+      activeColor: (kind: InlineColorKind) => selectedInlineColor(state, kind),
+      color: (kind: InlineColorKind, value: string) => {
+        if (this.options.canCommand?.(kind) === false || !restore()) return false;
+        return apply(inlineColorTransaction(this.view.state, kind, value, this.options.canCommand?.("notion_custom") === true));
+      },
+      can: (action: SelectionBlockAction) => allowed(action) && !!selectionBlockAction(state, action),
+      run: (action: SelectionBlockAction) => allowed(action) && restore() && apply(selectionBlockAction(this.view.state, action)),
+      canTable: (action: TableAction) => editTable(action, encoding)(state),
+      table: (action: TableAction) => restore() && editTable(action, encoding)(this.view.state, tr => { apply(tr); }),
+      convert: (type: BlockType) => { if (!restore()) return false; this.insertBlockType(type); return true; },
+      canInsert: !!block && (isEditorKind(block.node, "paragraph") && !block.node.content.size || !!selectionBlockAction(state, "insert-after")),
+      insert: (type: BlockType) => {
+        if (!block || !restore()) return false;
+        if (!(isEditorKind(block.node, "paragraph") && !block.node.content.size)) {
+          if (!apply(selectionBlockAction(this.view.state, "insert-after"))) return false;
+        }
+        this.insertBlockType(type); return true;
+      },
+      format: (id: string) => {
+        if (!restore()) return false;
+        const format = insertFormats[id];
+        if (!format || this.options.canCommand?.(id) === false) return false;
+        if (format.mark === "color") this.insertFormat(id);
+        else { this.run(toggleMark(schema.marks[format.mark], format.attrs)); this.view.focus(); }
+        return true;
+      },
+    };
   }
   private restoreSelection() {
     if (!this.bookmark) return;
@@ -1985,6 +2080,7 @@ export class BlockEditor {
 
   destroy() {
     this.destroyed = true;
+    this.stopTouchDrag?.();
     this.selectionResize?.disconnect();
     cancelAnimationFrame(this.selectionFrame);
     this.abort.abort();

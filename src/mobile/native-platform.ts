@@ -14,10 +14,12 @@ interface NativeStorage {
   move(options: { from: string; to: string }): Promise<void>;
   link(options: { from: string; to: string }): Promise<void>;
   replace(options: { from: string; to: string; expected: string | null }): Promise<void>;
+  replaceMany(options: { files: { path: string; expected: string | null; data: string }[] }): Promise<void>;
   acquire(options: { path: string }): Promise<{ token: string }>;
   release(options: { token: string }): Promise<void>;
   exportDocument(options: { name: string; data: string }): Promise<{ saved: boolean }>;
   background(): Promise<void>;
+  hideKeyboard(): Promise<void>;
   addListener(event: "pause" | "resume", listener: () => void): Promise<PluginListenerHandle>;
 }
 export const NativeVault = registerPlugin<NativeStorage>("NotdownVault");
@@ -65,6 +67,8 @@ export function createNativePlatform(): VaultPlatform {
       try { return await operation(); } finally { await NativeVault.release({ token }); }
     },
     replaceFile: (from, to, expected) => NativeVault.replace({ from, to, expected: expected?.toString("base64") ?? null }),
+    replaceFiles: files => NativeVault.replaceMany({ files: files.map(file => ({ path: file.path,
+      expected: file.before?.toString("base64") ?? null, data: file.after.toString("base64") })) }),
     async recycleFile() { throw new Error("Permanent deletion is unavailable on Android; pages remain in Trash"); },
   };
 }

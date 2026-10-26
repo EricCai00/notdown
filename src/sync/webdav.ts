@@ -37,7 +37,9 @@ export function webDavAddress(raw: string, folder: string) {
 }
 function strongEtag(response: Response) {
   const value = response.headers.get("etag");
-  if (!value || !/^"[^"\r\n]+"$/.test(value)) throw new WebDavError("This WebDAV server did not return a strong ETag. Sync stopped to protect concurrent edits.");
+  // Nutstore returns a bare opaque token. Preserve it verbatim for If-Match;
+  // probe() still verifies invalid, current and stale versions before enabling sync.
+  if (!value || !(/^"[^"\r\n]+"$/.test(value) || /^[A-Za-z0-9_-]{1,128}$/.test(value))) throw new WebDavError("This WebDAV server did not return a strong ETag. Sync stopped to protect concurrent edits.");
   return value;
 }
 
@@ -94,6 +96,13 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
   }
   async function makeDirectory(relative: string, exclusive = false) {
     if (!exclusive && folders.has(relative)) return false;
+    // Nutstore returns 201 even for an existing collection. Check explicitly
+    // before reserving a new notebook or an exclusively owned diagnostic child.
+    if (exclusive) {
+      const existing = await request(relative, "PROPFIND", undefined, { Depth: "0" });
+      if (existing.status === 207) return false;
+      success(existing, [404]);
+    }
     const response = await request(relative, "MKCOL");
     if (response.status === 201) { folders.add(relative); return true; }
     if (!exclusive && response.status === 405) {
@@ -181,7 +190,10 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
 
   async function probe() {
     success(await request("", "PROPFIND", undefined, { Depth: "0" }), [207]);
-    const folder = `Notdown-check-${randomUUID()}/`;
+    // Nutstore limits top-level names and forbids deleting top-level collections.
+    // Retain one empty diagnostic parent; only clean up an exclusively created child.
+    await makeDirectory("Notdown-checks/");
+    const folder = `Notdown-checks/nd-${randomUUID().replace(/-/g, "").slice(0, 24)}/`;
     if (!await makeDirectory(folder, true)) throw new WebDavError("Unable to create a unique connection-test folder");
     try {
       const file = folder + "condition.txt", first = randomUUID(), second = randomUUID();
@@ -198,14 +210,15 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
   }
   const remote: SyncRemote = {
     maxBatchItems: 32,
-    async pull(cursor) {
+    async pull(cursor, notify) {
       const current = (await head())!.value;
       if (!Number.isSafeInteger(cursor) || cursor < 0 || cursor > current.sequence) throw new WebDavError("Remote history moved backwards. Sync stopped to preserve both copies.");
       if (cursor === current.sequence) return { cursor, items: [], more: false };
       const state = await index(current);
       const changed = Object.entries(state.entries).filter(([, ref]) => ref.version > cursor).sort((a, b) => a[1].version - b[1].version);
       const page = changed.slice(0, 100), items: RemoteItem[] = [];
-      for (const [key, ref] of page) items.push(await entry(key, ref, current.vaultId));
+      notify?.(0, page.length);
+      for (const [key, ref] of page) { items.push(await entry(key, ref, current.vaultId)); notify?.(items.length, page.length); }
       return { cursor: changed.length > page.length ? page.at(-1)![1].version : current.sequence, items, more: changed.length > page.length };
     },
     async push(batch): Promise<SyncPushResult> {
@@ -238,24 +251,26 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
       success(response); cachedHead = undefined; cachedIndex = { hash: indexHash, value: next };
       return { accepted: true, items: batch.mutations.map((mutation, i) => ({ item: mutation.item, version: versions[i] })) };
     },
-    async upload(hash, data) {
+    async upload(hash, data, notify) {
       if (!digest.test(hash) || data.length > 64 * 1024 * 1024 || hashBytes(data) !== hash) throw new WebDavError("Invalid attachment upload");
       const manifestPath = `${root}blobs/${hash}.json`, exists = await request(manifestPath, "HEAD");
-      if (exists.status === 200) return;
+      if (exists.status === 200) { notify?.(data.length, data.length); return; }
       success(exists, [404]); await makeDirectory(`${root}blobs/`);
       const chunks: { hash: string; size: number }[] = [];
-      for (let i = 0; i < data.length; i += chunkSize) { const part = data.slice(i, i + chunkSize); chunks.push({ hash: await putObject(part), size: part.length }); }
+      notify?.(0, data.length);
+      for (let i = 0; i < data.length; i += chunkSize) { const part = data.slice(i, i + chunkSize); chunks.push({ hash: await putObject(part), size: part.length }); notify?.(i + part.length, data.length); }
       success(await request(manifestPath, "PUT", canonical({ version: 1, hash, size: data.length, chunks }), { "Content-Type": "application/json" }));
     },
-    async download(hash) {
+    async download(hash, notify) {
       if (!digest.test(hash)) throw new WebDavError("Invalid attachment checksum");
       const manifest = JSON.parse(new TextDecoder().decode(await bytes(success(await request(`${root}blobs/${hash}.json`), [200]), 16384)));
       if (manifest.version !== 1 || manifest.hash !== hash || !Number.isSafeInteger(manifest.size) || manifest.size < 0 || manifest.size > 64 * 1024 * 1024 || !Array.isArray(manifest.chunks) || manifest.chunks.length > 64) throw new WebDavError("Invalid attachment manifest");
       const data = new Uint8Array(manifest.size); let offset = 0;
+      notify?.(0, data.length);
       for (const chunk of manifest.chunks) {
         if (!Number.isSafeInteger(chunk.size) || chunk.size < 1 || chunk.size > chunkSize || offset + chunk.size > data.length) throw new WebDavError("Invalid attachment chunk size");
         const part = await getObject(chunk.hash, chunkSize); if (part.length !== chunk.size) throw new WebDavError("Attachment chunk length mismatch");
-        data.set(part, offset); offset += part.length;
+        data.set(part, offset); offset += part.length; notify?.(offset, data.length);
       }
       if (offset !== data.length || hashBytes(data) !== hash) throw new WebDavError("Attachment checksum failed"); return data;
     },
@@ -267,12 +282,14 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
       if (!uuid.test(id) || !name.trim() || name.length > 200) throw new WebDavError("Invalid notebook name or ID");
       const pieces = root.split("/").filter(Boolean); let folder = "";
       for (const piece of pieces.slice(0, -1)) { folder += piece + "/"; await makeDirectory(folder); }
-      // Atomic MKCOL reserves a new folder. Never initialize/overwrite a pre-existing incomplete or unrelated directory.
+      // Refuse pre-existing incomplete or unrelated directories, including on
+      // servers whose MKCOL reports 201 for an existing collection.
       if (!await makeDirectory(root, true)) {
         const existing = await head(true);
         if (existing) throw new WebDavError("A notebook already exists in this folder. Select it from the list instead of creating another.", 409);
         throw new WebDavError("This folder already exists without a valid Notdown index. Choose a new empty folder name; its files were preserved.", 409);
       }
+      if (await head(true)) throw new WebDavError("A notebook already exists in this folder. Select it from the list instead of creating another.", 409);
       const value: Head = { format: "notdown-webdav", version: 1, vaultId: id, name: name.trim(), sequence: 0, index: null };
       success(await request(`${root}head.json`, "PUT", canonical(value), { "Content-Type": "application/json" }));
       const checked = await head(); if (checked!.value.vaultId !== id) throw new WebDavError("Notebook initialization could not be verified");

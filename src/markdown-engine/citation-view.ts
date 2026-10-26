@@ -1,3 +1,4 @@
+import { apiUrl } from "../shared/vault-url";
 import { isEditorKind } from "../document/node-identity";
 import type { EditorView } from "prosemirror-view";
 import DOMPurify from "dompurify";
@@ -14,7 +15,7 @@ export function refreshCitations(view: EditorView, metadata: Record<string, unkn
   let state = requests.get(view);
   if (state?.key !== key) {
     state = { key, time: Date.now() }; requests.set(view, state);
-    void fetch("/api/syntax/citations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: bibliography, style, citations: nodes.map(n => n.source) }) })
+    void fetch(apiUrl("/syntax/citations"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: bibliography, style, citations: nodes.map(n => n.source) }) })
       .then(async response => { const result = await response.json(); if (!response.ok) throw new Error(result.error || "Citation processing failed"); return result; })
       .then(result => { if (view.dom.isConnected && requests.get(view)?.key === key) { requests.set(view, { key, time: Date.now(), ...result }); refreshCitations(view, metadata); } })
       .catch(error => { if (view.dom.isConnected && requests.get(view)?.key === key) { requests.set(view, { key, time: Date.now(), error: error.message }); refreshCitations(view, metadata); } });

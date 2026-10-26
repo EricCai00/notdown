@@ -8,6 +8,7 @@ import { createPageIdMigration } from "./page-id-migration.js";
 import { trashedPageIds } from "../features/pages/page-hierarchy.js";
 import { createPeople } from "./people.js";
 import { createRuntimeSettings } from "./runtime-settings";
+import { createPageHistory, historySignature, isHistoryTransientFile, type HistoryRecord } from "./history.js";
 import { createDatabases } from "./databases.js";
 import { createVaultSyncStore, isSyncLocalFile } from "./sync-store.js";
 import type { SyncConflict, SyncItem } from "../sync/protocol.js";
@@ -15,6 +16,7 @@ import { createSyncService } from "../sync/service.js";
 import { createAssets } from "./assets.js";
 import type { DatabaseResources } from "../features/databases/database-model.js";
 import type { ImportPlan } from "../../server/markdown-import.js";
+import type { ImportProgress } from "../shared/import-progress.js";
 import { comparePageOrder, orderBetween, pageOrderKey, type PageMoveInput } from "../features/pages/page-order.js";
 import type { BodyFormat } from "../document/notion-syntax.js";
 import {
@@ -143,7 +145,12 @@ const vaultQueues = new Map<string, Promise<unknown>>();
 type MetadataFile = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
 
 /** Each mutation is serialized; Markdown files are re-read for every operation. */
-export function createVault(vaultPath: string, platform: VaultPlatform, options: { recycleFile?: (filename: string) => Promise<void>; syncFetch?: typeof fetch } = {}) {
+export function createVault(vaultPath: string, platform: VaultPlatform, options: {
+  recycleFile?: (filename: string) => Promise<void>; syncFetch?: typeof fetch;
+  onChange?: () => void;
+  /** App-managed mobile replicas use indexed page reads and independent attachment display reads. */
+  privateReplica?: boolean;
+} = {}) {
   const { fs, path } = platform;
   function decode(source: string, filePath: string, defaults: Record<string, unknown> = {}): StoredPage {
     let overlay: Record<string, unknown>;
@@ -265,7 +272,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     for (const key of ["favorite", "trashed"] as const) {
       if (own(input, key) && (!previous || (!unchangedOverride(key, input[key]) && JSON.stringify(input[key]) !== JSON.stringify(previous.page[key])))) set(key, input[key]);
     }
-    if (input.syntax && (!previous || (!unchangedOverride("syntax", input.syntax) && JSON.stringify(input.syntax) !== JSON.stringify(previous.page.syntax)))) {
+    // Crossing format families must keep JSON defaults coherent even when the
+    // new syntax is already declared by the document's YAML override.
+    const changingFormat = previous && own(input, "bodyFormat") && input.bodyFormat !== previous.page.bodyFormat;
+    if (input.syntax && (!previous || ((!unchangedOverride("syntax", input.syntax) || changingFormat) && JSON.stringify(input.syntax) !== JSON.stringify(previous.page.syntax)))) {
       set("syntax", input.syntax);
       set("bodyFormat", syntaxFormat(input.syntax));
     } else if (input.syntax === null) delete metadata.syntax;
@@ -393,8 +403,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     if (previousSource !== encoded.source) await atomicWrite(filePath, encoded.source, previousSource);
     await atomicWrite(metadataPath, after, before);
     await fs.rm(recovery);
+    historyChanged(id);
   }
-  async function scan(): Promise<Map<string, StoredPage>> {
+  async function prepareRead() {
     await init();
     await safeDirectory(root);
     await safeDirectory(pagesPath);
@@ -402,9 +413,24 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     await safeDirectory(conflictsPath);
     await safeDirectory(assetsPath);
     await recoverPending();
+  }
+  async function scan(): Promise<Map<string, StoredPage>> {
+    await prepareRead();
     const index = await readMetadata();
     const result = new Map<string, StoredPage>();
     const entries = await fs.readdir(pagesPath, { withFileTypes: true });
+    const filenames = new Set(entries.map(entry => entry.name));
+    type MetadataEntry = [string, Record<string, unknown>];
+    const byFile = new Map<string, MetadataEntry>();
+    const renamed = new Map<unknown, MetadataEntry[]>();
+    for (const entry of Object.entries(index.pages)) {
+      const metadata = entry[1];
+      if (typeof metadata.file === "string" && !byFile.has(metadata.file)) byFile.set(metadata.file, entry);
+      if (!filenames.has(metadata.file as string)) {
+        const candidates = renamed.get(metadata.sourceHash) ?? [];
+        candidates.push(entry); renamed.set(metadata.sourceHash, candidates);
+      }
+    }
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
       if (
         !entry.isFile() ||
@@ -416,10 +442,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       const stat = await fs.lstat(filePath);
       if (!stat.isFile() || stat.isSymbolicLink()) continue;
       const source = await fs.readFile(filePath, "utf8");
-      let metadataEntry = Object.entries(index.pages).find(([, value]) => value.file === entry.name);
+      let metadataEntry = byFile.get(entry.name);
       // An unambiguous byte-identical rename keeps its stable identity.
       if (!metadataEntry) {
-        const candidates = Object.entries(index.pages).filter(([, value]) => value.sourceHash === hash(source) && !entries.some(file => file.name === value.file));
+        const candidates = renamed.get(hash(source)) ?? [];
         if (candidates.length === 1) metadataEntry = candidates[0];
       }
       const stored = decode(source, filePath, metadataEntry ? { ...entryMetadata(metadataEntry[1]), id: metadataEntry[0] } : {});
@@ -428,6 +454,39 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       result.set(stored.page.id, stored);
     }
     return result;
+  }
+  async function indexedPage(id: string): Promise<StoredPage | undefined> {
+    await prepareRead();
+    const index = await readMetadata(), entry = index.pages[id];
+    const file = entry?.file;
+    // Legacy identities, external renames and ambiguous file mappings use the full scanner.
+    if (typeof file !== "string" || path.basename(file) !== file || /[/\\]/.test(file) || !file.toLowerCase().endsWith(".md") ||
+        Object.values(index.pages).filter(value => value.file === file).length !== 1) return;
+    const filePath = path.join(pagesPath, file), source = await readOptional(filePath);
+    if (source === null) return;
+    return decode(source, filePath, { ...entryMetadata(entry), id });
+  }
+  async function pagesForUpdate(id: string, input: PageInput) {
+    if (options.privateReplica && Object.keys(input).every(key => ["body", "title", "syntax", "bodyFormat"].includes(key))) {
+      const current = await indexedPage(id);
+      if (current && !current.page.dataSourceId && !current.page.databaseId) {
+        let overlay: Record<string, unknown> | undefined, previousOverlay: Record<string, unknown> | undefined;
+        try { overlay = documentMetadata(input.body ?? current.source).values; previousOverlay = documentMetadata(current.source).values; }
+        catch { /* Full validation below preserves the existing error path. */ }
+        // Hierarchy, trash and database operations still use the complete scanner.
+        if (overlay && previousOverlay && !["parent", "trashed", "dataSourceId", "databaseId"].some(key => own(overlay, key) || own(previousOverlay, key))) {
+          const family = new Map([[current.page.id, current]]);
+          let parent = current.page.parent;
+          while (parent && !family.has(parent)) {
+            const ancestor = await indexedPage(parent);
+            if (!ancestor) return scan();
+            family.set(parent, ancestor); parent = ancestor.page.parent;
+          }
+          return family;
+        }
+      }
+    }
+    return scan();
   }
   async function atomicWrite(filePath: string, data: string | Buffer, expected?: string | null) {
     await safeDirectory(path.dirname(filePath));
@@ -480,17 +539,44 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       cursor = found.page.parent;
     }
   }
-  async function snapshot(stored: StoredPage) {
-    const directory = path.join(historyPath, stored.page.id);
-    await safeDirectory(directory);
-    const file = path.join(directory, `${stored.page.revision}.md`);
-    await atomicWrite(path.join(directory, `${stored.page.revision}.json`), JSON.stringify(stored.metadata, null, 2));
-    try {
-      await fs.writeFile(file, stored.source, { flag: "wx", mode: 0o600 });
-    } catch (error) {
-      if ((error as StorageError).code !== "EEXIST") throw error;
-    }
+  const history = createPageHistory({ root, platform, safeDirectory, atomicWrite, readOptional, serialize });
+  const historyDirty = new Set<string>();
+  const historyTouched = new Set<string>();
+  const historyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  let historyClosed = false;
+  async function checkpointHistory(protect = false, message = "Editing paused", only?: string) {
+    if (!historyDirty.size || only && !historyDirty.has(only)) return 0;
+    return serialize(async () => {
+      const target = only ? await indexedPage(only) : undefined;
+      const pages = target ? new Map([[target.page.id, target]]) : await scan();
+      let count = 0;
+      for (const id of [...historyDirty].filter(id => only === undefined || only === id)) {
+        const stored = pages.get(id);
+        if (stored && await history.snapshot(stored, protect, message, true)) count++;
+        historyDirty.delete(id);
+        clearTimeout(historyTimers.get(id)); historyTimers.delete(id);
+      }
+      return count;
+    });
   }
+  function historyChanged(id: string) {
+    historyDirty.add(id);
+    options.onChange?.();
+    if (historyClosed) return;
+    clearTimeout(historyTimers.get(id));
+    void history.getSettings().then(({ settings }) => {
+      if (historyClosed) return;
+      clearTimeout(historyTimers.get(id));
+      const timer = setTimeout(() => {
+        void fs.lstat(root).then(() => historyClosed ? 0 : checkpointHistory(false, "Editing paused", id)).catch(error => {
+          if ((error as StorageError).code !== "ENOENT") console.warn("History checkpoint could not be created", error);
+        });
+      }, settings.idleSeconds * 1000);
+      historyTimers.set(id, timer);
+      (timer as { unref?: () => void }).unref?.();
+    }).catch(error => console.warn("History settings could not be read", error));
+  }
+  async function snapshot(stored: StoredPage) { await history.snapshot(stored, true, "Recovery checkpoint"); }
   async function registerConflict(
     current: StoredPage,
     input: PageInput,
@@ -539,7 +625,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       !/^[a-f0-9]{64}$/.test(baseRevision)
     )
       throw new VaultError(400, "Saving requires a valid baseRevision");
-    const pages = await scan();
+    const pages = await pagesForUpdate(id, input);
     const current = findStoredPage(pages, id);
     if (!current) throw new VaultError(404, "Page not found");
     id = current.page.id;
@@ -557,18 +643,20 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       pages,
     );
     const encoded = encode(current, id, input);
-    await snapshot(current);
+    if (historySignature(encoded) === historySignature(current)) return current.page;
+    await history.snapshot(current, false, historyTouched.has(id) ? "Before edit" : "Before editing session", !historyTouched.has(id));
     // Re-check after preparing the history snapshot to observe external writers.
     const latestStat = await fs.lstat(current.filePath);
     if (latestStat.isSymbolicLink())
       throw new VaultError(422, "Cannot write to a symbolic link");
-    const latest = (await scan()).get(id);
+    const latest = (options.privateReplica ? await indexedPage(id) : undefined) ?? (await scan()).get(id);
     if (!latest) throw new VaultError(409, "Page was removed externally");
     if (latest.page.revision !== baseRevision)
       return registerConflict(latest, input, baseRevision);
     const proposed = decode(encoded.source, current.filePath, encoded.metadata);
     if (!proposed.page.trashed) checkParent(id, proposed.page.parent, pages);
     await persist(current.filePath, encoded, current);
+    historyTouched.add(id);
     return proposed.page;
   }
   async function conflictRecord(id: string): Promise<Conflict> {
@@ -635,7 +723,8 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     return pages.get(id) ?? [...pages.values()].find(stored => stored.page.legacyIds?.includes(id));
   }
   const pageIdMigration = createPageIdMigration({ platform, root, scan, serialize, readMetadata, readOptional, atomicWrite, safeDirectory, snapshot });
-  const syncStore = createVaultSyncStore({ platform, root, scan, serialize, readMetadata, atomicWrite, safeDirectory, decode, encode, snapshot,
+  const syncStore = createVaultSyncStore({ platform, root, scan, serialize, readMetadata, atomicWrite, safeDirectory, decode, encode,
+    snapshot: async stored => { await history.snapshot(stored, false, "Before sync"); },
     pageConflict: async (current, item, conflict) => {
       try { await registerConflict(current, {}, current.page.revision, { conflict, item }); }
       catch (error) { if (!(error instanceof VaultError) || error.status !== 409 || error.details.conflictId !== conflict.id) throw error; }
@@ -693,6 +782,52 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     pages: async () => [...(await scan()).values()].map(stored => stored.page) });
   return {
     vaultPath: root,
+    history,
+    checkpointHistory,
+    closeHistory() { historyClosed = true; for (const timer of historyTimers.values()) clearTimeout(timer); historyTimers.clear(); },
+    captureHistory() {
+      return serialize(async () => {
+        const pages = [...(await scan()).values()].map(stored => ({ id: stored.page.id, source: stored.source, metadata: stored.metadata }));
+        const { pages: _pages, ...metadata } = await readMetadata();
+        const people: { name: string; source: string }[] = [];
+        const folder = path.join(root, "people");
+        const stat = await fs.lstat(folder).catch((error: StorageError) => { if (error.code === "ENOENT") return null; throw error; });
+        if (stat) {
+          if (!stat.isDirectory() || stat.isSymbolicLink()) throw new VaultError(422, "Invalid people directory");
+          for (const entry of await fs.readdir(folder, { withFileTypes: true })) {
+            if (!entry.isFile() || entry.isSymbolicLink() || !/\.ya?ml$/i.test(entry.name)) continue;
+            const source = await readOptional(path.join(folder, entry.name));
+            if (source !== null) people.push({ name: entry.name, source });
+          }
+        }
+        return { pages, metadata, people };
+      });
+    },
+    restoreHistory(id: string, record: HistoryRecord, baseRevision: string): Promise<Page> {
+      return serialize(async () => {
+        assertId(id); checkInput({ ...record.metadata, body: record.source });
+        if (!/^[a-f0-9]{64}$/.test(baseRevision ?? "")) throw new VaultError(400, "Restoring requires baseRevision");
+        const pages = await scan(), current = findStoredPage(pages, id);
+        if (!current) throw new VaultError(404, "Page not found");
+        const metadata: Record<string, unknown> = { ...current.metadata, ...record.metadata, id: current.page.id, updated: new Date().toISOString() };
+        // Collection membership belongs to the current database; its schema is checked below.
+        for (const key of ["dataSourceId", "databaseId"] as const) {
+          if (current.metadata[key] === undefined) delete metadata[key]; else metadata[key] = current.metadata[key];
+        }
+        const encoded = { source: record.source, metadata }, proposed = decode(record.source, current.filePath, metadata);
+        const input = { ...proposed.page };
+        if (current.page.revision !== baseRevision) return registerConflict(current, input, baseRevision);
+        if (!proposed.page.trashed) checkParent(current.page.id, proposed.page.parent, pages);
+        if (current.page.dataSourceId) {
+          const resources = (await readMetadata()).dataSources as Record<string, Record<string, unknown>> | undefined;
+          const { revision: _revision, ...schema } = resources?.[current.page.dataSourceId] ?? {};
+          await databases.validatePageUpdateLocked(current.page, input, baseRevision, hash(JSON.stringify(schema)));
+        }
+        await history.snapshot(current, true, "Before restore");
+        await persist(current.filePath, encoded, current);
+        return proposed.page;
+      });
+    },
     sync: createSyncService(syncStore, `${platform.id}:${root}`, options.syncFetch),
     syncStore,
     listAssets: assets.list,
@@ -705,7 +840,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         const visit = async (directory: string, relative: string) => {
           for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
             const name = relative ? `${relative}/${entry.name}` : entry.name;
-            if (name === ".history/vault.lock" || isSyncLocalFile(name)) continue;
+            if (name === ".history/vault.lock" || isHistoryTransientFile(name) || isSyncLocalFile(name)) continue;
             if (entry.isSymbolicLink()) throw new VaultError(422, "Backup cannot follow symbolic links");
             const file = path.join(directory, entry.name);
             if (entry.isDirectory()) await visit(file, name);
@@ -744,7 +879,8 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       });
     },
     readAsset(relative: string): Promise<Buffer> {
-      return serialize(async () => {
+      const read = async () => {
+        await init(); await safeDirectory(root);
         const safe = archivePath(relative.replace(/^\//, ""));
         if (!safe.startsWith("assets/")) throw new VaultError(400, "Expected a vault attachment path");
         const parts = safe.split("/");
@@ -755,7 +891,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           if (stat.isSymbolicLink() || (i < parts.length - 1 ? !stat.isDirectory() : !stat.isFile())) throw new VaultError(422, "Invalid attachment path");
         }
         return fs.readFile(target);
-      });
+      };
+      // Attachments are published by atomic replacement. Display reads can observe either
+      // complete version without holding the mobile navigation/save queue or vault lock.
+      return options.privateReplica ? read() : serialize(read);
     },
     assetsPath,
     databases,
@@ -816,8 +955,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         return { migrated, backupPath };
       });
     },
-    importBatch(plan: ImportPlan): Promise<{ id: string; pageIds: string[]; alreadyImported: boolean }> {
+    importBatch(plan: ImportPlan, onProgress?: (progress: ImportProgress) => void): Promise<{ id: string; pageIds: string[]; alreadyImported: boolean }> {
       return serialize(async () => {
+        onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: "Checking the import snapshot and existing files" });
         await init();
         if (!/^[a-f0-9]{64}$/.test(plan.id)) throw new VaultError(400, "Invalid import identity");
         const archiveRoot = path.join(historyPath, "imports");
@@ -830,11 +970,14 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           if (!stat.isFile() || stat.isSymbolicLink()) throw new VaultError(422, "Invalid import manifest");
           const previous = JSON.parse(await fs.readFile(manifestPath, "utf8"));
           if (previous.completed === true && previous.id === plan.id) {
+            onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: "Checking attachments for this previously imported snapshot" });
             await recoverPending();
             await assets.registerImportedLocked(plan.assets, plan.id);
+            onProgress?.({ phase: "finalizing", completed: previous.pageIds.length, total: plan.pages.length, step: "Existing imported snapshot verified" });
             return { id: plan.id, pageIds: previous.pageIds, alreadyImported: true };
           }
         } catch (error) { if ((error as StorageError).code !== "ENOENT") throw error; }
+        onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: "Validating page identities, content and parents" });
         const pages = await scan();
         const importMetadata = await readMetadata();
         for (const item of plan.pages) {
@@ -868,16 +1011,25 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         const manifest = { id: plan.id, name: plan.name, completed: false, pageIds: plan.pages.map(p => p.id), originals: plan.originals.map((file, index) => ({ path: file.path, archive: `${index}.source` })), warnings: plan.warnings, errors: plan.errors };
         await atomicWrite(manifestPath, JSON.stringify(manifest, null, 2));
         try {
-          for (const [index, file] of plan.originals.entries()) await writeNew(path.join(archive, `${index}.source`), file.data);
+          for (const [index, file] of plan.originals.entries()) {
+            onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: `Archiving original files (${index + 1} / ${plan.originals.length})` });
+            await writeNew(path.join(archive, `${index}.source`), file.data);
+          }
           for (const asset of plan.assets) {
+            onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: `Saving attachment: ${asset.name ?? asset.filename}` });
             if (!/^[a-zA-Z0-9_-]+\.[a-z0-9]+$/.test(asset.filename)) throw new VaultError(400, "Invalid imported attachment name");
             await writeNew(path.join(assetsPath, asset.filename), asset.data);
           }
+          onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: "Registering imported attachments" });
           await assets.registerImportedLocked(plan.assets, plan.id);
+          let completed = 0;
           for (const item of plan.pages) {
+            onProgress?.({ phase: "importing", completed, total: plan.pages.length, step: "Writing page Markdown and metadata", currentTitle: String(item.metadata.title ?? "Untitled") });
             await writeNew(path.join(pagesPath, `${item.id}.md`), item.source);
             await persist(path.join(pagesPath, `${item.id}.md`), { source: item.source, metadata: item.metadata });
+            onProgress?.({ phase: "importing", completed: ++completed, total: plan.pages.length, step: "Page imported", currentTitle: String(item.metadata.title ?? "Untitled") });
           }
+          onProgress?.({ phase: "finalizing", completed, total: plan.pages.length, step: "Saving database resources and the import manifest" });
           if (plan.databaseResources) await databases.importLocked(plan.databaseResources);
           await atomicWrite(manifestPath, JSON.stringify({ ...manifest, completed: true }, null, 2));
         } catch (error) {
@@ -893,10 +1045,23 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       return options.includeTrashed ? all : all.filter((page) => !hidden.has(page.id));
       });
     },
+    /** Source identities for import references, excluding Trash and its descendants. */
+    async notionImportTargets(): Promise<{ id: string; pageId: string }[]> {
+      return serialize(async () => {
+        const stored = [...(await scan()).values()];
+        const hidden = trashedPageIds(stored.map(item => item.page));
+        return stored.flatMap(item => {
+          if (hidden.has(item.page.id)) return [];
+          const metadata = { ...item.metadata, ...documentMetadata(item.source).values };
+          const origin = metadata.notionImport as { pageId?: unknown } | null;
+          return origin && typeof origin.pageId === "string" ? [{ id: item.page.id, pageId: origin.pageId }] : [];
+        });
+      });
+    },
     async get(id: string): Promise<Page> {
       return serialize(async () => {
       assertId(id);
-      const result = findStoredPage(await scan(), id);
+      const result = (options.privateReplica ? await indexedPage(id) : undefined) ?? findStoredPage(await scan(), id);
       if (!result) throw new VaultError(404, "Page not found");
       return result.page;
       });

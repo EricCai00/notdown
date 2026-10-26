@@ -1,5 +1,41 @@
-import { parseDocument } from "yaml";
+import { isMap, parseDocument } from "yaml";
 import { mmdMetadataKey } from "./mmd-metadata";
+import { syntaxFormat, type SyntaxConfig } from "./config";
+import { documentMetadata } from "../features/metadata/document-metadata";
+
+/** An explicit settings change updates existing document overrides, never adds app YAML. */
+export function configureDocumentSyntax(source: string, config: SyntaxConfig): string {
+  const metadata = documentMetadata(source);
+  if (metadata.form !== "yaml" || !Object.hasOwn(metadata.values, "syntax") && !Object.hasOwn(metadata.values, "bodyFormat")) return source;
+  const syntaxChanged = Object.hasOwn(metadata.values, "syntax") && JSON.stringify(metadata.values.syntax) !== JSON.stringify(config);
+  const formatChanged = Object.hasOwn(metadata.values, "bodyFormat") && metadata.values.bodyFormat !== syntaxFormat(config);
+  if (!syntaxChanged && !formatChanged) return source;
+  const match = /^((?:\uFEFF)?---[\t ]*\r?\n)([\s\S]*?)(\r?\n(?:---|\.\.\.)[\t ]*(?=\r?\n|$))/.exec(source);
+  if (!match) throw new Error("Keep a complete YAML metadata block before changing the dialect.");
+  const doc = parseDocument(match[2], { uniqueKeys: true });
+  if (doc.errors.length || !isMap(doc.contents)) throw new Error("Fix the YAML source before changing the dialect.");
+  if (Object.hasOwn(metadata.values, "syntax")) {
+    const previous = doc.get("syntax", true);
+    if (isMap(previous)) {
+      for (const key of Object.keys(metadata.values.syntax as object)) if (!Object.hasOwn(config, key)) previous.delete(key);
+      for (const [key, value] of Object.entries(config)) {
+        if (JSON.stringify((metadata.values.syntax as SyntaxConfig)[key]) === JSON.stringify(value)) continue;
+        const field = previous.get(key, true);
+        if (key === "extensions" && isMap(field)) {
+          for (const extension of field.items.map(item => String(item.key))) if (!Object.hasOwn(config.extensions, extension)) field.delete(extension);
+          for (const [extension, enabled] of Object.entries(config.extensions)) if (field.get(extension) !== enabled) field.set(extension, enabled);
+        } else previous.set(key, value);
+      }
+    } else doc.set("syntax", config);
+  }
+  if (Object.hasOwn(metadata.values, "bodyFormat")) doc.set("bodyFormat", syntaxFormat(config));
+  const newline = match[1].endsWith("\r\n") ? "\r\n" : "\n";
+  const rendered = doc.toString(), withoutFinalNewline = rendered.replace(/\r?\n$/, "");
+  // A |+ scalar can own the final newline; do not trim significant unknown data.
+  const sameValues = JSON.stringify(parseDocument(withoutFinalNewline).toJS({ maxAliasCount: 50 })) === JSON.stringify(doc.toJS({ maxAliasCount: 50 }));
+  const header = (sameValues ? withoutFinalNewline : rendered).replace(/\r?\n/g, newline);
+  return match[1] + header + match[3] + source.slice(match[0].length);
+}
 
 export function pandocTitleValues(raw: string): Record<string, string> {
   const values = ["", "", ""]; let index = -1;

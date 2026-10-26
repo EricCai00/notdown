@@ -568,7 +568,7 @@ export function inlineMarkdown(
   pageMentions = false,
   escapeSuperscript = false,
   legacyEscapes = false,
-  options: { mmdAttributes?: boolean; literalExtensions?: boolean; htmlMarksFirst?: boolean; notionBreaks?: boolean; notionV2?: boolean } = {},
+  options: { mmdAttributes?: boolean; literalExtensions?: boolean; htmlMarksFirst?: boolean; notionBreaks?: boolean; notionV2?: boolean; notionMarkdownMarks?: boolean } = {},
 ): string {
   let result = "";
   let active: Mark[] = [];
@@ -578,7 +578,7 @@ export function inlineMarkdown(
       .map(([key, value]) => ` ${key}="${value.replace(/"/g, "&quot;")}"`)
       .join("");
   const open = (mark: Mark) =>
-    options.notionV2 && ["strong", "em", "strike", "underline"].includes(editorKind(mark)) ? `<${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
+    options.notionV2 && (editorKind(mark) === "underline" || !options.notionMarkdownMarks && ["strong", "em", "strike"].includes(editorKind(mark))) ? `<${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
     isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? `<span${attributesXml(mark.attrs.attributes)}>` : "[")
       : isEditorKind(mark, "critic")
@@ -604,7 +604,7 @@ export function inlineMarkdown(
                 link: "[",
               }[editorKind(mark)] ?? "");
   const close = (mark: Mark) =>
-    options.notionV2 && ["strong", "em", "strike", "underline"].includes(editorKind(mark)) ? `</${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
+    options.notionV2 && (editorKind(mark) === "underline" || !options.notionMarkdownMarks && ["strong", "em", "strike"].includes(editorKind(mark))) ? `</${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
     isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? "</span>" : "]" + writeAttributes(mark.attrs.attributes).trimStart())
       : isEditorKind(mark, "critic")

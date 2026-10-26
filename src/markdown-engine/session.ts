@@ -1,6 +1,7 @@
 import type { Node as PMNode } from "prosemirror-model";
 import { parseNative, serializeNative } from "./codec.js";
 import { syntaxFormat, normalizeSyntax, type SyntaxConfig } from "./config.js";
+import { configureDocumentSyntax } from "./metadata-editing";
 
 export interface DocumentSnapshot {
   source: string;
@@ -107,11 +108,13 @@ export class DocumentSession {
     );
   }
   configure(config: SyntaxConfig) {
+    config = normalizeSyntax(config);
+    const source = configureDocumentSyntax(this.snapshot.source, config);
     return this.commit(
       {
-        source: this.snapshot.source,
-        config: structuredClone(normalizeSyntax(config)),
-        doc: this.parse(this.snapshot.source, config),
+        source,
+        config: structuredClone(config),
+        doc: this.parse(source, config),
       },
       "config",
     );
@@ -127,6 +130,8 @@ export class DocumentSession {
     this.breakHistory();
     return true;
   }
+  get canUndo() { return this.past.length > 0; }
+  get canRedo() { return this.future.length > 0; }
   redo() {
     const next = this.future.pop();
     if (!next) return false;

@@ -1,3 +1,4 @@
+import { vaultAssetUrl } from "../../shared/vault-url";
 export type AssetKind = "image" | "audio" | "video" | "pdf" | "html" | "file";
 export type AssetReference = {
   pageId: string; title: string; trashed: boolean; locations: string[];
@@ -28,7 +29,7 @@ export function localAssetPath(value: unknown): string | undefined {
 }
 
 export function assetUrl(path: string): string {
-  return "/" + path.split("/").map(encodeURIComponent).join("/");
+  return vaultAssetUrl("/" + path.split("/").map(encodeURIComponent).join("/"));
 }
 
 export function assetKind(path: string, contentType = ""): AssetKind {

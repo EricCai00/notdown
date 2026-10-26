@@ -78,16 +78,18 @@ export function createCloudClient(connection: CloudConnection, save: (connection
   const remote: SyncRemote = {
     pull: cursor => rpc("nd_sync_pull", { p_vault: connection.vaultId, p_cursor: cursor, p_limit: 100 }),
     push: (batch: SyncBatch) => rpc<SyncPushResult>("nd_sync_push", { p_vault: connection.vaultId, p_operation: batch.id, p_mutations: batch.mutations }),
-    async upload(hash, bytes) {
+    async upload(hash, bytes, notify) {
       if (!checksum.test(hash) || hashBytes(bytes) !== hash || bytes.length > 64 * 1024 * 1024) throw new Error("Invalid attachment upload");
       const chunks: { hash: string; size: number }[] = [];
+      notify?.(0, bytes.length);
       for (let offset = 0; offset < bytes.length; offset += chunkSize) {
         const part = bytes.slice(offset, offset + chunkSize), partHash = hashBytes(part);
         await put(`chunks/${partHash}`, part); chunks.push({ hash: partHash, size: part.length });
+        notify?.(offset + part.length, bytes.length);
       }
       await put(`manifests/${hash}`, new TextEncoder().encode(JSON.stringify({ version: 1, hash, size: bytes.length, chunks })));
     },
-    async download(hash) {
+    async download(hash, notify) {
       if (!checksum.test(hash)) throw new Error("Invalid attachment checksum");
       const manifestText = await (await request(objectPath(`manifests/${hash}`))).text();
       if (manifestText.length > 16000) throw new Error("Invalid attachment manifest size");
@@ -95,11 +97,12 @@ export function createCloudClient(connection: CloudConnection, save: (connection
       if (manifest.version !== 1 || manifest.hash !== hash || !Number.isSafeInteger(manifest.size) || manifest.size < 0 || manifest.size > 64 * 1024 * 1024 ||
           !Array.isArray(manifest.chunks) || manifest.chunks.length > 64) throw new Error("Invalid attachment manifest");
       const bytes = new Uint8Array(manifest.size); let offset = 0;
+      notify?.(0, bytes.length);
       for (const chunk of manifest.chunks) {
         if (!checksum.test(chunk.hash) || !Number.isSafeInteger(chunk.size) || chunk.size < 1 || chunk.size > chunkSize || offset + chunk.size > bytes.length) throw new Error("Invalid attachment chunk");
         const part = new Uint8Array(await (await request(objectPath(`chunks/${chunk.hash}`))).arrayBuffer());
         if (part.length !== chunk.size || hashBytes(part) !== chunk.hash) throw new Error("Attachment chunk checksum failed");
-        bytes.set(part, offset); offset += part.length;
+        bytes.set(part, offset); offset += part.length; notify?.(offset, bytes.length);
       }
       if (offset !== bytes.length || hashBytes(bytes) !== hash) throw new Error("Attachment checksum failed");
       return bytes;

@@ -5,6 +5,7 @@ import { parseNative, serializeNative } from "../../src/markdown-engine/codec";
 import { notionSourceTags } from "../../src/document/notion-v2";
 import { editorKind } from "../../src/document/node-identity";
 import { blockPropertyFields } from "../../src/editor/block-properties";
+import { editorSchema as schema } from "../../src/document/editor-schema";
 
 const samples: [string, string][] = [
   ['<p color="blue">Paragraph\n\nChild</p>', 'structure.nested_block'],
@@ -28,6 +29,91 @@ const samples: [string, string][] = [
   ['![](https://example.com/empty.png)', 'block.image_block'],
   ['<callout>\n\t![](https://example.com/nested.png)\n</callout>', 'block.callout'],
 ];
+
+for (const variant of ["notion-markdown", "notdown"] as const) {
+  const config = { version: 1 as const, variant, extensions: {}, notionVersion: "v2" as const };
+  test(`${variant}: v2 edited ordinary blocks prefer Markdown over XML tags`, () => {
+    const cases = [
+      ["<h2>Heading</h2>", "## !Heading"],
+      ["<h2>Heading ##</h2>", "## !Heading \\#\\#"],
+      ["<h2>Heading\t##</h2>", "## !Heading\t\\#\\#"],
+      ["<p>Text</p>", "!Text"],
+      ["<quote>Quote</quote>", "> !Quote"],
+      ["<ul><li>First</li><li>Second</li></ul>", "- !First\n- Second"],
+      ['<ol type="1"><li>First</li><li>Second</li></ol>', "1. !First\n2. Second"],
+      ['<todo checked="true">Done</todo>', "- [x] !Done"],
+      ["<p><b>Bold</b> <i>italic</i> <s>strike</s> <u>under</u></p>", "**!Bold** *italic* ~~strike~~ <u>under</u>"],
+      ["<equation>x + y</equation>", "$$\n!x + y\n$$"],
+      ["<table><tr><th>Header</th><th>Two</th></tr><tr><td>Cell</td><td>Other</td></tr></table>", "| !Header | Two |\n| --- | --- |\n| Cell | Other |"],
+      ["| Header | Two |\n| --- | --- |\n| Cell | Other |", "| !Header | Two |\n| --- | --- |\n| Cell | Other |"],
+    ];
+    for (const [source, expected] of cases) {
+      const doc = parseNative(source, config);
+      let pos = -1; doc.descendants((child, at) => { if (pos < 0 && child.isText) pos = at; });
+      const changed = EditorState.create({ doc }).tr.insertText("!", pos).doc;
+      const saved = serializeNative(changed, config);
+      assert.equal(saved, expected, source);
+      const reopened = parseNative(saved, config); reopened.check();
+      assert.equal(reopened.firstChild!.type.name, changed.firstChild!.type.name, saved);
+      assert.equal(reopened.textContent, changed.textContent, saved);
+    }
+    const doc = parseNative('<image source="https://example.com/photo.png">Caption</image>', config);
+    const changed = EditorState.create({ doc }).tr.setNodeMarkup(0, undefined, { ...doc.firstChild!.attrs, caption: "New [caption]" }).doc;
+    const saved = serializeNative(changed, config);
+    assert.equal(saved, '![New \\[caption\\]](https://example.com/photo.png)');
+    assert.equal(parseNative(saved, config).firstChild!.attrs.caption, "New [caption]");
+    for (const caption of ["*literal* &amp; symbols", "Back\\slash [x]", "中文图片"]) {
+      const changed = EditorState.create({ doc }).tr.setNodeMarkup(0, undefined, { ...doc.firstChild!.attrs, caption }).doc;
+      const saved = serializeNative(changed, config);
+      assert.ok(saved.startsWith("!["), saved);
+      assert.equal(parseNative(saved, config).firstChild!.attrs.caption, caption, saved);
+    }
+  });
+
+  test(`${variant}: v2 delimiter fallback retains whitespace, overlap, unknown attributes and literal code`, () => {
+    const paragraph = schema.nodes["block.paragraph"], bold = schema.marks.strong.create(), em = schema.marks.em.create();
+    const examples = [
+      [schema.text("Bold", [bold, em])],
+      [schema.text(" edge ", [bold])],
+      [schema.text("a", [bold]), schema.text("b", [em])],
+      [schema.text("one", [bold]), schema.text(" two ", [bold, em]), schema.text("three", [em])],
+      [schema.text("CJK中文", [bold, em])],
+      [schema.text("*<tag> & symbols*", [em])],
+    ];
+    for (const children of examples) {
+      const doc = schema.nodes.doc.create(null, paragraph.create(null, children));
+      const saved = serializeNative(doc, config), reopened = parseNative(saved, config);
+      assert.ok(reopened.firstChild!.content.eq(doc.firstChild!.content), saved);
+    }
+    const source = '<h2 color="blue" future="keep">Title</h2>\n\n```html\n<b>literal</b>\n```\n\n<future odd="keep">Unknown</future>\n\nTail';
+    const doc = parseNative(source, config), changed = EditorState.create({ doc }).tr.insertText("!", 1).doc;
+    const saved = serializeNative(changed, config);
+    assert.ok(saved.startsWith('<h2 color="blue" future="keep">!Title</h2>'));
+    assert.ok(saved.includes('```html\n<b>literal</b>\n```'));
+    assert.ok(saved.includes('<future odd="keep">Unknown</future>'));
+  });
+
+  test(`${variant}: v2 pipe tables retain escaped pipes, code and styled-table attributes`, () => {
+    const paragraph = (text: string, code = false) => schema.nodes["block.paragraph"].create(null, schema.text(text, code ? [schema.marks.code.create()] : []));
+    const cell = (text: string, header: boolean, code = false) => schema.nodes["structure.table_cell"].create({ header }, paragraph(text, code));
+    for (const [text, code] of [["a|b", false], ["a|b", true], ["a\\|b", true]] as const) {
+      const table = schema.nodes["block.table"].create(null, [
+        schema.nodes["structure.table_row"].create(null, [cell("Head", true), cell("Two", true)]),
+        schema.nodes["structure.table_row"].create(null, [cell(text, false, code), cell("Value", false)]),
+      ]);
+      const saved = serializeNative(schema.nodes.doc.create(null, table), config), reopened = parseNative(saved, config);
+      assert.equal(reopened.firstChild!.childCount, 2, saved);
+      assert.equal(reopened.firstChild!.lastChild!.firstChild!.textContent, text, saved);
+      assert.equal(reopened.firstChild!.lastChild!.firstChild!.firstChild!.firstChild!.marks.some(mark => mark.type === schema.marks.code), code, saved);
+    }
+    const source = '<table header-row="true" future="keep"><colgroup><col width="120" /></colgroup><tr><th>Head</th></tr><tr color="red"><td>Value</td></tr></table>';
+    const doc = parseNative(source, config);
+    let pos = 0; doc.descendants((child, at) => { if (!pos && child.isText) pos = at; });
+    const saved = serializeNative(EditorState.create({ doc }).tr.insertText("!", pos).doc, config);
+    assert.ok(saved.startsWith('<table header-row="true" future="keep">'), saved);
+    assert.ok(saved.includes('width="120"'), saved); assert.ok(saved.includes('<tr color="red">'), saved);
+  });
+}
 for (const variant of ['notdown', 'notion-markdown'] as const) {
   const config = { version: 1 as const, variant, extensions: {}, notionVersion: 'v2' as const };
   test(`${variant}: v2 official carriers have real nodes and preserve adjacent edits and CRLF`, () => {

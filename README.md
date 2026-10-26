@@ -24,9 +24,9 @@ Notdown is a local note-taking app that combines block editing with Markdown fil
 - **Write your way.** Page, Source and Split views, slash commands, inline formatting, and blocks you can select and move.
 - **Connect your notes.** Nested pages, search, favorites, backlinks, an outline, a mind map and a page graph.
 - **Work with rich content.** Images and media, tables, callouts, equations, Mermaid diagrams, footnotes and citations, with selectable Markdown dialects. Browse and reuse local files in the [attachment library](docs/features/MEDIA-AND-EMBEDS.md).
-- **Organize structured information.** Local databases with table views, typed properties and records backed by Markdown pages.
+- **Organize structured information.** Full-page and inline databases on desktop and Android, with table views, typed properties and records backed by Markdown pages.
 - **Bring existing notes.** Preview and import Markdown folders or Notion pages and databases as local copies.
-- **Keep control of your files.** Local Markdown storage, revision-checked saves, history snapshots and recoverable conflict copies.
+- **Keep control of your files.** Local Markdown storage, revision-checked saves, recoverable history and conflict copies, with optional local Git history on desktop.
 
 Optional [AI blocks](docs/features/AI-BLOCKS.md), [meeting notes](docs/features/MEETING-NOTES.md) and [executable notebooks](docs/features/QUARTO.md) add generation, transcription and computation after you configure the relevant services or runtimes.
 
@@ -54,13 +54,13 @@ To build a Windows x64 installer, run `npm run desktop:dist`; the output is in `
 npm run dev
 ```
 
-Open [localhost:4317](http://127.0.0.1:4317). Notes use `./vault` by default; keep the terminal running while you use the app. On Windows, after installing dependencies, you can also double-click [start.cmd](start.cmd).
+Open [localhost:4317](http://127.0.0.1:4317). Notes live in a separate vault folder; keep the terminal running while you use the app. On Windows, after installing dependencies, you can also double-click [start.cmd](start.cmd).
 
-Custom vault paths, background-service restarts and production builds are covered in the [running and development guide](docs/architecture/DEVELOPMENT.md).
+Create or switch vaults from the sidebar heading or Workspace settings. Custom paths, service restarts and production builds are covered in the [running and development guide](docs/architecture/DEVELOPMENT.md).
 
 ### Android preview
 
-An early Android app shares the desktop editor and file format, with offline notes, images and vault ZIP backups. See the [Android guide](docs/features/ANDROID.md) for building, installation and current limitations.
+The early Android app connects to an existing cloud notebook from your computer. Configure sync on first launch; after the initial download, notes and attachments remain available offline. See the [Android guide](docs/features/ANDROID.md) for installation and limitations.
 
 ### Bring your notes
 
@@ -68,7 +68,7 @@ Use **Import Markdown folder** or **Import from Notion API** in the sidebar. Rev
 
 ## Your files
 
-Note bodies live in `vault/pages/*.md`, attachments in `vault/assets/`, and shared page properties in `vault/metadata.json`. Document YAML or Pandoc title blocks override those shared defaults. Source view shows the complete Markdown file.
+Each vault has its own folder, containing `pages/*.md`, `assets/`, and `metadata.json` for shared page properties. Document YAML or Pandoc title blocks override those shared defaults. Source view shows the complete Markdown file.
 
 Use one running service per vault. Back up the whole vault folder to include attachments and metadata. For storage, conflict recovery and explicit migrations, see [vault metadata](docs/features/VAULT-METADATA.md).
 

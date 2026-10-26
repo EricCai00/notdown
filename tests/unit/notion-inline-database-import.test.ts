@@ -25,6 +25,13 @@ for (const variant of ["notdown", "notion-markdown"] as const) {
     const root = plan.pages[0], hosts = inlineDatabases.map(id => plan.pages.find(page => (page.metadata.notionImport as any).pageId === id)!);
     assert.equal(plan.pages.length, 5);
     assert.equal(Object.keys(plan.databaseResources!.databases).length, 2);
+    for (const view of Object.values(plan.databaseResources!.views)) {
+      const source = plan.databaseResources!.dataSources[view.dataSourceId];
+      assert.equal(source.properties[0].type, "title");
+      assert.deepEqual(view.propertyIds!.map(id => source.properties.find(field => field.id === id)!.name),
+        source.title === "Used note apps" ? ["Name", "Since", "Markdown", "Comments"] : ["Name", "Comments"]);
+      assert.equal(Object.keys((source.notion as any).properties)[0], "Comments", "preserve the original schema");
+    }
     let expected = inlineDatabaseSource;
     hosts.forEach((host, index) => {
       assert.equal(host.metadata.parent, root.id);

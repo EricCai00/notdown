@@ -4,7 +4,7 @@ import { archivePath } from "./archive";
 import { hashBytes, randomUUID } from "./crypto";
 import { VaultError, assertId, type Page, type PageInput } from "./vault";
 import type { VaultPlatform, StorageError } from "./platform";
-import { absent, itemRevision, stateRevision, validateItem, type SyncItem, type SyncState, type SyncConflict } from "../sync/protocol";
+import { absent, itemRevision, stateRevision, validateItem, type SyncItem, type SyncState, type SyncConflict, type SyncApply } from "../sync/protocol";
 
 type StoredPage = { page: Page; source: string; filePath: string; metadata: Record<string, unknown> };
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
@@ -21,6 +21,9 @@ type Host = {
   pageConflict(current: StoredPage, incoming: SyncItem, conflict: SyncConflict): Promise<void>;
 };
 type FileChange = { path: string; before: string | null; after: string | null };
+type Snapshot = { before: SyncItem; after: SyncItem };
+type Change = { path: string; bytes: Buffer | null; expected: Buffer | null };
+type WriteBatch = { pages: Map<string, StoredPage>; index: Index; changes: Change[]; snapshots: Snapshot[]; previous: StoredPage[]; metadataChanged: boolean };
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 const own = (v: object, key: string) => Object.prototype.hasOwnProperty.call(v, key);
 const resourceGroups = ["databases", "dataSources", "views", "assets"];
@@ -64,42 +67,54 @@ export function createVaultSyncStore(host: Host) {
   async function recover() {
     try { const stat = await fs.lstat(history); if (!stat.isDirectory() || stat.isSymbolicLink()) throw new VaultError(422, "Invalid sync history directory"); }
     catch (error) { if ((error as StorageError).code === "ENOENT") return; throw error; }
-    const pending = await readJson<{ id: string; files: FileChange[]; snapshot?: { before: SyncItem; after: SyncItem } }>(journal);
+    const pending = await readJson<{ id: string; files: FileChange[]; snapshot?: Snapshot; snapshots?: Snapshot[] }>(journal);
     if (!pending) return;
-    if (!Array.isArray(pending.files) || pending.files.length > 10000) throw new VaultError(422, "Invalid sync recovery record");
+    if (!Array.isArray(pending.files) || pending.files.length > 10000 || new Set(pending.files.map(file => file.path)).size !== pending.files.length)
+      throw new VaultError(422, "Invalid sync recovery record");
     for (const file of pending.files) {
       if (!(file.before === null || typeof file.before === "string") || !(file.after === null || typeof file.after === "string"))
         throw new VaultError(422, "Invalid sync recovery contents");
-      const target = allowedFile(file.path), bytes = await readBytes(target), current = bytes?.toString("base64") ?? null;
-      if (current !== file.before && current !== file.after)
-        throw new VaultError(503, "An interrupted sync conflicts with an external edit. Both versions and the recovery record were preserved.");
+      allowedFile(file.path);
     }
-    for (const file of pending.files) {
-      const target = allowedFile(file.path), current = await readBytes(target);
-      if ((current?.toString("base64") ?? null) !== file.before && (current?.toString("base64") ?? null) !== file.after)
-        throw new VaultError(503, "A file changed during sync recovery. The recovery record and local contents were preserved.");
-      if ((current?.toString("base64") ?? null) === file.after) continue;
-      await directories(file.path);
-      if (file.after !== null) {
-        // A byte-preserving CAS also works for attachments and UTF-8 BOM/CRLF Markdown.
-        const temporary = path.join(path.dirname(target), `.sync-${randomUUID()}.tmp`);
-        const handle = await fs.open(temporary, "wx", 0o600);
-        try { await handle.writeFile(Buffer.from(file.after, "base64")); await handle.sync(); } finally { await handle.close(); }
-        try { await host.platform.replaceFile(temporary, target, current); }
-        finally { await fs.rm(temporary, { force: true }); }
-      } else if (current !== null) {
-        const saved = path.join(history, `${pending.id}-${hashBytes(file.path).slice(0, 16)}.deleted`);
-        await fs.rename(target, saved);
-        if ((await readBytes(saved))?.toString("base64") !== file.before) {
-          // An external writer ignored the app lock. Restore only if nobody has recreated the path.
-          try { await host.platform.replaceFile(saved, target, null); } catch { /* Both paths remain recoverable. */ }
-          throw new VaultError(503, "A file changed during deletion. Sync stopped and preserved its content.");
+    const nativeBatch = host.platform.replaceFiles && pending.files.length <= 128 && pending.files.every(file => file.after !== null) &&
+      pending.files.reduce((size, file) => size + (file.before?.length ?? 0) + file.after!.length, 0) <= 40 * 1024 * 1024;
+    if (nativeBatch) {
+      try { await host.platform.replaceFiles!(pending.files.map(file => ({ path: allowedFile(file.path),
+        before: file.before === null ? null : Buffer.from(file.before, "base64"), after: Buffer.from(file.after!, "base64") }))); }
+      catch (error) { throw new VaultError(503, `An interrupted sync batch could not be applied. Local files and the recovery record were preserved. ${error instanceof Error ? error.message : ""}`); }
+    } else {
+      for (const file of pending.files) {
+        const target = allowedFile(file.path), bytes = await readBytes(target), current = bytes?.toString("base64") ?? null;
+        if (current !== file.before && current !== file.after)
+          throw new VaultError(503, "An interrupted sync conflicts with an external edit. Both versions and the recovery record were preserved.");
+      }
+      for (const file of pending.files) {
+        const target = allowedFile(file.path), current = await readBytes(target);
+        if ((current?.toString("base64") ?? null) !== file.before && (current?.toString("base64") ?? null) !== file.after)
+          throw new VaultError(503, "A file changed during sync recovery. The recovery record and local contents were preserved.");
+        if ((current?.toString("base64") ?? null) === file.after) continue;
+        await directories(file.path);
+        if (file.after !== null) {
+          // A byte-preserving CAS also works for attachments and UTF-8 BOM/CRLF Markdown.
+          const temporary = path.join(path.dirname(target), `.sync-${randomUUID()}.tmp`);
+          const handle = await fs.open(temporary, "wx", 0o600);
+          try { await handle.writeFile(Buffer.from(file.after, "base64")); await handle.sync(); } finally { await handle.close(); }
+          try { await host.platform.replaceFile(temporary, target, current); }
+          finally { await fs.rm(temporary, { force: true }); }
+        } else if (current !== null) {
+          const saved = path.join(history, `${pending.id}-${hashBytes(file.path).slice(0, 16)}.deleted`);
+          await fs.rename(target, saved);
+          if ((await readBytes(saved))?.toString("base64") !== file.before) {
+            // An external writer ignored the app lock. Restore only if nobody has recreated the path.
+            try { await host.platform.replaceFile(saved, target, null); } catch { /* Both paths remain recoverable. */ }
+            throw new VaultError(503, "A file changed during deletion. Sync stopped and preserved its content.");
+          }
         }
       }
     }
     // Keep resource history, not a full copy of the entire metadata.json for every downloaded page.
     // The complete file journal remains available until the transaction and this archive are durable.
-    const archived = pending.snapshot ? { id: pending.id, snapshot: pending.snapshot,
+    const archived = pending.snapshot || pending.snapshots ? { id: pending.id, ...(pending.snapshot ? { snapshot: pending.snapshot } : { snapshots: pending.snapshots }),
       files: pending.files.map(file => ({ path: file.path,
         beforeHash: file.before === null ? null : hashBytes(Buffer.from(file.before, "base64")),
         afterHash: file.after === null ? null : hashBytes(Buffer.from(file.after, "base64")) })) } : pending;
@@ -109,7 +124,7 @@ export function createVaultSyncStore(host: Host) {
     if (!existing) await host.atomicWrite(archiveFile, archiveText, null);
     await fs.rm(journal);
   }
-  async function commit(changes: { path: string; bytes: Buffer | null; expected: Buffer | null }[], snapshot: { before: SyncItem; after: SyncItem }) {
+  async function commit(changes: Change[], snapshot: Snapshot | Snapshot[]) {
     await ready(); await recover();
     const files: FileChange[] = [];
     for (const change of changes) {
@@ -123,7 +138,7 @@ export function createVaultSyncStore(host: Host) {
       }
       files.push({ path: change.path, before: before?.toString("base64") ?? null, after: change.bytes?.toString("base64") ?? null });
     }
-    await host.atomicWrite(journal, JSON.stringify({ id: randomUUID(), files, snapshot }), null);
+    await host.atomicWrite(journal, JSON.stringify({ id: randomUUID(), files, ...(Array.isArray(snapshot) ? { snapshots: snapshot } : { snapshot }) }), null);
     await recover();
   }
   const pageItem = (stored: StoredPage): SyncItem => ({ kind: "page", key: `page:${stored.page.id}`,
@@ -196,13 +211,13 @@ export function createVaultSyncStore(host: Host) {
       if (value && (!/^[a-f0-9]{64}$/.test(value.hash) || !Number.isSafeInteger(value.size) || value.size < 0 || value.size > 64 * 1024 * 1024)) throw new VaultError(422, "Invalid attachment descriptor");
     }
   }
-  async function readItemLocked(item: SyncItem): Promise<SyncItem> {
+  async function readItemLocked(item: SyncItem, scanned?: Map<string, StoredPage>, metadata?: Index): Promise<SyncItem> {
     validate(item);
     const name = item.key.slice(item.kind.length + 1);
-    if (item.kind === "page") { const page = (await host.scan()).get(name); return page ? pageItem(page) : absent(item); }
-    await host.scan(); // Also recover an interrupted ordinary Markdown/metadata save before reading a resource.
+    if (item.kind === "page") { const page = (scanned ?? await host.scan()).get(name); return page ? pageItem(page) : absent(item); }
+    if (!scanned) await host.scan(); // Also recover an interrupted ordinary Markdown/metadata save before reading a resource.
     if (item.kind === "metadata") {
-      const index = await host.readMetadata(), slash = name.indexOf("/"), group = name.slice(0, slash), key = decodeURIComponent(name.slice(slash + 1));
+      const index = metadata ?? await host.readMetadata(), slash = name.indexOf("/"), group = name.slice(0, slash), key = decodeURIComponent(name.slice(slash + 1));
       const target = group === "extra" ? index : index[group];
       if (target !== undefined && !object(target)) throw new VaultError(422, "Invalid local metadata group");
       return { ...item, value: target && own(target, key) ? { data: resourceData(group, (target as Record<string, unknown>)[key]) } : null };
@@ -210,32 +225,34 @@ export function createVaultSyncStore(host: Host) {
     const bytes = await readBytes(allowedFile(item.kind === "person" ? `people/${name}` : name));
     return { ...item, value: bytes === null ? null : item.kind === "person" ? { source: bytes.toString("utf8") } : { hash: hashBytes(bytes), size: bytes.length } };
   }
-  async function applyLocked(item: SyncItem, expected: string, blob?: Uint8Array) {
+  async function applyLocked(item: SyncItem, expected: string, blob?: Uint8Array, batch?: WriteBatch) {
     validate(item);
-    const existing = await readItemLocked(item);
+    // Reuse one recovered scan inside this serialized write. No snapshot survives the vault lock.
+    const pages = batch?.pages ?? await host.scan();
+    const existing = await readItemLocked(item, pages, batch?.index);
     if (itemRevision(existing) !== expected) return false;
     const name = item.key.slice(item.kind.length + 1), value = item.value;
-    const changes: { path: string; bytes: Buffer | null; expected: Buffer | null }[] = [];
-    const metadataBefore = await readBytes(path.join(root, "metadata.json"));
-    const index = await host.readMetadata();
+    const changes: Change[] = [];
+    const metadataBefore = batch ? null : await readBytes(path.join(root, "metadata.json"));
+    const index = batch?.index ?? await host.readMetadata();
     if (item.kind === "page") {
-      const current = (await host.scan()).get(name);
+      const current = pages.get(name);
       if (itemRevision(current ? pageItem(current) : absent(item)) !== expected) return false;
       if (value) {
-        const pages = await host.scan(), proposed = host.decode(value.source, path.join(root, "pages", value.file), value.metadata);
-        pages.set(name, proposed);
+        const proposed = host.decode(value.source, path.join(root, "pages", value.file), value.metadata);
+        const proposedPages = new Map(pages); proposedPages.set(name, proposed);
         const visited = new Set<string>(); let cursor: string | null = name;
         while (cursor) {
           if (visited.has(cursor)) throw new VaultError(409, "The incoming move would create a page hierarchy cycle. Review both versions.");
-          visited.add(cursor); cursor = pages.get(cursor)?.page.parent ?? null;
+          visited.add(cursor); cursor = proposedPages.get(cursor)?.page.parent ?? null;
         }
       }
-      if (current) await host.snapshot(current);
+      if (current && !batch) await host.snapshot(current);
       const file = value?.file ?? (current ? path.basename(current.filePath) : undefined);
       if (value) {
         // A remote rename cannot overwrite a different page's file.
-        const occupied = [...(await host.scan()).values()].find(page => path.basename(page.filePath).toLowerCase() === file.toLowerCase() && page.page.id !== name);
-        if (occupied || !current && await readBytes(allowedFile(`pages/${file}`))) throw new VaultError(409, "The incoming filename is already used by another local page");
+        const occupied = [...pages.values()].find(page => path.basename(page.filePath).toLowerCase() === file.toLowerCase() && page.page.id !== name);
+        if (occupied) throw new VaultError(409, "The incoming filename is already used by another local page");
         if (current && path.basename(current.filePath) !== file && path.basename(current.filePath).toLowerCase() === file.toLowerCase())
           throw new VaultError(409, "A case-only filename change needs review on this device");
         const samePath = current && path.basename(current.filePath) === file;
@@ -247,7 +264,11 @@ export function createVaultSyncStore(host: Host) {
         if (current) changes.push({ path: `pages/${file}`, bytes: null, expected: Buffer.from(current.source) });
         delete index.pages[name];
       }
-      changes.push({ path: "metadata.json", bytes: Buffer.from(JSON.stringify(index, null, 2) + "\n"), expected: metadataBefore });
+      if (batch) {
+        if (current) batch.previous.push(current);
+        if (value) pages.set(name, host.decode(value.source, path.join(root, "pages", value.file), value.metadata)); else pages.delete(name);
+      }
+      if (!batch) changes.push({ path: "metadata.json", bytes: Buffer.from(JSON.stringify(index, null, 2) + "\n"), expected: metadataBefore });
     } else if (item.kind === "metadata") {
       const slash = name.indexOf("/"), group = name.slice(0, slash), key = decodeURIComponent(name.slice(slash + 1));
       const target = group === "extra" ? index : (index[group] ??= {}) as Record<string, unknown>;
@@ -255,7 +276,7 @@ export function createVaultSyncStore(host: Host) {
       const current: SyncItem = { ...item, value: own(target, key) ? { data: resourceData(group, target[key]) } : null };
       if (itemRevision(current) !== expected) return false;
       if (value) Object.defineProperty(target, key, { value: value.data, writable: true, enumerable: true, configurable: true }); else delete target[key];
-      changes.push({ path: "metadata.json", bytes: Buffer.from(JSON.stringify(index, null, 2) + "\n"), expected: metadataBefore });
+      if (!batch) changes.push({ path: "metadata.json", bytes: Buffer.from(JSON.stringify(index, null, 2) + "\n"), expected: metadataBefore });
     } else if (item.kind === "person") changes.push({ path: `people/${name}`, bytes: value ? Buffer.from(value.source) : null, expected: existing.value ? Buffer.from(existing.value.source) : null });
     else {
       if (value && (!blob || blob.byteLength !== value.size || hashBytes(blob) !== value.hash)) throw new VaultError(422, "Attachment content does not match its checksum");
@@ -263,7 +284,35 @@ export function createVaultSyncStore(host: Host) {
       if ((previous ? hashBytes(previous) : null) !== (existing.value?.hash ?? null)) return false;
       changes.push({ path: name, bytes: value ? Buffer.from(blob!) : null, expected: previous });
     }
-    await commit(changes, { before: existing, after: item }); return true;
+    if (batch) {
+      batch.changes.push(...changes); batch.snapshots.push({ before: existing, after: item });
+      if (item.kind === "page" || item.kind === "metadata") batch.metadataChanged = true;
+    } else await commit(changes, { before: existing, after: item });
+    return true;
+  }
+  async function applyBatchLocked(items: SyncApply[]) {
+    if (items.length > 100 || new Set(items.map(entry => entry.item.key)).size !== items.length || items.some(entry => entry.item.kind === "asset"))
+      throw new VaultError(422, "Invalid local sync batch");
+    for (const entry of items) validate(entry.item);
+    const pages = await host.scan(), metadataBefore = await readBytes(path.join(root, "metadata.json"));
+    const batch: WriteBatch = { pages, index: await host.readMetadata(), changes: [], snapshots: [], previous: [], metadataChanged: false };
+    const results: boolean[] = [];
+    for (const entry of items) {
+      try { results.push(await applyLocked(entry.item, entry.expectedRevision, undefined, batch)); }
+      catch (error) { if ((error as { status?: number }).status !== 409) throw error; results.push(false); }
+    }
+    if (!batch.snapshots.length) return results;
+    if (Buffer.byteLength(JSON.stringify(batch.snapshots)) > 8 * 1024 * 1024)
+      throw new VaultError(413, "Local sync batch exceeds its recovery size limit");
+    if (batch.metadataChanged) batch.changes.push({ path: "metadata.json", bytes: Buffer.from(JSON.stringify(batch.index, null, 2) + "\n"), expected: metadataBefore });
+    for (const previous of batch.previous) await host.snapshot(previous);
+    try { await commit(batch.changes, batch.snapshots); }
+    catch (error) {
+      if ((error as { status?: number }).status !== 409) throw error;
+      // Commit checks every original before creating its journal. A stale batch has written no canonical files.
+      return results.map(() => false);
+    }
+    return results;
   }
   async function getConflictLocked(id: string) { assertId(id); await ready(); return readJson<SyncConflict>(path.join(conflictDir, `${id}.json`)); }
   async function listConflictsLocked() {
@@ -304,7 +353,12 @@ export function createVaultSyncStore(host: Host) {
     recover,
     list: () => host.serialize(listLocked),
     readItem: (item: SyncItem) => host.serialize(() => readItemLocked(item)),
+    readItems: (items: SyncItem[]) => host.serialize(async () => {
+      const pages = await host.scan(), index = await host.readMetadata();
+      const result: SyncItem[] = []; for (const item of items) result.push(await readItemLocked(item, pages, index)); return result;
+    }),
     apply: (item: SyncItem, expected: string, blob?: Uint8Array) => host.serialize(() => applyLocked(item, expected, blob)),
+    applyBatch: (items: SyncApply[]) => host.serialize(() => applyBatchLocked(items)),
     readBlob: (item: SyncItem) => host.serialize(async () => { validate(item); if (item.kind !== "asset") throw new VaultError(400, "Expected an attachment"); return (await readBytes(allowedFile(item.key.slice(6)))) ?? Buffer.alloc(0); }),
     readState: () => host.serialize(async () => {
       await ready(); const state = await readJson<SyncState>(path.join(local, "state.json"));

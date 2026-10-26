@@ -10,6 +10,9 @@ import type { Database, DatabaseDataSource, DatabaseSnapshot } from "../features
 import { databaseTree } from "../features/databases/database-tree";
 import { databaseReference } from "../features/databases/database-reference";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
+import { openVaultManager } from "../features/vault/vault-manager";
+import { applySidebarPreferences, mountSidebarPreferences } from "./sidebar-preferences";
+import { vaultAssetUrl, vaultPageUrl, vaultPrefix } from "../shared/vault-url";
 import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
 import { mountConflictDiff } from "../features/pages/conflict-diff";
 import "../features/pages/conflict-diff.css";
@@ -31,6 +34,8 @@ import { insertFormats } from "../editor/insert-format";
 import { mountServiceSettings } from "./service-settings";
 import { mountRuntimeSettings } from "./runtime-settings";
 import { mountSyncSettings, installSyncScheduler } from "../features/vault/sync-settings";
+import { mountHistorySettings } from "../features/vault/history-settings";
+import { openPageHistory } from "../features/pages/history-dialog";
 import { openPeople } from "../features/people/people-view";
 import { openAssetLibrary } from "../features/assets/asset-library";
 import { openPeopleEvent, refreshPeople } from "../features/people/people-client";
@@ -116,6 +121,7 @@ let saveTimer: ReturnType<typeof setTimeout>;
 let conflict: any = null;
 let search = "";
 let vaultPath = "";
+let browserVaultManagement = false;
 let sourceSelection: { start: number; end: number } | null = null;
 let draftWarningShown = false;
 let slashCleanup: (() => void) | undefined;
@@ -164,7 +170,7 @@ const draftSession = (() => {
     return crypto.randomUUID();
   }
 })();
-const draftKey = (id: string) => `notdown-draft:${id}:${draftSession}`;
+const draftKey = (id: string) => `notdown-draft:${vaultPrefix() ? vaultPrefix() + ":" : ""}${id}:${draftSession}`;
 const collapsed = new Set<string>();
 const libraryTreeExpansion = new Map<string, boolean>();
 const childPageExpansion = new Map<string, boolean>();
@@ -378,7 +384,7 @@ function shell() {
   app.inert = true;
   app.setAttribute("aria-busy", "true");
   app.innerHTML = `<aside class="sidebar" id="sidebar">
-    <button class="workspace-switch" data-action="settings"><img class="workspace-avatar" src="${notdownIcon}" width="28" height="28" alt="" /><span><strong>Notdown workspace</strong></span>${icon("chevrons-up-down")}</button>
+    <button class="workspace-switch" data-action="vaults" aria-label="Open knowledge bases"><img class="workspace-avatar" src="${notdownIcon}" width="28" height="28" alt="" /><span><strong>Notdown workspace</strong><small>${e(vaultPath.split(/[\\/]/).pop() || "")}</small></span>${icon("chevrons-up-down")}</button>
     <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="attachments">${icon("paperclip")}Attachments</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
     <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
@@ -394,6 +400,8 @@ function shell() {
   resizer.setAttribute("aria-controls", "sidebar");
   resizer.title = "Drag to resize sidebar; double-click to reset";
   app.append(resizer);
+  applySidebarPreferences();
+  for (const link of app.querySelectorAll<HTMLAnchorElement>(".markdown-lab-link")) link.setAttribute("href", vaultPageUrl(link.getAttribute("href")!.slice(1)));
   sidebarLayout = installSidebarLayout();
   renderSidebar();
 }
@@ -621,7 +629,7 @@ function renderPageDecoration() {
   const rawPosition = p.properties?.coverPosition;
   const position = typeof rawPosition === "number" && Number.isFinite(rawPosition) ? Math.max(0, Math.min(100, rawPosition)) : 50;
   document.querySelector(".document-wrap")?.classList.toggle("has-page-cover", hasCover);
-  coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(cover)}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition">Reposition</button><a href="${e(cover)}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover">${icon("download")}</a></div>` : "";
+  coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(vaultAssetUrl(cover))}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition">Reposition</button><a href="${e(vaultAssetUrl(cover))}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover">${icon("download")}</a></div>` : "";
   const actions = `${hasIcon ? "" : `<button data-action="page-icon">${icon("smile")}Add icon</button>`}${hasCover ? "" : `<button data-action="page-cover">${icon("image")}Add cover</button>`}`;
   host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon">${pageIcon(p)}</button>` : ""}${actions ? `<div class="page-decoration-actions">${actions}</div>` : ""}`;
   refreshIcons();
@@ -636,7 +644,7 @@ function pageOptions() {
     ["source", "code-xml", "Markdown source"],
     ["split", "columns-2", "Source and page"],
   ];
-  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}Page history</button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
 }
 function renderContent() {
   if (!current) return;
@@ -1565,6 +1573,21 @@ function showSettings() {
     "Workspace settings",
     `<div class="settings-section"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync below to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
   );
+  settingsDialog.classList.add("workspace-settings-dialog");
+  settingsDialog.setAttribute("aria-label", "Workspace settings");
+  const settingsBody = document.createElement("div"); settingsBody.className = "settings-body";
+  for (const child of Array.from(settingsDialog.children).slice(1)) settingsBody.append(child);
+  settingsDialog.append(settingsBody);
+  settingsDialog.addEventListener("cancel", event => { event.preventDefault(); closeModal(); });
+  const outside = (event: MouseEvent) => {
+    const bounds = settingsDialog.getBoundingClientRect();
+    return event.target === settingsDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+  };
+  let pressedOutside = false;
+  settingsDialog.addEventListener("pointerdown", event => { pressedOutside = outside(event); });
+  settingsDialog.addEventListener("click", event => { if (pressedOutside && outside(event)) closeModal(); pressedOutside = false; });
+  const vaultButton = document.createElement("button"); vaultButton.type = "button"; vaultButton.className = "secondary-button"; vaultButton.dataset.action = "vaults"; vaultButton.textContent = "Manage knowledge bases";
+  settingsDialog.querySelector(".vault-path")?.after(vaultButton);
   const typingSection = document.createElement("div");
   typingSection.className = "settings-section";
   const typingHeading = document.createElement("h3");
@@ -1623,9 +1646,11 @@ function showSettings() {
   const listHint = document.createElement("p");
   listHint.textContent = "Changes nested numbering for lists starting with numbers. Explicit letter and Roman numeral styles are preserved. Display only; Markdown source stays unchanged. Saved on this device.";
   settingsDialog.querySelectorAll(".settings-section")[1]?.append(listRow, listHint);
-  void mountRuntimeSettings(settingsDialog);
-  void mountServiceSettings(settingsDialog);
-  void mountSyncSettings(settingsDialog, { beforeSync: save });
+  void mountRuntimeSettings(settingsBody);
+  void mountServiceSettings(settingsBody);
+  void mountSyncSettings(settingsBody, { beforeSync: save });
+  void mountHistorySettings(settingsBody, save);
+  mountSidebarPreferences(settingsBody);
 }
 function showConflict() {
   if (!conflict) return;
@@ -2612,6 +2637,11 @@ document.addEventListener("click", (event) => {
       case "open-vault":
         if (await save()) await window.notdownDesktop?.openVaultWindow();
         break;
+      case "vaults":
+        if (window.notdownDesktop) { if (await save()) await window.notdownDesktop.openVaultWindow(); }
+        else if (browserVaultManagement) await openVaultManager(vaultPath, { save, modal, close: closeModal });
+        else toast("Restart the local server to use knowledge base management.");
+        break;
       case "export":
         await exportHTML();
         break;
@@ -2623,6 +2653,12 @@ document.addEventListener("click", (event) => {
         break;
       case "conflicts":
         await showConflicts();
+        break;
+      case "page-history":
+        if (current && await save()) await openPageHistory(structuredClone(current), { modal, restored: async page => {
+          closeModal(); destroyEditor(); current = null; dirty = false;
+          await loadPage(page.id, true); renderSidebar(); toast("Page version restored. The previous version was preserved.");
+        } });
         break;
       case "resolve-conflict":
         await resolveConflict();
@@ -2891,12 +2927,15 @@ document.addEventListener("notdown-database-updated", event => {
 });
 
 async function boot() {
+  if (location.pathname.startsWith("/v/") && !vaultPrefix()) throw new Error("Invalid knowledge base URL. Open the root address to choose a vault.");
+  if (vaultPrefix() === location.pathname) { location.replace(location.pathname + "/" + location.search + location.hash); return; }
   const [loaded, info] = await Promise.all([
     refreshWorkspacePages(),
-    api<{ vaultPath: string }>("/status"),
+    api<{ vaultPath: string; vaultManagement?: boolean }>("/status"),
   ]);
   pages = loaded;
   vaultPath = info.vaultPath;
+  browserVaultManagement = !!info.vaultManagement;
   void refreshPeople().catch(error => console.warn("People refresh:", error));
   window.addEventListener("focus", () => { void refreshPeople().catch(error => console.warn("People refresh:", error)); });
   setInterval(() => { if (document.visibilityState === "visible") void refreshPeople().catch(error => console.warn("People refresh:", error)); }, 5000);

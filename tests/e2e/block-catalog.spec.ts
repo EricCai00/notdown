@@ -36,7 +36,7 @@ test("Block Explorer browses registered blocks, previews, variants and extension
   await expect(
     page.getByRole("heading", { name: "Block Explorer" }),
   ).toBeVisible();
-  await expect(page.locator("[data-entry]")).toHaveCount(82);
+  await expect(page.locator("[data-entry]")).toHaveCount(85);
   await expect(page.locator('[data-entry="block.raw_tex"]')).toHaveCount(0);
   await expect(page.locator(".catalog-preview .pm-document")).toContainText(
     "A paragraph",

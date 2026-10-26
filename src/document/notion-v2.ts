@@ -4,6 +4,7 @@ import { createEditorNode, editorKind } from "./node-identity";
 import { inlineMarkdown } from "./editor-markdown";
 import { attributesXml, decodeXml, escapeXml, openingTag, readAttributes, type TagAttributes } from "./notion-syntax";
 import { needsMarkdownTable } from "./notdown-boundary";
+import { notionInline, parseNotionMarkdown } from "./notion-markdown";
 
 export type NotionElement = { tag: string; attrs: TagAttributes; from: number; openEnd: number; bodyEnd: number; to: number; selfClosing: boolean };
 
@@ -192,8 +193,29 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
   return node ? { node, next } : preserve(next);
 }
 
-export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => string, localProperties = false): string {
-  const write = (child: PMNode): string => notionV2BlockMarkdown(child, fallback, localProperties);
+const inlineCache = new WeakMap<PMNode, string>();
+const inlineFingerprint = (nodes: PMNode[]) => JSON.stringify(nodes.map(child => ({ ...child.toJSON(), marks: child.marks.map(mark => {
+  if (editorKind(mark) !== "color") return mark.toJSON();
+  const nfmAttrs = { ...mark.attrs.nfmAttrs };
+  delete nfmAttrs.color; delete nfmAttrs.bg_color; delete nfmAttrs.underline;
+  return { type: mark.type.name, attrs: { ...mark.attrs, nfmAttrs } };
+}) })));
+function v2InlineMarkdown(node: PMNode): string {
+  const cached = inlineCache.get(node);
+  if (cached !== undefined) return cached;
+  const options = { notionV2: true, htmlMarksFirst: true };
+  const candidate = inlineMarkdown(node, true, false, true, false, false, { ...options, notionMarkdownMarks: true });
+  // CommonMark delimiters can change meaning at whitespace and overlapping mark
+  // boundaries. Prefer them only when the actual v2 reader recovers every inline.
+  const same = inlineFingerprint(notionInline(candidate, "v2")) === inlineFingerprint(childNodes(node));
+  const result = same ? candidate : inlineMarkdown(node, true, false, true, false, false, options);
+  inlineCache.set(node, result);
+  return result;
+}
+
+export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => string, localProperties = false,
+  parse: (source: string) => PMNode = source => parseNotionMarkdown(source, undefined, undefined, "v2")): string {
+  const write = (child: PMNode): string => notionV2BlockMarkdown(child, fallback, localProperties, parse);
   const kind = editorKind(node);
   if (Object.keys(node.attrs.markdownAttrs || {}).length ||
       kind === "heading" && node.attrs.level > 4 ||
@@ -202,7 +224,7 @@ export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => 
       kind === "table" && (node.attrs.syntaxForm !== "notion" || needsMarkdownTable(node)) ||
       kind === "ordered_list" && node.attrs.markerDelimiter === ")" ||
       kind === "image_block" && node.attrs.title) return fallback(node);
-  const inline = (child: PMNode) => inlineMarkdown(child, true, false, true, false, false, { notionV2: true });
+  const inline = v2InlineMarkdown;
   const kids = childNodes(node), body = () => kids.map(write).join("\n\n");
   const attrs = { ...node.attrs.nfmAttrs, ...(node.attrs.color ? { color: node.attrs.color } : {}) };
   if (localProperties && node.attrs.syntaxForm === "notion") for (const field of localMediaFields[kind] || []) {
@@ -211,23 +233,37 @@ export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => 
   const tag = (name: string, text: string, extra: TagAttributes = {}) => `<${name}${attributesXml({ ...attrs, ...extra })}>${text}</${name}>`;
   const titleBody = () => (node.firstChild ? inline(node.firstChild) : "") + (kids.length > 1 ? "\n\n" + kids.slice(1).map(write).join("\n\n") : "");
   const caption = () => node.attrs.caption === node.attrs.sourceCaptionText ? node.attrs.sourceCaption : escapeXml(node.attrs.caption || "");
+  const noAttrs = (values: TagAttributes, allowed: string[] = []) => Object.keys(values).every(key => allowed.includes(key));
+  const plainTextBlock = (child: PMNode) => editorKind(child) === "paragraph" &&
+    !Object.keys(child.attrs.nfmAttrs || {}).length && !Object.keys(child.attrs.markdownAttrs || {}).length && !child.attrs.color &&
+    !/^\s|\s$/.test(child.textContent);
   switch (editorKind(node)) {
-    case "paragraph": return node.content.size ? Object.keys(attrs).length || /^\s|\s$|^</.test(inline(node)) ? tag("p", inline(node)) : inline(node) : `<p${attributesXml(attrs)} />`;
-    case "heading": return tag(node.attrs.toggle ? "toggle" : `h${Math.min(4,node.attrs.level)}`, inline(node), node.attrs.toggle ? { heading: `h${Math.min(4,node.attrs.level)}` } : {});
+    case "paragraph": return node.content.size ? Object.keys(attrs).length || /^\s|\s$/.test(node.textContent) || /^<[^>]+\s*\/>$/.test(inline(node)) ? tag("p", inline(node)) : inline(node) : `<p${attributesXml(attrs)} />`;
+    case "heading": return !node.attrs.toggle && !Object.keys(attrs).length && !/^\s|\s$/.test(node.textContent) && !inline(node).includes("\n")
+      ? `${"#".repeat(Math.min(4, node.attrs.level))} ${inline(node).replace(/(\s)(#+)$/, (_match, space: string, hashes: string) => space + hashes.replace(/#/g, "\\#"))}`
+      : tag(node.attrs.toggle ? "toggle" : `h${Math.min(4,node.attrs.level)}`, inline(node), node.attrs.toggle ? { heading: `h${Math.min(4,node.attrs.level)}` } : {});
     case "nested_block": {
       const head = node.firstChild!, kind = editorKind(head), name = kind === "heading" ? head.attrs.toggle ? "toggle" : `h${Math.min(4,head.attrs.level)}` : "p";
       return `<${name}${attributesXml({ ...head.attrs.nfmAttrs, ...(head.attrs.color ? { color: head.attrs.color } : {}), ...(head.attrs.toggle ? { heading: `h${Math.min(4,head.attrs.level)}` } : {}) })}>${titleBody()}</${name}>`;
     }
-    case "blockquote": return tag("quote", titleBody());
+    case "blockquote": return !Object.keys(attrs).length && kids.length === 1 && plainTextBlock(kids[0])
+      ? inline(kids[0]).split("\n").map(line => `> ${line}`).join("\n") : tag("quote", titleBody());
     case "toggle_block": return tag("toggle", titleBody());
     case "bullet_list":
     case "ordered_list": {
+      const ordered = kind === "ordered_list";
+      const plain = noAttrs(attrs, ordered && (!attrs.type || attrs.type === "1") ? ["type"] : []) &&
+        (!ordered || !node.attrs.markerStyle || node.attrs.markerStyle === "decimal") &&
+        kids.every(item => noAttrs(item.attrs.nfmAttrs || {}, item.attrs.checked !== null ? ["checked"] : []) &&
+          !item.attrs.color && item.childCount === 1 && plainTextBlock(item.firstChild!) && !inline(item.firstChild!).includes("\n"));
+      if (plain) return kids.map((item, index) => `${ordered ? `${Number(node.attrs.order) + index}.` : "-"} ${item.attrs.checked === null ? "" : item.attrs.checked ? "[x] " : "[ ] "}${inline(item.firstChild!)}`).join("\n");
       if (kids.every(child => child.attrs.checked !== null)) return kids.map(write).join("\n\n");
       if (editorKind(node) === "ordered_list" && node.attrs.order > 1) return kids.map((child, index) => `${node.attrs.order + index}. ${childNodes(child).map((part, n) => n ? write(part) : inline(part)).join("\n\n").replace(/\n/g, "\n    ")}`).join("\n");
       return tag(editorKind(node) === "ordered_list" ? "ol" : "ul", "\n" + body() + "\n", editorKind(node) === "ordered_list" ? { type: node.attrs.markerStyle === "alpha" ? "a" : node.attrs.markerStyle === "roman" ? "i" : "1" } : {});
     }
     case "bullet_list_item": case "numbered_list_item": return tag("li", titleBody());
-    case "task_list_item": return tag("todo", titleBody(), { checked: String(node.attrs.checked) });
+    case "task_list_item": return noAttrs(attrs, ["checked"]) && kids.length === 1 && plainTextBlock(kids[0]) && !inline(kids[0]).includes("\n")
+      ? `- [${node.attrs.checked ? "x" : " "}] ${inline(kids[0])}` : tag("todo", titleBody(), { checked: String(node.attrs.checked) });
     case "columns": case "column": return tag(editorKind(node), "\n" + body() + "\n");
     case "callout": return tag("callout", body(), { icon: node.attrs.icon });
     case "synced_block": return tag(node.attrs.reference ? "synced-block-reference" : "synced-block", body(), { ...(node.attrs.url ? { url: node.attrs.url } : {}) });
@@ -244,13 +280,42 @@ export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => 
     case "external_object_instance": return tag("external_object_instance", escapeXml(node.attrs.label), { integration: node.attrs.integration, ...(node.attrs.url ? { url: node.attrs.url } : {}) });
     case "web_bookmark": return node.attrs.syntaxForm === "notion" ? tag("bookmark", caption(), { source: node.attrs.url }) : fallback(node);
     case "link_preview": return node.attrs.syntaxForm === "notion" ? `<link-preview${attributesXml({ ...attrs, url: node.attrs.url })} />` : fallback(node);
-    case "image_block": if (Object.keys(node.attrs.markdownAttrs || {}).length) return fallback(node); return tag("image", caption(), { source: node.attrs.src });
+    case "image_block": {
+      if (Object.keys(node.attrs.markdownAttrs || {}).length) return fallback(node);
+      if (noAttrs(attrs, ["source"]) && !/[\r\n<>]/.test(node.attrs.caption || "") && !/[\r\n]/.test(node.attrs.src || "") &&
+          (!node.attrs.sourceCaption || node.attrs.sourceCaption === escapeXml(node.attrs.sourceCaptionText || ""))) {
+        const alt = String(node.attrs.caption || "").replace(/[\\`*_[\]<>~]/g, "\\$&").replace(/&/g, "&amp;");
+        const url = String(node.attrs.src || "").replace(/</g, "%3C").replace(/>/g, "%3E").replace(/[\r\n]/g, "");
+        const candidate = `![${alt}](${/[\s()]/.test(url) ? `<${url}>` : url})`;
+        const reopened = parse(candidate).firstChild;
+        if (reopened?.type === node.type && reopened.attrs.src === node.attrs.src && reopened.attrs.caption === node.attrs.caption) return candidate;
+      }
+      return tag("image", caption(), { source: node.attrs.src });
+    }
     case "media_block": return tag(node.attrs.type, caption(), { source: node.attrs.src });
     case "web_embed": return node.attrs.syntaxForm === "notion" ? tag("embed", caption(), { source: node.attrs.url }) : fallback(node);
     case "notion_embed": return tag("embed", caption(), { source: node.attrs.src });
     case "table_of_contents": return `<table-of-contents${attributesXml(attrs)} />`;
-    case "equation": return tag("equation", escapeXml(node.textContent));
-    case "table": { const cols = node.attrs.columnAttrs?.length ? node.attrs.columnAttrs : (node.attrs.widths || []).map((width: string) => ({ width })); return tag("table", (cols.length ? `<colgroup>${cols.map((col: TagAttributes) => `<col${attributesXml(col)} />`).join("")}</colgroup>\n` : "") + kids.map(row => `<tr${attributesXml(row.attrs.nfmAttrs)}>${childNodes(row).map(cell => `<${cell.attrs.header ? "th" : "td"}${attributesXml(cell.attrs.nfmAttrs)}>${childNodes(cell).map(inline).join("<br />")}</${cell.attrs.header ? "th" : "td"}>`).join("")}</tr>`).join("\n")); }
+    case "equation": return !Object.keys(attrs).length && !/^\s*\$\$\s*$/m.test(node.textContent)
+      ? `$$\n${node.textContent}\n$$` : tag("equation", escapeXml(node.textContent));
+    case "table": {
+      const cols = node.attrs.columnAttrs?.length ? node.attrs.columnAttrs : (node.attrs.widths || []).map((width: string) => ({ width }));
+      const width = kids[0]?.childCount || 0;
+      const header = attrs["header-row"] === "true" || childNodes(kids[0]).every(cell => cell.attrs.header);
+      const plain = width > 0 && header && noAttrs(attrs, ["header-row"]) &&
+        cols.every((col: TagAttributes) => Object.values(col).every(value => !value)) &&
+        kids.every((row, index) => !Object.keys(row.attrs.nfmAttrs || {}).length && row.childCount === width &&
+          childNodes(row).every(cell => !Object.keys(cell.attrs.nfmAttrs || {}).length && cell.attrs.colspan === 1 && cell.attrs.rowspan === 1 &&
+            (!index || !cell.attrs.header) && cell.childCount === 1 && plainTextBlock(cell.firstChild!) && !inline(cell.firstChild!).includes("\n")));
+      if (plain) {
+        const rows = kids.map(row => `| ${childNodes(row).map(cell => inline(cell.firstChild!).replace(/\\?\|/g, "\\|")).join(" | ")} |`);
+        rows.splice(1, 0, `| ${Array.from({ length: width }, () => "---").join(" | ")} |`);
+        const candidate = rows.join("\n"), reopened = parse(candidate).firstChild;
+        const cells = (table: PMNode) => JSON.stringify(childNodes(table).map(row => childNodes(row).map(cell => inlineFingerprint(childNodes(cell.firstChild!)))));
+        if (reopened?.type === node.type && cells(reopened) === cells(node)) return candidate;
+      }
+      return tag("table", (cols.length ? `<colgroup>${cols.map((col: TagAttributes) => `<col${attributesXml(col)} />`).join("")}</colgroup>\n` : "") + kids.map(row => `<tr${attributesXml(row.attrs.nfmAttrs)}>${childNodes(row).map(cell => `<${cell.attrs.header ? "th" : "td"}${attributesXml(cell.attrs.nfmAttrs)}>${childNodes(cell).map(inline).join("<br />")}</${cell.attrs.header ? "th" : "td"}>`).join("")}</tr>`).join("\n"));
+    }
     default: return fallback(node);
   }
 }

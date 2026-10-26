@@ -6,7 +6,8 @@ import os from "node:os";
 import { createVault } from "../../server/vault";
 import { createVault as portableVault } from "../../src/vault/vault";
 import { nodeVaultPlatform } from "../../server/vault-platform";
-import { synchronize } from "../../src/sync/engine";
+import { synchronize, type SyncProgress } from "../../src/sync/engine";
+import { createSyncService } from "../../src/sync/service";
 import { absent, itemRevision, sameItem, type SyncItem } from "../../src/sync/protocol";
 import { TestSyncRemote } from "./sync-fixture";
 import { hashBytes } from "../../src/vault/crypto";
@@ -20,6 +21,60 @@ async function setup(t: test.TestContext) {
   const sync = (vault: typeof a) => synchronize(vault.syncStore, remote, "test-account/notebook");
   return { a, b, remote, sync, directory };
 }
+
+test("progress updates before the pull batch finishes and never completes a failed run", async t => {
+  const { a, b, remote, sync } = await setup(t);
+  await a.create({ title: "First resource", body: "one" });
+  await a.create({ title: "Second resource", body: "two" });
+  await sync(a);
+  const snapshots: SyncProgress[] = [];
+  // Exercise the adapter fallback separately from the batch recovery tests.
+  const fallback = { ...b.syncStore, readItems: undefined, applyBatch: undefined };
+  const apply = b.syncStore.apply;
+  let attempts = 0;
+  fallback.apply = async (...args) => {
+    if (++attempts === 2) {
+      assert.ok(snapshots.some(p => p.phase === "applying" && p.completed === 1 && p.downloaded === 1));
+      throw new Error("Interrupted download");
+    }
+    return apply(...args);
+  };
+  await assert.rejects(synchronize(fallback, remote, "test-account/notebook", p => snapshots.push(p)), /Interrupted/);
+  assert.ok(snapshots.some(p => p.phase === "reading" && p.total === undefined));
+  assert.equal(snapshots.some(p => p.phase === "complete"), false);
+  assert.equal(snapshots.at(-1)!.downloaded, 1);
+  fallback.apply = apply;
+  const retried: SyncProgress[] = [];
+  const result = await synchronize(fallback, remote, "test-account/notebook", p => retried.push(p));
+  assert.equal(retried[0].downloaded, 0);
+  assert.equal(result.phase, "complete"); assert.equal(result.downloaded, 1);
+  assert.equal((await b.list()).length, 2);
+});
+
+test("progress-only status never reads or waits for local vault files", async t => {
+  const { a } = await setup(t);
+  const unavailable = async (): Promise<never> => { throw new Error("Vault lock is busy"); };
+  const service = createSyncService({ ...a.syncStore, readConnection: unavailable, readState: unavailable, conflicts: unavailable }, `${a.vaultPath}/progress-only`);
+  assert.deepEqual(await service.handle("progress", "GET"), { running: false, progress: undefined, error: undefined });
+});
+
+test("a synced page write scans once within its lock and still rejects a later external edit", async t => {
+  const { a, b, sync, directory } = await setup(t);
+  const note = await a.create({ title: "Scan once", body: "base" }); await sync(a); await sync(b);
+  const root = path.join(directory, "android"); let scans = 0;
+  const instrumented = portableVault(root, { ...nodeVaultPlatform, id: "scan-count", fs: {
+    ...nodeVaultPlatform.fs,
+    async readdir(folder, options) { if (folder === path.join(root, "pages")) scans++; return nodeVaultPlatform.fs.readdir(folder, options); },
+  } });
+  const item = (await instrumented.syncStore.list()).find(item => item.key === `page:${note.id}`)!;
+  const incoming = structuredClone(item); incoming.value!.source = "cloud edit";
+  scans = 0;
+  assert.equal(await instrumented.syncStore.apply(incoming, itemRevision(item)), true);
+  assert.equal(scans, 1);
+  await fs.writeFile(path.join(root, "pages", incoming.value!.file), "external edit");
+  assert.equal(await instrumented.syncStore.apply(item, itemRevision(incoming)), false);
+  assert.equal((await instrumented.get(note.id)).body, "external edit");
+});
 
 test("desktop and portable vault converge with original Markdown, metadata, contacts and binary attachments", async t => {
   const { a, b, sync } = await setup(t);
@@ -198,6 +253,6 @@ test("completed history stores resource snapshots and preserves replaced attachm
   const directory = path.join(b.vaultPath, ".history/sync");
   for (const filename of (await fs.readdir(directory)).filter(file => file.endsWith(".json"))) {
     const record = JSON.parse(await fs.readFile(path.join(directory, filename), "utf8"));
-    assert.ok(record.snapshot); assert.equal(record.files.some((file: any) => "before" in file || "after" in file), false);
+    assert.ok(record.snapshot || record.snapshots?.length); assert.equal(record.files.some((file: any) => "before" in file || "after" in file), false);
   }
 });

@@ -6,7 +6,8 @@ export const davCredentials = { email: "notdown@example.invalid", password: "tes
 export async function createWebDavFixture() {
   const files = new Map<string, Buffer>(), directories = new Set(["/dav/"]);
   const requests: { method: string; path: string; ifMatch?: string }[] = [];
-  const flags = { ignoreIfMatch: false, ignoreIfNoneMatch: true, dropHeadResponse: false, unauthorized: false, throttle: false, weakEtag: false };
+  const flags = { ignoreIfMatch: false, ignoreIfNoneMatch: true, dropHeadResponse: false, unauthorized: false, throttle: false, weakEtag: false,
+    bareEtag: true, mkcolStatus: 0, idempotentMkcol: true };
   const authorization = "Basic " + Buffer.from(`${davCredentials.email}:${davCredentials.password}`).toString("base64");
   const server = http.createServer(async (req, res) => {
     const path = new URL(req.url!, "http://localhost").pathname, method = req.method!;
@@ -17,9 +18,11 @@ export async function createWebDavFixture() {
     if (flags.unauthorized || req.headers.authorization !== authorization) { res.writeHead(401); res.end(); return; }
     if (flags.throttle) { res.writeHead(429, { "Retry-After": "120" }); res.end(); return; }
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk)); const body = Buffer.concat(chunks);
-    const current = files.get(path), etag = current ? `"${hashBytes(current)}"` : undefined;
+    const current = files.get(path), etag = current ? flags.bareEtag ? hashBytes(current) : `"${hashBytes(current)}"` : undefined;
     if (method === "MKCOL") {
-      if (directories.has(path) || files.has(path)) { res.writeHead(405); res.end(); return; }
+      if (flags.mkcolStatus) { res.writeHead(flags.mkcolStatus); res.end(); return; }
+      if (path.split("/")[2].length > 30) { res.writeHead(400); res.end("sandbox name is too long"); return; }
+      if (directories.has(path) || files.has(path)) { res.writeHead(directories.has(path) && flags.idempotentMkcol ? 201 : 405); res.end(); return; }
       const parent = path.replace(/[^/]+\/$/, "");
       if (!directories.has(parent)) { res.writeHead(409); res.end(); return; }
       directories.add(path); res.writeHead(201); res.end(); return;
@@ -44,6 +47,7 @@ export async function createWebDavFixture() {
       res.end(method === "HEAD" ? undefined : current); return;
     }
     if (method === "DELETE") {
+      if (directories.has(path) && path.split("/").filter(Boolean).length === 2) { res.writeHead(403); res.end(); return; }
       if (!current && !directories.has(path)) { res.writeHead(404); res.end(); return; }
       files.delete(path); for (const key of files.keys()) if (key.startsWith(path)) files.delete(key);
       directories.delete(path); for (const key of directories) if (key.startsWith(path)) directories.delete(key);

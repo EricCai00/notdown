@@ -17,12 +17,27 @@ Windows 桌面应用使用 `npm run desktop`；打包、原生目录选择和独
 
 ## 选择知识库
 
-浏览器服务默认使用仓库下的 `vault/`。如需其他目录，在启动服务前设置 `VAULT_PATH`，例如 PowerShell：
+每个知识库使用一个独立目录，内含 `pages/`、`assets/`、`metadata.json`、`.notdown/` 和 `.history/`。数据目录直接容纳各库，例如 `D:\ProgramData\Notdown\Default\` 和 `D:\ProgramData\Notdown\Work\`，无需额外的 `vaults/` 层级。桌面欢迎页可按名称在数据目录下创建或打开知识库，也支持继续选择其他位置的文件夹。
+
+浏览器版无需重启服务即可通过侧栏顶部或设置的 **Manage knowledge bases** 新建、打开和切换库，操作见[知识库管理](../features/DESKTOP-AND-IMPORT.md#使用流程)。浏览器服务按 `/v/<目录身份>/` 分派至各库独立的 `createApp`，默认根地址仍绑定启动库；API 与附件均按 URL 路由，不通过全局“当前库”切换。
+
+默认数据目录在 Windows 为 `%LOCALAPPDATA%\Notdown`，其他平台为 `$XDG_DATA_HOME/Notdown`（未设置时使用 `~/.local/share/Notdown`），默认库名为 `Default`。未配置新数据目录且仓库下已有旧 `vault/pages/` 时继续使用原库，不自动迁移。需要指定单个知识库时仍可设置 `VAULT_PATH`，例如 PowerShell：
 
 ```powershell
 $env:VAULT_PATH = 'D:\Notes\Notdown'
 npm run dev
 ```
+
+也可以在仓库根目录的本机 `.env` 文件中保存路径，供 `npm run dev`、`npm start` 和 `start.cmd` 使用，无需每次设置环境变量：
+
+```dotenv
+NOTDOWN_DATA_PATH=D:\ProgramData\Notdown
+NOTDOWN_VAULT_NAME=Default
+```
+
+终端已有的环境变量优先于 `.env`，`VAULT_PATH` 优先于数据目录和库名。源码桌面版也读取本机 `.env`；打包桌面版可通过环境变量指定数据目录，默认使用上述平台路径。隔离桌面测试使用独立临时数据目录。
+
+该文件和仓库下的旧 `vault/` 均被 Git 忽略，用户内容不加入源码版本管理。迁移知识库前先停止写入该库的服务，备份整个目录（包括隐藏目录），再完整移动到目标位置、更新 `.env` 和桌面最近目录并启动。迁移后检查设置中显示的实际知识库路径。可选的本地 Git 历史单独存放在每库内部，配置、保留和恢复见[知识库元数据](../features/VAULT-METADATA.md#可选本地-git-历史)。
 
 仅首次启动新建的默认知识库时创建示例笔记；已有知识库和显式指定的目录不自动填充。普通 Markdown 不需要应用专用 YAML；文件与属性读取规则见[知识库元数据](../features/VAULT-METADATA.md)。已有普通 Markdown 文件夹可通过 **Import Markdown folder** 复制导入。
 

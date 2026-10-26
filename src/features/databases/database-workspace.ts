@@ -1,5 +1,6 @@
 import { api, escape as e, type Page } from "../../shared/types";
 import { documentMetadata } from "../metadata/document-metadata";
+import { databaseViewProperties } from "./database-columns";
 import { databasePropertyReadOnly, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabasePropertyType, type DatabaseSnapshot, type DatabaseView } from "./database-model";
 import { createElement, Table2, Plus, ChevronDown, Type, CircleChevronDown, AlignLeft, SquareCheck, Hash, Calendar, Link, Users, FileText, PanelRight, ListFilter, ArrowDownUp, Search, SlidersHorizontal, Ellipsis, ArrowLeft, X, Check, PanelsTopLeft, type IconNode } from "lucide";
 import { DatabasePeek } from "./database-peek";
@@ -9,7 +10,7 @@ import "./databases.css";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
 type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
-type Hooks = { vaultKey: string; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown> };
+type Hooks = { vaultKey: string; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown> };
 const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"];
 const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone" };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -358,8 +359,7 @@ export class DatabaseWorkspace {
     searchInput.addEventListener("input", () => { this.search = searchInput.value; this.scheduleRows(); });
     searchHost.querySelector("button")!.addEventListener("click", () => { this.showSearch = false; this.search = ""; searchInput.value = ""; searchHost.hidden = true; this.scheduleRows(); });
     if (!source) { this.message("This database has no available data source."); this.host.querySelectorAll<HTMLButtonElement>("[data-db-row],[data-db-new-view],[data-db-view],[data-db-filter],[data-db-sort]").forEach(button => button.disabled = true); return; }
-    const fields = view?.propertyIds ? view.propertyIds.map(id => source.properties.find(field => field.id === id)).filter((field): field is DatabaseProperty => !!field) : source.properties;
-    if (!fields.some(field => field.type === "title")) { const title = source.properties.find(field => field.type === "title"); if (title) fields.unshift(title); }
+    const fields = databaseViewProperties(source, view, snapshot.database);
     const heading = this.host.querySelector("thead tr")!;
     for (const field of fields) {
       const th = document.createElement("th"), button = document.createElement("button"); th.dataset.type = field.type; th.setAttribute("aria-label", field.name); button.innerHTML = `${typeIcon(field.type)}<span>${e(field.name)}</span>`; button.title = `Edit ${field.name} property`; button.setAttribute("aria-label", `Edit ${field.name} property`);
@@ -414,6 +414,7 @@ export class DatabaseWorkspace {
   private async openPeek(id: string) {
     const generation = ++this.opening;
     if (!(await this.flush()) || generation !== this.opening) return;
+    if (this.hooks.interactionMode === "touch") { await this.hooks.openPage(id); return; }
     try {
       const page = await api<Page>(`/pages/${encodeURIComponent(id)}`);
       if (!this.alive || generation !== this.opening) return;
@@ -475,8 +476,10 @@ export class DatabaseWorkspace {
     });
   }
   private editView(title = "View settings") {
-    const view = this.view, fields = this.source.properties;
+    const view = this.view;
     if (!view) return;
+    const ordered = databaseViewProperties(this.source, view, this.snapshot!.database);
+    const fields = [...ordered, ...this.source.properties.filter(field => !ordered.some(visible => visible.id === field.id))];
     const sort = view.sorts?.[0] as { propertyId?: string; direction?: string } | undefined;
     const filter = view.filters?.[0] as { propertyId?: string; value?: string } | undefined;
     const options = (selected?: string) => `<option value="">None</option>${fields.map(field => `<option value="${e(field.id)}" ${field.id === selected ? "selected" : ""}>${e(field.name)}</option>`).join("")}`;

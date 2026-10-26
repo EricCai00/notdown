@@ -4,6 +4,7 @@ import { archiveLimits, validateArchive, type VaultArchiveFile } from "../vault/
 import { Capacitor } from "@capacitor/core";
 import { NativeVault } from "./native-platform";
 import { isSyncLocalFile } from "../vault/sync-store";
+import { isHistoryTransientFile } from "../vault/history";
 
 export function readVaultZip(bytes: Uint8Array): VaultArchiveFile[] {
   if (bytes.byteLength > archiveLimits.bytes) throw new Error("Backup ZIP exceeds 128 MB");
@@ -24,7 +25,7 @@ export function readVaultZip(bytes: Uint8Array): VaultArchiveFile[] {
     if (files.length && files.every(file => file.path.startsWith(prefix))) files = files.map(file => ({ ...file, path: file.path.slice(prefix.length) }));
   }
   // A desktop vault may have been zipped while its service held a transient lock.
-  files = files.filter(file => file.path !== ".history/vault.lock" && !isSyncLocalFile(file.path));
+  files = files.filter(file => file.path !== ".history/vault.lock" && !isHistoryTransientFile(file.path) && !isSyncLocalFile(file.path));
   validateArchive(files); return files;
 }
 export function writeVaultZip(files: VaultArchiveFile[]): Uint8Array {

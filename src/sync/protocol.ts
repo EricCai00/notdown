@@ -4,14 +4,16 @@ export type SyncKind = "page" | "metadata" | "person" | "asset";
 export type SyncItem = { key: string; kind: SyncKind; value: Record<string, any> | null };
 export type RemoteItem = { item: SyncItem; version: number };
 export type SyncMutation = { item: SyncItem; expectedVersion: number };
+export type SyncApply = { item: SyncItem; expectedRevision: string };
 export type SyncBatch = { id: string; mutations: SyncMutation[] };
 export type SyncPushResult = { accepted: true; items: RemoteItem[] } | { accepted: false; items: RemoteItem[] };
+export type TransferProgress = (completed: number, total: number) => void;
 export interface SyncRemote {
   maxBatchItems?: number;
-  pull(cursor: number): Promise<{ cursor: number; items: RemoteItem[]; more: boolean }>;
+  pull(cursor: number, notify?: TransferProgress): Promise<{ cursor: number; items: RemoteItem[]; more: boolean }>;
   push(batch: SyncBatch): Promise<SyncPushResult>;
-  upload(hash: string, bytes: Uint8Array): Promise<void>;
-  download(hash: string): Promise<Uint8Array>;
+  upload(hash: string, bytes: Uint8Array, notify?: TransferProgress): Promise<void>;
+  download(hash: string, notify?: TransferProgress): Promise<Uint8Array>;
 }
 export type SyncConflict = {
   id: string; key: string; base: SyncItem | null; local: SyncItem; remote: RemoteItem;
@@ -27,7 +29,9 @@ export interface SyncStore {
   writeState(state: SyncState, expected: string): Promise<void>;
   list(): Promise<SyncItem[]>;
   readItem(item: SyncItem): Promise<SyncItem>;
+  readItems?(items: SyncItem[]): Promise<SyncItem[]>;
   apply(item: SyncItem, expectedRevision: string, blob?: Uint8Array): Promise<boolean>;
+  applyBatch?(items: SyncApply[]): Promise<boolean[]>;
   preserveConflict(conflict: SyncConflict): Promise<void>;
   getConflict(id: string): Promise<SyncConflict | null>;
   readBlob(item: SyncItem): Promise<Uint8Array>;

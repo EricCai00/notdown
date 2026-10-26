@@ -63,7 +63,7 @@ export const readNotionAsset: ReadNotionAsset = async (address, signal, maxBytes
 };
 
 /** One cache per preview; asset names are stable content hashes, never URL names. */
-export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAsset; remaining(): number; reserve(bytes: number): void; warn(message: string): void }) {
+export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAsset; remaining(): number; reserve(bytes: number): void; warn(message: string): void; onRead?: (name: string | undefined, attempt: number) => void }) {
   const assets: ImportPlan["assets"] = [], cache = new Map<string, string>();
   const names = new Map<string, { asset: ImportPlan["assets"][number]; priority: number }>(); let attempts = 0;
   const rememberName = (filename: string, value: unknown, priority: number) => {
@@ -77,6 +77,7 @@ export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAs
     try {
       options.signal.throwIfAborted();
       if (++attempts > 500 || max <= 0) throw new Error("Attachment budget reached");
+      options.onRead?.(safeName(nameHint) ?? notionAssetName(url), attempts);
       const signal = AbortSignal.any([options.signal, AbortSignal.timeout(20_000)]);
       // The timer also bounds DNS and injected transports that do not observe abort.
       const file = await new Promise<NotionAsset>((resolve, reject) => {

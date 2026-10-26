@@ -10,6 +10,7 @@ import {
 } from "../../server/notion-import.js";
 import { createVault } from "../../server/vault.js";
 import { createApp } from "../../server/app.js";
+import { enrichmentFixture, enrichmentRoot, unknownTag } from "./notion-block-import-fixture.js";
 import {
   notionRoot,
   notionChild,
@@ -370,4 +371,73 @@ test("HTTP preview is read-only, hides tokens and commit reuses exact archived s
     (await app.locals.vault.get(preview.documents[0].id)).body,
     notionSource,
   );
+});
+
+test("HTTP previews resolve prior Notion imports without modifying them and exclude ambiguous or trashed targets", async t => {
+  const calls: string[] = [], fixture = enrichmentFixture(calls);
+  let denyLinkedTitle = false;
+  const source = `<mention-page url="https://www.notion.so/${notionChild}">Mention</mention-page>\n\n${unknownTag(1)}\n`;
+  const app = createApp({ vaultPath: await temporary(t), notionImportTransport: { wait, fetch: async (input, init) => {
+    const response = await fixture(input, init);
+    if (denyLinkedTitle && new URL(String(input)).pathname === `/v1/pages/${notionChild}`)
+      return Response.json({ object: "error" }, { status: 404 });
+    if (new URL(String(input)).pathname === `/v1/pages/${enrichmentRoot}/markdown`)
+      return Response.json({ ...(await response.json()), markdown: source });
+    return response;
+  } } });
+  await app.locals.vault.init();
+  const vault = app.locals.vault;
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    app.locals.closeRNotebook();
+  });
+  const base = `http://127.0.0.1:${(server.address() as import("node:net").AddressInfo).port}/api`;
+  const preview = async (pageId: string, variant = "notdown") => {
+    const response = await fetch(`${base}/notion/import/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...request, pageId, variant, includeChildren: false }) });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const commit = async (id: string) => {
+    const response = await fetch(`${base}/import/commit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const prior = await preview(notionChild);
+  await commit(prior.id);
+  const target = await vault.get(prior.documents[0].id);
+  const edited = await vault.update(target.id, { title: "Renamed locally", body: "Local draft" }, target.revision);
+  calls.length = 0;
+  const root = await preview(enrichmentRoot);
+  assert.equal(root.pages, 1);
+  assert.ok(root.documents[0].source.includes(`<mention-page url="#page/${target.id}">Mention</mention-page>`));
+  assert.ok(root.documents[0].source.includes(`<page-link future="keep" url="#page/${target.id}">`));
+  assert.ok(!calls.some(call => call.includes(`/pages/${notionChild}/markdown`) || call.includes(`/blocks/${notionChild}/children`)));
+  assert.deepEqual(await vault.get(target.id), edited);
+  await commit(root.id);
+  const repeat = await preview(enrichmentRoot);
+  assert.equal(repeat.id, root.id);
+  assert.equal((await commit(repeat.id)).alreadyImported, true);
+  assert.deepEqual(await vault.get(target.id), edited);
+  denyLinkedTitle = true;
+  const unreadable = await preview(enrichmentRoot);
+  assert.ok(unreadable.documents[0].source.includes(`<page-link future="keep" url="#page/${target.id}">Linked page</page-link>`));
+  assert.ok(unreadable.warnings.some((w: string) => w.includes(notionChild) && w.includes("title unavailable")));
+  denyLinkedTitle = false;
+  const duplicate = await preview(notionChild, "notion-markdown");
+  await commit(duplicate.id);
+  const ambiguous = await preview(enrichmentRoot);
+  assert.ok(ambiguous.documents[0].source.includes(`url="https://www.notion.so/${notionChild}"`));
+  assert.ok(ambiguous.warnings.some((w: string) => w.includes(notionChild) && w.includes("multiple existing local copies")));
+  const copy = await vault.get(duplicate.documents[0].id);
+  await vault.update(copy.id, { trashed: true }, copy.revision);
+  assert.equal((await preview(enrichmentRoot)).id, root.id);
+  const folder = await vault.create({ title: "Trashed parent" });
+  await vault.update(target.id, { parent: folder.id }, edited.revision);
+  await vault.update(folder.id, { trashed: true }, folder.revision);
+  const unavailable = await preview(enrichmentRoot);
+  assert.ok(!unavailable.documents[0].source.includes(`#page/${target.id}`));
+  assert.ok(unavailable.warnings.some((w: string) => w.includes(notionChild) && w.includes("not imported")));
 });

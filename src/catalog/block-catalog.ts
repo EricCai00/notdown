@@ -1,3 +1,4 @@
+import { vaultPageUrl } from "../shared/vault-url";
 import {
   blockCatalog,
   childStructureCatalog,
@@ -21,6 +22,7 @@ import {
 } from "./catalog-relations";
 import {
   dialects,
+  dialectGroups,
   extensions,
   enabled,
   supportsOption,
@@ -47,7 +49,7 @@ const escape = (value: string) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 const root = document.querySelector<HTMLDivElement>("#catalog")!;
-root.innerHTML = `<header class="catalog-header"><a href="/">← Notdown</a><span>REFERENCE LIBRARY</span></header>
+root.innerHTML = `<header class="catalog-header"><a href="${vaultPageUrl("")}">← Notdown</a><span>REFERENCE LIBRARY</span></header>
 <main class="catalog-main"><div class="catalog-intro"><p>Explore your building blocks</p><h1>Block Explorer</h1><p>Content objects, editing capabilities and source encodings. Examples stay in this preview and never write to your vault.</p></div>
 <nav class="catalog-tabs" aria-label="Browse catalog"><button data-tab="blocks" aria-pressed="true">Content objects</button><button data-tab="implementation" aria-pressed="false">Child structures</button><button data-tab="dialects" aria-pressed="false">Markdown variants</button><button data-tab="extensions" aria-pressed="false">Extensions</button></nav>
 <div class="catalog-filters"><label>Search<input type="search" aria-label="Search catalog" placeholder="Name, alias or extension…"/></label><label class="category-filter">Category<select aria-label="Block category"><option value="">All categories</option>${["block", "metadata", "inline", "character"].map((c) => `<option>${c}</option>`).join("")}</select></label><label class="extension-category-filter" hidden>Extension source<select aria-label="Extension source"><option value="">All sources</option>${Object.entries(
@@ -56,7 +58,7 @@ root.innerHTML = `<header class="catalog-header"><a href="/">← Notdown</a><spa
   .map(([id, label]) => `<option value="${id}">${label}</option>`)
   .join(
     "",
-  )}</select></label><label class="dialect-filter">Dialect<select aria-label="Catalog dialect">${dialects.map((d) => `<option value="${d.id}">${d.label}</option>`).join("")}</select></label></div>
+  )}</select></label><label class="dialect-filter">Dialect<select aria-label="Catalog dialect">${dialectGroups.map((group) => `<optgroup label="${group.label}">${group.dialects.map((d) => `<option value="${d.id}">${d.label}</option>`).join("")}</optgroup>`).join("")}</select></label></div>
 <p class="catalog-count" aria-live="polite"></p><div class="catalog-layout"><section class="catalog-results" aria-label="Catalog results"></section><aside class="catalog-detail" aria-label="Block details"></aside></div></main>`;
 let tab = "blocks",
   query = "",

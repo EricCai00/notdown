@@ -1007,7 +1007,7 @@ export function serializeNative(doc: PMNode, config: SyntaxConfig): string {
         (needsMarkdownTable(node) || isEditorKind(node, "code_block") && node.attrs.markdownAttrs?.caption !== undefined))
       throw new Error("Supplemental Notion content can only be written in the Notdown variant. Preserve the original source or switch variants.");
   });
-  if (usesNotionSyntax(config) && config.notionVersion === "v2") return serializeEditorMarkdown(doc, node => notionV2BlockMarkdown(node, child => config.variant === "notdown" ? writeNotdownBlock(child, config) : notionBlockMarkdown(child), config.variant === "notdown"));
+  if (usesNotionSyntax(config) && config.notionVersion === "v2") return serializeEditorMarkdown(doc, node => notionV2BlockMarkdown(node, child => config.variant === "notdown" ? writeNotdownBlock(child, config) : notionBlockMarkdown(child), config.variant === "notdown", source => parseNative(source, config)));
   if (config.variant === "notdown") return serializeEditorMarkdown(doc, node => writeNotdownBlock(node, config));
   return usesNotionSyntax(config)
     ? serializeNotionMarkdown(doc)

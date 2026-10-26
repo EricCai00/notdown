@@ -19,3 +19,9 @@ h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacin
 #recents button { padding: 10px 14px; }
 #status { color: #904431; font-size: 13px; overflow-wrap: anywhere; }
 footer { font-size: 11px; color: #8b897f; margin-top: 26px; }
+.managed-create { display: flex; gap: 8px; margin: 6px 0 12px; }
+.managed-create input { min-width: 0; flex: 1; padding: 10px; font: inherit; border: 1px solid #d9d7cb; border-radius: 8px; }
+.managed-create button { padding: 9px 12px; }
+#managed-vaults { display: grid; gap: 6px; max-height: 110px; overflow: auto; }
+#managed-vaults button { padding: 7px 12px; }
+#data-path { margin: 0 0 12px; overflow-wrap: anywhere; }

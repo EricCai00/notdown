@@ -29,30 +29,45 @@ const productExtensions = new Set([
 ]);
 export const productDefaults = dialectDefaults;
 
-export const dialects = [
-  { id: "rmarkdown", label: "R Markdown", native: true },
-  { id: "quarto", label: "Quarto", native: true },
-  { id: "typora", label: "Typora", native: true },
-  { id: "obsidian", label: "Obsidian", native: true },
-  { id: "notion-markdown", label: "Notion-flavored Markdown", native: true },
-  { id: "notdown", label: "Notdown", native: true },
-  { id: "commonmark", label: "CommonMark", native: true },
-  { id: "gfm", label: "GitHub Flavored Markdown", native: true },
-  { id: "markdown", label: "Pandoc Markdown", native: true },
-  { id: "commonmark_x", label: "CommonMark X", native: true },
-  { id: "markdown_strict", label: "Original Markdown", native: true },
+export const dialectGroups = [
   {
-    id: "markdown_phpextra",
-    label: "PHP Markdown Extra",
-    native: true,
+    label: "Applications",
+    dialects: [
+      { id: "notdown", label: "Notdown", native: true },
+      { id: "notion-markdown", label: "Notion-flavored Markdown", native: true },
+      { id: "obsidian", label: "Obsidian", native: true },
+      { id: "typora", label: "Typora", native: true },
+    ],
   },
-  { id: "markdown_mmd", label: "MultiMarkdown", native: true },
   {
-    id: "markdown_github",
-    label: "Legacy GitHub Markdown",
-    native: true,
+    label: "Markdown",
+    dialects: [
+      { id: "markdown", label: "Pandoc Markdown", native: true },
+      { id: "commonmark_x", label: "CommonMark X", native: true },
+      { id: "gfm", label: "GitHub-flavored Markdown", native: true },
+      { id: "commonmark", label: "CommonMark", native: true },
+      { id: "markdown_strict", label: "Original Markdown", native: true },
+    ],
+  },
+  {
+    label: "Compatibility",
+    dialects: [
+      { id: "markdown_phpextra", label: "PHP Markdown Extra", native: true },
+      { id: "markdown_mmd", label: "MultiMarkdown", native: true },
+      { id: "markdown_github", label: "Legacy GitHub Markdown", native: true },
+    ],
+  },
+  {
+    label: "Scientific writing",
+    dialects: [
+      { id: "rmarkdown", label: "R Markdown", native: true },
+      { id: "quarto", label: "Quarto", native: true },
+    ],
   },
 ] as const;
+export const dialects = dialectGroups.flatMap<(typeof dialectGroups)[number]["dialects"][number]>(
+  (group) => group.dialects,
+);
 export type Dialect = (typeof dialects)[number]["id"];
 export interface SyntaxConfig {
   version: 1;

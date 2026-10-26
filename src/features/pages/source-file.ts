@@ -1,4 +1,5 @@
 import { api } from "../../shared/types";
+import { apiUrl } from "../../shared/vault-url";
 import "./source-file.css";
 
 export function sourceFileMenu() {
@@ -31,7 +32,7 @@ export async function handleSourceFile(
     }
     const endpoint = `/pages/${encodeURIComponent(id)}`;
     if (action === "browser") {
-      tab!.location.replace(`/api${endpoint}/source`);
+      tab!.location.replace(apiUrl(`${endpoint}/source`));
     } else if (action === "app") {
       await api(`${endpoint}/source-file/open`, { method: "POST", body: "{}" });
       context.toast("Source file opened in the default app.");

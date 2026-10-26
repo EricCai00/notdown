@@ -1,8 +1,24 @@
 # Markdown vault API
 
+## Browser knowledge base management
+
+Browser service status includes `vaultManagement: true`. `GET /api/vaults` returns `{ dataPath, vaults: [{ name, path, url }] }`. `POST /api/vaults/open` takes `{ mode: "create", name, path? }` or `{ mode: "open", path }`, and returns `{ name, path, url }`. Paths are absolute paths on the local service computer; a custom create path must be new or empty, and existing vaults must contain a real `pages/` directory. Opening does not change the default vault or any other request's binding. Local-origin and JSON-write guards also protect these endpoints. Electron and Android do not expose them.
+
+Each returned URL is `/v/<SHA-256 of canonical directory>/`. The same API and attachment paths are available beneath it (`/v/<id>/api/pages`, `/v/<id>/assets/...`). Unknown or unavailable identities return 404, never the default vault. Clients must keep all vault-specific requests under the tab's prefix, including previews, source downloads and attachments. Directory identity does not provide authentication; these remain local-only services. Opened directories are recorded in the data directory's `.browser-vaults.json` for restoration after restart.
+
+## Local page history
+
+`GET /api/history/settings` returns `{ settings, revision, available, version?, repository?, latest?, error?, localOnly: true }`. Settings are `{ intervalMinutes, idleSeconds, retentionDays, maxVersions, gitEnabled }`, defaulting to `{5,120,30,100,false}`. `PUT /api/history/settings` requires `{ settings, baseRevision }`. Conflicting configuration saves preserve both versions and return 409. Git runs only in the Node service; it is not exposed by the Android local transport.
+
+`POST /api/history/checkpoint` accepts an optional nonempty `message` of up to 160 characters, requires enabled Git history, and returns `{ created, id }`. An unchanged projection returns `created:false`. This is a local checkpoint, not a remote push or full attachment backup.
+
+`GET /api/pages/:id/history` lists `{ id, createdAt, kind:"snapshot"|"git", message, protected }`. `GET /api/pages/:id/history/:kind/:revision` returns the historical `{ source, metadata }`. `POST /api/pages/:id/history/:kind/:revision/restore` requires `{ baseRevision }`; it preserves the current version before restoring only this page through `createVault`. A stale page revision returns 409 without overwriting the current page. Current database membership and schema remain authoritative. Historical content is data and is never executed.
+
 ## Device sync
 
 `GET /api/sync/status` returns connection status, last sync time and conflict count, without session tokens. `GET /api/sync/vaults` lists the signed-in account's cloud notebooks. `GET /api/sync/conflicts` returns the shared base, local and remote snapshots for review.
+
+`GET /api/sync/progress` returns the current process's `{ running, progress?, error? }` without reading vault files or contacting the cloud. Progress includes upload/download/conflict counts, phase, optional batch and phase resource counts, current resource, optional attachment byte counts, and start/update timestamps. Phase totals describe the current step, not the whole notebook; they may be unknown. The last snapshot remains available after completion or failure and resets on the next run (or disconnect). Progress is observational and does not replace durable sync state.
 
 `POST /api/sync/:action` supports `sign-in` (url, key, email, password), `connect` (vaultId, or name for a new notebook), `run`, `pause` (paused), `disconnect`, and `resolve` (id, choice, baseRevision, and a complete merged item for choice merged). Page conflicts also reuse `/api/conflicts/:id/resolve`. The Android local transport exposes the same operations. These routes control the local client; the cloud uses the authenticated RPCs in `server/sync/supabase.sql`. See [setup and boundaries](../features/CLOUD-SYNC.md).
 
@@ -34,6 +50,10 @@ On the first launch only, when `VAULT_PATH` is unset and the default `vault` dir
 `POST /api/import/preview` accepts `{ name, dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown" | "quarto", files: [{ path, data }] }`, where `path` is a relative POSIX path and `data` is base64. It returns `{ id, name, pages, attachments, files, errors, warnings }` without writing vault files. Limits: 500 files, 20 MiB total decoded bytes and 10 MiB per Markdown page. Preview snapshots expire after 30 minutes; at most three are held per service.
 
 `POST /api/import/commit` accepts `{ id, skipInvalid?: true }` and returns `{ id, pageIds, alreadyImported }`. Invalid files require an explicit `skipInvalid`; expired or unknown previews return 410. Commits go through `createVault.importBatch`, create new identities and never overwrite existing differing content. Identical completed imports are idempotent. Originals and path mappings are archived under `.history/imports/`. Partial writes can be resumed with the same selection; there is no batch rollback or force-overwrite option. See [import and recovery boundaries](../features/DESKTOP-AND-IMPORT.md).
+
+`POST /api/notion/import/preview` and `POST /api/import/commit` also accept `Accept: application/x-ndjson` for live progress. Request bodies remain JSON. The response sends newline-delimited `{type:"progress", phase, completed, total?, currentTitle?}` events, followed by `{type:"result", result}` or `{type:"error", error}`. Preview phases are `reading`, `restoring`, `attachments`, and `finalizing`; `completed` counts pages read, and `total` is omitted because descendants are discovered during traversal. Commit phases are `importing` and `finalizing`; counts refer to pages persisted or already present in the identical completed batch, and `total` is known. Finalization may continue after every page is written. After streaming headers are sent, failures use an error event; early validation failures may still return ordinary JSON with an HTTP error status. Disconnecting a preview cancels reading; disconnecting a commit does not roll back writes. Callers without this Accept header retain the JSON response format.
+
+Progress events may also include `step` (a readable operation, pagination page, response wait/receive state, or rate-limit retry), `requestCount` (Notion API attempts, including retries), and `discovered` (unique page/container identities queued so far, not a final total). The UI times the current step and time since the last event locally; timer ticks do not imply upstream progress. Step messages omit authorization headers, raw pagination cursors and signed attachment URLs.
 
 The desktop shell supplies `createApp({ accessToken, allowedOrigins: [] })`. Its local HTTP service requires `X-Notdown-Desktop` on every request, including static files; the isolated Electron session supplies the token. This does not add authentication to the standalone browser service or provide remote sync.
 

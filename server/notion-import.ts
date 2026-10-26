@@ -5,13 +5,14 @@ import { parseNotionMarkdown, notionInlineLinks } from "../src/document/notion-m
 import { editorKind } from "../src/document/node-identity.js";
 import { openingTag, readAttributes, decodeXml } from "../src/document/notion-syntax.js";
 import { destinationMarker, type ImportPlan } from "./markdown-import.js";
-import { stablePageUuid } from "../src/vault/page-id.js";
+import { isPageUuid, stablePageUuid } from "../src/vault/page-id.js";
 import { VaultError } from "./vault.js";
 import { enrichNotionBlocks } from "./notion-block-import.js";
 import { notionDatabaseImport } from "./notion-database-import.js";
 import { notionSourceTags, notionProseSource, notionElement } from "../src/document/notion-v2.js";
 import { notionAssets, type ReadNotionAsset } from "./notion-assets.js";
 import { localizeNotionSynced } from "./notion-synced-import.js";
+import type { ImportProgress } from "../src/shared/import-progress.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -20,6 +21,12 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const digest = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
 type Json = Record<string, any>;
+type ResolvePage = (id: string) => string | undefined;
+
+function notionReferenceUrl(value: string): string {
+  return /^\/p\/(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:[?#]|$)/i.test(value)
+    ? `https://www.notion.so${value}` : value;
+}
 
 /** Extract only the path's page ID: query strings often contain a different view ID. */
 export function notionPageId(value: unknown): string {
@@ -74,21 +81,24 @@ function titleOf(page: Json, fallback: string): string {
 /** Visit only parsed resource blocks: examples in fences, inline code and unknown
  * syntax must not trigger requests or have their source rewritten. */
 function blockReferences(source: string, notdown = false, version: "v1" | "v2" = "v1") {
-  const references: { id: string; tag: string; from: number; to: number; label?: string }[] = [];
+  const references: { id: string; tag: string; from: number; to: number; label?: string; anchored?: boolean }[] = [];
   if (version === "v2") {
     for (const tag of notionSourceTags(source)) {
-      if (!["page", "page-link", "folder", "database", "mention"].includes(tag.tag)) continue;
+      if (!["page", "page-link", "folder", "database", "mention", "mention-page"].includes(tag.tag)) continue;
+      if (!tag.selfClosing && !notionElement(source, tag.from)) continue;
+      if (tag.tag === "mention" && tag.attrs.type && !["page", "database"].includes(tag.attrs.type)) continue;
       for (const match of source.slice(tag.from, tag.to).matchAll(/([a-zA-Z][\w-]*)\s*=\s*("[^"]*"|'[^']*')/g)) {
         if (match[1] !== "url") continue;
-        const value = tag.attrs[match[1]];
+        const value = notionReferenceUrl(tag.attrs[match[1]]);
         let id: string;
+        let anchored = false;
         try {
-          if (value.startsWith("https://") && new URL(value).hash) continue;
+          anchored = value.startsWith("https://") && !!new URL(value).hash;
           id = notionPageId(value.startsWith("collection://") ? value.slice(13) : value);
         } catch { continue; }
         const from = tag.from + match.index! + match[0].length - match[2].length + 1;
         const element = tag.tag === "folder" ? notionElement(source, tag.from) : undefined;
-        references.push({ id, tag: value.startsWith("collection://") ? "data-source" : tag.attrs.type === "database" ? "database" : tag.tag, from, to: from + match[2].length - 2, ...(element ? { label: decodeXml(source.slice(element.openEnd, element.bodyEnd)).slice(0, 500) } : {}) });
+        references.push({ id, tag: value.startsWith("collection://") ? "data-source" : tag.attrs.type === "database" ? "database" : tag.tag, from, to: from + match[2].length - 2, anchored, ...(element ? { label: decodeXml(source.slice(element.openEnd, element.bodyEnd)).slice(0, 500) } : {}) });
       }
     }
     return references;
@@ -117,7 +127,7 @@ function blockReferences(source: string, notdown = false, version: "v1" | "v2" =
 
 /** Mask block-only syntax, retaining offsets, then use the editor's inline
  * grammar to locate destinations. No serialization or global URL replacement. */
-function localizeInlinePageLinks(source: string, localByNotion: Map<string, string>, notdown: boolean, warnings: Set<string>, version: "v1" | "v2" = "v1"): string {
+function localizeInlinePageLinks(source: string, resolvePage: ResolvePage, notdown: boolean, warnings: Set<string>, version: "v1" | "v2" = "v1"): string {
   const masked = source.split("");
   const mask = (from: number, to: number) => {
     for (let i = from; i < to; i++) if (masked[i] !== "\r" && masked[i] !== "\n") masked[i] = " ";
@@ -153,16 +163,15 @@ function localizeInlinePageLinks(source: string, localByNotion: Map<string, stri
     notionInlineLinks(line[0]).map(link => ({ ...link, from: link.from + line.index!, to: link.to + line.index! })));
   for (const link of links) {
     // Relative /p/ URLs are meaningful only in this Notion import context.
-    const relative = /^\/p\/(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:[?#]|$)/i.test(link.href);
-    const remote = relative ? `https://www.notion.so${link.href}` : link.href;
+    const remote = notionReferenceUrl(link.href);
     if (!remote.startsWith("https://")) continue;
     let id: string, url: URL;
     try { id = notionPageId(remote); url = new URL(remote); } catch { continue; }
-    const target = localByNotion.get(id.replace(/-/g, ""));
+    const target = !url.hash ? resolvePage(id) : undefined;
     // Imported blocks do not carry Notion's original block IDs. Retain remote
     // anchors rather than silently linking to a different local location.
     const text = target && !url.hash ? `#page/${target}` : remote;
-    if (target && url.hash) warnings.add("Links to Notion block anchors remain remote because imported blocks do not retain Notion block IDs.");
+    if (url.hash) warnings.add("Links to Notion block anchors remain remote because imported blocks do not retain Notion block IDs.");
     if (text === link.href) continue;
     const raw = source.slice(link.from, link.to), marker = destinationMarker(raw, false);
     if (marker < 0) continue;
@@ -197,6 +206,8 @@ export async function prepareNotionImport(
     fetch?: typeof fetch;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     readAsset?: ReadNotionAsset;
+    existingPages?: readonly { id: string; pageId: string }[];
+    onProgress?: (progress: ImportProgress) => void;
   } = {},
 ): Promise<ImportPlan> {
   const request = input as {
@@ -244,12 +255,18 @@ export async function prepareNotionImport(
     folder?: boolean;
   }[] = [];
   const warnings = new Set<string>([
-    "Page targets in this import use local links; unimported targets and unmapped block anchors stay remote.",
+    "Page targets use this import's copies or unique existing Notion imports in the current vault; missing or ambiguous targets and unmapped block anchors stay remote.",
     "Database records and supported properties become local copies. Formula/rollup results are read-only snapshots; permissions and automations are not imported. Original v2 Markdown and API responses are archived. Meeting transcripts are requested when accessible.",
     variant === "notdown" ? "Unknown blocks are recovered through v2 Markdown and Block API data, including readable template buttons. Missing button/AI/form configuration keeps a typed source reference." : "Unknown blocks are recovered using official v2 syntax. Supplemental Notdown controls remain preserved references.",
   ]);
   let bytes = 0,
     calls = 0;
+  let progress: ImportProgress = { phase: "reading", completed: 0, currentTitle: root };
+  const report = (update: Partial<ImportProgress>) => {
+    progress = { ...progress, ...update, requestCount: calls, discovered: queued.size };
+    options.onProgress?.({ ...progress });
+  };
+  const pagination = new Map<string, number>();
   const archive = (path: string, data: Buffer) => {
     bytes += data.length;
     if (bytes > MAX_BYTES)
@@ -262,6 +279,20 @@ export async function prepareNotionImport(
   async function get(endpoint: string, allowMissing: boolean | "probe" | "optional" = false, body?: Json): Promise<Json> {
     if (body && !/^\/data_sources\/[0-9a-f-]+\/query$/.test(endpoint))
       throw new VaultError(400, "Only read-only Notion data source queries may use POST.");
+    const pathname = endpoint.split("?")[0];
+    const operation = /^\/pages\/[^/]+\/markdown$/.test(pathname) ? "Reading page Markdown"
+      : /^\/pages\/[^/]+\/properties\//.test(pathname) ? "Reading complete page properties"
+      : pathname.startsWith("/pages/") ? "Reading page details"
+      : pathname.startsWith("/databases/") ? "Reading database details"
+      : /^\/data_sources\/[^/]+\/query$/.test(pathname) ? "Querying database records"
+      : pathname.startsWith("/data_sources/") ? "Reading data source schema"
+      : pathname.endsWith("/children") ? "Scanning child pages and blocks"
+      : pathname.startsWith("/blocks/") ? "Reading block details"
+      : pathname === "/views" ? "Listing database views" : "Reading database view";
+    const paginated = pathname.endsWith("/children") || pathname.endsWith("/query") || pathname.includes("/properties/") || pathname === "/views";
+    const pageNumber = endpoint.includes("start_cursor=") || body?.start_cursor ? (pagination.get(pathname) ?? 1) + 1 : 1;
+    pagination.set(pathname, pageNumber);
+    const step = `${operation}${paginated ? ` (page ${pageNumber})` : ""}`;
     for (let attempt = 0; attempt < 3; attempt++) {
       signal.throwIfAborted();
       if (++calls > 1500)
@@ -270,6 +301,7 @@ export async function prepareNotionImport(
           "Notion import exceeds 1,500 API requests. Select a smaller page tree.",
         );
       if (calls > 1) await wait(350, signal);
+      report({ step: `${step} — waiting for Notion${attempt ? ` (retry ${attempt}/2)` : ""}` });
       let response: Response;
       try {
         response = await transport(`${API}${endpoint}`, {
@@ -297,6 +329,7 @@ export async function prepareNotionImport(
             429,
             "Notion is rate limiting requests. Retry the preview later.",
           );
+        report({ step: `Notion rate limit: waiting ${Math.max(1, seconds)}s before retry ${attempt + 1}/2 — ${step}` });
         await wait(Math.max(1, seconds) * 1000, signal);
         continue;
       }
@@ -315,6 +348,7 @@ export async function prepareNotionImport(
       const reader = response.body?.getReader();
       if (!reader)
         throw new VaultError(502, "Notion returned an empty response.");
+      report({ step: `${step} — receiving response` });
       const chunks: Uint8Array[] = [];
       let size = 0;
       try {
@@ -368,7 +402,8 @@ export async function prepareNotionImport(
     queued.add(id); queue.push(item);
     return item;
   };
-  const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue });
+  const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue, onResource: title => report({ currentTitle: title }) });
+  report({ step: "Identifying the Notion page, database or data source" });
   const rootPage = await get(`/pages/${root}`, "probe");
   if (rootPage.object === "unavailable") {
     const rootDatabase = await get(`/databases/${root}`, "probe");
@@ -450,8 +485,10 @@ export async function prepareNotionImport(
   }
   for (let index = 0; index < queue.length; index++) {
     const item = queue[index];
+    report({ phase: "reading", completed: index, step: "Preparing page", currentTitle: item.database?.title ?? item.folderTitle ?? (item.record ? titleOf(item.record, "Untitled") : blocks.get(item.id)?.child_page?.title) ?? item.id });
     if (item.database) {
       pages.push({ id: item.id, parent: item.parent, source: "", title: item.database.title, icon: item.database.icon });
+      report({ phase: "reading", completed: index + 1, step: "Database records discovered", currentTitle: item.database.title });
       continue;
     }
     const page = item.folder ? { object: "page", id: item.id, properties: {} } : item.record ?? await get(`/pages/${item.id}`);
@@ -461,6 +498,8 @@ export async function prepareNotionImport(
       page.id.toLowerCase() !== item.id
     )
       throw new VaultError(502, "Notion did not return the requested page.");
+    const title = titleOf(page, item.folder ? item.folderTitle || "Folder" : "Untitled");
+    report({ phase: "reading", completed: index, step: "Reading page properties", currentTitle: title });
     await databaseImport.pageProperties(item.id, page);
     const response = await readMarkdown(item.id);
     if (
@@ -505,7 +544,7 @@ export async function prepareNotionImport(
       source,
       cover: page.cover?.[page.cover.type]?.url,
       imageIcon: page.icon?.type === "custom_emoji" ? page.icon.custom_emoji?.url : page.icon?.[page.icon?.type]?.url,
-      title: titleOf(page, item.folder ? item.folderTitle || "Folder" : "Untitled"),
+      title,
       icon:
         page.icon?.type === "emoji" &&
         typeof page.icon.emoji === "string" &&
@@ -514,9 +553,11 @@ export async function prepareNotionImport(
           : item.folder ? "folder" : "file-text",
     });
     // <page> is the official child-page carrier. Localize only parsed tags;
+    report({ phase: "reading", completed: index + 1, step: "Finding child pages and databases", currentTitle: title });
     // <unknown> URLs address source blocks and must never become page targets.
     if (request.includeChildren !== false) {
-      for (const { id: referencedId, tag, label } of blockReferences(source, variant === "notdown", "v2")) {
+      for (const { id: referencedId, tag, label, anchored } of blockReferences(source, variant === "notdown", "v2")) {
+        if (anchored) continue;
         // Databases are discovered through child_database and read using their
         // resource endpoint, never queued as ordinary /pages targets.
         if (tag === "database") {
@@ -527,8 +568,8 @@ export async function prepareNotionImport(
         }
         if (tag === "data-source") continue;
         if (tag === "folder") { if (!queued.has(referencedId)) { const folder = enqueue(referencedId, item.folder ? item.id : null); folder.folder = true; folder.folderTitle = label; } continue; }
-        // Ordinary mentions localize only when their destinations are in this import.
-        if (tag === "mention") continue;
+        // Links and mentions resolve later; they never authorize traversal.
+        if (tag === "mention" || tag === "mention-page" || tag === "page-link") continue;
         if (!queued.has(referencedId) && queued.size < 500) {
           queued.add(referencedId);
           // A page tag is a link target, not evidence of a sidebar parent.
@@ -538,54 +579,101 @@ export async function prepareNotionImport(
       }
     }
     if (request.includeChildren !== false && !item.folder) await discover(item.id);
+    report({ phase: "reading", completed: index + 1, step: "Page read", currentTitle: title });
   }
   // A reference can be imported before its owning page is scanned. Resolve the
   // final hierarchy after discovery, rather than keeping the earlier copy.
   for (const page of pages) page.parent = queue.find(entry => entry.id === page.id)!.parent;
+  report({ phase: "restoring", completed: pages.length, step: "Completing database record properties", currentTitle: undefined });
   const recordTitles = await databaseImport.completeProperties();
   for (const page of pages) if (recordTitles.get(page.id)) page.title = recordTitles.get(page.id)!;
   {
     const titles = new Map(pages.map(page => [page.id, page.title]));
-    for (const page of pages) page.source = await enrichNotionBlocks(page.source, {
-      normalizeId: notionPageId,
-      version: "v2", local: variant === "notdown",
-      readChildren,
-      readMarkdown: async id => { const result = await readMarkdown(id, true); return result.object === "page_markdown" ? result.markdown : undefined; },
-      readBlock: async id => {
-        if (!blocks.has(id)) blocks.set(id, await get(`/blocks/${id}`, true));
-        return blocks.get(id)!;
-      },
-      pageTitle: async id => {
-        if (!titles.has(id)) {
-          const target = await get(`/pages/${id}`, true);
-          const valid = target.object === "page" && typeof target.id === "string" && target.id.toLowerCase() === id;
-          titles.set(id, valid ? titleOf(target, "Linked page") : "Linked page");
-          if (!valid) warnings.add(`Page ${id}: title unavailable; the page link keeps its remote destination.`);
-        }
-        return titles.get(id)!;
-      },
-      warn: message => warnings.add(message),
-    });
+    for (const page of pages) {
+      report({ phase: "restoring", completed: pages.length, step: "Restoring unsupported blocks and page references", currentTitle: page.title });
+      page.source = await enrichNotionBlocks(page.source, {
+        normalizeId: notionPageId,
+        version: "v2", local: variant === "notdown",
+        readChildren,
+        readMarkdown: async id => { const result = await readMarkdown(id, true); return result.object === "page_markdown" ? result.markdown : undefined; },
+        readBlock: async id => {
+          if (!blocks.has(id)) blocks.set(id, await get(`/blocks/${id}`, true));
+          return blocks.get(id)!;
+        },
+        pageTitle: async id => {
+          if (!titles.has(id)) {
+            const target = await get(`/pages/${id}`, true);
+            const valid = target.object === "page" && typeof target.id === "string" && target.id.toLowerCase() === id;
+            titles.set(id, valid ? titleOf(target, "Linked page") : "Linked page");
+            if (!valid) warnings.add(`Page ${id}: title unavailable; a fallback label is used and the source ID is preserved for link resolution.`);
+          }
+          return titles.get(id)!;
+        },
+        warn: message => warnings.add(message),
+      });
+    }
   }
   for (const page of pages) if (Buffer.byteLength(page.source) > 10 * 1024 * 1024)
     throw new VaultError(413, `Page ${page.id} exceeds 10 MB after block restoration.`);
-  const media = notionAssets({ signal, read: options.readAsset, remaining: () => MAX_BYTES - bytes, reserve: size => { bytes += size; }, warn: message => warnings.add(message) });
+  const media = notionAssets({ signal, read: options.readAsset, remaining: () => MAX_BYTES - bytes, reserve: size => { bytes += size; }, warn: message => warnings.add(message), onRead: (name, attempt) => report({ step: `Downloading attachment ${attempt}${name ? `: ${name}` : ""}` }) });
   if (request.downloadAssets !== false) {
     for (const page of pages) {
+      report({ phase: "attachments", completed: pages.length, step: "Downloading page attachments, cover and icon", currentTitle: page.title });
       page.source = await media.rewrite(page.source);
       if (page.cover) page.cover = await media.save(page.cover);
       if (page.imageIcon) page.imageIcon = await media.save(page.imageIcon);
       if (page.imageIcon?.startsWith("assets/")) page.icon = page.imageIcon;
     }
+    report({ phase: "attachments", completed: pages.length, step: "Downloading database file properties", currentTitle: undefined });
     await databaseImport.saveAttachments(media.save);
     if (media.assets.length) warnings.add(`${media.assets.length} unique attachment(s), including available covers and custom icons, are ready for the Attachments library.`);
   } else warnings.add("Attachment downloading is disabled; remote attachment URLs can expire.");
+  report({ phase: "finalizing", completed: pages.length, step: "Resolving local links and preparing the preview", currentTitle: undefined });
+  const localizePageReferences = (source: string, resolvePage: ResolvePage, databases?: Record<string, unknown>) => {
+    for (const reference of blockReferences(source, variant === "notdown", "v2").sort((a, b) => b.from - a.from)) {
+      if (reference.anchored) {
+        warnings.add("Links to Notion block anchors remain remote because imported blocks do not retain Notion block IDs.");
+        const raw = source.slice(reference.from, reference.to);
+        if (raw.startsWith("/p/")) source = source.slice(0, reference.from) + notionReferenceUrl(raw) + source.slice(reference.to);
+        continue;
+      }
+      // Database carriers must resolve to an imported database host.
+      if (reference.tag === "database" && !databases) continue;
+      const target = resolvePage(reference.id);
+      if (reference.tag === "database" && (!target || !databases?.[target])) continue;
+      if (target) source = source.slice(0, reference.from) + `#page/${encodeURIComponent(target)}` + source.slice(reference.to);
+      else if (source.slice(reference.from, reference.to).startsWith("/p/"))
+        source = source.slice(0, reference.from) + notionReferenceUrl(source.slice(reference.from, reference.to)) + source.slice(reference.to);
+    }
+    return localizeInlinePageLinks(source, resolvePage, variant === "notdown", warnings, "v2");
+  };
+  const importedIds = new Set(pages.map(page => page.id));
+  const candidates = new Map<string, Set<string>>();
+  for (const page of options.existingPages ?? []) {
+    if (!isPageUuid(page.id)) continue;
+    let pageId: string;
+    try { pageId = notionPageId(page.pageId); } catch { continue; }
+    if (importedIds.has(pageId)) continue;
+    if (!candidates.has(pageId)) candidates.set(pageId, new Set());
+    candidates.get(pageId)!.add(page.id);
+  }
+  const externalBindings = new Map<string, string>();
+  // Include only bindings actually used by this snapshot in its identity.
+  // Same-batch targets are excluded so repeating an import remains idempotent.
+  for (const page of pages) localizePageReferences(page.source, pageId => {
+    const matches = candidates.get(pageId);
+    if (matches?.size !== 1) return;
+    const target = [...matches][0];
+    externalBindings.set(pageId, target);
+    return target;
+  });
   // Content identities include the exact archive snapshot and parent mapping. No
   // user page is ever updated; identical snapshots reuse the existing import batch.
   const id = digest(
     JSON.stringify([
       `notion-markdown-v2-recovery-${variant}`,
-      "inline-page-links-v1",
+      "page-links-v2-mentions-and-existing-imports",
+      [...externalBindings].sort(([a], [b]) => a.localeCompare(b)),
       "database-resources-v2-local-references",
       root,
       request.includeChildren !== false,
@@ -598,16 +686,15 @@ export async function prepareNotionImport(
   const localId = (notionId: string) => stablePageUuid(`notion-${id.slice(0, 24)}-${notionId}`);
   if (variant === "notdown") localizeNotionSynced(pages, localId, notionPageId, message => warnings.add(message));
   const databaseResult = databaseImport.finish(localId, new Set(pages.map(page => page.id)));
-  const localByNotion = new Map(pages.map((page) => [page.id.replace(/-/g, "").toLowerCase(), localId(page.id)]));
-  const localizePageReferences = (source: string) => {
-    for (const reference of blockReferences(source, variant === "notdown", "v2").sort((a, b) => b.from - a.from)) {
-      const target = localByNotion.get(reference.id.replace(/-/g, ""));
-      // A database reference must resolve to an imported database host. Keep
-      // inline, data-source-url, labels and unknown attributes byte-for-byte.
-      if (reference.tag === "database" && (!target || !databaseResult.resources.databases[target])) continue;
-      if (target) source = source.slice(0, reference.from) + `#page/${encodeURIComponent(target)}` + source.slice(reference.to);
-    }
-    return localizeInlinePageLinks(source, localByNotion, variant === "notdown", warnings, "v2");
+  const localByNotion = new Map(pages.map(page => [page.id, localId(page.id)]));
+  const resolvePage: ResolvePage = pageId => {
+    const matches = candidates.get(pageId);
+    const target = localByNotion.get(pageId) ?? (matches?.size === 1 ? [...matches][0] : undefined);
+    if (target) return target;
+    warnings.add(matches && matches.size > 1
+      ? `Page ${pageId}: multiple existing local copies match this Notion source; its links remain remote. Include the target in this import to choose this batch's copy.`
+      : `Page ${pageId}: target is not imported in this batch or the current vault; its links remain remote. Import the target first, then preview the referring page again.`);
+    return undefined;
   };
   // Database queries can discover records before their host entry is queued.
   // Commit validates parent existence sequentially, so publish ancestors first.
@@ -621,7 +708,7 @@ export async function prepareNotionImport(
     visiting.delete(page.id); visited.add(page.id); ordered.push(page);
   };
   for (const page of pages) visit(page);
-  const localizedPages = ordered.map(page => ({ ...page, source: localizePageReferences(page.source) }));
+  const localizedPages = ordered.map(page => ({ ...page, source: localizePageReferences(page.source, resolvePage, databaseResult.resources.databases) }));
   return {
     id,
     name: pages[0].title,

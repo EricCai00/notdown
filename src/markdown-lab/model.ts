@@ -5,6 +5,16 @@ const dialectLabel = (id: Dialect) => dialects.find((dialect) => dialect.id === 
 
 export const variants = [
   {
+    id: "markdown",
+    label: dialectLabel("markdown"),
+    engine: "pandoc",
+  },
+  {
+    id: "commonmark_x",
+    label: dialectLabel("commonmark_x"),
+    engine: "pandoc",
+  },
+  {
     id: "gfm",
     label: dialectLabel("gfm"),
     engine: "pandoc",
@@ -15,18 +25,8 @@ export const variants = [
     engine: "pandoc",
   },
   {
-    id: "commonmark_x",
-    label: dialectLabel("commonmark_x"),
-    engine: "pandoc",
-  },
-  {
-    id: "markdown",
-    label: dialectLabel("markdown"),
-    engine: "pandoc",
-  },
-  {
-    id: "markdown_mmd",
-    label: dialectLabel("markdown_mmd"),
+    id: "markdown_strict",
+    label: dialectLabel("markdown_strict"),
     engine: "pandoc",
   },
   {
@@ -35,8 +35,8 @@ export const variants = [
     engine: "pandoc",
   },
   {
-    id: "markdown_strict",
-    label: dialectLabel("markdown_strict"),
+    id: "markdown_mmd",
+    label: dialectLabel("markdown_mmd"),
     engine: "pandoc",
   },
   {

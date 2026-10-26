@@ -48,3 +48,13 @@
 旧 Notdown `<tabs active="…"><tab title="…">…`、`<meeting-notes title="…" audio="…">…` 编码继续读取且不批量迁移；这些额外属性没有因此成为官方语法。`<web-embed>`、`<page-link>`、Button、AI block 等补充协议仍仅限 Notdown。已停用的 `<html-embed>` 不会因本次 MCP 支持重新启用。表格合并仍使用已有 Pandoc 编码，不把 rowspan/colspan 提升为官方语法。
 
 验证位于 `tests/unit/notion-mcp-spec.test.ts` 与 `tests/e2e/notion-mcp-spec.spec.ts`，覆盖属性编辑、原文保留、撤销、关闭扩展、代码围栏、畸形边界及保存重载。
+
+## Notion v2 的保存规则
+
+`syntax.notionVersion: "v2"` 使用[官方 Notion-flavored Markdown](https://developers.notion.com/guides/data-apis/notion-flavored-markdown)。v1 Enhanced Markdown 与 v2 的标签有所不同；保留页面已有版本，不通过编辑自动切换版本。
+
+新建或编辑的普通标题、无子块的列表与引用、任务、粗斜体和删除线、普通图片、无颜色公式及可无损表达的表格优先输出 Markdown。普通表格需要完整首行表头、规则行列、单段单元格，无列宽、颜色和其他属性；其他表格保留官方表格载体。粗斜体与删除线先用 Markdown 序列化，再用同一 v2 行内解析器校验；不能恢复相同内容和标记时使用官方 `<b>` / `<i>` / `<s>`，包括边缘空白和标记交错的歧义情况。
+
+`<u>`、`<span color="…">`、带属性或子块的 `<p>` / `<h1>`–`<h4>` / `<quote>` / `<li>`、toggle、callout、分栏、提及、音视频及其他专属对象仍按官方标签表达。Notdown 扩展仍受 `variant` 边界控制。原文保留机制优先于规范化：未编辑的旧块、未知字段、代码围栏及未知结构不因相邻编辑而改写，不遍历或迁移用户知识库。
+
+回归覆盖：`tests/unit/notion-v2.test.ts` 与 `tests/e2e/mobile.spec.ts`。

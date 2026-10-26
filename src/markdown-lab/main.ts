@@ -1,3 +1,4 @@
+import { apiUrl, vaultPageUrl } from "../shared/vault-url";
 import { basicSetup } from "codemirror";
 import { EditorView, keymap } from "@codemirror/view";
 import { markdownSourceLanguage } from "../markdown-engine/source-language";
@@ -91,7 +92,7 @@ try {
 
 $("#lab").innerHTML = `
   <header class="lab-header">
-    <div class="lab-brand"><a class="lab-logo" href="/" target="_blank" rel="noopener" aria-label="Open Notdown vault">N<span>↗</span></a><strong>Notdown</strong><span class="brand-divider">/</span><h1>Markdown Lab</h1><span class="lab-tag">Lab</span></div>
+    <div class="lab-brand"><a class="lab-logo" href="${vaultPageUrl("")}" target="_blank" rel="noopener" aria-label="Open Notdown vault">N<span>↗</span></a><strong>Notdown</strong><span class="brand-divider">/</span><h1>Markdown Lab</h1><span class="lab-tag">Lab</span></div>
     <div class="file-actions"><button id="open-file"><span aria-hidden="true">↥</span> Open file</button><button id="download" class="primary"><span aria-hidden="true">↓</span> Download Markdown</button></div>
   </header>
   <div class="lab-toolbar">
@@ -214,7 +215,7 @@ async function render(current: number) {
   try {
     const selected = variants.find((item) => item.id === draft.variant)!;
     const direct = selected.engine !== "pandoc" && selected.engine !== "notdown";
-    const response = await fetch("/api/markdown/preview", {
+    const response = await fetch(apiUrl("/markdown/preview"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -632,7 +633,7 @@ updateSync();
 updatePosition();
 updateExtensions();
 if (migratedLegacyPandoc) persist();
-void fetch("/api/markdown/capabilities")
+void fetch(apiUrl("/markdown/capabilities"))
   .then(async (response) => {
     if (!response.ok) throw new Error("Unable to read renderer capabilities");
     capabilities = await response.json();

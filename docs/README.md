@@ -66,6 +66,32 @@
 
 ## 审计与验证记录
 
+- [手机方言与 0.1.1 构建（2026-10-26）](verification/MOBILE-DIALECT-AND-RELEASE-2026-10-26.md)
+
+- [浏览器知识库管理、设置与侧栏（2026-10-25）](verification/BROWSER-VAULTS-AND-SETTINGS-2026-10-25.md)
+
+- [本地历史、Git 检查点与多知识库（2026-10-25）](verification/LOCAL-HISTORY-AND-VAULTS-2026-10-25.md)
+
+- [Android full-page 与 inline 数据库（2026-10-25）](verification/ANDROID-DATABASES-2026-10-25.md)
+
+- [手机字体样式与 Notion v2 Markdown 保存（2026-10-25）](verification/MOBILE-FORMATTING-MARKDOWN-2026-10-25.md)
+
+- [Android 页面切换与附件加载优化（2026-10-25）](verification/ANDROID-NAVIGATION-2026-10-25.md)
+
+- [Android 触屏块操作与长按拖动（2026-10-25）](verification/ANDROID-TOUCH-2026-10-25.md)
+
+- [Android 键盘收起与页面层级（2026-10-24）](verification/ANDROID-KEYBOARD-TREE-2026-10-24.md)
+
+- [同步批量落盘优化与性能对照（2026-10-24）](verification/SYNC-BATCH-2026-10-24.md)
+
+- [手机同步进度与重复扫描优化（2026-10-24）](verification/SYNC-PROGRESS-2026-10-24.md)
+
+- [Notion 数据库列序与按钮对齐（2026-10-24）](verification/DATABASE-COLUMNS-2026-10-24.md)
+
+- [Android 首次云同步配置、旧库清除与安装（2026-10-24）](verification/ANDROID-CLOUD-ONBOARDING-2026-10-24.md)
+
+- [坚果云连接失败修复与真实服务验证（2026-10-24）](verification/WEBDAV-FIX-2026-10-24.md)
+
 - [WebDAV 适配与本机验证（2026-10-23）](verification/WEBDAV-2026-10-23.md)
 
 - [多设备云同步验证（2026-10-23）](verification/CLOUD-SYNC-2026-10-23.md)

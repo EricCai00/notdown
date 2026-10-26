@@ -4,6 +4,7 @@ const syncTestKey = "sb_publishable_notdown_test_only";
 let cloudUrl: string;
 async function login(page: Page) {
   const settings = page.getByRole("region", { name: "Cloud sync", exact: true });
+  await settings.getByRole("combobox", { name: "Sync provider", exact: true }).selectOption("supabase");
   await settings.getByLabel("Supabase project URL").fill(cloudUrl);
   await settings.getByLabel("Publishable key").fill(syncTestKey);
   await settings.getByLabel("Email", { exact: true }).fill(syncTestAccount.email);
@@ -13,6 +14,7 @@ async function login(page: Page) {
   return settings;
 }
 async function mobileSettings(page: Page) {
+  if (await page.locator(".mobile-sync-dialog[open]").isVisible()) return page.getByRole("region", { name: "Cloud sync", exact: true });
   await page.getByRole("button", { name: "Notebook options" }).click();
   await page.getByRole("button", { name: "Cloud sync", exact: true }).click();
   return page.getByRole("region", { name: "Cloud sync", exact: true });
@@ -44,8 +46,7 @@ test("desktop and Android UI sync offline changes and resolve conflicts using th
     await mobileSettings(mobile); const settings = await login(mobile);
     await settings.getByRole("combobox", { name: "Cloud notebook", exact: true }).selectOption(status.vaultId);
     await settings.getByRole("button", { name: "Enable sync" }).click();
-    await expect(settings.locator("[data-sync-feedback]")).toContainText("First sync completed");
-    await mobile.locator(".mobile-sync-dialog").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(mobile.locator(".mobile-sync-dialog[open]")).toHaveCount(0);
     await expect(mobile.locator(".pm-document")).toContainText("Shared baseline");
     await context.setOffline(true);
     await mobile.getByRole("button", { name: "Source", exact: true }).click();
@@ -112,8 +113,8 @@ test("Nutstore WebDAV settings connect desktop and Android preview with offline 
     await mobile.goto(info.mobileUrl); await expect(mobile.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
     await mobileSettings(mobile); const panel = await davLogin(mobile);
     await panel.getByRole("combobox", { name: "Cloud notebook", exact: true }).selectOption(status.vaultId);
-    await panel.getByRole("button", { name: "Enable sync" }).click(); await expect(panel.locator("[data-sync-feedback]")).toContainText("First sync completed");
-    await mobile.locator(".mobile-sync-dialog").getByRole("button", { name: "Close", exact: true }).click();
+    await panel.getByRole("button", { name: "Enable sync" }).click();
+    await expect(mobile.locator(".mobile-sync-dialog[open]")).toHaveCount(0);
     await expect(mobile.locator(".pm-document")).toContainText("Original WebDAV note");
     await context.setOffline(true); await mobile.getByRole("button", { name: "Source", exact: true }).click();
     await mobile.locator(".cm-content").click(); await mobile.keyboard.press("ControlOrMeta+A"); await mobile.keyboard.insertText("安卓离线 WebDAV 修改\n");

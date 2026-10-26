@@ -40,6 +40,7 @@ export function createSyncService(store: Storage, storageId: string, fetcher: ty
   function run() {
     if (job.task) return job.task;
     job.error = undefined;
+    job.progress = { uploaded: 0, downloaded: 0, conflicts: 0, phase: "preparing", startedAt: Date.now(), updatedAt: Date.now() };
     job.task = (async () => {
       const { value, api } = await client();
       if (!value.enabled || !value.vaultId) throw new VaultError(400, "Choose a cloud notebook and enable sync first");
@@ -51,12 +52,15 @@ export function createSyncService(store: Storage, storageId: string, fetcher: ty
       return synchronize(store, api.remote, binding, progress => { job.progress = progress; });
     })().catch(error => {
       job.error = error instanceof Error ? error.message : String(error);
+      if (job.progress) job.progress = { ...job.progress, updatedAt: Date.now() };
       if (error instanceof WebDavError) { if (error.retryAt) job.nextSyncAt = error.retryAt; if ([401, 403].includes(error.status)) job.needsSignIn = true; }
       throw error;
     }).finally(() => { job.task = undefined; });
     return job.task;
   }
   async function handle(action: string, method: string, input: any = {}): Promise<unknown> {
+    // This read never queues behind local file transactions or scans conflict bodies.
+    if (method === "GET" && action === "progress") return { running: !!job.task, progress: job.progress, error: job.error };
     if (method === "GET" && action === "status") return status();
     if (method === "GET" && action === "vaults") return (await client()).api.vaults();
     if (method === "GET" && action === "conflicts") return (await store.conflicts()).map(value => ({ ...value, localRevision: itemRevision(value.local) }));
@@ -99,7 +103,7 @@ export function createSyncService(store: Storage, storageId: string, fetcher: ty
     } else if (action === "disconnect") {
       if ((await store.conflicts()).length) throw new VaultError(409, "Resolve sync conflicts before disconnecting this notebook.");
       // Neither local notes nor cloud notes are deleted. Credentials never enter the history archive.
-      await store.writeConnection(null); await store.resetState(); job.error = undefined;
+      await store.writeConnection(null); await store.resetState(); job.error = undefined; job.progress = undefined;
     } else if (action === "resolve") {
       if (!["local", "remote", "merged"].includes(input.choice)) throw new VaultError(400, "Choose local, remote, or merged content");
       const conflict = await store.getConflict(input.id);

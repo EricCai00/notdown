@@ -1,5 +1,6 @@
 import { api, escape as e } from "../../shared/types";
 import type { SyncStatus } from "../../sync/service";
+import type { SyncProgress } from "../../sync/engine";
 import type { CloudVault } from "../../sync/supabase";
 import { nutstoreUrl } from "../../sync/webdav";
 import type { SyncConflict, SyncItem } from "../../sync/protocol";
@@ -10,12 +11,19 @@ import "./sync-settings.css";
 export type SyncHooks = { beforeSync(): Promise<boolean>; afterSync?(): Promise<void> };
 const post = <T>(action: string, body: unknown = {}) => api<T>(`/sync/${action}`, { method: "POST", body: JSON.stringify(body) });
 const changed = () => window.dispatchEvent(new Event("notdown-sync-changed"));
+type ProgressStatus = Pick<SyncStatus, "running" | "progress" | "error">;
 
-export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks) {
+export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks, options: {
+  existingOnly?: boolean; onStatus?(status: SyncStatus): Promise<void>;
+} = {}) {
   const section = document.createElement("section"); section.className = "settings-section sync-settings";
   section.setAttribute("aria-label", "Cloud sync");
   section.innerHTML = `<h3>Cloud sync</h3><p>Your notes stay on this device and remain editable offline. Connect the same cloud notebook on your other devices.</p>
     <p class="sync-summary" data-sync-summary role="status">Loading sync settings…</p>
+    <div class="sync-progress" data-sync-progress hidden>
+      <p data-sync-stage role="status" aria-live="polite"></p><progress aria-label="Current sync step"></progress>
+      <p class="sync-progress-current" data-sync-current></p><p data-sync-counts></p><p class="sync-progress-time" data-sync-time></p>
+    </div>
     <form data-sync-login><label>Sync provider<select name="provider"><option value="supabase">Supabase</option><option value="webdav">Nutstore / WebDAV</option></select></label>
     <label><span data-url-label>Supabase project URL</span><input name="url" type="url" placeholder="https://your-project.supabase.co" required autocomplete="url"></label>
     <label data-key-label>Publishable key<input name="key" required autocomplete="off" spellcheck="false"></label>
@@ -32,8 +40,69 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
   const login = section.querySelector<HTMLFormElement>("[data-sync-login]")!;
   const connect = section.querySelector<HTMLFormElement>("[data-sync-connect]")!;
   const select = connect.elements.namedItem("vault") as HTMLSelectElement;
+  if (options.existingOnly) {
+    section.querySelector("h3 + p")!.textContent = "Connect the existing cloud notebook from your computer. After the first download, you can edit it offline on this device.";
+    connect.querySelector<HTMLElement>("[data-new-name]")!.hidden = true;
+    connect.querySelector("p")!.textContent = "Download your existing cloud notebook. Future edits sync with your computer in both directions.";
+  }
   const field = (form: HTMLFormElement, name: string) => form.elements.namedItem(name) as HTMLInputElement;
   let status: SyncStatus;
+  let progressStatus: ProgressStatus = { running: false }, requestStartedAt = 0;
+  const progressPanel = section.querySelector<HTMLElement>("[data-sync-progress]")!;
+  function renderSummary(running = status?.running ?? false) {
+    if (!status) return;
+    const summary = section.querySelector<HTMLElement>("[data-sync-summary]")!;
+    summary.textContent = !status.signedIn ? "Not connected" : `${status.email ?? "Signed in"}${status.vaultName ? ` · ${status.vaultName}` : ""} · ${running ? "Syncing…" : status.enabled ? "Sync enabled" : "Sync paused"}${status.lastSyncedAt ? ` · Last sync ${new Date(status.lastSyncedAt).toLocaleString()}` : ""}`;
+    if (status.signedIn && status.provider === "webdav") summary.textContent += ` · WebDAV: ${status.folder}`;
+  }
+  function renderProgress(value: ProgressStatus) {
+    progressStatus = value;
+    renderSummary(value.running);
+    const p = value.progress; progressPanel.hidden = !p;
+    if (!p) return;
+    const labels: Record<NonNullable<SyncProgress["phase"]>, string> = {
+      preparing: "Preparing sync", reading: "Reading cloud records", applying: "Downloading and saving cloud changes",
+      scanning: "Checking local changes", uploading: "Uploading local changes", finalizing: "Saving sync state", complete: "Sync completed",
+    };
+    const bytes = (amount: number) => amount < 1024 ? `${amount} B` : amount < 1024 * 1024 ? `${(amount / 1024).toFixed(1)} KiB` : `${(amount / 1024 / 1024).toFixed(1)} MiB`;
+    const transferring = p.bytesTotal !== undefined && p.bytesCompleted !== undefined;
+    const total = transferring ? p.bytesTotal : p.total, completed = transferring ? p.bytesCompleted : p.completed;
+    const determinate = total !== undefined && total > 0 && completed !== undefined;
+    const amount = determinate ? transferring ? `${bytes(completed!)} / ${bytes(total!)}` : `${completed} / ${total} resources` : "";
+    const label = !value.running && value.error ? "Sync stopped" : labels[p.phase ?? "preparing"];
+    progressPanel.querySelector("[data-sync-stage]")!.textContent = `${label}${p.batch ? ` · Batch ${p.batch}` : ""}${amount ? ` · ${amount} (${Math.floor(completed! / total! * 100)}%)` : ""}`;
+    const bar = progressPanel.querySelector("progress")!;
+    if (p.phase === "complete" && !value.error) { bar.max = 1; bar.value = 1; }
+    else if (determinate) { bar.max = total!; bar.value = completed!; }
+    else if (!value.running) { bar.max = 1; bar.value = 0; }
+    else bar.removeAttribute("value");
+    bar.setAttribute("aria-busy", String(value.running));
+    progressPanel.dataset.state = value.error && !value.running ? "error" : value.running ? "running" : "complete";
+    progressPanel.querySelector("[data-sync-current]")!.textContent = p.current ?? "";
+    progressPanel.querySelector("[data-sync-counts]")!.textContent = `Downloaded ${p.downloaded} · Uploaded ${p.uploaded} · Conflicts ${p.conflicts}`;
+    const seconds = Math.max(0, Math.floor(((value.running ? Date.now() : p.updatedAt ?? Date.now()) - (p.startedAt ?? Date.now())) / 1000));
+    const waiting = value.running && Date.now() - (p.updatedAt ?? Date.now()) >= 15000;
+    progressPanel.querySelector("[data-sync-time]")!.textContent = `Elapsed ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}${waiting ? " · Waiting for the current step… Keep the app open." : value.running ? " · Keep the app open." : ""}`;
+  }
+  async function readProgress() {
+    const value = await api<ProgressStatus>("/sync/progress");
+    if (!section.isConnected || requestStartedAt && !value.running && (value.progress?.startedAt ?? 0) < requestStartedAt) return;
+    renderProgress(value);
+    if (value.error) feedback.textContent = value.error;
+  }
+  async function runSync() {
+    requestStartedAt = Date.now();
+    renderProgress({ running: true, progress: { uploaded: 0, downloaded: 0, conflicts: 0, phase: "preparing", startedAt: requestStartedAt, updatedAt: requestStartedAt } });
+    try {
+      return await post<{ uploaded: number; downloaded: number; conflicts: number }>("run");
+    } catch (error) {
+      renderProgress({ ...progressStatus, running: false, error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    } finally {
+      requestStartedAt = 0;
+      try { await readProgress(); } catch { /* Keep the last visible progress if status is temporarily unavailable. */ }
+    }
+  }
   const provider = login.elements.namedItem("provider") as HTMLSelectElement;
   function providerFields(resetUrl = false) {
     const dav = provider.value === "webdav";
@@ -44,51 +113,67 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
     login.querySelector("[data-password-label]")!.textContent = dav ? "Application password" : "Password";
     field(login, "password").setAttribute("aria-label", dav ? "Application password" : "Password");
     login.querySelector("[data-login-help]")!.textContent = dav
-      ? "For Nutstore, use the application password from Account → Security → Third-party applications. Both devices must use the same remote folder. Connection testing creates and removes a temporary test folder; notebook sync preserves original files."
-      : "Use an account created in your configured Supabase project. The password is used only to sign in.";
+      ? options.existingOnly ? "Use your Nutstore application password and the same remote folder as your computer."
+        : "For Nutstore, use the application password from Account → Security → Third-party applications. Both devices must use the same remote folder. Connection testing creates and removes a temporary test folder; notebook sync preserves original files."
+      : options.existingOnly ? "Use the same Supabase project and account as your computer."
+        : "Use an account created in your configured Supabase project. The password is used only to sign in.";
     if (resetUrl) field(login, "url").value = dav ? nutstoreUrl : "";
   }
   provider.onchange = () => providerFields(true);
+  if (options.existingOnly) { provider.value = "webdav"; providerFields(true); }
   const busy = (value: boolean) => section.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>("input,button,select,textarea").forEach(control => control.disabled = value);
   const fail = (error: unknown) => { feedback.textContent = error instanceof Error ? error.message : String(error); };
   async function refresh() {
     status = await api<SyncStatus>("/sync/status"); if (!section.isConnected) return;
-    const summary = section.querySelector<HTMLElement>("[data-sync-summary]")!;
-    summary.textContent = !status.signedIn ? "Not connected" : `${status.email ?? "Signed in"}${status.vaultName ? ` · ${status.vaultName}` : ""} · ${status.running ? "Syncing…" : status.enabled ? "Sync enabled" : "Sync paused"}${status.lastSyncedAt ? ` · Last sync ${new Date(status.lastSyncedAt).toLocaleString()}` : ""}`;
-    if (status.signedIn && status.provider === "webdav") summary.textContent += ` · WebDAV: ${status.folder}`;
+    if (!requestStartedAt) renderProgress(status);
+    renderSummary();
     login.hidden = status.signedIn; connect.hidden = !status.signedIn || !!status.vaultId;
     section.querySelector<HTMLElement>("[data-sync-actions]")!.hidden = !status.signedIn;
     section.querySelector<HTMLButtonElement>("[data-sync-run]")!.hidden = !status.vaultId;
     const pause = section.querySelector<HTMLButtonElement>("[data-sync-pause]")!; pause.hidden = !status.vaultId; pause.textContent = status.enabled ? "Pause sync" : "Resume sync";
     if (!status.signedIn) { field(login, "url").value ||= status.url; field(login, "key").value ||= status.key; }
     if (status.signedIn && !status.vaultId) {
-      const vaults = await api<CloudVault[]>("/sync/vaults"); select.replaceChildren(new Option("Create a new cloud notebook", ""), ...vaults.map(vault => new Option(vault.name, vault.id)));
+      const vaults = await api<CloudVault[]>("/sync/vaults");
+      select.replaceChildren(...(options.existingOnly ? [] : [new Option("Create a new cloud notebook", "")]), ...vaults.map(vault => new Option(vault.name, vault.id)));
+      if (options.existingOnly && !vaults.length) {
+        select.add(new Option("No existing cloud notebook found", ""));
+        feedback.textContent = "Create and sync this notebook on your computer first, then sign in here using the same server and remote folder.";
+      }
     }
     if (status.error) feedback.textContent = status.error;
     if (status.nextSyncAt && status.nextSyncAt > Date.now() + 60000) feedback.textContent += ` Next automatic attempt after ${new Date(status.nextSyncAt).toLocaleTimeString()}.`;
     await conflicts();
+    await options.onStatus?.(status);
   }
   async function action(work: () => Promise<void>) {
     busy(true); feedback.textContent = "";
-    try { await work(); changed(); await refresh(); } catch (error) { fail(error); } finally { busy(false); }
+    try { await work(); changed(); await refresh(); }
+    catch (error) {
+      fail(error);
+      try { await refresh(); } catch { /* Keep the original failure if status cannot be refreshed. */ }
+    } finally { busy(false); }
   }
   login.onsubmit = event => { event.preventDefault(); void action(async () => {
     try {
       await post("sign-in", { provider: provider.value, url: field(login, "url").value, key: field(login, "key").value.trim(), folder: field(login, "folder").value.trim(), email: field(login, "email").value, password: field(login, "password").value });
-      if (provider.value === "webdav") feedback.textContent = "WebDAV connection and conditional-write protection verified. Select or create the notebook in this remote folder.";
+      if (provider.value === "webdav") feedback.textContent = options.existingOnly
+        ? "WebDAV connection and conditional-write protection verified. Select your existing cloud notebook."
+        : "WebDAV connection and conditional-write protection verified. Select or create the notebook in this remote folder.";
     }
     finally { field(login, "password").value = ""; }
   }); };
-  select.onchange = () => { connect.querySelector<HTMLElement>("[data-new-name]")!.hidden = !!select.value; };
+  select.onchange = () => { connect.querySelector<HTMLElement>("[data-new-name]")!.hidden = !!options.existingOnly || !!select.value; };
   connect.onsubmit = event => { event.preventDefault(); void action(async () => {
     if (!await hooks.beforeSync()) throw new Error("Finish or save your current edit before connecting sync.");
-    await post("connect", { vaultId: select.value || undefined, name: field(connect, "name").value });
-    await post("run"); await hooks.afterSync?.(); feedback.textContent = "First sync completed.";
+    if (options.existingOnly && !select.value) throw new Error("Choose an existing cloud notebook created on your computer.");
+    status = await post<SyncStatus>("connect", { vaultId: select.value || undefined, name: field(connect, "name").value });
+    if (options.existingOnly) feedback.textContent = "Downloading your cloud notebook… Keep the app open until the first sync completes.";
+    await runSync(); await hooks.afterSync?.(); feedback.textContent = "First sync completed.";
   }); };
   section.querySelector<HTMLButtonElement>("[data-sync-run]")!.onclick = () => void action(async () => {
     if (!status.enabled) throw new Error("Resume sync before syncing this notebook.");
     if (!await hooks.beforeSync()) throw new Error("Finish or save your current edit before syncing.");
-    const result = await post<{ uploaded: number; downloaded: number; conflicts: number }>("run"); await hooks.afterSync?.();
+    const result = await runSync(); await hooks.afterSync?.();
     feedback.textContent = `Synced ${result.uploaded} uploads and ${result.downloaded} downloads.${result.conflicts ? ` ${result.conflicts} conflict(s) need review.` : ""}`;
   });
   section.querySelector<HTMLButtonElement>("[data-sync-pause]")!.onclick = () => void action(async () => { await post("pause", { paused: status.enabled }); });
@@ -150,6 +235,13 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
   }
   busy(true);
   try { await refresh(); } catch (error) { fail(error); } finally { busy(false); }
+  // Poll only in this mounted panel, without scanning the notebook or making cloud requests.
+  async function monitor() {
+    if (!section.isConnected) return;
+    try { await readProgress(); } catch { /* A pending request remains visible, including its elapsed time. */ }
+    if (section.isConnected) { renderProgress(progressStatus); setTimeout(() => { void monitor(); }, 750); }
+  }
+  void monitor();
 }
 
 /** Foreground-only scheduling: browsers/WebViews are not reliable background workers. */

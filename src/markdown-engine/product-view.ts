@@ -1,3 +1,4 @@
+import { apiUrl } from "../shared/vault-url";
 import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
@@ -32,7 +33,7 @@ export function inlineTransclusionView(node: PMNode): NodeView {
     controller = new AbortController();
     if (!revision) dom.textContent = "Loading included file…";
     try {
-      const response = await fetch("/api/syntax/transclusion", {
+      const response = await fetch(apiUrl("/syntax/transclusion"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -243,7 +244,7 @@ export class SyntaxBlockView implements NodeView {
         this.preview.replaceChildren(iframe);
       } else if (kind === "transclusion") {
         if (!this.lastInclude) this.preview.textContent = "Loading included file…";
-        const response = await fetch("/api/syntax/transclusion", {
+        const response = await fetch(apiUrl("/syntax/transclusion"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ path: data.path, config }),
@@ -330,7 +331,7 @@ export function refreshProductViews(view: EditorView) {
         entries: prior?.key === bib ? prior.entries : {},
         time: Date.now(),
       });
-      void fetch("/api/syntax/bibliography", {
+      void fetch(apiUrl("/syntax/bibliography"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: bib }),

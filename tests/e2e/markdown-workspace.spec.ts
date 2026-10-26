@@ -36,6 +36,26 @@ async function open(
 const mode = (page: Page, name: string) =>
   page.locator(`.editing-modes [data-mode="${name}"]`).click();
 
+test("dialect changes update existing YAML in Source, undo together and survive reload", async ({ page, request }) => {
+  const body = '\n\n```yaml\nsyntax: literal\n```\n\nUnchanged body\n';
+  const source = '---\n# Keep this comment\nsyntax:\n  version: 1\n  variant: gfm\n  future: keep\n  extensions: {}\nfuture_note: preserve\n---' + body;
+  const note = await open(page, request, source);
+  await mode(page, "source");
+  const dialect = page.getByRole("combobox", { name: "Markdown dialect", exact: true });
+  await dialect.selectOption("obsidian");
+  await expect(page.locator(".cm-content")).toContainText("variant: obsidian");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).syntax.variant).toBe("obsidian");
+  await page.locator(".cm-content").click(); await page.keyboard.press("Control+z");
+  await expect(dialect).toHaveValue("gfm"); await expectSource(page, source);
+  await page.keyboard.press("Control+Shift+z"); await expect(dialect).toHaveValue("obsidian");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).syntax.variant).toBe("obsidian");
+  const saved = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(saved.body).toContain("# Keep this comment"); expect(saved.body).toContain("future: keep");
+  expect(saved.body).toContain("future_note: preserve"); expect(saved.body.endsWith(body)).toBe(true);
+  await page.reload(); await expect(dialect).toHaveValue("obsidian");
+});
+
 for (const pane of ["source", "document"] as const) {
   test(`${pane} typing batches Split projection without dimming and undoes a word`, async ({ page, request }) => {
     const original = "Start\n\nTail\n";

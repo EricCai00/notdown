@@ -1,3 +1,4 @@
+import { apiUrl } from "../shared/vault-url";
 import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { SyntaxConfig } from "../markdown-engine/config";
@@ -66,7 +67,7 @@ export function inlineObjectDialog(command: InlineObjectCommand, config: SyntaxC
     const metadata: Record<string, unknown> = {};
     doc.descendants(node => { if (isEditorKind(node, "syntax_block") && node.attrs.kind === "metadata") Object.assign(metadata, metadataValues(node.attrs.raw, node.attrs.metadataForm)); });
     const path = String(metadata.bibliography || metadata.bibtex || "");
-    if (path) void fetch("/api/syntax/bibliography", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }), signal: controller.signal })
+    if (path) void fetch(apiUrl("/syntax/bibliography"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }), signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error("Unable to read the local bibliography."); return response.json(); })
       .then(result => {
         if (!dialog.isConnected) return;

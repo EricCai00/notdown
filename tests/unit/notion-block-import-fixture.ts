@@ -2,6 +2,9 @@ import { notionFixture, notionChild } from "./notion-import-fixture.js";
 export const enrichmentRoot = "99999999-9999-4999-8999-999999999999";
 export const blockId = (number: number) => `aaaaaaaa-aaaa-4aaa-8aaa-${number.toString().padStart(12, "0")}`;
 export const unknownTag = (number: number, alt = "unreliable-label") => `<unknown url="https://www.notion.so/${enrichmentRoot}#${blockId(number).replace(/-/g, "")}" alt="${alt}" future="keep"/>`;
+export const crossLinksRoot = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+export const crossLinksTarget = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const crossLinksSource = `<mention-page url="https://www.notion.so/${crossLinksTarget}">Mentioned target</mention-page>\n\n${unknownTag(9).replace(enrichmentRoot, crossLinksRoot)}\n`;
 export const enrichmentSource = [
   `<page url="https://www.notion.so/${notionChild}">Child</page>`, '',
   '<columns>', '\t<column>', '\t\t' + unknownTag(1), '\t\t' + unknownTag(2), '\t</column>',
@@ -21,6 +24,10 @@ export const enrichmentFixture = (calls: string[] = []): typeof fetch => {
   const base = notionFixture(calls);
   return async (input, init) => {
     const response = await base(input, init), url = new URL(String(input));
+    if (url.pathname === `/v1/pages/${crossLinksRoot}/markdown`) return Response.json({
+      object: "page_markdown", id: crossLinksRoot, markdown: crossLinksSource, truncated: false, unknown_block_ids: [blockId(9)],
+    });
+    if (url.pathname === `/v1/blocks/${blockId(9)}`) return Response.json(responseBlock(9, "link_to_page", { type: "page_id", page_id: crossLinksTarget }));
     if (url.pathname.includes("/pages/aaaaaaaa-") && url.pathname.endsWith("/markdown")) return Response.json({}, { status: 404 });
     if (url.pathname === `/v1/pages/${enrichmentRoot}/markdown`) return Response.json({
       object: "page_markdown", id: enrichmentRoot, markdown: enrichmentSource, truncated: true, unknown_block_ids: [blockId(7)],

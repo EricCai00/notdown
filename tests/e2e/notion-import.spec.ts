@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { notionRoot, notionSource, notionLinksRoot, notionChild, notionSibling } from "../unit/notion-import-fixture.js";
 import { stablePageUuid } from "../../src/vault/page-id.js";
+import { crossLinksRoot, crossLinksTarget } from "../unit/notion-block-import-fixture.js";
 
 for (const variant of ["notdown", "notion-markdown"]) test(`imported ${variant} inline page links navigate to the matching local copy`, async ({ page, request }) => {
   const response = await request.post("/api/notion/import/preview", {
@@ -13,12 +14,14 @@ for (const variant of ["notdown", "notion-markdown"]) test(`imported ${variant} 
   const pages = await (await request.get("/api/pages")).json();
   const imported = (id: string) => pages.find((p: any) => p.id === stablePageUuid(`notion-${preview.id.slice(0, 24)}-${id}`));
   const root = imported(notionLinksRoot);
-  for (const [label, id] of [["Python", notionChild], ["Deep Learning", notionSibling]]) {
+  for (const [label, id] of [["Python", notionChild], ["Deep Learning", notionSibling], ["Mentioned child", notionChild], ["Mentioned sibling", notionSibling]]) {
     const target = imported(id);
     expect(root.body).toContain(`](#page/${target.id})`);
     await page.goto(`/#page/${root.id}`);
     await expect(page.locator("#page-title")).toHaveValue("Notion inline links");
-    const link = page.locator(".page-pane .ProseMirror").getByRole("link", { name: label, exact: true });
+    const editor = page.locator(".page-pane .ProseMirror");
+    const link = label.startsWith("Mentioned") ? editor.locator(`.page-mention[data-page-target="${target.id}"]`)
+      : editor.getByRole("link", { name: label, exact: true });
     await expect(link).toHaveAttribute("href", `#page/${target.id}`);
     await link.click();
     await expect(page).toHaveURL(new RegExp(`#page/${target.id}$`));
@@ -26,6 +29,31 @@ for (const variant of ["notdown", "notion-markdown"]) test(`imported ${variant} 
     await page.reload();
     await expect(page.locator("#page-title")).toHaveValue("Same title");
   }
+});
+
+test("Notion page mentions and Link to page open a unique copy imported in an earlier batch", async ({ page, request }) => {
+  const token = "test-secret-not-saved";
+  const preview = async (pageId: string, variant: string) => {
+    const response = await request.post("/api/notion/import/preview", { data: { token, pageId, variant, includeChildren: false } });
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  };
+  const targetPreview = await preview(crossLinksTarget, "notdown");
+  expect((await request.post("/api/import/commit", { data: { id: targetPreview.id } })).ok()).toBeTruthy();
+  const target = targetPreview.documents[0];
+  const rootPreview = await preview(crossLinksRoot, "notdown");
+  expect(rootPreview.pages).toBe(1);
+  expect(rootPreview.documents[0].source).toContain(`<mention-page url="#page/${target.id}">`);
+  expect((await request.post("/api/import/commit", { data: { id: rootPreview.id } })).ok()).toBeTruthy();
+  await page.goto(`/#page/${rootPreview.documents[0].id}`);
+  await page.locator(`.page-pane .ProseMirror .page-mention[data-page-target="${target.id}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`#page/${target.id}$`));
+  await expect(page.locator("#page-title")).toHaveValue("Same title");
+  expect(rootPreview.documents[0].source).toContain(`<page-link future="keep" url="#page/${target.id}">`);
+  await page.goto(`/#page/${rootPreview.documents[0].id}`);
+  await page.locator('.ProseMirror [data-pm-node-type="block.link_to_page"]').click();
+  await expect(page).toHaveURL(new RegExp(`#page/${target.id}$`));
+  await expect(page.locator("#page-title")).toHaveValue("Same title");
 });
 
 test("Notion API preview, exact Markdown import and duplicate snapshot preserve local edits", async ({

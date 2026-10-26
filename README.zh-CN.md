@@ -24,9 +24,9 @@ Notdown 是一款将块编辑与 Markdown 文件结合的本地笔记应用。�
 - **自由切换写作方式。** Page、Source、Split 三种视图，支持斜杠命令、行内格式、块选择与拖动。
 - **连接与整理笔记。** 子页面、搜索、收藏、反向链接、大纲、思维导图和页面关系图。
 - **丰富的内容表达。** 图片与音视频、表格、提示块、公式、Mermaid 图表、脚注与引文，可选择不同 Markdown 方言。通过[附件库](docs/features/MEDIA-AND-EMBEDS.md)浏览和复用本地文件。
-- **管理结构化信息。** 本地数据库提供表格视图和带类型的属性，每条记录对应 Markdown 页面。
+- **管理结构化信息。** 桌面和 Android 支持整页与内嵌数据库，提供表格视图和带类型的属性，每条记录对应 Markdown 页面。
 - **带入已有笔记。** 预览并导入 Markdown 文件夹，或将 Notion 页面和数据库导入为本地副本。
-- **掌握自己的文件。** 正文使用本地 Markdown，保存时校验版本，保留历史快照与可恢复的冲突副本。
+- **掌握自己的文件。** 正文使用本地 Markdown，保存时校验版本，保留可恢复的历史与冲突副本；桌面端可选本地 Git 历史。
 
 配置相应服务或运行环境后，还可以使用 [AI 块](docs/features/AI-BLOCKS.md)、[会议笔记](docs/features/MEETING-NOTES.md)和[可执行笔记本](docs/features/QUARTO.md)，进行内容生成、转写与计算。
 
@@ -54,13 +54,13 @@ npm run desktop
 npm run dev
 ```
 
-打开 [localhost:4317](http://127.0.0.1:4317)。默认知识库为 `./vault`，使用期间保持终端运行。Windows 用户安装依赖后，也可以双击 [start.cmd](start.cmd)。
+打开 [localhost:4317](http://127.0.0.1:4317)。笔记存放在独立的知识库目录中，使用期间保持终端运行。Windows 用户安装依赖后，也可以双击 [start.cmd](start.cmd)。
 
-自定义知识库路径、后台服务重启和生产构建见[运行与开发指南](docs/architecture/DEVELOPMENT.md)。
+可从侧栏顶部或工作区设置中新建、切换知识库。自定义路径、服务重启和生产构建见[运行与开发指南](docs/architecture/DEVELOPMENT.md)。
 
 ### Android 预览版
 
-Android 初版共用桌面编辑器与文件格式，支持离线笔记、图片和知识库 ZIP 备份。构建、安装及当前限制见 [Android 指南](docs/features/ANDROID.md)。
+Android 初版连接电脑已有的云端知识库，首次打开需要配置同步；初次下载完成后可离线使用笔记和附件。安装及当前限制见 [Android 指南](docs/features/ANDROID.md)。
 
 ### 导入已有笔记
 
@@ -68,7 +68,7 @@ Android 初版共用桌面编辑器与文件格式，支持离线笔记、图片
 
 ## 你的文件
 
-笔记正文保存在 `vault/pages/*.md`，附件在 `vault/assets/`，通用页面属性在 `vault/metadata.json`。文档内的 YAML 或 Pandoc title block 可覆盖这些默认属性；Source 视图显示完整 Markdown 文件。
+每个知识库使用独立目录，正文保存在 `pages/*.md`，附件在 `assets/`，通用页面属性在 `metadata.json`。文档内的 YAML 或 Pandoc title block 可覆盖这些默认属性；Source 视图显示完整 Markdown 文件。
 
 同一知识库只使用一个运行中的服务。备份时复制整个知识库文件夹，以包含附件和元数据。存储、冲突恢复及显式迁移见[知识库元数据说明](docs/features/VAULT-METADATA.md)。
 

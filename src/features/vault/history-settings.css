@@ -1,0 +1,17 @@
+.history-setting-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+.history-setting-fields label, .history-checkpoint-form label { display: grid; gap: 5px; font-size: 13px; }
+.history-setting-fields input, .history-checkpoint-form input { width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface, white); color: inherit; font: inherit; }
+.history-checkpoint-form { display: flex; align-items: end; gap: 10px; margin-top: 14px; }
+.history-checkpoint-form label { flex: 1; }
+.history-settings [role="status"] { margin-top: 10px; overflow-wrap: anywhere; }
+.page-history-browser { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 20px; min-height: 280px; max-height: 65vh; }
+.page-history-browser nav, .page-history-browser > section { min-width: 0; overflow: auto; }
+.page-history-browser nav { display: flex; flex-direction: column; gap: 6px; }
+.history-version { display: grid; gap: 5px; text-align: left; width: 100%; flex-shrink: 0; }
+.history-version strong { font-size: 12px; }
+.history-version span { font-size: 12px; opacity: .75; }
+.history-version[aria-current="true"] { outline: 2px solid var(--accent, #477a67); outline-offset: -2px; }
+.history-preview-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.page-history-browser details { margin: 12px 0; }
+.page-history-browser pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--surface-hover, #f6f5f1); border-radius: 6px; font: 12px/1.6 var(--font-mono, monospace); }
+@media (max-width: 700px) { .history-setting-fields, .page-history-browser { grid-template-columns: 1fr; } .page-history-browser nav { max-height: 140px; } .history-checkpoint-form { flex-direction: column; align-items: stretch; } }

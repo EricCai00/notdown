@@ -14,6 +14,7 @@ import { foldGutter, foldKeymap } from "@codemirror/language";
 import { markdownSourceLanguage } from "./source-language";
 import { BlockEditor } from "../editor/prosemirror-editor.js";
 import { insertFormats } from "../editor/insert-format";
+import { inlineColorNames } from "../editor/inline-colors";
 import { footnoteChoices, newFootnote, type FootnoteInput } from "../editor/footnotes";
 import { editorSchema } from "../document/editor-schema";
 import type { Page } from "../shared/types.js";
@@ -23,7 +24,7 @@ import { renameDocumentPageSource } from "../features/metadata/pandoc-page-title
 import { extensionCategoryHeading } from "../catalog/extension-categories";
 import {
   commandEnabled,
-  dialects,
+  dialectGroups,
   extensions,
   enabled,
   supportsOption,
@@ -45,6 +46,8 @@ import { RNotebookController } from "./r-notebook";
 export type EditMode = "document" | "source" | "split";
 const projectionDelay = 500;
 interface Options {
+  interactionMode?: "desktop" | "touch";
+  canTouchDrag?: () => boolean;
   metadataHost?: HTMLElement;
   source: string;
   config: SyntaxConfig;
@@ -93,7 +96,7 @@ export class MarkdownWorkspace {
     this.session = new DocumentSession(options.source, options.config);
     this.mappingDoc = this.session.snapshot.doc;
     root.className = "markdown-workspace";
-    root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view"><button type="button" data-mode="source">Source</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="document">Page</button></div><label class="dialect-label">Dialect <select aria-label="Markdown dialect">${dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</select></label><details class="syntax-options"><summary>Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling">Sync scrolling</label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane"><div class="pane-title">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane"><div class="pane-title">Page · Editable</div><div id="editor"></div></section></div>`;
+    root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view"><button type="button" data-mode="source">Source</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="document">Page</button></div><label class="dialect-label">Dialect <select aria-label="Markdown dialect">${dialectGroups.map((group) => `<optgroup label="${group.label}">${group.dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</optgroup>`).join("")}</select></label><details class="syntax-options"><summary>Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling">Sync scrolling</label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane"><div class="pane-title">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane"><div class="pane-title">Page · Editable</div><div id="editor"></div></section></div>`;
     root.querySelector(".syntax-options-panel")!.innerHTML = `<div class="extension-search"><input type="search" aria-label="Search extensions" placeholder="Search by name, ID, or description" autocomplete="off"><p class="extension-search-count" role="status"></p></div><div class="syntax-options-content"></div>`;
     this.pagePane = root.querySelector(".page-pane")!;
     const newline = options.source.match(/\r\n|\n|\r/)?.[0] ?? "\n";
@@ -180,6 +183,8 @@ export class MarkdownWorkspace {
       }),
     });
     this.blocks = new BlockEditor(root.querySelector("#editor")!, {
+      interactionMode: options.interactionMode,
+      canTouchDrag: options.canTouchDrag,
       metadataHost: options.metadataHost,
       value: options.source,
       bodyFormat: syntaxFormat(options.config),
@@ -478,6 +483,7 @@ export class MarkdownWorkspace {
       this.session.configure(config);
       this.blocks.setCodec(this.codec());
       this.blocks.replaceDocument(this.session.snapshot.doc);
+      this.syncSource();
       this.controls();
       this.publish();
     } catch (error) {
@@ -656,8 +662,13 @@ export class MarkdownWorkspace {
     }
   }
 
-  insertFormat(id: string) {
-    const format = insertFormats[id];
+  insertFormat(id: string, color?: string) {
+    if (color !== undefined && !inlineColorNames.some(name => name === color)) return;
+    const base = insertFormats[id];
+    const format = base && color && (id === "color" || id === "background")
+      ? { ...base, before: `<span color="${color}${id === "background" ? "_bg" : ""}">` }
+      : base && id === "underline" && this.session.snapshot.config.notionVersion === "v2"
+        ? { ...base, before: "<u>", after: "</u>" } : base;
     if (!format || !commandEnabled(this.session.snapshot.config, id)) return;
     if (this.activePane === "source") {
       const { from, to } = this.source.state.selection.main;
