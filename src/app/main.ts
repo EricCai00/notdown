@@ -12,6 +12,8 @@ import { databaseReference } from "../features/databases/database-reference";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { openVaultManager } from "../features/vault/vault-manager";
 import { applySidebarPreferences, mountSidebarPreferences } from "./sidebar-preferences";
+import { applyMarkdownControlPreferences, mountMarkdownControlPreferences } from "./markdown-control-preferences";
+import { mountSettingsLayout } from "./settings-layout";
 import { WorkspaceTabs, renderWorkspaceTabs } from "./workspace-tabs";
 import { mountApplicationMenu } from "./application-menu";
 import "./workspace-tabs.css";
@@ -639,7 +641,7 @@ function renderDocument() {
   }
   const p = current;
   refreshBreadcrumbs();
-  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  renderPageOptions();
   document.querySelector("#main")!.innerHTML =
     `<div class="document-wrap ${view === "mindmap" ? "wide" : ""}">
     <div id="page-cover-region" class="page-cover-region"></div>
@@ -700,6 +702,10 @@ function pageOptions() {
   ];
   return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}Page history</button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
 }
+function renderPageOptions() {
+  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  refreshIcons();
+}
 function renderContent() {
   if (!current) return;
   const content = document.querySelector<HTMLDivElement>("#document-content")!;
@@ -754,7 +760,7 @@ function renderContent() {
         },
         onMode: (mode) => {
           view = mode;
-          document.querySelector("#page-options")!.innerHTML = pageOptions();
+          renderPageOptions();
           renderToc();
         },
         onInsert: showInsert,
@@ -766,6 +772,7 @@ function renderContent() {
     );
     editor = workspace.blocks;
     editorReady = true;
+    applyMarkdownControlPreferences();
   } else {
     const outline = getOutline(
       current.body,
@@ -962,7 +969,7 @@ async function loadLibrary(selected = libraryView, isCurrent = () => true): Prom
 function renderLibrary() {
   graphCleanup?.();
   graphCleanup = undefined;
-  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  renderPageOptions();
   refreshBreadcrumbs();
   const filtered = pages.filter((p) =>
     `${p.title} ${p.body} ${JSON.stringify(p.properties)}`
@@ -1205,7 +1212,7 @@ async function loadDatabases(id?: string, isCurrent = () => true): Promise<boole
     current = null; library = false; dirty = false; pages = loadedPages;
     databaseRoute = { kind: "database", ...(id ? { id } : {}) };
     document.querySelector("#main")!.innerHTML = `<section class="database-workspace"><h1>Databases</h1><p>${e(databaseRestartMessage)}</p><button class="primary-button" data-action="retry-databases">Check connection</button></section>`;
-    document.querySelector("#page-options")!.innerHTML = pageOptions();
+    renderPageOptions();
     renderSidebar(); updateCounts(); status("Server update needed", "error");
     return true;
   }
@@ -1227,7 +1234,7 @@ async function loadDatabases(id?: string, isCurrent = () => true): Promise<boole
   document.querySelector("#main")!.replaceChildren(host);
   document.querySelector("#breadcrumb")!.textContent = "Databases";
   const sourceMenu = document.querySelector<HTMLElement>("#source-file-options"); if (sourceMenu) sourceMenu.hidden = true;
-  document.querySelector("#page-options")!.innerHTML = pageOptions();
+  renderPageOptions();
   status("Local database"); renderSidebar(); updateCounts(); refreshIcons();
   return true;
 }
@@ -1316,7 +1323,7 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
     } else if (library) renderLibrary();
     else if (current) renderRelations();
     renderSidebar();
-    document.querySelector("#page-options")!.innerHTML = pageOptions();
+    renderPageOptions();
     refreshIcons();
     return true;
   } catch (error) {
@@ -1627,7 +1634,7 @@ function startCoverReposition() {
 function showSettings() {
   const settingsDialog = modal(
     "Workspace settings",
-    `<div class="settings-section"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section"><h3>Current development version</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync below to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
+    `<div class="settings-section" data-settings-category="workspace"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section" data-settings-category="appearance"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section" data-settings-category="advanced"><h3>About Notdown</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync in Sync &amp; history to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
   );
   settingsDialog.classList.add("workspace-settings-dialog");
   settingsDialog.setAttribute("aria-label", "Workspace settings");
@@ -1646,6 +1653,7 @@ function showSettings() {
   settingsDialog.querySelector(".vault-path")?.after(vaultButton);
   const typingSection = document.createElement("div");
   typingSection.className = "settings-section";
+  typingSection.dataset.settingsCategory = "editing";
   const typingHeading = document.createElement("h3");
   typingHeading.textContent = "Editing";
   const codeRow = document.createElement("label");
@@ -1702,11 +1710,17 @@ function showSettings() {
   const listHint = document.createElement("p");
   listHint.textContent = "Changes nested numbering for lists starting with numbers. Explicit letter and Roman numeral styles are preserved. Display only; Markdown source stays unchanged. Saved on this device.";
   settingsDialog.querySelectorAll(".settings-section")[1]?.append(listRow, listHint);
-  void mountRuntimeSettings(settingsBody);
-  void mountServiceSettings(settingsBody);
-  void mountSyncSettings(settingsBody, { beforeSync: save });
-  void mountHistorySettings(settingsBody, save);
-  mountSidebarPreferences(settingsBody);
+  const groups = mountSettingsLayout(settingsDialog, settingsBody);
+  void mountRuntimeSettings(groups.advanced);
+  void mountServiceSettings(groups.connections);
+  void mountSyncSettings(groups.sync, { beforeSync: save });
+  void mountHistorySettings(groups.sync, save);
+  mountSidebarPreferences(groups.appearance);
+  mountMarkdownControlPreferences(groups.editing);
+  groups.advanced.append(groups.appearance.querySelector(".experimental-preferences")!);
+  groups.advanced.append(groups.advanced.querySelector('[data-settings-category="advanced"]')!);
+  groups.workspace.append(groups.connections.querySelector(".reminder-settings")!);
+  refreshIcons();
 }
 function showConflict() {
   if (!conflict) return;
@@ -2597,7 +2611,7 @@ document.addEventListener("click", (event) => {
       if (workspace && ["document", "source", "split"].includes(next)) {
         workspace.setMode(next as EditMode);
         view = next;
-        document.querySelector("#page-options")!.innerHTML = pageOptions();
+        renderPageOptions();
         renderToc();
         return;
       }
@@ -2922,7 +2936,7 @@ document.addEventListener(
       view = view === "source" ? "document" : "source";
       if (workspace) {
         workspace.setMode(view);
-        document.querySelector("#page-options")!.innerHTML = pageOptions();
+        renderPageOptions();
         renderToc();
         if (view === "source") workspace.source.focus();
         else editor?.focus();
@@ -3086,7 +3100,7 @@ async function boot() {
         view = (state?.mode ?? "document") as View;
         if (workspace && ["document", "source", "split"].includes(view)) await workspace.setMode(view as EditMode);
         else renderContent();
-        document.querySelector("#page-options")!.innerHTML = pageOptions(); renderToc();
+        renderPageOptions(); renderToc();
       }
       document.querySelector("#main")!.scrollTop = state?.scroll ?? 0;
       if (workspace) workspace.source.scrollDOM.scrollTop = state?.sourceScroll ?? 0;

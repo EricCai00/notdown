@@ -6,7 +6,8 @@ type Status = { settings: HistorySettings; revision: string; available: boolean;
 export async function mountHistorySettings(dialog: HTMLElement, beforeChange: () => Promise<boolean>) {
   const section = document.createElement("section"); section.className = "settings-section history-settings";
   section.innerHTML = '<h3>History</h3><p data-history-status role="status">Loading history settings…</p>';
-  dialog.querySelector(".dialog-actions")?.before(section);
+  const actions = dialog.querySelector(".dialog-actions");
+  if (actions) actions.before(section); else dialog.append(section);
   let state: Status;
   try { state = await api<Status>("/history/settings"); }
   catch { section.querySelector("p")!.textContent = "History settings need the updated local server. Restart Notdown to use this feature."; return; }

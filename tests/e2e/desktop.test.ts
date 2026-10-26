@@ -33,6 +33,21 @@ test("managed vaults use sibling named folders and remain separate", async () =>
   expect(new URL(first.url()).origin).not.toBe(new URL(second.url()).origin);
 });
 
+test("desktop settings has grouped navigation and the Markdown display preferences", async () => {
+  const vaultPath = path.join(root, "Settings"); await fs.mkdir(vaultPath);
+  const page = await chooseFolder(vaultPath, "create");
+  await page.getByRole("button", { name: "Workspace settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Workspace settings", exact: true });
+  const nav = dialog.getByRole("navigation", { name: "Settings sections" });
+  await expect(nav.getByRole("button")).toHaveCount(6);
+  await nav.getByRole("button", { name: "Editing", exact: true }).click();
+  await expect(dialog.getByRole("checkbox", { name: "Show dialect selector", exact: true })).toBeChecked();
+  await expect(dialog.getByRole("button", { name: "Done", exact: true })).toBeInViewport();
+  await page.screenshot({ path: ".run/logs/settings-desktop-packaged.png" });
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
 let root: string;
 let desktop: ElectronApplication;
 let launchArgs: string[];

@@ -1,7 +1,7 @@
 import { api } from "../../shared/types";
 export async function mountLinkConnections(container: HTMLElement) {
   const section = document.createElement("section");
-  section.className = "link-connection-settings";
+  section.className = "settings-section link-connection-settings";
   section.innerHTML =
     "<h3>Link previews</h3><p>GitHub public links work without a token. For private repositories, use a token with read access to the relevant contents, issues and pull requests. OneDrive requires a Microsoft Graph access token with Files.ReadWrite permission and access to the shared file. Expired tokens must be replaced here.</p><p>Tokens are stored only in this vault’s local connection settings. They are never saved in page Markdown. Connected previews fetch their linked content when opened and once per minute while visible.</p>";
   container.append(section);

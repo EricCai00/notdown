@@ -26,6 +26,8 @@
 
 三种视图共享草稿与撤销历史。切换视图、页面或执行保存前会收取待处理输入；Source/Page 投影和阅读大纲在短暂停止输入后更新。连续输入会合并为撤销步骤，换行和独立编辑另起一步。复杂或重排的内容不保证逐字符滚动对应。
 
+桌面和浏览器版在 **Workspace settings → Markdown controls** 可分别显示或隐藏 **View switcher**（Source / Split / Page）、**Dialect selector** 和 **Extensions button**，三项默认显示。开关立即生效并保存在当前浏览器／桌面配置中，不修改页面或 Markdown 文件。全部关闭时收起整行控件；隐藏视图按钮后仍可通过右上角 **Page options（…）→ View** 或 `Ctrl/⌘+E` 切换视图。Split 的同步滚动开关随视图按钮一起隐藏。
+
 Source 和 Split 使用较宽的编辑区，源码支持语法高亮及标题、代码、引用、列表和表格折叠。点击行号旁箭头展开／折叠；`Ctrl+Shift+[` / `Ctrl+Shift+]` 操作当前位置，`Ctrl+Alt+[` / `Ctrl+Alt+]` 操作全部。折叠只影响当前编辑器，不改写 Markdown；部分自定义方言结构尚无专用高亮和折叠规则。
 
 ## 常用操作
@@ -109,7 +111,7 @@ HTML 块在悬停或聚焦时显示 `</>` 按钮，可展开带高亮和实时�
 
 **Workspace settings → Sidebar** 可分别显示或隐藏 Search、Vault、Databases、Attachments、People、Graph 和 Conflicts and versions；设置在当前浏览器保存，立即生效，**Show all shortcuts** 恢复全部入口。隐藏入口不会删除内容或禁用功能，搜索快捷键 Ctrl/⌘ K 继续可用，知识库管理和设置入口始终保留。
 
-设置窗口的标题栏与关闭按钮固定，内容区独立滚动。点击关闭按钮、按 Esc 或点击窗口外的遮罩均可退出；下拉选择器等子面板打开时，Esc 可能先关闭子面板。开关类偏好即时保存；带 Save 按钮的配置需点击对应按钮提交。
+设置窗口按 **Workspace、Appearance、Editing、Sync & history、Connections、Advanced** 分类，左侧导航定位到对应分组；窄窗口改为顶部横向导航。各组使用统一的表单、开关、按钮与状态提示，导航时保留尚未提交的表单输入。标题栏与底部 **Done** 固定，内容区独立滚动。点击关闭按钮、按 Esc 或点击窗口外的遮罩均可退出；下拉选择器等子面板打开时，Esc 可能先关闭子面板。开关类偏好即时保存；带 Save 按钮的配置需点击对应按钮提交。
 
 侧栏支持父子页面、排序、收藏、搜索和 Trash。页面可设置图标、封面与属性；底部 **Child page** 列表按实际层级生成。子页少于或等于五个时默认展开，更多时默认折叠，手动选择在当前会话保留。
 

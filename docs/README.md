@@ -66,6 +66,8 @@
 
 ## 审计与验证记录
 
+- [设置界面统一与桌面 0.1.3（2026-10-26）](verification/SETTINGS-0.1.3-2026-10-26.md)
+
 - [Windows 托盘驻留、关闭保存与单实例（2026-10-26）](verification/TRAY-AND-SINGLE-INSTANCE-2026-10-26.md)
 
 - [侧栏精简、整体滚动与安卓直接选择方言（2026-10-26）](verification/SIDEBAR-AND-MOBILE-DIALECT-2026-10-26.md)

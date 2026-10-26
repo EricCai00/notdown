@@ -41,7 +41,8 @@ export function mountSidebarPreferences(dialog: HTMLElement) {
     applySidebarPreferences();
   });
   section.append(reset, defaults);
-  dialog.querySelector(".dialog-actions")?.before(section);
+  const actions = dialog.querySelector(".dialog-actions");
+  if (actions) actions.before(section); else dialog.append(section);
   const experimental = document.createElement("section");
   experimental.className = "settings-section experimental-preferences";
   experimental.innerHTML = '<h3>Experimental features</h3><p>Enable experimental tools to show their sidebar links. Off by default. Saved in this browser.</p>';
@@ -56,6 +57,6 @@ export function mountSidebarPreferences(dialog: HTMLElement) {
     });
     row.append(label, input); experimental.append(row);
   }
-  dialog.querySelector(".dialog-actions")?.before(experimental);
+  if (actions) actions.before(experimental); else dialog.append(experimental);
 }
 window.addEventListener("storage", event => { if (event.key === key || event.key === experimentsKey || event.key === null) applySidebarPreferences(); });
