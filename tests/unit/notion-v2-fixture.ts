@@ -41,8 +41,8 @@ export function v2Fixture(fallback?: typeof fetch, calls: string[] = []): typeof
     const markdown = (body: string) => Response.json({ object: "page_markdown", id, markdown: body, truncated: false, unknown_block_ids: [] });
     if (id === v2Id(85)) {
       const code = 'for i in $(ls *.pdbqt); do\nname=${i%.*};\necho "$name shen"\ndone';
-      if (request.pathname.endsWith("/markdown")) return markdown('```shen\n' + code + '\n```');
-      if (request.pathname.endsWith("/children")) return Response.json({ results: [{ object: "block", id: v2Id(86), type: "code", code: { language: "shell", rich_text: [{ type: "text", text: { content: code } }] } }], has_more: false, next_cursor: null });
+      if (request.pathname.endsWith("/markdown")) return markdown('```shen\n' + code + '\n```\n\n```shen\n\n```');
+      if (request.pathname.endsWith("/children")) return Response.json({ results: [{ object: "block", id: v2Id(86), type: "code", code: { language: "shell", rich_text: [{ type: "text", text: { content: code } }] } }, { object: "block", id: v2Id(87), type: "code", code: { language: "shell", rich_text: [] } }], has_more: false, next_cursor: null });
       return Response.json({ object: "page", id, properties: { Name: { type: "title", title: [{ plain_text: "Shell export mismatch" }] } } });
     }
     if (id === v2Id(82)) {

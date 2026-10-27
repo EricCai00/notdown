@@ -15,6 +15,8 @@ test("menu IDs, labels, aliases, empty labels and Mermaid skip language recovery
   assert.equal(hasUnknownNotionCodeLanguage('```markdown\n```shen\n```\n'), false);
   assert.equal(hasUnknownNotionCodeLanguage('`shen` and Shell in prose'), false);
   assert.equal(hasUnknownNotionCodeLanguage('```shen\necho ok\n```'), true);
+  assert.equal(hasUnknownNotionCodeLanguage('```shen\n\n```'), true);
+  assert.equal(hasUnknownNotionCodeLanguage('```\n\n```'), false);
   assert.equal(hasUnknownNotionCodeLanguage('<callout>\n\t```shen\n\techo ok\n\t```\n</callout>'), true);
 });
 
@@ -45,6 +47,29 @@ test("nested fences and longer fences retain literal inner fence examples", () =
   assert.equal(supplementNotionCodeLanguages(outer, [block("shell", literal)]).source, outer.replace("````shen", "````shell"));
 });
 
+test("unique empty code recovers its language while retaining blank lines, CRLF and attributes", () => {
+  for (const source of ['```shen\n```', 'Before\r\n\r\n```shen {future="keep"}\r\n\r\n```\r\n\r\nAfter', '<callout>\n\t```shen\n\n\t```\n</callout>']) {
+    for (const parts of [[], [{ type: "text", text: { content: "" } }]]) {
+      const api = block("shell", ""); api.code.rich_text = parts;
+      const result = supplementNotionCodeLanguages(source, [api]);
+      assert.equal(result.restored, 1);
+      assert.equal(result.source, source.replace("```shen", "```shell"));
+    }
+  }
+});
+
+test("empty code with absent or ambiguous matches is preserved, as are known empty languages", () => {
+  const source = '```shen\n\n```';
+  for (const blocks of [[], [block("shell", "", "one"), block("python", "", "two")]])
+    assert.equal(supplementNotionCodeLanguages(source, blocks).source, source);
+  for (const other of ['```shen\n\n```', '```python\n\n```']) {
+    const repeated = source + "\n\n" + other;
+    assert.equal(supplementNotionCodeLanguages(repeated, [block("shell", "")]).source, repeated);
+  }
+  for (const language of ["", "python", "shell", "text", "mermaid"])
+    assert.equal(supplementNotionCodeLanguages(source.replace("shen", language), [block("shell", "")]).restored, 0);
+});
+
 test("unknown, changed, ambiguous and malformed code remains unchanged without verified identity", () => {
   const source = `\`\`\`shen\n${text}\n\`\`\``;
   for (const blocks of [[], [block("shell", text + " changed")], [block(), block("python", text, "code-2")], [block("shell\n```python")], [{ ...block(), in_trash: true }]]) {
@@ -52,7 +77,6 @@ test("unknown, changed, ambiguous and malformed code remains unchanged without v
   }
   const repeated = source + "\n\n" + source;
   assert.equal(supplementNotionCodeLanguages(repeated, [block()]).source, repeated);
-  assert.equal(supplementNotionCodeLanguages("```shen\n```", [block("shell", "")]).restored, 0);
   assert.equal(supplementNotionCodeLanguages(source, [block("shen")]).restored, 0);
   assert.equal(supplementNotionCodeLanguages(source.replace("shen\n", "zsh\n"), [block()]).restored, 0);
   assert.equal(supplementNotionCodeLanguages(source.replace(/```$/, ""), [block()]).restored, 0);

@@ -1,19 +1,27 @@
 import { test, expect } from "@playwright/test";
 import { v2Root, v2Id } from "../unit/notion-v2-fixture";
 
-for (const variant of ["notdown", "notion-markdown"]) test(`${variant} restores Shell language from verified blocks in preview, import and reload`, async ({ page, request }, testInfo) => {
+for (const variant of ["notdown", "notion-markdown"]) test(`${variant} restores Shell language for populated and empty blocks in preview, import and reload`, async ({ page, request }, testInfo) => {
   const response = await request.post("/api/notion/import/preview", { data: { token: "test-token-example", pageId: v2Id(85), variant, includeChildren: false, downloadAssets: false, useDesktopCache: false } });
   expect(response.ok()).toBeTruthy();
   const preview = await response.json(), imported = preview.documents[0];
   expect(imported.source).toContain('```shell\n');
   expect(imported.source).toContain('echo "$name shen"');
+  expect(imported.source).toContain('```shell\n\n```');
+  expect(preview.warnings.some((warning: string) => warning.includes("restored 2 code language"))).toBeTruthy();
   expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
   await page.goto(`/#page/${imported.id}`);
-  const block = page.locator(".pm-document .pm-code-block");
-  await expect(block.getByRole("button", { name: "Code language" })).toHaveText("Shell");
+  const blocks = page.locator(".pm-document .pm-code-block"), block = blocks.first();
+  await expect(blocks).toHaveCount(2);
+  await expect(blocks.getByRole("button", { name: "Code language" })).toHaveText(["Shell", "Shell"]);
   await expect(block.locator(".pm-code-keyword").first()).toBeVisible();
+  await expect(blocks.last().locator("code")).toHaveText("");
+  await page.locator("#page-title").fill("Recovered populated and empty Shell blocks");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${imported.id}`)).json()).title).toBe("Recovered populated and empty Shell blocks");
   await page.reload();
-  await expect(block.getByRole("button", { name: "Code language" })).toHaveText("Shell");
+  await expect(blocks.getByRole("button", { name: "Code language" })).toHaveText(["Shell", "Shell"]);
+  await expect(blocks.last().locator("code")).toHaveText("");
   expect((await (await request.get(`/api/pages/${imported.id}`)).json()).body).toBe(imported.source);
   await block.hover();
   await page.screenshot({ path: testInfo.outputPath("restored-shell.png") });

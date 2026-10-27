@@ -66,7 +66,7 @@
 
 ## 审计与验证记录
 
-- [Windows 0.1.4 发布验证（2026-10-27）](verification/RELEASE-0.1.4-2026-10-27.md)
+- [Windows 0.1.4 与 0.1.5 补丁验证（2026-10-27）](verification/RELEASE-0.1.4-2026-10-27.md)
 
 - [当前自定义正文写法与背景色迁移（2026-10-27）](audits/CUSTOM-SYNTAX-AUDIT-2026-10-27.md)
 

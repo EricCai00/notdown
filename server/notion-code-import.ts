@@ -49,7 +49,9 @@ export function supplementNotionCodeLanguages(source: string, blocks: readonly J
   for (const [text, matches] of nodes) {
     if (!matches.some(unknownLanguage)) continue;
     const candidates = api.get(text);
-    if (!text || !candidates?.length) continue;
+    // Empty code is still matchable when both snapshots contain exactly one
+    // empty block. The same ambiguity checks below protect repeated empties.
+    if (!candidates?.length) continue;
     const block = candidates[0], language = block.code.language;
     if (typeof language !== "string" || !/^[a-z][a-z0-9+#. -]*$/i.test(language)) continue;
     if (matches.every(node => languageId(String(node.attrs.params || "")) === languageId(language)) && candidates.every(candidate => candidate.code.language === language)) continue;
