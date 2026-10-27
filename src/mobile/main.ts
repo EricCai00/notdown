@@ -14,6 +14,9 @@ import { setAssetDisplayResolver } from "../shared/asset-display";
 import { refreshIcons } from "../shared/icons";
 import { pageIconElement } from "../shared/page-icons";
 import { searchPages } from "../features/pages/page-search";
+import { setExternalLibrary } from "../features/references/external-client";
+import { openPeopleEvent, refreshPeople } from "../features/people/people-client";
+import { openPeople } from "../features/people/people-view";
 import { mediaInsertMarkdown } from "../blocks/media-insert";
 import { mountSyncSettings, installSyncScheduler, type SyncHooks } from "../features/vault/sync-settings";
 import { createNativePlatform, NativeVault } from "./native-platform";
@@ -103,6 +106,7 @@ function enqueue(action: () => Promise<unknown>) {
 }
 async function refreshPages() {
   [pages, databases] = await Promise.all([vault.list(), vault.databases.list()]);
+  setExternalLibrary(await vault.externalEntities.list());
   pageListDirty = true;
 }
 function rememberRoute(hash: string) {
@@ -320,13 +324,15 @@ async function refreshNotebookName() {
 async function switchVault(id: string, supplied?: MobileVault) {
   stopSync?.();
   const next = supplied ?? createVault(`/vaults/${id}`, platform, { syncFetch: native ? nativeSyncFetch : undefined, privateReplica: true });
-  const [loaded, resources] = await Promise.all([next.list(), next.databases.list()]);
+  const [loaded, resources, references] = await Promise.all([next.list(), next.databases.list(), next.externalEntities.list()]);
   editingTools.reset(); workspace?.destroy(); workspace = undefined; session = undefined;
   databaseWorkspace?.destroy(); databaseWorkspace = undefined; databaseRoute = undefined; recordSource = undefined;
   databaseMount.hidden = true; databaseMount.replaceChildren(); recordProperties.hidden = true;
   assets.clear();
   if (vaultId !== id) collapsedPages.clear();
   vaultId = id; vault = next; pages = loaded; databases = resources;
+  setExternalLibrary(references);
+  await refreshPeople();
   setupRequired = !mobileNotebookReady(await next.sync.status());
   app.dataset.connected = String(!setupRequired);
   const empty = app.querySelector<HTMLElement>(".mobile-empty")!;
@@ -364,7 +370,10 @@ function syncHooks(selectedVault: MobileVault): SyncHooks {
         return;
       }
       const active = session, activeDatabase = databaseRoute;
-      const [latest, resources] = await Promise.all([selectedVault.list(), selectedVault.databases.list()]);
+      const [latest, resources, references] = await Promise.all([selectedVault.list(), selectedVault.databases.list(), selectedVault.externalEntities.list()]);
+      if (selectedVault !== vault) return;
+      setExternalLibrary(references);
+      await refreshPeople();
       if (selectedVault !== vault || session !== active || databaseRoute !== activeDatabase || !capture() || session?.dirty || session?.saving || session?.failure || databaseWorkspace?.dirty || workspace?.blocks.databaseViewsDirty) return;
       pages = latest; databases = resources; pageListDirty = true; renderPages();
       const current = latest.find(page => page.id === active?.draft.id);
@@ -650,4 +659,5 @@ async function start() {
   }
   app.dataset.ready = "true";
 }
+document.addEventListener(openPeopleEvent, event => openPeople((event as CustomEvent).detail));
 void start().catch(error => { tell(error); app.dataset.ready = "error"; });

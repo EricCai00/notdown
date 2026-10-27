@@ -7,6 +7,8 @@ import {
   dateLabel,
   dateSuggestions,
   dateTime,
+  dateReminderState,
+  dateFieldChanges,
   updateDateAttributes,
 } from "../../src/features/dates/date-mention";
 import {
@@ -40,6 +42,34 @@ test("civil dates, leap years and relative labels use the local calendar", () =>
     "2026-09-22T09:30:00+08:00",
   );
 });
+
+test("Notion date/time fields use relative labels without losing their civil date or zone", () => {
+  const now = new Date("2026-10-26T19:00:00Z");
+  assert.equal(dateLabel({ start: "2026-10-23", timeZone: "America/Los_Angeles" }, now), "Last Friday");
+  assert.equal(dateLabel({ start: "2026-10-24", startTime: "09:00", timeZone: "America/Los_Angeles" }, now), "Last Saturday 9:00 AM");
+  assert.equal(dateLabel({ start: "2026-10-28", startTime: "00:05", timeZone: "America/Los_Angeles" }, now), "Next Wednesday 12:05 AM");
+  assert.equal(dateLabel({ start: "2026-10-28", end: "2026-10-29", startTime: "12:00", endTime: "23:15", "date-format": "iso", "time-format": "24" }, now), "2026-10-28 12:00 → 2026-10-29 23:15");
+  assert.equal(dateLabel({ start: "2026-11-02", timeZone: "America/Los_Angeles" }, now), "November 2, 2026");
+  assert.equal(dateLabel({ start: "2026-10-20", timeZone: "America/Los_Angeles" }, now), "Last Tuesday");
+  assert.equal(dateLabel({ start: "2026-10-19", timeZone: "America/Los_Angeles" }, now), "October 19, 2026");
+  // Midnight, year boundaries and DST compare calendar days in the declared zone.
+  assert.equal(dateLabel({ start: "2026-10-26", timeZone: "America/Los_Angeles" }, new Date("2026-10-27T01:00:00Z")), "Today");
+  assert.equal(dateLabel({ start: "2027-01-01", timeZone: "Z" }, new Date("2026-12-31T12:00:00Z")), "Tomorrow");
+  assert.equal(dateLabel({ start: "2026-11-02", timeZone: "America/Los_Angeles" }, new Date("2026-11-01T20:00:00Z")), "Tomorrow");
+  assert.equal(dateLabel({ start: "2026-10-27", "time-zone": "+08:00" }, new Date("2026-10-26T19:00:00Z")), "Today");
+  assert.equal(dateLabel({ start: "unknown", startTime: "09:00", timeZone: "invalid" }, now), "unknown");
+});
+
+test("only actual reminders are colored; Today and elapsed reminders are red in their date zone", () => {
+  const now = new Date("2026-10-27T01:00:00Z");
+  assert.equal(dateReminderState({ start: "2026-10-24", startTime: "09:00" }, now), "none");
+  for (const reminder of ["unknown", "5", "2026-10-24"])
+    assert.equal(dateReminderState({ start: "2026-10-24", reminder }, now), "none");
+  assert.equal(dateReminderState({ start: "2026-10-28", reminder: "2026-10-28T16:00:00Z", timeZone: "America/Los_Angeles" }, now), "future");
+  assert.equal(dateReminderState({ start: "2026-10-26", reminder: "2026-10-27T05:00:00Z", timeZone: "America/Los_Angeles" }, now), "overdue");
+  assert.equal(dateReminderState({ start: "2026-10-28", reminder: "2026-10-27T00:00:00Z" }, now), "overdue");
+  assert.equal(dateReminderState({ start: "2026-10-28", reminder: now.toISOString() }, now), "overdue");
+});
 test("date suggestions resolve English, Chinese, ISO dates and reminders without guessing arbitrary text", () => {
   const now = new Date(2026, 8, 22, 23, 30);
   assert.equal(dateSuggestions("", now)[0].attrs.start, "2026-09-22");
@@ -59,6 +89,28 @@ test("date suggestions resolve English, Chinese, ISO dates and reminders without
   );
   for (const query of ["someone", "2026-02-30", "tomorrow 13pm", "today 9:70"])
     assert.deepEqual(dateSuggestions(query, now), []);
+});
+
+test("IANA reminders follow split date/time edits, offsets and DST without rewriting the carrier", () => {
+  const original = { start: "2026-10-24", startTime: "09:00", timeZone: "America/Los_Angeles", unknown: "keep" };
+  let attrs = updateDateAttributes(original, { "reminder-offset": "0" });
+  assert.equal(attrs.reminder, "2026-10-24T16:00:00.000Z");
+  attrs = updateDateAttributes(attrs, dateFieldChanges("start", "2026-11-02", "09:00", true, attrs.timeZone, true)!);
+  assert.equal(attrs.start, "2026-11-02");
+  assert.equal(attrs.startTime, "09:00");
+  assert.equal(attrs.reminder, "2026-11-02T17:00:00.000Z");
+  attrs = updateDateAttributes(attrs, { "reminder-offset": "10" });
+  assert.equal(attrs.reminder, "2026-11-02T16:50:00.000Z");
+  attrs = updateDateAttributes(attrs, dateFieldChanges("start", "2026-11-02", "09:00", true, "Asia/Shanghai", true)!);
+  assert.equal(attrs.reminder, "2026-11-02T00:50:00.000Z");
+  assert.equal(attrs.unknown, "keep");
+  attrs = updateDateAttributes(attrs, { reminder: "", "reminder-offset": "" });
+  assert.equal(attrs.reminder, undefined);
+  assert.equal(attrs.startTime, "09:00");
+  assert.equal(dateTime("2026-03-08", "02:30", "America/Los_Angeles"), null);
+  assert.equal(dateTime("2026-11-01", "01:30", "America/Los_Angeles"), "2026-11-01T01:30:00-07:00");
+  assert.equal(dateTime("2026-11-02", "09:00", "Invalid/Zone"), null);
+  assert.equal(dateFieldChanges("start", "2026-02-30", "09:00", true, "UTC", true), null);
 });
 test("editing a date retains unknown attributes, surrounding code and labels through the codec", () => {
   const raw =

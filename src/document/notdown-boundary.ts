@@ -19,12 +19,12 @@ export const supplementalAttributes: Record<string, readonly string[]> = {
   meeting_notes: ["meeting-config"],
 };
 
-export function hasSupplementalAttributes(node: PMNode): boolean {
+export function hasSupplementalAttributes(node: PMNode, allowDualColors = false): boolean {
   if (isEditorKind(node, "meeting_notes") && node.attrs.syntaxForm === "notion" &&
-      notionInline(String(node.attrs.title || "")).some(hasSupplementalAttributes)) return true;
+      notionInline(String(node.attrs.title || "")).some(child => hasSupplementalAttributes(child, allowDualColors))) return true;
   if (node.type.name === "block.link_to_page") return true;
   if (node.marks.some(mark => isEditorKind(mark, "color") &&
-      (mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color")))) return true;
+      (!allowDualColors && mark.attrs.bg_color || Object.hasOwn(mark.attrs.nfmAttrs || {}, "bg_color")))) return true;
   if (isEditorKind(node, "table") && node.attrs.syntaxForm === "notion" &&
       (node.attrs.columnAttrs || []).some((attrs: Record<string, unknown>) => Object.keys(attrs).some(key => !["color", "width"].includes(key)))) return true;
   if (isEditorKind(node, "mention") && node.attrs.kind === "date" &&

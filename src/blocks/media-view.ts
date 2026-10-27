@@ -2,6 +2,7 @@ import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 import type { NodeView } from "prosemirror-view";
 import { fileSizeLabel } from "../document/media";
 import { assetDisplayUrl } from "../shared/asset-display";
+import { assetInfo } from "../shared/asset-info";
 
 /** Resource metadata is presentation only; it never changes the document or its revision. */
 export class MediaView implements NodeView {
@@ -25,16 +26,16 @@ export class MediaView implements NodeView {
     this.request?.abort();
     const size = this.dom.querySelector<HTMLElement>(".pm-file-size");
     if (!size || !this.node.attrs.src) return;
-    let url: URL;
-    try { url = new URL(assetDisplayUrl(this.node.attrs.src), document.baseURI); } catch { return; }
-    // No cross-origin probes, full-file downloads or persistence of derived sizes.
-    if (url.origin !== location.origin || !/^(?:\/v\/[a-f0-9]{64})?\/assets\/[^/]+$/.test(url.pathname)) return;
     const controller = this.request = new AbortController();
-    void fetch(url, { method: "HEAD", signal: controller.signal }).then(response => {
-      const length = response.headers.get("content-length");
-      if (!response.ok || controller.signal.aborted || length === null || !/^\d+$/.test(length)) return;
-      const bytes = Number(length);
-      if (Number.isSafeInteger(bytes)) size.textContent = fileSizeLabel(bytes);
+    void assetInfo(this.node.attrs.src, controller.signal).then(info => {
+      if (!info || controller.signal.aborted) return;
+      if (info.size !== null) size.textContent = fileSizeLabel(info.size);
+      if (info.name) {
+        const name = this.dom.querySelector<HTMLElement>(".pm-file-name");
+        if (name && !this.node.attrs.caption) name.textContent = info.name;
+        const link = this.dom.querySelector<HTMLAnchorElement>(".pm-file-card");
+        if (link) link.download = info.name;
+      }
     }).catch(() => { /* Missing assets retain their original name and link. */ });
   }
   update(node: PMNode) {

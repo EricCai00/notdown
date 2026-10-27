@@ -2,6 +2,25 @@ import { test, expect, type Page } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import { zipSync, unzipSync } from "fflate";
 
+test("mobile external references use English inert labels and preserve original source after reload", async ({ page }, info) => {
+  await start(page); await create(page, "External reference setup"); await saved(page);
+  const target = "df111111-1111-4111-8111-111111111111", user = "df222222-2222-4222-8222-222222222222";
+  const source = `<mention-page url="https://www.notion.so/${target}">Saved page</mention-page> and <mention-user url="user://${user}">Saved user</mention-user>.\n`;
+  await page.locator("#mobile-import").setInputFiles({ name: "External references.md", mimeType: "text/markdown", buffer: Buffer.from(source) });
+  const editor = page.locator(".pm-document");
+  await expect(editor.locator(".page-mention .page-link-label")).toHaveText("Unknown page");
+  await expect(editor.locator(".page-mention")).not.toHaveAttribute("href");
+  await expect(editor.locator('[data-mention-kind="user"]')).toHaveText("@Unknown user");
+  await expect(editor.locator('[data-mention-kind="user"]')).toHaveAttribute("aria-disabled", "true");
+  await saved(page); await page.reload(); await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
+  await expect(editor.locator(".page-mention .page-link-label")).toBeVisible();
+  await expect(editor.locator('[data-mention-kind="user"]')).toHaveText("@Unknown user");
+  await page.screenshot({ path: info.outputPath("external-unknowns-mobile.png") });
+  await page.locator('[data-view="source"]').click();
+  await expect(page.locator(".cm-content")).toContainText(`https://www.notion.so/${target}`);
+  await expect(page.locator(".cm-content")).toContainText(`user://${user}`);
+});
+
 async function start(page: Page, fixture = "") {
   await page.goto("/"); await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
   if (await page.locator(".mobile-sync-dialog[open]").isVisible()) {

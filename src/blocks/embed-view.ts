@@ -12,6 +12,7 @@ import type { BreadcrumbPage } from "./breadcrumb-view";
 import { bookmarkUrl } from "../features/bookmarks/bookmark";
 import { attributesXml, colorStyle } from "../document/notion-syntax";
 import { api } from "../shared/types";
+import { assetInfo } from "../shared/asset-info";
 import { embedSource, isHtmlAsset } from "../document/embed-source";
 import "./embed.css";
 
@@ -36,6 +37,8 @@ export class EmbedView implements NodeView {
   private fullscreen?: HTMLDialogElement;
   private cancelResize?: () => void;
   private abort = new AbortController();
+  private attachmentName?: { source: string; name: string };
+  private nameRequest?: AbortController;
   private status = el("output", "pm-embed-status");
   private get attachment() { return isEditorKind(this.node, "notion_embed"); }
   private get html() { return this.attachment || isHtmlAsset(this.value); }
@@ -45,7 +48,9 @@ export class EmbedView implements NodeView {
   private get captionable() { return this.custom || this.attachment; }
   private get properties() { return isEditorKind(this.node, "syntax_block") ? this.node.attrs.data : this.attachment ? this.supplemental() ? this.node.attrs.nfmAttrs : {} : this.node.attrs; }
   private get filename() {
-    let name = String(this.properties.title || this.value.split("/").pop()?.split(/[?#]/)[0] || "HTML document");
+    if (this.properties.title) return String(this.properties.title);
+    if (this.attachmentName?.source === this.value) return this.attachmentName.name;
+    let name = String(this.value.split("/").pop()?.split(/[?#]/)[0] || "HTML document");
     try { name = decodeURIComponent(name); } catch { /* Preserve malformed remote names. */ }
     return name;
   }
@@ -98,6 +103,7 @@ export class EmbedView implements NodeView {
     finally { this.local = false; }
   }
   private render() {
+    this.nameRequest?.abort();
     this.dom.classList.add("pm-embed");
     this.dom.classList.toggle("pm-web-embed", !this.html);
     this.dom.classList.toggle("pm-html-embed", this.html);
@@ -122,6 +128,13 @@ export class EmbedView implements NodeView {
     if (this.html) {
       const header = el("div", "pm-embed-file-header");
       header.append(el("span", "pm-embed-filename", this.filename), toolbar); this.dom.append(header);
+      const source = this.value, controller = this.nameRequest = new AbortController();
+      void assetInfo(source, controller.signal).then(info => {
+        if (!info?.name || controller.signal.aborted || this.disposed || this.value !== source) return;
+        this.attachmentName = { source, name: info.name };
+        const label = header.querySelector<HTMLElement>(".pm-embed-filename");
+        if (label) label.textContent = this.filename;
+      }).catch(() => { /* Preserve the title or path when metadata is unavailable. */ });
     } else this.dom.append(toolbar);
     if (isHtmlAsset(this.value) || bookmarkUrl(this.value)) {
       const preview = el("div", "pm-embed-preview");
@@ -402,5 +415,5 @@ export class EmbedView implements NodeView {
   }
   stopEvent(event: Event) { return event.type !== "dragstart" && event.type !== "dragend"; }
   ignoreMutation() { return true; }
-  destroy() { this.disposed = true; this.cancelResize?.(); this.abort.abort(); this.fullscreen?.remove(); this.close(); }
+  destroy() { this.disposed = true; this.nameRequest?.abort(); this.cancelResize?.(); this.abort.abort(); this.fullscreen?.remove(); this.close(); }
 }

@@ -30,7 +30,8 @@ export function inlineColorTransaction(state: EditorState, kind: InlineColorKind
     const old = marks.find(mark => mark.type === type);
     const colors = inlineColors(old?.attrs ?? {});
     colors[channel(kind)] = value;
-    // Official Notion spans have one color attribute; independent channels are Notdown-only.
+    // v2 can combine channels through nested official spans; legacy official
+    // files still use a single color attribute until explicitly switched.
     if (!combine && value) colors[channel(kind === "color" ? "background" : "color")] = "";
     const nfmAttrs = { ...old?.attrs.nfmAttrs };
     delete nfmAttrs.color; delete nfmAttrs.bg_color; delete nfmAttrs.underline;

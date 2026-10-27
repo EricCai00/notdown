@@ -53,7 +53,8 @@ test("Notdown text and background colors coexist, clear independently and surviv
   await expect(both).toHaveText("Selected words");
   await expect(both).toHaveCSS("color", "rgb(212, 76, 71)");
   await expect(both).toHaveCSS("background-color", "rgb(251, 243, 219)");
-  await saved(page, request, note.id, 'bg_color="yellow"');
+  await saved(page, request, note.id, 'color="yellow_bg"');
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).not.toContain('bg_color=');
   await saved(page, request, note.id, 'custom="keep"');
   await page.reload();
   await expect(both).toHaveText("Selected words");
@@ -76,6 +77,41 @@ test("Notdown text and background colors coexist, clear independently and surviv
   expect(body).not.toContain('color=');
   expect(body).toContain('class="example"');
 });
+
+for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant} v2 nested text/background colors stay independent in the color menu and after reload`, async ({ page, request }, testInfo) => {
+  const body = '<span color="yellow_bg"><span color="red">Selected words</span></span> remain here.';
+  const response = await request.post("/api/pages", { data: { title: "V2 combined colors", body, syntax: { version: 1, variant, notionVersion: "v2", extensions: {} } } });
+  const note = await response.json(); await page.goto(`/#page/${note.id}`);
+  const both = page.locator('.pm-document [data-text-color="red"][data-bg-color="yellow"]');
+  await expect(both).toHaveText("Selected words");
+  await expect(both).toHaveCSS("color", "rgb(212, 76, 71)");
+  await expect(both).toHaveCSS("background-color", "rgb(251, 243, 219)");
+  const choose = async (name: string) => {
+    await select(page);
+    await toolbar(page).getByRole("button", { name: "Text and background color" }).click();
+    await toolbar(page).getByRole("button", { name, exact: true }).last().click();
+  };
+  await choose("Blue text");
+  await expect(page.locator('.pm-document [data-text-color="blue"][data-bg-color="yellow"]')).toHaveText("Selected words");
+  await choose("Green background");
+  const edited = page.locator('.pm-document [data-text-color="blue"][data-bg-color="green"]');
+  await expect(edited).toHaveText("Selected words");
+  await saved(page, request, note.id, 'color="green_bg"');
+  const stored = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(stored).toContain('color="blue"'); expect(stored).not.toContain("bg_color=");
+  await page.reload(); await expect(edited).toHaveText("Selected words");
+  await page.screenshot({ path: testInfo.outputPath("v2-combined-colors.png") });
+  await choose("Default text");
+  await expect(page.locator('.pm-document [data-text-color=""][data-bg-color="green"]')).toHaveText("Selected words");
+  await page.keyboard.press("Control+z"); await expect(edited).toHaveText("Selected words");
+  await choose("Default background");
+  await expect(page.locator('.pm-document [data-text-color="blue"]')).toHaveText("Selected words");
+  await expect(page.locator('.pm-document [data-bg-color]')).toHaveCount(0);
+  await saved(page, request, note.id, 'color="blue"');
+  await page.reload();
+  await expect(page.locator('.pm-document [data-text-color="blue"]')).toHaveText("Selected words");
+});
+
 async function saved(
   page: Page,
   request: APIRequestContext,

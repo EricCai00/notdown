@@ -2,7 +2,7 @@ import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "./editor-schema";
 import { createEditorNode, editorKind } from "./node-identity";
 import { inlineMarkdown } from "./editor-markdown";
-import { attributesXml, decodeXml, escapeXml, openingTag, readAttributes, type TagAttributes } from "./notion-syntax";
+import { attributesXml, decodeXml, escapeXml, inlineColors, localPageTarget, openingTag, readAttributes, type TagAttributes } from "./notion-syntax";
 import { needsMarkdownTable } from "./notdown-boundary";
 import { notionInline, parseNotionMarkdown } from "./notion-markdown";
 
@@ -35,7 +35,18 @@ export function notionTagTokens(source: string): { from: number; to: number; tag
     const close = /^<\/([\w-]+)\s*>/.exec(source.slice(i));
     const open = close ? null : openingTag(source.slice(i));
     if (close) { result.push({ from: i, to: i + close[0].length, tag: close[1], closing: true, selfClosing: false, attrs: {} }); i += close[0].length; }
-    else if (open) { result.push({ from: i, to: i + open.length, tag: open.tag, closing: false, selfClosing: open.selfClosing, attrs: open.attrs }); i += open.length; }
+    else if (open) {
+      result.push({ from: i, to: i + open.length, tag: open.tag, closing: false, selfClosing: open.selfClosing, attrs: open.attrs });
+      i += open.length;
+      // Observed code-tag bodies are literal, including unmatched backticks
+      // and tag-looking examples. They cannot authorize import reads.
+      if (open.tag === "code" && !open.selfClosing && !Object.keys(open.attrs).length) {
+        const end = source.indexOf("</code>", i);
+        if (end < 0) { i = source.length; continue; }
+        result.push({ from: end, to: end + 7, tag: "code", closing: true, selfClosing: false, attrs: {} });
+        i = end + 7;
+      }
+    }
     else i++;
   }
   return result;
@@ -171,6 +182,18 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
   else if (tag.tag === "table") node = parseTable(body, attrs) ?? undefined;
   else if (tag.tag === "table-of-contents") node = schema.nodes["block.table_of_contents"].create(attrs);
   else if (tag.tag === "equation") node = schema.nodes["block.math_block"].create(attrs, body ? schema.text(decodeXml(body)) : undefined);
+  else if (["page", "folder", "database"].includes(tag.tag)) node = createEditorNode(schema, tag.tag === "page" ? "owned_page" : tag.tag, {
+    ...attrs,
+    target: localPageTarget(tag.attrs.url || "") ?? tag.attrs.url ?? "",
+    url: tag.attrs.url || "",
+    // v2 page titles may span lines and contain rich text. The entry displays
+    // plain text; the enclosing reader retains the original source verbatim.
+    label: paragraph(body.trim()).textContent,
+    dataSourceUrl: tag.attrs["data-source-url"] || "",
+    inline: tag.attrs.inline === "true",
+    wiki: tag.attrs.wiki === "true",
+    icon: tag.attrs.icon || "",
+  });
   else if (tag.tag === "meeting-notes") {
     const tokens = notionTagTokens(body), sectionStart = tokens.find(token => !token.closing && token.tag.startsWith("meeting-notes-section-"))?.from;
     const title = (sectionStart === undefined ? body : body.slice(0, sectionStart)).trimEnd();
@@ -188,7 +211,6 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
     const extra = localProperties ? Object.fromEntries((localMediaFields[kind] || []).filter(key => Object.hasOwn(tag.attrs, key)).map(key => [key, tag.attrs[key]])) : {};
     node = createEditorNode(schema, kind, { ...properties, ...extra, type: tag.tag });
   } else if (tag.tag === "unknown") node = schema.nodes["block.unsupported"].create({ ...attrs, url: tag.attrs.url || "", alt: tag.attrs.alt || "" });
-  // Page/database/folder already have source-preserving official readers.
   else return;
   return node ? { node, next } : preserve(next);
 }
@@ -198,7 +220,7 @@ const inlineFingerprint = (nodes: PMNode[]) => JSON.stringify(nodes.map(child =>
   if (editorKind(mark) !== "color") return mark.toJSON();
   const nfmAttrs = { ...mark.attrs.nfmAttrs };
   delete nfmAttrs.color; delete nfmAttrs.bg_color; delete nfmAttrs.underline;
-  return { type: mark.type.name, attrs: { ...mark.attrs, nfmAttrs } };
+  return { type: mark.type.name, attrs: { ...mark.attrs, ...inlineColors(mark.attrs), nfmAttrs } };
 }) })));
 function v2InlineMarkdown(node: PMNode): string {
   const cached = inlineCache.get(node);

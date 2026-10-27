@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { prepareNotionImport, notionPageId } from "../../server/notion-import.js";
 import { enrichNotionBlocks } from "../../server/notion-block-import.js";
-import { notionAssets, readNotionAsset, notionAssetName } from "../../server/notion-assets.js";
+import { notionAssets, readNotionAsset, notionAssetName, notionAssetIdentity } from "../../server/notion-assets.js";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec.js";
 import { editorKind } from "../../src/document/node-identity.js";
 import { findSyncedSource, syncedSource } from "../../src/blocks/synced-source.js";
@@ -22,11 +22,23 @@ test("v2 imports recursive content, templates, folder descendants, local media a
   assert.equal((root.metadata.syntax as any).notionVersion, "v2");
   assert.ok(root.source.includes(`<mention url="#page/${child.id}">`));
   assert.ok(root.source.includes("Recovered nested content")); assert.ok(root.source.includes("button: configuration unavailable")); assert.ok(root.source.includes("Saved AI result"));
-  assert.equal(plan.assets.length, 2); assert.ok(root.source.includes('source="assets/notion-')); assert.ok(String(root.metadata.icon).startsWith("assets/")); assert.ok(String((root.metadata.properties as any).cover).startsWith("assets/"));
+  assert.equal(plan.assets.length, 2); assert.ok(root.source.includes('source="assets/')); assert.ok(String(root.metadata.icon).startsWith("assets/")); assert.ok(String((root.metadata.properties as any).cover).startsWith("assets/"));
   assert.equal(plan.originals.find(file => file.path === `pages/${v2Root}.md`)!.data.toString(), v2Source);
   assert.ok(!JSON.stringify(plan).includes(input.token)); assert.ok(!calls.some(call => call.includes(v2Id(90))));
   const doc = parseNative(root.source, root.metadata.syntax as any); doc.check(); const kinds: string[] = []; let actions = "";
   doc.descendants(node => { kinds.push(editorKind(node)); if (editorKind(node) === "button") actions = node.attrs.actions; });
+  const childEntries: any[] = [];
+  doc.descendants(node => { if (node.type.name === "block.child_page") childEntries.push(node.attrs); });
+  assert.equal(childEntries.length, 2);
+  for (const entry of childEntries) {
+    assert.equal(entry.target, child.id);
+    assert.equal(entry.url, `#page/${child.id}`);
+    assert.equal(entry.label, "Child page");
+  }
+  assert.equal(child.metadata.parent, root.id);
+  let importedCode = false;
+  doc.descendants(node => { if (node.text === "rdkit.Chem.BRICS.BRICSDecompose" && node.marks.some(mark => mark.type.name === "code")) importedCode = true; });
+  assert.equal(importedCode, true);
   for (const kind of ["mail", "custom_block", "external_object_instance", "meeting_notes", "tabs", "button", "image_block"]) assert.ok(kinds.includes(kind), kind);
   assert.ok(JSON.parse(actions)[0].content.includes("Template content")); assert.equal(serializeNative(doc, root.metadata.syntax as any), root.source);
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-v2-")); t.after(async () => { assert.equal(path.dirname(temp), path.resolve(os.tmpdir())); assert.ok(path.basename(temp).startsWith("notdown-v2-")); await fs.rm(temp,{recursive:true,force:true}); });
@@ -61,6 +73,32 @@ test("v2 imports recursive content, templates, folder descendants, local media a
   assert.equal((await vault.get(root.id)).revision, edited.revision);
 });
 
+test("date import reports missing reminder configuration without inventing reminders or scanning code examples", async t => {
+  for (const example of [false, true]) {
+    const date = '<date start="2026-10-24" start-time="09:00" time-zone="America/Los_Angeles" />';
+    const source = example ? '```xml\n' + date + '\n```' : date;
+    const fixture = v2Fixture();
+    const transport: typeof fetch = async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === `/v1/pages/${v2Root}/markdown`) return Response.json({ object: "page_markdown", id: v2Root, markdown: source, truncated: false, unknown_block_ids: [] });
+      return fixture(input, init);
+    };
+    const plan = await prepareNotionImport({ token: "test-token-example", pageId: v2Root, variant: "notdown", includeChildren: false, downloadAssets: false }, { fetch: transport, wait: async () => {} });
+    assert.equal(plan.warnings.some(warning => warning.includes("reminder configuration")), !example);
+    assert.equal(plan.pages[0].source, source);
+    assert.ok(!plan.pages[0].source.includes("reminder="));
+    if (!example) {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-reminder-import-"));
+      t.after(() => fs.rm(root, { recursive: true, force: true }));
+      const vault = createVault(root); t.after(() => vault.closeHistory());
+      const imported = await vault.importBatch(plan), page = await vault.get(imported.pageIds[0]);
+      const restored = await vault.update(page.id, { body: page.body.replace(" />", ' reminder="2026-10-24T16:00:00.000Z" reminder-offset="0" />') }, page.revision);
+      assert.equal((await vault.importBatch(plan)).alreadyImported, true);
+      assert.equal((await vault.get(page.id)).body, restored.body);
+    }
+  }
+});
+
 test("official v2 preserves local-only templates and unsupported configurations, with downloads optional", async () => {
   const plan = await prepareNotionImport({ token: "test-token-example", pageId: v2Root, variant: "notion-markdown", downloadAssets: false }, { fetch: v2Fixture(), wait: async () => {} });
   assert.equal(plan.assets.length,0); assert.ok(!plan.pages[0].source.includes("<button")); assert.ok(plan.pages[0].source.includes("Template content"));
@@ -87,6 +125,43 @@ test("download filenames use headers or safe URL basenames, excluding signed que
   assert.equal(notionAssetName("https://host.test/folder/My%20file.docx?signature=secret"), "My file.docx");
   assert.equal(notionAssetName("https://host.test/download?filename=secret.pdf"), undefined);
   assert.equal(notionAssetName("https://host.test/report.pdf", "attachment; filename*=UTF-8''%ZZ"), "report.pdf");
+  const signed = "https://prod-files-secure.s3.us-west-2.amazonaws.com/workspace/file.xlsx?X-Amz-Signature=";
+  assert.equal(notionAssetIdentity(signed + "one"), notionAssetIdentity(signed + "two"));
+  assert.notEqual(notionAssetIdentity("https://host.test/download?id=one"), notionAssetIdentity("https://host.test/download?id=two"));
+});
+
+test("Notion file names come from nested Block API data even without importing child pages; HTML retains its response filename", async t => {
+  const base = v2Fixture(), fileURL = "https://prod-files-secure.s3.us-west-2.amazonaws.com/workspace/file/download?X-Amz-Signature=private";
+  const source = `<file source="${fileURL}"/>\n\n<embed source="https://files.example.test/a.html"/>\n\n\`\`\`xml\n<file source="https://files.example.test/code.xlsx"/>\n\`\`\``;
+  const calls: string[] = [];
+  const plan = await prepareNotionImport({ token: "test-token-example", pageId: v2Root, includeChildren: false }, {
+    wait: async () => {},
+    fetch: async (input, init) => {
+      const url = String(input); calls.push(url);
+      if (url.includes(`/pages/${v2Root}/markdown`)) return Response.json({ object: "page_markdown", id: v2Root, markdown: source, truncated: false, unknown_block_ids: [] });
+      if (url.includes(`/blocks/${v2Root}/children`)) return Response.json({ results: [
+        { id: v2Id(71), type: "column", has_children: true, column: {} },
+        { id: v2Child, type: "child_page", has_children: true, child_page: { title: "Excluded" } },
+      ], has_more: false });
+      if (url.includes(`/blocks/${v2Id(71)}/children`)) return Response.json({ results: [{ id: v2Id(72), type: "file", has_children: false, file: { type: "external", external: { url: fileURL.replace("private", "refreshed") }, name: "markdown & notion.xlsx", caption: [] } }], has_more: false });
+      return base(input, init);
+    },
+    readAsset: async url => {
+      assert.ok(!url.includes("code.xlsx"));
+      if (url === fileURL) return { data: Buffer.from("spreadsheet"), contentType: "application/octet-stream", name: "download.bin" };
+      if (url.endsWith("a.html")) return { data: Buffer.from("<h1>HTML</h1>"), contentType: "text/html", name: "a.html" };
+      return { data: Buffer.from("image"), contentType: "image/png" };
+    },
+  });
+  assert.equal(plan.pages.length, 1);
+  assert.ok(!calls.some(url => url.includes(`/blocks/${v2Child}/children`) || url.includes(`/pages/${v2Child}`)));
+  assert.equal(plan.assets.find(asset => asset.name === "markdown & notion.xlsx")?.filename.endsWith(".xlsx"), true);
+  assert.equal(plan.assets.find(asset => asset.name === "a.html")?.filename.endsWith(".html"), true);
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-filenames-"));
+  t.after(async () => { assert.equal(path.dirname(temp), path.resolve(os.tmpdir())); assert.ok(path.basename(temp).startsWith("notdown-filenames-")); await fs.rm(temp, { recursive: true, force: true }); });
+  const vault = createVault(temp); await vault.importBatch(plan);
+  assert.ok((await vault.listAssets()).assets.some(asset => asset.name === "markdown & notion.xlsx"));
+  assert.equal(plan.originals.find(file => file.path === `pages/${v2Root}.md`)!.data.toString(), source);
 });
 
 test("Notion image, audio, video, PDF, Office, empty file and mail attachments enter the library", async t => {

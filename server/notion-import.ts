@@ -10,9 +10,12 @@ import { VaultError } from "./vault.js";
 import { enrichNotionBlocks } from "./notion-block-import.js";
 import { notionDatabaseImport } from "./notion-database-import.js";
 import { notionSourceTags, notionProseSource, notionElement } from "../src/document/notion-v2.js";
-import { notionAssets, type ReadNotionAsset } from "./notion-assets.js";
+import { notionAssets, notionAssetIdentity, type ReadNotionAsset } from "./notion-assets.js";
 import { localizeNotionSynced } from "./notion-synced-import.js";
 import type { ImportProgress } from "../src/shared/import-progress.js";
+import { readNotionDesktopCache, supplementNotionDates, type ReadNotionCache } from "./notion-desktop-cache.js";
+import { supplementNotionColors } from "./notion-color-import.js";
+import { hasUnknownNotionCodeLanguage, supplementNotionCodeLanguages } from "./notion-code-import.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -206,6 +209,7 @@ export async function prepareNotionImport(
     fetch?: typeof fetch;
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     readAsset?: ReadNotionAsset;
+    readCache?: ReadNotionCache;
     existingPages?: readonly { id: string; pageId: string }[];
     onProgress?: (progress: ImportProgress) => void;
   } = {},
@@ -216,6 +220,7 @@ export async function prepareNotionImport(
     includeChildren?: unknown;
     variant?: unknown;
     downloadAssets?: unknown;
+    useDesktopCache?: unknown;
   } | null;
   if (
     !request ||
@@ -232,6 +237,7 @@ export async function prepareNotionImport(
   )
     throw new VaultError(400, "Invalid child page selection.");
   const root = notionPageId(request.pageId);
+  if (request.useDesktopCache !== undefined && typeof request.useDesktopCache !== "boolean") throw new VaultError(400, "Invalid desktop cache selection.");
   if (request.downloadAssets !== undefined && typeof request.downloadAssets !== "boolean") throw new VaultError(400, "Invalid attachment selection.");
   const variant = request.variant ?? "notion-markdown";
   if (variant !== "notdown" && variant !== "notion-markdown") throw new VaultError(400, "Choose Notdown or Notion Markdown for import.");
@@ -611,11 +617,99 @@ export async function prepareNotionImport(
         },
         warn: message => warnings.add(message),
       });
+      const sourceTags = notionSourceTags(page.source);
+      const hasColors = sourceTags.some(tag => tag.tag === "span" && (tag.attrs.color || tag.attrs.bg_color));
+      const hasDates = sourceTags.some(tag => tag.tag === "date");
+      const hasUnknownCode = hasUnknownNotionCodeLanguage(page.source);
+      let pageBlocks: Json[] = [], colorCache: Awaited<ReturnType<ReadNotionCache>> | undefined;
+      if (hasUnknownCode || hasColors || hasDates && request.useDesktopCache === true && variant === "notdown") {
+        report({ step: "Checking code languages, block styles and reminders", currentTitle: page.title });
+        const pending = [page.id], visited = new Set<string>();
+        for (let i = 0; i < pending.length; i++) {
+          signal.throwIfAborted();
+          const id = pending[i];
+          if (visited.has(id)) continue;
+          if (visited.size >= 10000) throw new VaultError(413, "Too many blocks to verify Notion styles. Select a smaller page tree.");
+          visited.add(id);
+          for (const block of await readChildren(id)) {
+            pageBlocks.push(block);
+            if (block.has_children && !["child_page", "child_database", "synced_block"].includes(block.type)) pending.push(block.id.toLowerCase());
+          }
+        }
+        if (request.useDesktopCache === true && (hasColors || hasDates && variant === "notdown")) {
+          try {
+            colorCache = await (options.readCache ?? readNotionDesktopCache)(page.id, pageBlocks.map(block => block.id));
+          } catch (error) {
+            if (signal.aborted || error instanceof VaultError) throw error;
+            colorCache = { blocks: [], warning: "Local Notion cache supplement failed; public API content was retained." };
+          }
+          if (colorCache.warning) warnings.add(colorCache.warning);
+        }
+      }
+      if (hasUnknownCode) {
+        const code = supplementNotionCodeLanguages(page.source, pageBlocks);
+        page.source = code.source;
+        for (const warning of code.warnings) warnings.add(`${page.title}: ${warning}`);
+        if (code.restored) {
+          archive(`code-language-recovery/${page.id}.json`, Buffer.from(JSON.stringify({ version: 1, pageId: page.id, source: "Same-batch Block API; unique complete code text verified", blocks: code.evidence }, null, 2)));
+          warnings.add(`${page.title}: restored ${code.restored} code language label(s) from matching Block API code blocks.`);
+        }
+      }
+      if (hasColors) {
+        const colors = supplementNotionColors(page.source, pageBlocks, variant, colorCache);
+        page.source = colors.source;
+        for (const warning of colors.warnings) warnings.add(`${page.title}: ${warning}`);
+        if (colors.evidence.length) archive(`color-recovery/${page.id}.json`, Buffer.from(JSON.stringify({ version: 1, pageId: page.id, source: "Same-batch public Markdown and Block API; optional verified desktop cache", blocks: colors.evidence }, null, 2)));
+        if (colors.restoredApi || colors.restoredCache) warnings.add(`${page.title}: restored dual colors in ${colors.restoredApi} text range(s) from complementary public API data and ${colors.restoredCache} from the verified desktop cache. These are matched snapshots, not an atomic cloud snapshot.`);
+      }
+      if (hasDates) {
+        let unmatched = true;
+        if (request.useDesktopCache === true && variant === "notdown") {
+          report({ step: "Checking date reminders against the local Notion desktop cache", currentTitle: page.title });
+          try {
+            const snapshot = colorCache!;
+            if (snapshot.warning) warnings.add(snapshot.warning);
+            const recovered = supplementNotionDates(page.source, pageBlocks, snapshot);
+            page.source = recovered.source;
+            unmatched = recovered.matched < recovered.total;
+            if (recovered.evidence.length) archive(`desktop-cache/${page.id}.json`, Buffer.from(JSON.stringify({ source: "Notion desktop SQLite cache; public block IDs, dates and edit minutes verified", pageId: page.id, dates: recovered.evidence }, null, 2)));
+            if (recovered.restored) warnings.add(`${page.title}: restored ${recovered.restored} reminder(s) from the local Notion desktop cache. This is a cached snapshot, not a guarantee of current cloud reminder settings.`);
+          } catch (error) {
+            if (signal.aborted) throw error;
+            // Snapshot/archive size failures must retain the import's existing limits.
+            if (error instanceof VaultError) throw error;
+            warnings.add("Local Notion cache supplement failed; API dates were retained without inferring reminders.");
+          }
+        }
+        if (unmatched) warnings.add("Notion's public API omits reminder configuration. Dates without a unique, matching desktop cache record require review in Remind; a time alone does not establish a reminder.");
+        if (request.useDesktopCache === true && variant !== "notdown") warnings.add("Desktop cache reminder recovery requires the Notdown dialect; official Notion Markdown is preserved without supplemental attributes.");
+      }
     }
   }
   for (const page of pages) if (Buffer.byteLength(page.source) > 10 * 1024 * 1024)
     throw new VaultError(413, `Page ${page.id} exceeds 10 MB after block restoration.`);
-  const media = notionAssets({ signal, read: options.readAsset, remaining: () => MAX_BYTES - bytes, reserve: size => { bytes += size; }, warn: message => warnings.add(message), onRead: (name, attempt) => report({ step: `Downloading attachment ${attempt}${name ? `: ${name}` : ""}` }) });
+  // File names are separate from captions in Block API data. Scan only the
+  // current pages' block containers when descendants were excluded from import.
+  if (request.downloadAssets !== false) {
+    for (const page of pages) {
+      if (!notionSourceTags(page.source).some(tag => ["file", "embed"].includes(tag.tag))) continue;
+      const pending = [page.id], visited = new Set<string>();
+      for (let index = 0; index < pending.length; index++) {
+        const id = pending[index];
+        if (visited.has(id)) continue;
+        visited.add(id);
+        for (const block of await readChildren(id)) {
+          if (block.has_children && !["child_page", "child_database", "synced_block"].includes(block.type)) pending.push(block.id.toLowerCase());
+        }
+      }
+    }
+  }
+  const assetNames = new Map<string, string>();
+  for (const block of blocks.values()) {
+    const data = block[block.type], url = data?.[data.type]?.url || (block.type === "embed" ? data?.url : undefined);
+    if (typeof url === "string" && typeof data?.name === "string" && data.name.trim()) assetNames.set(notionAssetIdentity(url), data.name);
+  }
+  const media = notionAssets({ signal, nameHints: assetNames, read: options.readAsset, remaining: () => MAX_BYTES - bytes, reserve: size => { bytes += size; }, warn: message => warnings.add(message), onRead: (name, attempt) => report({ step: `Downloading attachment ${attempt}${name ? `: ${name}` : ""}` }) });
   if (request.downloadAssets !== false) {
     for (const page of pages) {
       report({ phase: "attachments", completed: pages.length, step: "Downloading page attachments, cover and icon", currentTitle: page.title });
@@ -692,8 +786,8 @@ export async function prepareNotionImport(
     const target = localByNotion.get(pageId) ?? (matches?.size === 1 ? [...matches][0] : undefined);
     if (target) return target;
     warnings.add(matches && matches.size > 1
-      ? `Page ${pageId}: multiple existing local copies match this Notion source; its links remain remote. Include the target in this import to choose this batch's copy.`
-      : `Page ${pageId}: target is not imported in this batch or the current vault; its links remain remote. Import the target first, then preview the referring page again.`);
+      ? `Page ${pageId}: multiple existing local copies match this Notion source; its source URLs remain remote. Choose a local target in External references, or include the target in this import.`
+      : `Page ${pageId}: target is not imported in this batch or the current vault; its source URLs remain remote. It is displayed as an unavailable reference until a later import or explicit binding resolves it.`);
     return undefined;
   };
   // Database queries can discover records before their host entry is queued.

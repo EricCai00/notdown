@@ -1,9 +1,9 @@
 .pm-document .pm-mention.pm-date-mention {
   display: inline;
-  padding: 2px 3px;
+  padding: 2px 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--text, #37352f);
+  color: #7c7a76;
   cursor: pointer;
   white-space: break-spaces;
 }
@@ -17,13 +17,13 @@
 }
 .pm-date-mention svg {
   vertical-align: -2px;
-  margin-right: 4px;
+  margin-left: 4px;
 }
 .pm-document .pm-mention.pm-date-reminder {
   color: #2383e2;
 }
 .pm-document .pm-mention.pm-date-overdue {
-  color: #d44c47;
+  color: #d56c5e;
 }
 .pm-date-mention:focus-visible {
   outline: 2px solid #2383e2;

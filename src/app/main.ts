@@ -5,6 +5,8 @@ import { mountReferencePicker } from "../features/links/reference-picker";
 import { graphHTML, mountGraph } from "../features/pages/graph-view";
 import { openImportDialog } from "../features/vault/import-dialog";
 import { openNotionImportDialog } from "../features/vault/notion-import-dialog";
+import { refreshExternalEntities } from "../features/references/external-client";
+import { openExternalLibrary } from "../features/references/external-library-dialog";
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
 import type { Database, DatabaseDataSource, DatabaseSnapshot } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
@@ -116,7 +118,7 @@ async function readDatabaseList(): Promise<Database[]> {
   }
 }
 async function refreshWorkspacePages(): Promise<Page[]> {
-  const [loaded, resources] = await Promise.all([api<Page[]>("/pages"), readDatabaseList()]);
+  const [loaded, resources] = await Promise.all([api<Page[]>("/pages"), readDatabaseList(), refreshExternalEntities(), refreshPeople()]);
   databases = resources;
   return loaded;
 }
@@ -1395,7 +1397,7 @@ async function showTrash() {
   const info = await requirePageActions();
   const all = await api<Page[]>("/pages?includeTrashed=true");
   const entries = all.filter((page) => page.trashed);
-  const dialog = modal("Trash", `<p class="muted">Restore returns a page and its children to the vault. Delete moves their Markdown files to the Windows Recycle Bin, where you can recover them.</p>${!info.capabilities?.systemRecycleBin ? '<p class="muted">System Recycle Bin requires an up-to-date Windows server.</p>' : ""}<div class="trash-list">${entries.length ? entries.map((page) => `<div><span>${e(page.title)}</span><div class="trash-row-actions"><button class="secondary-button" data-restore="${e(page.id)}">${icon("undo-2")}Restore</button><button class="secondary-button danger" data-recycle="${e(page.id)}" title="Move to system Recycle Bin" ${info.capabilities?.systemRecycleBin ? "" : "disabled"}>${icon("trash-2")}Delete</button></div></div>`).join("") : '<p class="empty-small">Trash is empty.</p>'}</div>`);
+  const dialog = modal("Trash", `<p class="muted">Restore returns a page and its children to the vault. Delete moves their Markdown files and attachments that lose their last reference to the Windows Recycle Bin. Shared attachments are kept.</p>${!info.capabilities?.systemRecycleBin ? '<p class="muted">System Recycle Bin requires an up-to-date Windows server.</p>' : ""}<div class="trash-list">${entries.length ? entries.map((page) => `<div><span>${e(page.title)}</span><div class="trash-row-actions"><button class="secondary-button" data-restore="${e(page.id)}">${icon("undo-2")}Restore</button><button class="secondary-button danger" data-recycle="${e(page.id)}" title="Move to system Recycle Bin" ${info.capabilities?.systemRecycleBin ? "" : "disabled"}>${icon("trash-2")}Delete</button></div></div>`).join("") : '<p class="empty-small">Trash is empty.</p>'}</div>`);
   dialog.addEventListener("click", (event) => {
     const recycle = (event.target as Element).closest<HTMLButtonElement>("[data-recycle]");
     if (recycle) {
@@ -1431,7 +1433,7 @@ async function recycleTrashPage(page: Page, all: Page[]) {
         selected.set(item.id, item.revision); changed = true;
       }
     }
-    await api(`/pages/${page.id}/recycle`, {
+    const result = await api<{ deletedAssets?: string[]; warnings?: string[] }>(`/pages/${page.id}/recycle`, {
       method: "POST",
       body: JSON.stringify({ baseRevision: page.revision, baseRevisions: Object.fromEntries(selected) }),
     });
@@ -1444,7 +1446,7 @@ async function recycleTrashPage(page: Page, all: Page[]) {
       await showLibrary();
     } else if (library) renderLibrary();
     await showTrash();
-    toast(`Moved ${selected.size === 1 ? "page" : `${selected.size} pages`} to the Windows Recycle Bin.`);
+    toast(`Moved ${selected.size === 1 ? "page" : `${selected.size} pages`} to the Windows Recycle Bin.${result.deletedAssets?.length ? ` Removed ${result.deletedAssets.length} unreferenced attachment(s).` : ""}${result.warnings?.length ? " " + result.warnings.join(" ") : ""}`);
   } finally {
     app.inert = false;
     pageActionBusy = false;
@@ -2736,7 +2738,7 @@ document.addEventListener("click", (event) => {
         showSettings();
         break;
       case "import": {
-        const dialog = modal("Import", `<p>Choose where to import your notes from.</p><div class="import-source-options"><button class="secondary-button" data-action="import-folder" aria-label="Import Markdown folder">${icon("folder-input")}<span>Import Markdown folder<small>Copy local Markdown files and attachments.</small></span></button><button class="secondary-button" data-action="import-notion" aria-label="Import from Notion API">${icon("globe")}<span>Import from Notion API<small>Import pages and databases from Notion.</small></span></button></div>`);
+        const dialog = modal("Import", `<p>Choose where to import your notes from.</p><div class="import-source-options"><button class="secondary-button" data-action="import-folder" aria-label="Import Markdown folder">${icon("folder-input")}<span>Import Markdown folder<small>Copy local Markdown files and attachments.</small></span></button><button class="secondary-button" data-action="import-notion" aria-label="Import from Notion API">${icon("globe")}<span>Import from Notion API<small>Import pages and databases from Notion.</small></span></button><button class="secondary-button" data-action="external-references" aria-label="External references">${icon("link")}<span>External references<small>Review unknown references and local links.</small></span></button></div>`);
         dialog.setAttribute("aria-label", "Import");
         break;
       }
@@ -2750,6 +2752,10 @@ document.addEventListener("click", (event) => {
           else await showLibrary();
           toast("Markdown import complete. Source files were preserved.");
         } });
+        break;
+      case "external-references":
+        closeModal();
+        await openExternalLibrary();
         break;
       case "import-notion":
         closeModal();
@@ -3063,8 +3069,9 @@ async function boot() {
   vaultPath = info.vaultPath;
   browserVaultManagement = !!info.vaultManagement;
   void refreshPeople().catch(error => console.warn("People refresh:", error));
-  window.addEventListener("focus", () => { void refreshPeople().catch(error => console.warn("People refresh:", error)); });
-  setInterval(() => { if (document.visibilityState === "visible") void refreshPeople().catch(error => console.warn("People refresh:", error)); }, 5000);
+  const refreshReferences = () => { void Promise.all([refreshPeople(), refreshExternalEntities()]).catch(error => console.warn("Reference refresh:", error)); };
+  window.addEventListener("focus", refreshReferences);
+  setInterval(() => { if (document.visibilityState === "visible") refreshReferences(); }, 5000);
   document.body.classList.toggle(
     "color-headings",
     localStorage.getItem("notdown-color") === "on",

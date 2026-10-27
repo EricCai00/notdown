@@ -4,6 +4,8 @@ import type { VaultPlatform, StorageError } from "./platform.js";
 import { Document, isMap, parseDocument } from "yaml";
 import { VaultError, assertId } from "./vault.js";
 import { personFields, type Person, type PersonInput } from "../features/people/person.js";
+import { notionId, type ExternalObservation } from "../features/references/external-entity";
+import { stablePageUuid } from "./page-id";
 
 type Storage = {
   platform: VaultPlatform;
@@ -24,6 +26,7 @@ function validate(input: PersonInput) {
       throw new VaultError(400, `Invalid person ${field}`);
   }
   if ("deleted" in input && typeof input.deleted !== "boolean") throw new VaultError(400, "deleted must be a boolean");
+  if (input.notionUserId !== undefined && input.notionUserId !== "" && !notionId(input.notionUserId)) throw new VaultError(400, "Invalid Notion user ID");
 }
 
 /** Called only by createVault; shares its mutation queue and atomic file writer. */
@@ -47,6 +50,7 @@ export function createPeople(storage: Storage) {
       validate(data);
       if (typeof data.name !== "string" || typeof data.created !== "string" || typeof data.updated !== "string") throw new Error();
       const person: Person = { id: data.id, name: data.name, email: data.email ?? "", phone: data.phone ?? "", organization: data.organization ?? "", notes: data.notes ?? "", deleted: data.deleted ?? false, created: data.created, updated: data.updated, revision: hash(source) };
+      if (data.notionUserId) person.notionUserId = notionId(data.notionUserId);
       return { person, source, document, file };
     } catch { throw new VaultError(422, `Invalid person YAML: ${path.basename(file)}`); }
   }
@@ -77,6 +81,7 @@ export function createPeople(storage: Storage) {
       if (Object.prototype.hasOwnProperty.call(input, field)) document.set(field, field === "name" ? input.name!.trim() : input[field]);
     }
     document.set("updated", now);
+    if (input.notionUserId !== undefined) document.set("notionUserId", notionId(input.notionUserId) ?? "");
     return document.toString({ lineWidth: 0 });
   }
   async function preserveConflict(current: Stored, proposed: string, baseRevision: string): Promise<never> {
@@ -89,6 +94,20 @@ export function createPeople(storage: Storage) {
     throw new VaultError(409, "This person changed in another window or file. Both versions were preserved; review the latest contact before saving again.", { conflictId, current: current.person, proposed: decode(proposed, current.file).person });
   }
   return {
+    /** Called by importBatch under the vault lock; never changes an existing contact. */
+    async registerNotionLocked(observations: ExternalObservation[]) {
+      const existing = await scan();
+      for (const observation of observations) {
+        if (observation.kind !== "user" || !observation.data || typeof observation.data.name !== "string" || !observation.data.name.trim()) continue;
+        if ([...existing.values()].some(item => item.person.notionUserId === observation.id)) continue;
+        const id = stablePageUuid(`notion-user-${observation.id}`), file = path.join(directory, `${id}.yaml`);
+        if (existing.has(id)) continue;
+        const email = (observation.data.person as { email?: unknown } | undefined)?.email;
+        const source = encode(undefined, id, { name: observation.data.name.trim().slice(0, 500), notionUserId: observation.id, ...(typeof email === "string" ? { email: email.slice(0, 500) } : {}) });
+        await fs.writeFile(file, source, { flag: "wx", mode: 0o600 });
+        existing.set(id, decode(source, file));
+      }
+    },
     async list(includeDeleted = false): Promise<Person[]> {
       return [...(await scan()).values()].map(item => item.person).filter(person => includeDeleted || !person.deleted).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     },

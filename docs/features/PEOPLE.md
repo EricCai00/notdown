@@ -14,7 +14,7 @@ People 是当前知识库的联系人目录，不创建账号、协作成员、�
 
 ## 文件
 
-每个联系人保存到 `vault/people/<uuid>.yaml`，字段为 `id/name/email/phone/organization/notes/deleted/created/updated`。姓名不能为空，其他文本可为空。读取支持已有 `.yaml`／`.yml` 文件名；更新保留原路径、未知字段及 YAML 注释。UUID 独立生成，不分配 MyBase ID。`revision` 是整个文件的 SHA-256，只在 API 中返回，不写进 YAML。
+Each contact is stored in `vault/people/<uuid>.yaml` with `id/name/email/phone/organization/notes/deleted/created/updated` and an optional `notionUserId`. Names are required; other text fields may be empty. Existing `.yaml` / `.yml` paths, unknown fields and YAML comments survive updates. Ordinary contacts use independent UUIDs; imported Notion users use UUIDs derived from their source identity. No MyBase IDs are assigned. The API-only `revision` is the complete file's SHA-256 and is not written into YAML.
 
 正文仍以 `vault/pages/*.md` 为真相：
 
@@ -23,6 +23,8 @@ People 是当前知识库的联系人目录，不创建账号、协作成员、�
 ```
 
 `person://` 是本地联系人身份；外部 `user://`、未知属性与原文不自动迁移，也不会按名称关联同名联系人。正文标签中的姓名为后备显示；联系人缺失或导出至外部 Markdown／HTML 时保持可读。编辑器读到目录后显示当前姓名；目录变化只刷新联系人视图，不生成正文事务或采用新的页面 revision。
+
+Notion `user://` mentions match contacts by `notionUserId`, or through an explicit binding in **Import → External references**. Unmatched users appear as gray, non-clickable “@Unknown user” labels. Later imports with complete user profiles or manual bindings reveal the contact's name and allow opening its details. ID-only partial users never create invented contacts. Complete named users may create local contacts during import; existing contacts are never overwritten or restored. See [External references and users](NOTION-IMPORT.md#external-references-and-users).
 
 ## 并发与恢复
 

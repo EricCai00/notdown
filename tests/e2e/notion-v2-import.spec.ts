@@ -1,5 +1,114 @@
 import { test, expect } from "@playwright/test";
-import { v2Root } from "../unit/notion-v2-fixture";
+import { v2Root, v2Id } from "../unit/notion-v2-fixture";
+
+for (const variant of ["notdown", "notion-markdown"]) test(`${variant} restores Shell language from verified blocks in preview, import and reload`, async ({ page, request }, testInfo) => {
+  const response = await request.post("/api/notion/import/preview", { data: { token: "test-token-example", pageId: v2Id(85), variant, includeChildren: false, downloadAssets: false, useDesktopCache: false } });
+  expect(response.ok()).toBeTruthy();
+  const preview = await response.json(), imported = preview.documents[0];
+  expect(imported.source).toContain('```shell\n');
+  expect(imported.source).toContain('echo "$name shen"');
+  expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
+  await page.goto(`/#page/${imported.id}`);
+  const block = page.locator(".pm-document .pm-code-block");
+  await expect(block.getByRole("button", { name: "Code language" })).toHaveText("Shell");
+  await expect(block.locator(".pm-code-keyword").first()).toBeVisible();
+  await page.reload();
+  await expect(block.getByRole("button", { name: "Code language" })).toHaveText("Shell");
+  expect((await (await request.get(`/api/pages/${imported.id}`)).json()).body).toBe(imported.source);
+  await block.hover();
+  await page.screenshot({ path: testInfo.outputPath("restored-shell.png") });
+});
+
+for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant} import preview combines public colors, cache opt-in adds missing colors and saved copies retain both`, async ({ page, request }, testInfo) => {
+  const seed = await (await request.post("/api/pages", { data: { title: "Color import start", body: "Keep original" } })).json();
+  await page.goto(`/#page/${seed.id}`);
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  await page.getByLabel("Import dialect").selectOption(variant);
+  const cache = page.getByLabel("Restore missing colors and Notdown reminders from this computer's Notion desktop cache");
+  await cache.uncheck();
+  await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
+  await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Id(82));
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await expect(page.locator("#notion-markdown-source")).toContainText('color="pink_bg"');
+  await expect(page.locator("#notion-markdown-source")).not.toContainText('color="yellow_bg"');
+  await cache.check();
+  await expect(page.getByRole("button", { name: "Import copies", exact: true })).toBeDisabled();
+  await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await expect(page.locator("#notion-markdown-source")).toContainText('color="yellow_bg"');
+  await expect(page.locator("#notion-markdown-source")).not.toContainText("bg_color=");
+  expect((await (await request.get(`/api/pages/${seed.id}`)).json()).body).toBe("Keep original");
+  await page.getByRole("button", { name: "Import copies", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Dual color fixture");
+  const api = page.locator('.pm-document [data-text-color="red"][data-bg-color="pink"]');
+  const fromCache = page.locator('.pm-document [data-text-color="blue"][data-bg-color="yellow"]');
+  await expect(api).toHaveText("API words"); await expect(fromCache).toHaveText("Cache words");
+  await page.reload(); await expect(api).toBeVisible(); await expect(fromCache).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("imported-dual-colors.png") });
+});
+
+test("Notdown v2 reads REST code tags inline, preserves originals and saves edited code with backticks", async ({ page, request }, testInfo) => {
+  const entry = "<code>rdkit.Chem.BRICS.BRICSDecompose</code>";
+  const body = `# 分子分割\n\n## BRICS\n\nBreaking of Retrosynthetically Interesting Chemical Substructures\n\n${entry}\n\n<p>Before <code>a &lt; b &amp; c</code> after</p>\n\nTail`;
+  const note = await (await request.post("/api/pages", { data: { title: "分子片段/分割", body, syntax: { version: 1, variant: "notdown", notionVersion: "v2", extensions: {} } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const doc = page.locator(".pm-document[contenteditable=true]");
+  const code = doc.locator("p > code").filter({ hasText: "rdkit.Chem.BRICS.BRICSDecompose" });
+  await expect(code).toHaveText("rdkit.Chem.BRICS.BRICSDecompose");
+  await expect(doc.locator(".opaque-block")).toHaveCount(0);
+  await expect(doc.locator("p > code").filter({ hasText: "a < b & c" })).toBeVisible();
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body);
+  await doc.locator("p").filter({ hasText: /^Tail$/ }).click();
+  await page.keyboard.press("End"); await page.keyboard.type(" edited");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("Tail edited");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(entry);
+  await page.reload(); await expect(code).toBeVisible();
+  await code.click(); await page.keyboard.press("Home"); await page.keyboard.press("ArrowRight"); await page.keyboard.type("X");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("`rXdkit.Chem.BRICS.BRICSDecompose`");
+  await page.reload();
+  await expect(doc.locator("p > code").filter({ hasText: "rXdkit.Chem.BRICS.BRICSDecompose" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("notion-code-tags.png") });
+});
+
+test("desktop cache reminder preview, commit and reload retain reminder appearance and menu", async ({ page, request }) => {
+  const seed = await (await request.post("/api/pages", { data: { title: "Cache import start", body: "" } })).json();
+  await page.goto(`/#page/${seed.id}`);
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  const cache = page.getByLabel("Restore missing colors and Notdown reminders from this computer's Notion desktop cache");
+  await expect(cache).toBeChecked();
+  await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
+  await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Id(80));
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await expect(page.locator("#notion-markdown-source")).toContainText('reminder="2026-10-24T16:00:00.000Z"');
+  // Changing the cache choice invalidates the concrete preview.
+  await cache.uncheck();
+  await expect(page.getByRole("button", { name: "Import copies", exact: true })).toBeDisabled();
+  await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await expect(page.locator("#notion-markdown-source")).not.toContainText('reminder=');
+  await cache.check();
+  await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await page.getByRole("button", { name: "Import copies", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Cached reminder fixture");
+  await expect(page.locator(".pm-date-reminder")).toContainText("@");
+  await page.reload();
+  const chip = page.locator(".pm-date-reminder");
+  await expect(chip).toBeVisible();
+  await chip.click();
+  const panel = page.getByRole("dialog", { name: "Edit date", exact: true });
+  await expect(panel.getByLabel("Remind", { exact: true })).toHaveValue("0");
+  await expect(panel.getByLabel("Date format", { exact: true })).toHaveValue("relative");
+});
 
 test("v2 import renders real objects, local attachments and transcript; template execution persists after reload", async ({ page, request }, testInfo) => {
   const seed = await (await request.post("/api/pages", { data: { title: "V2 import start", body: "" } })).json();
@@ -7,23 +116,28 @@ test("v2 import renders real objects, local attachments and transcript; template
   await page.goto(`/#page/${seed.id}`);
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Import from Notion API", exact: true })).toContainText("The API omits reminders");
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Root);
   await expect(page.getByLabel("Import files, media, covers and icons into Attachments")).toBeChecked();
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(page.locator("#notion-status")).toContainText("Ready");
-  await expect(page.locator("#notion-markdown-source")).toContainText("assets/notion-");
+  await expect(page.locator("#notion-markdown-source")).toContainText("assets/");
   expect((await (await request.get("/api/assets")).json()).assets.length).toBe(beforeAssets);
   await page.getByRole("button", { name: "Import copies", exact: true }).click();
   await expect(page.locator("#page-title")).toHaveValue("Notion v2 fixture");
   const doc = page.locator(".pm-document[contenteditable=true]");
   const types = await doc.evaluate(element => { const found: string[] = []; (element as any).pmViewDesc.node.descendants((node: any) => found.push(node.type.name)); return found; });
   for (const kind of ["block.mail", "block.custom_block", "block.external_object_instance", "block.meeting_notes", "block.tabs", "block.button", "block.image_block"]) expect(types).toContain(kind);
+  expect(types.filter(kind => kind === "block.child_page")).toHaveLength(2);
+  await expect(doc.locator('.child-page[data-page-relation="child"]')).toHaveCount(2);
+  await expect(doc.locator('.note-column .child-page .page-link-label')).toHaveText("V2 child");
+  await expect(doc.locator("p > code").filter({ hasText: "rdkit.Chem.BRICS.BRICSDecompose" })).toBeVisible();
   await expect(page.locator(".pm-notion-mail")).toContainText("Imported message");
   await expect(page.locator(".pm-notion-reference").first()).toContainText("Custom block reference");
   await expect(page.locator(".pm-unknown").filter({ hasText: "button: configuration unavailable" })).toBeVisible();
   const image = page.locator(".pm-image-block-view img").first();
-  await expect(image).toHaveAttribute("src", /assets\/notion-/);
+  await expect(image).toHaveAttribute("src", /assets\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\./);
   await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
   await page.locator(".pm-object-meeting_notes").getByRole("tab", { name: "Transcript", exact: true }).click();
   await expect(page.locator('.pm-meeting-section[data-section="transcript"]')).toContainText("Complete transcript");
@@ -52,7 +166,34 @@ test("v2 import renders real objects, local attachments and transcript; template
   await attachments.locator(".attachment-row").click();
   await expect(attachments.locator(".attachment-info")).toContainText("report.pdf");
   const files = (await (await request.get("/api/assets")).json()).assets;
-  expect(files.filter((asset: any) => asset.path.startsWith("assets/notion-"))).toHaveLength(2);
+  expect(files.filter((asset: any) => asset.references.some((reference: any) => reference.pageId === saved.id))).toHaveLength(2);
+});
+
+for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant} existing multiline child pages render, preserve source after editing and navigate`, async ({ page, request }, testInfo) => {
+  const child = await (await request.post("/api/pages", { data: { title: "CADD metrics", body: "Child content" } })).json();
+  const entry = `<page url="#page/${child.id}" future="keep">\n<b>CADD</b> metrics\n</page>`;
+  const body = `<columns>\n<column>\n## Knowledge\n\n${entry}\n</column>\n<column>\n## Engineering\n\nOther content\n</column>\n</columns>\n\nTail`;
+  const note = await (await request.post("/api/pages", { data: { title: "CADD", body, syntax: { version: 1, variant, notionVersion: "v2", extensions: {} } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const doc = page.locator(".pm-document[contenteditable=true]");
+  const link = doc.locator('.note-column .child-page[data-page-relation="child"]');
+  await expect(link.locator(".page-link-label")).toHaveText("CADD metrics");
+  await expect(link).toHaveAttribute("href", `#page/${child.id}`);
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).revision).toBe(note.revision);
+  await doc.locator("p").filter({ hasText: /^Tail$/ }).click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" edited");
+  await page.keyboard.press("Control+s");
+  await expect(page.locator("#save-status")).toContainText("Saved locally");
+  const saved = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(saved.body).toContain(entry);
+  expect(saved.body).toContain("Tail edited");
+  await page.reload();
+  await expect(link.locator(".page-link-label")).toHaveText("CADD metrics");
+  await page.screenshot({ path: testInfo.outputPath("multiline-child-page.png") });
+  await link.click();
+  await expect(page.locator("#page-title")).toHaveValue("CADD metrics");
+  await expect(doc).toContainText("Child content");
 });
 
 for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant} v2 bookmark edits retain rich captions and respect property boundaries`, async ({page,request}) => {

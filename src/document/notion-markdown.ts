@@ -98,11 +98,15 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
     content = "";
   if (!tag.selfClosing) {
     // Match nested spans, including differently styled inner spans.
-    const names = /<\/?(?:span|b|i|s|u|mention|date|mention-[\w-]+)\b(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+    const names = /<\/?(?:span|b|i|s|u|mention|date|code|mention-[\w-]+)\b(?:[^>"']|"[^"]*"|'[^']*')*>/g;
     names.lastIndex = tag.length;
     let depth = 1,
       match: RegExpExecArray | null;
     while ((match = names.exec(rest))) {
+      if (match[0] === "<code>" && state.env.notionV2 && state.env.extensions?.codeTags) {
+        const close = rest.indexOf("</code>", names.lastIndex);
+        if (close >= 0) { names.lastIndex = close + 7; continue; }
+      }
       if (match[0].startsWith(`</${tag.tag}>`)) depth--;
       else if (
         openingTag(match[0])?.tag === tag.tag &&
@@ -116,6 +120,11 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
       }
     }
     if (depth) return false;
+  }
+  if (tag.tag === "span" && Object.hasOwn(tag.attrs, "bg_color")) {
+    if (!silent) state.push("text", "", 0).content = rest.slice(0, finish);
+    state.pos += finish;
+    return true;
   }
   if (!silent) {
     const token = state.push(
@@ -147,8 +156,8 @@ md.block.ruler.before("html_block", "notion_v2_block", (state, start, end, silen
   const lines = state.getLines(start, end, state.blkIndent, false).split("\n");
   const parsed = readNotionV2Block(lines, 0, lines.length,
     source => parseNotionMarkdown(source, state.env.allowObject, state.env.extensions, "v2", (state.env.notionDepth || 0) + 1),
-    source => parseInline(md.parseInline(source, { notionV2: true })[0]?.children ?? []),
-    (body, attrs) => parseTable(body, attrs, source => parseInline(md.parseInline(source, { notionV2: true })[0]?.children ?? []), false), !!state.env.extensions);
+    source => parseInline(md.parseInline(source, { notionV2: true, extensions: state.env.extensions })[0]?.children ?? []),
+    (body, attrs) => parseTable(body, attrs, source => parseInline(md.parseInline(source, { notionV2: true, extensions: state.env.extensions })[0]?.children ?? []), false), !!state.env.extensions);
   if (!parsed || !parsed.node.type.isInGroup("block")) return false;
   if (silent) return true;
   const token = state.push("source_node", "", 0); token.map = [start, start + parsed.next]; token.meta = { node: parsed.node, notionV2: true };
@@ -203,6 +212,7 @@ function lineAttributes(source: string): {
 /** Parse structure before rich text. A tab belongs to the block tree; tabs and
  * tag-looking lines inside code fences are always literal code. */
 export interface NotionExtensions {
+  codeTags?: boolean;
   headingLimit?: number;
   inline: (source: string) => PMNode[];
   blocks: (source: string, atDocumentStart: boolean) => Map<number, { node: PMNode; lines: number }>;
@@ -215,7 +225,7 @@ function v2MarkdownBlocks(source: string, extensions?: NotionExtensions, allowOb
   const tokens = md.parse(source, { mediaImage: true, notionV2: true, extensions, allowObject, notionDepth });
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i]; token.meta = { ...token.meta, gfm: true };
-    if (readInline && token.type === "inline" && !token.children?.some(child => child.type === "task_checkbox") && !/<(?:b|i|s|u|mention|date|link-preview)(?:\s|>)/.test(token.content)) token.children = readInline(token.content).map(node => { const t = new Token("source_inline", "", 0); t.meta = { node }; return t; });
+    if (readInline && token.type === "inline" && !token.children?.some(child => child.type === "task_checkbox" || child.meta?.notionCodeTag) && !/<(?:b|i|s|u|mention|date|link-preview)(?:\s|>)/.test(token.content)) token.children = readInline(token.content).map(node => { const t = new Token("source_inline", "", 0); t.meta = { node }; return t; });
     if (token.type === "list_item_open" && tokens[i + 2]?.type === "inline") {
       const inline = tokens[i + 2], first = inline.children?.[0];
       const checkbox = first?.type === "text" && /^\[([ xX])\](?: |$)/.exec(first.content);
@@ -228,7 +238,7 @@ function v2MarkdownBlocks(source: string, extensions?: NotionExtensions, allowOb
     if (typeof node.attrs.sourceStart !== "number" || !raw || /^\t|\n\t/m.test(raw) || lineAttributes(first).attrs.nfmAttrs) return;
     const official = tokens.some(token => token.map && token.meta?.notionV2 && source.slice(0, node.attrs.sourceStart).split("\n").length - 1 === token.map[0]);
     if (!official && !['paragraph', 'heading', 'blockquote', 'bullet_list', 'ordered_list', 'horizontal_rule', 'code_block'].includes(editorKind(node))) return;
-    if (!official && editorKind(node) === "paragraph" && notionSourceTags(raw).some(tag => !["span", "b", "i", "s", "u", "mention", "date", "link-preview", "br"].includes(tag.tag) && !tag.tag.startsWith("mention-"))) return;
+    if (!official && editorKind(node) === "paragraph" && notionSourceTags(raw).some(tag => !["span", "b", "i", "s", "u", "mention", "date", "link-preview", "br", ...(extensions?.codeTags ? ["code"] : [])].includes(tag.tag) && !tag.tag.startsWith("mention-"))) return;
     if (editorKind(node) === "paragraph" && /^\s*(?:!\[|\$\$)/.test(raw)) return;
     const start = source.slice(0, node.attrs.sourceStart).split("\n").length - 1;
     result.set(start, { node, lines: raw.split("\n").length });
@@ -237,7 +247,7 @@ function v2MarkdownBlocks(source: string, extensions?: NotionExtensions, allowOb
 }
 export function parseNotionMarkdown(source: string, allowObject: (name: string) => boolean = () => false, extensions?: NotionExtensions, version: "v1" | "v2" = "v1", nesting = 0): PMNode {
   if (nesting > 40) return schema.nodes.doc.create({ source, sourceFormat: "notion-markdown" }, createEditorNode(schema, "opaque_block", { raw: source }));
-  const notionInline = version === "v2" ? (text: string) => parseInline(md.parseInline(text, {})[0]?.children ?? []) : extensions?.inline ?? ((text: string) => parseInline(md.parseInline(text, {})[0]?.children ?? []));
+  const notionInline = version === "v2" ? (text: string) => parseInline(md.parseInline(text, { notionV2: true, extensions })[0]?.children ?? []) : extensions?.inline ?? ((text: string) => parseInline(md.parseInline(text, {})[0]?.children ?? []));
   const paragraph = (text = "", attrs: Record<string, unknown> = {}) => schema.nodes["block.paragraph"].create(attrs, notionInline(text));
   const lines = source.split(/\r\n|\n|\r/);
   const offsets = [0];
@@ -564,7 +574,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
         };
       }
       // Inline tags such as mentions/spans are paragraphs, not raw HTML blocks.
-      if (!tag.tag.startsWith("mention-") && !["span", "br", ...(version === "v2" ? ["b", "i", "s", "u", "mention", "date", "link-preview"] : [])].includes(tag.tag))
+      if (!tag.tag.startsWith("mention-") && !["span", "br", ...(version === "v2" ? ["b", "i", "s", "u", "mention", "date", "link-preview", ...(extensions?.codeTags ? ["code"] : [])] : [])].includes(tag.tag))
         return { node: opaque(from, next), next };
     }
     if (/^\s*<\//.test(text))

@@ -27,15 +27,47 @@ export function dateTime(
       `${pad(local.getHours())}:${pad(local.getMinutes())}` !== time)
   )
     return null;
-  if (zone !== "local" && !/^(Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/.test(zone))
-    return null;
+  if (zone !== "local" && !/^(Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/.test(zone)) {
+    // Resolve a wall-clock time against IANA rules for that date. Enumerating
+    // nearby offsets rejects spring gaps and chooses the first fall occurrence.
+    try {
+      const formatter = new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+      const wall = (epoch: number) => {
+        const parts = formatter.formatToParts(epoch);
+        const n = (type: string) => Number(parts.find(part => part.type === type)!.value);
+        return Date.UTC(n("year"), n("month") - 1, n("day"), n("hour"), n("minute"));
+      };
+      const [year, month, date] = day.split("-").map(Number), [hour, minute] = time.split(":").map(Number);
+      const target = Date.UTC(year, month - 1, date, hour, minute);
+      const offsets = new Set([-86400000, 0, 86400000].map(delta => wall(target + delta) - target - delta));
+      const candidates = [...offsets].map(offset => target - offset).filter(epoch => wall(epoch) === target).sort((a, b) => a - b);
+      if (!candidates.length) return null;
+      const minutes = (target - candidates[0]) / 60000;
+      return `${day}T${time}:00${minutes < 0 ? "-" : "+"}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
+    } catch { return null; }
+  }
   return `${day}T${time}:00${zone === "local" ? offsetFor(local) : zone}`;
+}
+
+export function dateZone(attrs: DateAttributes): string {
+  return attrs.timeZone || attrs["time-zone"] || /([+-]\d\d:\d\d|Z)$/.exec(attrs.start || "")?.[1] || "local";
+}
+export function dateTimePart(attrs: DateAttributes, field = "start"): string {
+  return attrs[field + "Time"] || /T(\d\d:\d\d)/.exec(attrs[field] || "")?.[1] || "";
+}
+/** Keep the existing official split fields or the legacy ISO carrier. */
+export function dateFieldChanges(field: string, day: string, time: string, includeTime: boolean, zone: string, separate: boolean): DateAttributes | null {
+  if (!civilDate(day) || includeTime && !dateTime(day, time, zone)) return null;
+  return separate ? { [field]: day, [field + "Time"]: includeTime ? time : "", ...(includeTime ? { timeZone: zone === "local" ? Intl.DateTimeFormat().resolvedOptions().timeZone : zone === "Z" ? "UTC" : zone } : {}) }
+    : { [field]: includeTime ? dateTime(day, time, zone)! : day, ...(includeTime ? { "time-zone": zone } : {}) };
 }
 export function relativeDay(day: string, now = new Date()) {
   const date = civilDate(day);
   if (!date) return day;
   const today = civilDate(dateKey(now))!;
   const delta = Math.round((date.getTime() - today.getTime()) / 86400000);
+  if (Math.abs(delta) > 1 && Math.abs(delta) < 7)
+    return `${delta < 0 ? "Last" : "Next"} ${date.toLocaleDateString("en-US", { weekday: "long" })}`;
   return (
     (
       { [-1]: "Yesterday", 0: "Today", 1: "Tomorrow" } as Record<number, string>
@@ -47,8 +79,31 @@ export function relativeDay(day: string, now = new Date()) {
     })
   );
 }
+/** Compare dates in their declared zone without changing the stored civil date/time. */
+export function dateToday(attrs: DateAttributes, now = new Date()): string {
+  const zone = attrs.timeZone || attrs["time-zone"] || /([+-]\d\d:\d\d|Z)$/.exec(attrs.start || "")?.[1];
+  if (!zone || zone === "local") return dateKey(now);
+  if (/^(Z|[+-]\d\d:\d\d)$/.test(zone)) {
+    const minutes = zone === "Z" ? 0 : (Number(zone.slice(1, 3)) * 60 + Number(zone.slice(4))) * (zone[0] === "-" ? -1 : 1);
+    return new Date(now.getTime() + minutes * 60000).toISOString().slice(0, 10);
+  }
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+    const part = (type: string) => parts.find(p => p.type === type)!.value;
+    return `${part("year")}-${part("month")}-${part("day")}`;
+  } catch { return dateKey(now); }
+}
+
+export function dateReminderState(attrs: DateAttributes, now = new Date()): "none" | "future" | "overdue" {
+  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(attrs.reminder || "")) return "none";
+  const at = Date.parse(attrs.reminder);
+  if (!Number.isFinite(at)) return "none";
+  return at <= now.getTime() || attrs.start?.slice(0, 10) === dateToday(attrs, now) ? "overdue" : "future";
+}
+
 export function dateLabel(attrs: DateAttributes, now = new Date()): string {
-  const format = (value: string) => {
+  const today = civilDate(dateToday(attrs, now)) || now;
+  const format = (value: string, separateTime?: string) => {
     const day = value.slice(0, 10),
       date = civilDate(day);
     if (!date) return value;
@@ -71,9 +126,9 @@ export function dateLabel(attrs: DateAttributes, now = new Date()): string {
         });
         break;
       default:
-        label = relativeDay(day, now);
+        label = relativeDay(day, today);
     }
-    const time = /T(\d\d):(\d\d)/.exec(value);
+    const time = /^(\d\d):(\d\d)$/.exec(separateTime || "") || /T(\d\d):(\d\d)/.exec(value);
     if (time) {
       const hour = Number(time[1]);
       label +=
@@ -84,7 +139,7 @@ export function dateLabel(attrs: DateAttributes, now = new Date()): string {
     return label;
   };
   return attrs.start
-    ? format(attrs.start) + (attrs.end ? " → " + format(attrs.end) : "")
+    ? format(attrs.start, attrs.startTime) + (attrs.end ? " → " + format(attrs.end, attrs.endTime) : "")
     : "Mention a date…";
 }
 export type DateSuggestion = {
@@ -179,9 +234,7 @@ export function updateDateAttributes(
     attrs["reminder-offset"] !== "custom"
   ) {
     const offset = Number(attrs["reminder-offset"]);
-    const base = attrs.start?.includes("T")
-      ? attrs.start
-      : dateTime(attrs.start || "", "09:00", attrs["time-zone"] || "local");
+    const base = dateTime(attrs.start?.slice(0, 10) || "", dateTimePart(attrs) || "09:00", dateZone(attrs));
     const timestamp = base ? Date.parse(base) - offset * 60000 : NaN;
     if (
       Number.isFinite(timestamp) &&

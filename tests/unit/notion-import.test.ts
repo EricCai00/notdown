@@ -150,7 +150,7 @@ test("API Enhanced Markdown stays byte-exact, pagination and nested descendants 
   );
 });
 
-test("single-page import skips hierarchy requests and identical snapshots have stable identities", async () => {
+test("single-page import with known code languages skips hierarchy requests and keeps snapshot identities stable", async () => {
   const calls: string[] = [];
   const options = { fetch: notionFixture(calls), wait };
   const first = await prepareNotionImport(
@@ -166,7 +166,7 @@ test("single-page import skips hierarchy requests and identical snapshots have s
   assert.match(first.pages[0].id, /^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
   assert.equal(first.pages[0].id, second.pages[0].id);
   assert.equal((first.pages[0].metadata.notionImport as any).batchId, first.id);
-  assert.ok(calls.every((p) => p.startsWith("/v1/pages/")));
+  assert.ok(calls.every(p => p.startsWith(`/v1/pages/${notionRoot}`)));
 });
 
 test("unknown blocks warn but allow preview and import, including responses also marked truncated", async (t) => {
@@ -276,6 +276,7 @@ test("rate limits retry bounded read requests, cancellation and request validati
     },
   );
   assert.ok(waits.includes(2000));
+  // Page + Markdown + one retry; known code languages add no requests.
   assert.equal(count, 3);
   count = 0;
   await assert.rejects(

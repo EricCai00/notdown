@@ -20,10 +20,12 @@ export function openNotionImportDialog(options: {
   dialog.setAttribute("aria-label", "Import from Notion API");
   dialog.innerHTML = `<header><h2>Import from Notion API</h2><button id="notion-close" aria-label="Close import">×</button></header>
     <p>Import a local copy of a page, database or data source using Notion's API.</p>
+    <p class="import-hint">The API omits reminders. Matching public API colors are combined automatically. On Windows, the local Notion desktop cache can fill missing colors and Notdown reminders. Open the source pages in Notion and let them sync before previewing. Stale, conflicting or ambiguous content is preserved for review.</p>
     <label>Integration token<input id="notion-token" type="password" autocomplete="off" spellcheck="false" /></label>
     <label>Page URL or ID<input id="notion-page" type="text" placeholder="https://www.notion.so/..." autocomplete="off" spellcheck="false" /></label>
     <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
     <label><input id="notion-assets" type="checkbox" checked /> Import files, media, covers and icons into Attachments</label>
+    <label><input id="notion-cache" type="checkbox" checked /> Restore missing colors and Notdown reminders from this computer's Notion desktop cache</label>
     <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
     <p class="import-hint">Share the root page with your Notion connection and enable Read content. The token is used only for this preview and is not saved. Up to 500 pages / 20 MB including archived responses.</p>
     <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and automations remain in Notion.</p>
@@ -39,6 +41,7 @@ export function openNotionImportDialog(options: {
   const page = dialog.querySelector<HTMLInputElement>("#notion-page")!;
   const children = dialog.querySelector<HTMLInputElement>("#notion-children")!;
   const attachments = dialog.querySelector<HTMLInputElement>("#notion-assets")!;
+  const desktopCache = dialog.querySelector<HTMLInputElement>("#notion-cache")!;
   const variant = dialog.querySelector<HTMLSelectElement>("#notion-variant")!;
   const previewButton = dialog.querySelector<HTMLButtonElement>(
     "#notion-preview-button",
@@ -106,7 +109,7 @@ export function openNotionImportDialog(options: {
   let state: "idle" | "preview" | "commit" = "idle";
   let controller: AbortController | undefined;
   const update = () => {
-    token.disabled = page.disabled = children.disabled = attachments.disabled = variant.disabled = state !== "idle";
+    token.disabled = page.disabled = children.disabled = attachments.disabled = desktopCache.disabled = variant.disabled = state !== "idle";
     previewButton.disabled = state !== "idle";
     commit.disabled = state !== "idle" || !summary;
     cancel.disabled = close.disabled = state === "commit";
@@ -118,7 +121,7 @@ export function openNotionImportDialog(options: {
     clearProgress();
     update();
   };
-  for (const input of [token, page, children, attachments, variant])
+  for (const input of [token, page, children, attachments, desktopCache, variant])
     input.addEventListener("input", invalidate);
   const dismiss = () => {
     if (state !== "commit") dialog.close();
@@ -161,6 +164,7 @@ export function openNotionImportDialog(options: {
           pageId: page.value.trim(),
           includeChildren: children.checked,
           downloadAssets: attachments.checked,
+          useDesktopCache: desktopCache.checked,
           variant: variant.value,
         }),
       }, showProgress);

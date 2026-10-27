@@ -173,7 +173,8 @@ test("missing and imported users remain readable; disabled mentions never create
   await page.locator(".pm-person-mention").click();
   await expect(peopleDialog(page)).toContainText("Person unavailable");
   await peopleDialog(page).getByRole("button", { name: "Close people" }).click();
-  await expect(page.locator('.pm-mention:not(.pm-person-mention)')).toHaveText("External account");
+  await expect(page.locator('.pm-mention:not(.pm-person-mention)')).toHaveText("@Unknown user");
+  await expect(page.locator('.pm-mention:not(.pm-person-mention)')).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Control+e");
   await expectSource(page, /custom="keep"/);
   const response = await request.post("/api/pages", { data: { title: "Disabled person mentions", body: "Plain", syntax: { version: 1, variant: "notdown", extensions: { notion_mentions: false } } } });

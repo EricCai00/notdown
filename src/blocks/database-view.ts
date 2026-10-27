@@ -8,6 +8,7 @@ import { safeReference } from "../document/notion-syntax";
 import { editorKind } from "../document/node-identity";
 import { pageReferenceContent } from "../shared/page-reference-content";
 import "./database-view.css";
+import { externalEntitiesChanged } from "../features/references/external-client";
 
 const active = new WeakMap<EditorView, Set<DatabaseBlockView>>();
 const vaultPaths = new WeakMap<EditorView, Promise<string>>();
@@ -41,7 +42,7 @@ export class DatabaseBlockView implements NodeView {
     this.status.className = "pm-database-reference-status"; this.status.setAttribute("role", "status");
     this.dom.append(this.link, this.status, this.mount);
     this.link.addEventListener("click", event => {
-      if (!this.databaseId) return;
+      if (!this.databaseId || !this.link.hasAttribute("href")) return;
       event.preventDefault(); event.stopPropagation(); void this.openDatabase(this.databaseId);
     });
     this.dom.addEventListener("pointerdown", event => {
@@ -56,6 +57,23 @@ export class DatabaseBlockView implements NodeView {
     };
     document.addEventListener("notdown-database-updated", refresh, { signal: this.events.signal });
     document.addEventListener("notdown-database-record-saved", refresh, { signal: this.events.signal });
+    document.addEventListener(externalEntitiesChanged, () => {
+      const target = databaseHostId(this.node.attrs.url);
+      if (this.workspace && this.hostPage?.id !== target) {
+        if (this.workspace.dirty) {
+          this.link.replaceChildren(...pageReferenceContent("Unknown database", "table-2"));
+          this.link.setAttribute("aria-label", "Unknown database");
+          this.link.removeAttribute("href"); this.link.setAttribute("aria-disabled", "true"); this.link.tabIndex = -1;
+          this.link.classList.add("external-unresolved");
+          this.status.textContent = "This reference changed. Finish saving the table, then reopen this note to load its current target.";
+          return;
+        }
+        this.workspace.destroy(); this.workspace = undefined;
+        this.mount.replaceChildren(); this.hostPage = undefined; this.databaseId = undefined; this.status.textContent = "";
+      }
+      this.renderReference();
+      if (!this.workspace) void this.load();
+    }, { signal: this.events.signal });
     const views = active.get(view) ?? new Set(); views.add(this); active.set(view, views);
     this.renderReference();
     void this.load();
@@ -66,11 +84,14 @@ export class DatabaseBlockView implements NodeView {
     const local = databaseHostId(this.node.attrs.url), inline = !!local && this.node.attrs.inline === true;
     this.dom.className = `pm-content-object pm-object-database${inline ? " pm-inline-database" : ""}`;
     this.dom.setAttribute("role", "region"); this.dom.setAttribute("aria-label", inline ? "Inline database" : "Database reference");
-    const known = this.hostPage ?? this.pages().find(page => page.id === local);
-    const label = this.node.attrs.label || known?.title || "Database";
+    const known = this.hostPage?.id === local ? this.hostPage : this.pages().find(page => page.id === local);
+    const label = known ? this.node.attrs.label || known.title : "Unknown database";
     this.link.replaceChildren(...pageReferenceContent(label, known?.icon ?? this.node.attrs.icon ?? "table-2"));
     this.link.setAttribute("aria-label", label);
-    const href = this.databaseId ? `#database/${encodeURIComponent(this.databaseId)}` : safeReference(this.node.attrs.url || this.node.attrs.dataSourceUrl || "");
+    const href = !known ? "" : this.databaseId ? `#database/${encodeURIComponent(this.databaseId)}` : safeReference(local ? `#page/${local}` : "");
+    this.link.classList.toggle("external-unresolved", !known);
+    if (!known) { this.link.setAttribute("aria-disabled", "true"); this.link.tabIndex = -1; }
+    else { this.link.removeAttribute("aria-disabled"); this.link.removeAttribute("tabindex"); }
     if (href && /^(?:https?:\/\/|#page\/|#database\/)/i.test(href)) this.link.setAttribute("href", href); else this.link.removeAttribute("href");
     if (/^https?:\/\//i.test(href)) { this.link.target = "_blank"; this.link.rel = "noopener noreferrer"; }
     else { this.link.removeAttribute("target"); this.link.removeAttribute("rel"); }

@@ -8,6 +8,7 @@ import { columnTracks, columnWidths } from "../blocks/column-widths.js";
 import { alertDOM } from "./alert-presentation";
 import { mediaDOM } from "./media";
 import { imageLayoutDOM } from "./image-layout";
+import { dateMentionDOM } from "../features/dates/date-presentation";
 
 /** Source bookkeeping is carried by document transactions, never rendered. */
 const sourceAttrs = {
@@ -686,7 +687,7 @@ export const editorSchema = new Schema({
         label: { default: "" },
         nfmAttrs: { default: {} },
       },
-      toDOM: (node) => [
+      toDOM: (node) => node.attrs.kind === "date" ? dateMentionDOM(node.attrs.nfmAttrs, true, node.attrs.label) : [
         "span",
         {
           class: "pm-mention",

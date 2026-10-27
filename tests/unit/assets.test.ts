@@ -11,6 +11,9 @@ import { pageAssetReferences } from "../../src/features/assets/asset-references"
 import { defaultSyntax } from "../../src/markdown-engine/config";
 import { createVault as createPortableVault } from "../../src/vault/vault";
 import { nodeVaultPlatform } from "../../server/vault-platform";
+import { prepareMarkdownImport } from "../../server/markdown-import";
+import { notionAssets } from "../../server/notion-assets";
+import { isPageUuid } from "../../src/vault/page-id";
 
 async function fixture(t: { after(fn: () => Promise<void>): void }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-assets-"));
@@ -39,6 +42,46 @@ test("uploads retain original names across reopen, preserve metadata and leave p
   const after = JSON.parse(await fs.readFile(metadataPath, "utf8"));
   assert.deepEqual(after.external, { keep: "unknown" }); assert.equal(after.assets["assets/old.txt"].unknown, 42);
   assert.equal(after.assets[upload.path].name, upload.name);
+});
+
+test("upload, folder and Notion use the same content path, deduplicate and preserve the first record", async t => {
+  const { root, vault } = await fixture(t);
+  for (const [name, mime] of [["markdown & notion.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"], ["a.html", "text/html"], ["photo.jpeg", "image/jpeg"], ["data.custom", "application/octet-stream"]]) {
+    const data = Buffer.from(`content of ${name}`);
+    const uploaded = await vault.uploadAsset(name, mime, data.toString("base64"));
+    assert.ok(isPageUuid(path.basename(uploaded.path, path.extname(uploaded.path))));
+    const folder = prepareMarkdownImport({ name: "Folder", dialect: "gfm", files: [{ path: "note.md", data: Buffer.from(`[file](<${name}>)`).toString("base64") }, { path: name, data: data.toString("base64") }] });
+    const media = notionAssets({ signal: new AbortController().signal, remaining: () => 10000, reserve: () => {}, warn: () => assert.fail("Unexpected download failure"), read: async () => ({ data, contentType: mime, name }) });
+    assert.equal(await media.save("https://example.test/download"), uploaded.path);
+    assert.equal(`assets/${folder.assets[0].filename}`, uploaded.path);
+    await vault.importBatch(folder);
+    const metadataPath = path.join(root, "metadata.json"), before = JSON.parse(await fs.readFile(metadataPath, "utf8"));
+    before.assets[uploaded.path].custom = { keep: true }; await fs.writeFile(metadataPath, JSON.stringify(before));
+    const again = await vault.uploadAsset(`copy-${name}`, mime, data.toString("base64"));
+    assert.equal(again.path, uploaded.path); assert.equal(again.name, `copy-${name}`);
+    assert.deepEqual(JSON.parse(await fs.readFile(metadataPath, "utf8")).assets[uploaded.path], before.assets[uploaded.path]);
+    assert.deepEqual(await vault.assetInfo(uploaded.path), { path: uploaded.path, name, size: data.length });
+    await fs.writeFile(path.join(root, uploaded.path), "externally changed");
+    await assert.rejects(vault.uploadAsset(name, mime, data.toString("base64")), { status: 409 });
+    assert.equal(await fs.readFile(path.join(root, uploaded.path), "utf8"), "externally changed");
+    const conflicts = path.join(root, ".history", "asset-conflicts");
+    const proposals = await Promise.all((await fs.readdir(conflicts)).map(async file => JSON.parse(await fs.readFile(path.join(conflicts, file), "utf8"))));
+    assert.equal(proposals.find(proposal => proposal.path === uploaded.path).data, data.toString("base64"));
+  }
+  assert.equal((await fs.readdir(path.join(root, "assets"))).length, 4);
+});
+
+test("attachment info supports legacy paths, rejects traversal and never changes page revisions", async t => {
+  const { root, vault } = await fixture(t);
+  const page = await vault.create({ title: "Keep", body: "Unchanged" });
+  await fs.mkdir(path.join(root, "assets", "legacy"));
+  await fs.writeFile(path.join(root, "assets", "legacy", "file.txt"), "old");
+  assert.deepEqual(await vault.assetInfo("assets/legacy/file.txt"), { path: "assets/legacy/file.txt", name: null, size: 3 });
+  await assert.rejects(vault.assetInfo("assets/../metadata.json"), { status: 400 });
+  const external = path.join(root, "outside"); await fs.mkdir(external); await fs.writeFile(path.join(external, "file.txt"), "secret");
+  await fs.symlink(external, path.join(root, "assets", "junction"), "junction");
+  await assert.rejects(vault.assetInfo("assets/junction/file.txt"), { status: 422 });
+  assert.equal((await vault.get(page.id)).revision, page.revision);
 });
 
 test("reference index covers body, metadata, missing files and Trash, without counting example code", async t => {

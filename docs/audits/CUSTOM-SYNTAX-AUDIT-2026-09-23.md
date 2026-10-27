@@ -1,5 +1,7 @@
 # Notdown 自定义正文语法审计与整改
 
+当前状态见 [2026-10-27 审计](CUSTOM-SYNTAX-AUDIT-2026-10-27.md)：以下为历史审计，不能再把 Tabs、Bookmark、Link preview 等标签整体认定为自创。`bg_color` 已停用，并按用户授权迁移指定知识库。
+
 2026-09-27 修订：`html-embed` 与 `notion_html_document` 已移除；HTML 上传统一为 `web-embed` 的 assets 文件引用，显式迁移提取旧正文。下表相关行仅为历史审计。
 
 ## 最新决定与已落实边界

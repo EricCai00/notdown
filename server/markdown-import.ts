@@ -2,6 +2,7 @@ import { destinationMarker } from "../src/document/markdown-destination.js";
 export { destinationMarker } from "../src/document/markdown-destination.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { assetStorageName, assetMimeExtensions } from "../src/vault/asset-storage.js";
 import { Document, isMap, parseDocument } from "yaml";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
@@ -26,8 +27,6 @@ export type ImportPlan = {
 const digest = (data: string | Buffer) => createHash("sha256").update(data).digest("hex");
 const maxBytes = 20 * 1024 * 1024;
 const frontmatter = /^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-const safeAssetExtension = /\.(png|jpe?g|gif|webp|avif|mp3|ogg|wav|m4a|mp4|webm|pdf|txt|zip)$/i;
-
 
 function safePath(value: unknown): string {
   if (typeof value !== "string" || !value || value.length > 1000 || /[\\\x00-\x1f:]/.test(value) || value.startsWith("/") || value.split("/").some(p => !p || p === "." || p === ".."))
@@ -107,7 +106,7 @@ export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
     if (bytes > maxBytes) throw new VaultError(413, "Import exceeds 20 MB; import a smaller folder");
     return { path: filename, data };
   }).sort((a, b) => a.path.localeCompare(b.path));
-  const id = digest(JSON.stringify([input.name, input.dialect, originals.map(file => [file.path, digest(file.data)])]));
+  const id = digest(JSON.stringify(["content-assets-uuid-v2", input.name, input.dialect, originals.map(file => [file.path, digest(file.data)])]));
   const prefix = `import-${id.slice(0, 24)}`;
   const plan: ImportPlan = { id, name: input.name, pages: [], assets: [], originals, warnings: [], errors: [] };
   const warnings = new Set<string>();
@@ -129,9 +128,9 @@ export function prepareMarkdownImport(input: ImportRequest): ImportPlan {
         targets.set(file.path, `#page/${pageId}`);
       } catch (error) { plan.errors.push(`${file.path}: ${error instanceof Error ? error.message : error}`); }
     } else {
-      const extension = safeAssetExtension.exec(file.path)?.[0].toLowerCase() ?? ".bin";
-      const filename = `${prefix}-${index}${extension}`;
-      plan.assets.push({ filename, data: file.data });
+      const filename = assetStorageName(file.data, file.path);
+      if (!plan.assets.some(asset => asset.filename === filename)) plan.assets.push({ filename, data: file.data, name: path.posix.basename(file.path),
+        contentType: Object.entries(assetMimeExtensions).find(([, ext]) => filename.endsWith(`.${ext}`))?.[0] || "application/octet-stream" });
       targets.set(file.path, `assets/${filename}`);
     }
   }

@@ -7,6 +7,8 @@ import type { EditorState } from "prosemirror-state";
 import type { NodeView, NodeViewConstructor } from "prosemirror-view";
 import { localPageTarget, pageUrl, safeReference } from "../document/notion-syntax";
 import { nodeReference, referenceHref, referenceLabel, resolveReferencePage } from "../document/internal-reference";
+import { externalIdentity, unknownEntityLabel } from "../features/references/external-entity";
+import { externalEntitiesChanged, resolveExternal } from "../features/references/external-client";
 
 export interface LinkedPage {
   id: string;
@@ -82,6 +84,7 @@ class PageLinkView implements NodeView {
     };
     document.addEventListener("notdown-database-updated", refresh, { signal: this.events.signal });
     document.addEventListener("notdown-database-record-saved", refresh, { signal: this.events.signal });
+    document.addEventListener(externalEntitiesChanged, () => this.render(), { signal: this.events.signal });
     this.render();
   }
 
@@ -89,8 +92,12 @@ class PageLinkView implements NodeView {
     const target = String(this.node.attrs.target ?? "");
     const pages = [...this.pages().filter(page => !this.targetUpdates.has(page.id)), ...this.targetUpdates.values()];
     const reference = nodeReference(this.node);
-    const page = reference ? resolveReferencePage(reference, pages, this.currentPage?.()?.id) : undefined;
-    const label = reference ? referenceLabel(this.node, reference, page) : String(this.node.attrs.label || target);
+    const identity = externalIdentity(this.node.attrs.url || target);
+    const entity = identity ? resolveExternal(this.node.attrs.url || target) : undefined;
+    const page: LinkedPage | undefined = identity ? entity?.status === "resolved" && entity.localId ? pages.find(page => page.id === entity.localId && !page.trashed) ?? { id: entity.localId, title: entity.label || this.node.attrs.label || "Page" } : undefined
+      : reference ? resolveReferencePage(reference, pages, this.currentPage?.()?.id) : undefined;
+    const unknown = !!identity && !page || !!reference && reference.addressing !== "url" && reference.addressing !== "current" && !page;
+    const label = unknown ? unknownEntityLabel(identity?.kind ?? "page") : reference ? referenceLabel(this.node, reference, page) : String(this.node.attrs.label || target);
     this.dom.className =
       isEditorKind(this.node, "child_page")
         ? "child-page-node child-page"
@@ -99,6 +106,10 @@ class PageLinkView implements NodeView {
       "href",
       safeReference(reference ? referenceHref(reference, page?.id) : this.node.attrs.url || pageUrl(target)),
     );
+    if (identity && page) this.dom.setAttribute("href", `#page/${page.id}`);
+    this.dom.classList.toggle("external-unresolved", unknown);
+    if (unknown) { this.dom.removeAttribute("href"); this.dom.setAttribute("aria-disabled", "true"); this.dom.tabIndex = -1; }
+    else { this.dom.removeAttribute("aria-disabled"); this.dom.removeAttribute("tabindex"); }
     this.dom.setAttribute("data-page-target", target);
     this.dom.dataset.pmNodeType = this.node.type.name;
     this.dom.setAttribute("data-page-id", page?.id ?? target);

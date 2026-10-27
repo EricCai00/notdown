@@ -31,32 +31,32 @@ export function blockSource(doc: PMNode, pos: number, serialize: (doc: PMNode) =
   return serialize(restoreFootnotes(fragment));
 }
 
-export function openBlockSource(source: string, onClose: () => void, signal?: AbortSignal): HTMLDialogElement {
+export function openBlockSource(source: string, onClose: () => void, signal?: AbortSignal, scope: "Block" | "Inline" = "Block", reference?: { source: string; description?: string }): HTMLDialogElement {
   const dialog = document.createElement("dialog");
   dialog.className = "pm-block-source-dialog";
-  dialog.setAttribute("aria-label", "Block source");
+  dialog.setAttribute("aria-label", `${scope} source`);
   const header = document.createElement("header");
   const title = document.createElement("h2");
-  title.textContent = "Block source";
+  title.textContent = `${scope} source`;
   const close = document.createElement("button");
   close.type = "button";
   close.append(createElement(X));
   close.className = "pm-block-source-close";
-  close.setAttribute("aria-label", "Close block source");
+  close.setAttribute("aria-label", `Close ${scope.toLowerCase()} source`);
   close.onclick = () => dialog.close();
   const heading = document.createElement("div");
   heading.className = "pm-block-source-heading";
   heading.append(createElement(CodeXml), title);
   const mount = document.createElement("div");
   mount.className = "pm-block-source-code";
-  const state = EditorState.create({
-    doc: source,
+  const sourceState = (value: string, label: string) => EditorState.create({
+    doc: value,
     extensions: [
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
       EditorState.tabSize.of(2),
       EditorView.contentAttributes.of({
-        role: "textbox", "aria-label": "Block Markdown source",
+        role: "textbox", "aria-label": label,
         "aria-readonly": "true", "aria-multiline": "true", tabindex: "0",
       }),
       lineNumbers(),
@@ -64,6 +64,7 @@ export function openBlockSource(source: string, onClose: () => void, signal?: Ab
       markdownSourceLanguage(),
     ],
   });
+  const state = sourceState(source, `${scope} Markdown source`);
   const editor = new EditorView({ state, parent: mount });
   const footer = document.createElement("footer");
   const status = document.createElement("output");
@@ -90,13 +91,33 @@ export function openBlockSource(source: string, onClose: () => void, signal?: Ab
   actions.append(copy, close);
   header.append(heading, actions);
   footer.append(details, status);
-  dialog.append(header, mount, footer);
+  const sections = document.createElement("div"); sections.className = "pm-source-sections";
+  let referenceEditor: EditorView | undefined;
+  if (reference) {
+    const label = document.createElement("h3"); label.textContent = "Inline reference";
+    sections.append(label, mount);
+    const referenceHeader = document.createElement("div"); referenceHeader.className = "pm-source-section-heading";
+    const referenceLabel = document.createElement("h3"); referenceLabel.textContent = "Reference source";
+    const copyReference = document.createElement("button"); copyReference.type = "button"; copyReference.textContent = "Copy"; copyReference.setAttribute("aria-label", "Copy reference source");
+    copyReference.disabled = !reference.source;
+    copyReference.onclick = () => { void navigator.clipboard.writeText(reference.source).then(() => { status.textContent = "Reference source copied"; }).catch(() => {
+      referenceEditor?.focus(); referenceEditor?.dispatch({ selection: { anchor: 0, head: referenceEditor.state.doc.length } }); status.textContent = "Press Ctrl+C / ⌘C to copy.";
+    }); };
+    referenceHeader.append(referenceLabel, copyReference); sections.append(referenceHeader);
+    if (reference.description) { const hint = document.createElement("p"); hint.className = "pm-source-description"; hint.textContent = reference.description; sections.append(hint); }
+    if (reference.source) {
+      const referenceMount = document.createElement("div"); referenceMount.className = "pm-block-source-code";
+      referenceEditor = new EditorView({ state: sourceState(reference.source, "Reference source"), parent: referenceMount }); sections.append(referenceMount);
+    }
+  } else sections.append(mount);
+  dialog.append(header, sections, footer);
   let disposed = false;
   const dispose = () => {
     if (disposed) return;
     disposed = true;
     signal?.removeEventListener("abort", dispose);
     editor.destroy();
+    referenceEditor?.destroy();
     dialog.remove();
     onClose();
   };

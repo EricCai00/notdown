@@ -471,6 +471,8 @@ export function resetExtensions(config: SyntaxConfig): Record<string, boolean> {
   );
 }
 export function commandEnabled(config: SyntaxConfig, command: string) {
+  if (command === "combined_colors") return enabled(config, "notion_colors") &&
+    (config.variant === "notdown" || config.variant === "notion-markdown" && config.notionVersion === "v2");
   if (command === "database_full_page") return true;
   if (command === "database_inline") return usesNotionSyntax(config) && enabled(config, "notion_databases");
   if (command === "table_column_widths") return config.variant === "notdown" && enabled(config, "table_attributes");

@@ -30,6 +30,8 @@ CriticMarkup 等到最后的 `}` 才转换，保留修订类型与原文，不�
 
 ## 方言、扩展与类型
 
+文字颜色和背景颜色可同时设置：颜色菜单中的 text 与 background 各自保留另一项，Default 只清除对应项；保存后使用嵌套的官方 `<span color="…">`，例如外层 `red`、内层 `yellow_bg`。Notdown（含未标记 v2 的页面）与 Notion Markdown v2 均支持。自定义正文属性 `bg_color` 已停止解释，遇到时保留字面源码；本次按用户授权备份并迁移两个指定知识库，不自动迁移其他库。
+
 | 功能 | 方言与开关 | 归属与编码 |
 | --- | --- | --- |
 | URL 引文 | 官方 Notion 的 `notion_mentions`；Notdown 默认开 | 行内 `citation`，`[^URL]`，不是脚注 |
@@ -48,6 +50,26 @@ MMD 专属开关在 CommonMark、GFM、CommonMark X、Original Markdown、Typora
 规范依据：[MultiMarkdown 6](https://fletcher.github.io/MultiMarkdown-6/syntax/index.html)、[PHP Markdown Extra](https://michelf.ca/projects/php-markdown/extra/#abbr)、[Pandoc citations](https://pandoc.org/MANUAL.html#citations)、[Notion Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)。CriticMarkup 是独立标注语法，本项目沿用 MMD 已集成的扩展，不宣称其他方言原生支持它。
 
 ## 操作
+
+### 日期与提醒显示
+
+日期统一显示 `@` 前缀，包括 Notion 导入的独立 `startTime`、`endTime`、`timeZone` 字段及 v2 `<date>`。普通日期为灰色、无常驻底色；相对格式显示 Yesterday / Today / Tomorrow，前后 2–6 天显示 Last / Next 加星期，其余显示完整日期；已有明确格式仍优先。时间默认使用 12 小时制，时区保留在悬停详情与日期面板，不直接拼入正文。相对日期按声明时区的当天计算，保留原始日期、时间、未知属性和源码。
+
+实际配置提醒时保留 `@`，在文字后显示闹钟：未来为蓝色，日期为 Today 或提醒时间已到则变红；普通过去日期不因此变红，非法提醒值不显示有效提醒状态。依据 [Notion Reminders](https://www.notion.com/help/reminders)。官方日期和本地日期共用显示与月历。Notdown 中导入的独立日期／时间／IANA 时区同样开放完整菜单：日期范围、Include time、Date format、Time format、Timezone 和 Remind；提醒选项包括事件时刻、5/10/15/30 分钟、1/2 小时及天／周提前量。编辑保留原独立字段和未知属性，不强制转换为 ISO 正文字段；时区支持 IANA 名称，并按目标日期的夏令时解析提醒。不存在的当地时间拒绝保存，重复时刻选择第一次。
+
+官方方言可编辑其原生日期、独立时间和 IANA 时区，但不写入本地提醒／格式扩展；日期和时间格式仅影响当前节点视图会话。Notion Enhanced Markdown 未返回提醒字段时不能推断提醒，带时间的日期不自动变成提醒；导入预览对此明确警告。对于已由用户或原页面设置核实的个别提醒，可以通过既有 `reminder` / `reminder-offset` 补回。本地通知仍只在应用运行时检查，不代表恢复了 Notion 的提醒服务。
+
+### 桌面行内对象右键菜单（2026-10-26）
+
+右键链接、页面／位置引用、图片、日期、联系人、行内公式、行内代码、脚注、引文、缩写和修订等语义对象，打开独立菜单。顶部显示对象类型，随后是 View source、Turn into 和该类型可用的操作。粗体、斜体、颜色、下划线、高亮、上下标等属于文字样式，不触发此菜单；带样式的链接仍按链接处理。
+
+View source 为只读面板。有来源的对象分为 Inline reference（行内引用）和 Reference source（引用来源）：链接／图片显示地址及本页引用定义，脚注显示对应正文，引文显示对应文献定义；缺失来源显示明确提示。标准引用式链接／图片按解析器的源位置显示原引用与对应定义，代码围栏中的示例不会当作定义。两部分可以分别复制，不抓取远端网页或改写来源。
+
+Turn into 提供普通文字、行内代码，以及当前方言支持时的行内公式。转换、移除链接和删除只作用于右键对象，保留可表达的文字样式，并可撤销。菜单按类型提供编辑链接、复制／打开链接、编辑日期／公式、打开联系人、跳转脚注、接受／拒绝修订和属性编辑。Edit source 只接受行内内容；文档在编辑面板打开后改变时拒绝旧草稿。
+
+菜单支持方向键、Home/End、Escape；光标位于语义 inline 内可用 Shift+F10 打开。点击外部、滚动、修改文档或切换页面后关闭菜单。此入口用于桌面鼠标／键盘；手机触屏仍沿用现有操作入口。
+
+### 其他插入和编辑入口
 
 - `/` 提供 Citation、Abbreviation、Glossary、Metadata variable、Addition、Deletion、Substitution；菜单受方言和开关共同控制，Notdown 的 Citation 可选择三种编码。
 - 新引用与定义在一次事务内插入并可一起撤销；也可选择已有定义。插入不能覆盖重复键。PHP 缩写保留词边界。

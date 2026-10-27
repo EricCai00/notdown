@@ -11,7 +11,6 @@ import { routeHash } from "../features/pages/page-navigation";
 import { api } from "../shared/types";
 import { dateKey } from "../features/dates/date-mention";
 import { DateMentionView } from "../features/dates/date-view";
-import { hasOfficialDateTime } from "../document/notdown-boundary";
 import { allPeople, refreshPeople } from "../features/people/people-client";
 import { personMention, searchPeople } from "../features/people/person";
 import "./meeting-notes.css";
@@ -115,7 +114,7 @@ export class MeetingNotesView implements NodeView {
         if (!date) {
           const current = (original: PMNode) => { const pos = this.getPos(); return !this.disposed && this.view.editable && pos !== undefined && this.view.state.doc.nodeAt(pos) === this.node && this.titleNodes()[index]?.eq(original); };
           date = new DateMentionView(node, this.view, () => undefined, {
-            supplemental: () => this.supplemental() && !hasOfficialDateTime(this.titleNodes()[index]),
+            supplemental: () => this.supplemental(),
             write: (original, attrs, firstWrite) => {
               if (!current(original)) return false;
               this.titleChange(index, original.type.create({ ...original.attrs, nfmAttrs: attrs }, original.content, original.marks), firstWrite);

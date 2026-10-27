@@ -250,6 +250,8 @@ export function createApp(options: {
       }
     });
   }));
+  app.get('/api/external-entities', route(async (_req, res) => { res.setHeader('Cache-Control', 'no-store'); return res.json(await vault.externalEntities.list()); }));
+  app.put('/api/external-entities/binding', route(async (req, res) => res.json(await vault.externalEntities.bind(req.body.key, req.body.localId, req.body.baseRevision))));
   app.get('/api/people', route(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.json(await vault.people.list(req.query.includeDeleted === 'true'));
@@ -375,6 +377,7 @@ export function createApp(options: {
       );
     }),
   );
+  app.get("/api/assets/info", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.assetInfo(req.query.path)); }));
   app.get("/api/assets", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.listAssets()); }));
   app.post(
     "/api/assets",

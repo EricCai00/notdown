@@ -26,11 +26,16 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "PUT" && id) { const { baseRevision, schemaRevision, ...patch } = input; return await vault.update(id, patch, baseRevision, schemaRevision); }
       }
       if (resource === "assets" && method === "POST") return await vault.uploadAsset(input.name, input.contentType, input.data);
+      if (resource === "assets" && method === "GET" && id === "info") return await vault.assetInfo(url.searchParams.get("path"));
       if (resource === "assets" && method === "GET") return await vault.listAssets();
       if (resource === "people") {
         if (method === "GET") return await (id ? vault.people.get(id) : vault.people.list(url.searchParams.get("includeDeleted") === "true"));
         if (method === "POST" && !id) return await vault.people.create(input);
         if (method === "PUT" && id) { const { baseRevision, ...patch } = input; return await vault.people.update(id, patch, baseRevision); }
+      }
+      if (resource === "external-entities") {
+        if (method === "GET") return await vault.externalEntities.list();
+        if (method === "PUT" && id === "binding") return await vault.externalEntities.bind(input.key, input.localId, input.baseRevision);
       }
       if (resource === "databases") {
         if (method === "GET") return await (id ? vault.databases.get(id) : vault.databases.list());

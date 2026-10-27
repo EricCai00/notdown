@@ -7,6 +7,8 @@ import { DatabasePeek } from "./database-peek";
 import { openCalloutIconPicker } from "../../blocks/callout-icon-picker";
 import { pageIconElement } from "../../shared/page-icons";
 import "./databases.css";
+import { externalEntitiesChanged, externalLibrary, resolveExternal } from "../references/external-client";
+import { requestPeople } from "../people/people-client";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
 type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
@@ -53,18 +55,29 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
   const label = `${field.name}: ${page.title}`;
   const wrapper = document.createElement("div");
   wrapper.className = "database-cell";
+  if (["people", "relation"].includes(field.type)) { wrapper.dataset.externalProperty = field.id; wrapper.dataset.externalPage = page.id; }
   const override = documentOverrides(page, field);
   const readOnly = databasePropertyReadOnly(field) || ["people", "files", "relation"].includes(field.type) || override;
   if (readOnly) {
     wrapper.classList.add("database-cell-readonly");
     wrapper.textContent = displayValue(field, value) || "—";
-    if (field.type === "relation" && Array.isArray(value) && value.length) {
+    if (["relation", "people"].includes(field.type) && Array.isArray(value) && value.length) {
       wrapper.replaceChildren();
       for (const reference of value) {
-        if (reference && typeof reference.pageId === "string") {
-          const link = document.createElement("a"); link.href = `#page/${encodeURIComponent(reference.pageId)}`; link.textContent = reference.title || "Open linked page";
+        const entity = field.type === "people" ? resolveExternal(`user://${reference?.id}`)
+          : reference?.notionPageId ? resolveExternal(`https://www.notion.so/${reference.notionPageId}`)
+          : externalLibrary().entities.find(entity => entity.kind === "page" && entity.localId === reference?.pageId);
+        const localId = entity?.status === "resolved" ? entity.localId : !reference?.notionPageId && field.type === "relation" ? reference?.pageId : undefined;
+        if (localId && field.type === "relation") {
+          const link = document.createElement("a"); link.href = `#page/${encodeURIComponent(localId)}`; link.textContent = entity?.label || reference.title || "Open linked page";
           wrapper.append(link, document.createTextNode(" "));
-        } else wrapper.append(document.createTextNode("Unavailable page "));
+        } else if (localId) {
+          const person = document.createElement("button"); person.type = "button"; person.className = "database-tag"; person.textContent = `@${entity?.label || reference.name}`;
+          person.onclick = () => requestPeople({ selectedId: localId }); wrapper.append(person, document.createTextNode(" "));
+        } else {
+          const unknown = document.createElement("span"); unknown.className = "database-tag external-unresolved"; unknown.setAttribute("aria-disabled", "true"); unknown.textContent = field.type === "people" ? "@Unknown user" : "Unknown page";
+          wrapper.append(unknown, document.createTextNode(" "));
+        }
       }
     }
     wrapper.setAttribute("aria-label", label);
@@ -173,10 +186,19 @@ export class DatabaseWorkspace {
     host.addEventListener("pointerdown", () => { this.pointerDown = true; });
     window.addEventListener("pointerup", this.pointerUp);
     window.addEventListener("pointercancel", this.pointerUp);
+    document.addEventListener(externalEntitiesChanged, this.referencesChanged);
   }
+  private referencesChanged = () => {
+    if (!this.snapshot) return;
+    for (const element of this.host.querySelectorAll<HTMLElement>("[data-external-property]")) {
+      const page = this.snapshot.pages.find(page => page.id === element.dataset.externalPage);
+      const field = this.snapshot.dataSources.flatMap(source => source.properties).find(field => field.id === element.dataset.externalProperty);
+      if (page && field) element.replaceWith(propertyInput(field, page, page.properties[field.key], () => {}));
+    }
+  };
   private pointerUp = () => { this.pointerDown = false; if (this.rowsNeedRefresh) this.scheduleRows(); };
   get dirty() { return this.pending.size > 0 || !!this.saving || !!this.peek?.dirty || !!this.presentation || !!this.presentationSaving; }
-  destroy() { this.alive = false; this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
+  destroy() { this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
   private message(text: string) { if (this.alive) { const element = this.host.querySelector(".database-message"); if (element) { element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } } }
   private draftKey() { return `notdown-database-draft:${this.hooks.vaultKey}:${this.snapshot!.database.id}`; }
   private persist() {

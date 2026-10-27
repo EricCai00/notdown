@@ -1,8 +1,11 @@
 import { escapeXml, localPageTarget } from "../../document/notion-syntax";
+import { resolveExternal } from "../references/external-client";
 
 /** Local identity carried by the existing official database URL attribute. */
 export function databaseHostId(url: unknown): string | undefined {
   if (typeof url !== "string") return;
+  const external = resolveExternal(url, "database");
+  if (external?.status === "resolved") return external.localId;
   const target = localPageTarget(url);
   return target && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(target) ? target : undefined;
 }

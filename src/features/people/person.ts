@@ -2,6 +2,7 @@ import { escapeXml } from "../../document/notion-syntax";
 
 /** A local address-book entry, not a login, workspace member, or permission. */
 export interface Person {
+  notionUserId?: string;
   id: string;
   name: string;
   email: string;
@@ -13,7 +14,7 @@ export interface Person {
   updated: string;
   revision: string;
 }
-export type PersonInput = Partial<Pick<Person, "name" | "email" | "phone" | "organization" | "notes" | "deleted">>;
+export type PersonInput = Partial<Pick<Person, "name" | "email" | "phone" | "organization" | "notes" | "deleted" | "notionUserId">>;
 export const personFields = ["name", "email", "phone", "organization", "notes"] as const;
 export function personId(url: unknown): string | null {
   if (typeof url !== "string") return null;

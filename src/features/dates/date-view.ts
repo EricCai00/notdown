@@ -1,4 +1,6 @@
-import type { Node as PMNode } from "prosemirror-model";
+import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
+import { hasOfficialDateTime } from "../../document/notdown-boundary";
+import { dateMentionDOM } from "./date-presentation";
 import { TextSelection } from "prosemirror-state";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { closeHistory } from "prosemirror-history";
@@ -15,6 +17,10 @@ import {
   dateLabel,
   dateSuggestions,
   dateTime,
+  dateZone,
+  dateTimePart,
+  dateFieldChanges,
+  dateToday,
   updateDateAttributes,
   type DateAttributes,
   type DateSuggestion,
@@ -95,6 +101,7 @@ export class DateMentionView implements NodeView {
   private firstWrite = true;
   private month = new Date();
   private target: "start" | "end" = "start";
+  private displayFormats: DateAttributes = {};
   private timer: ReturnType<typeof setInterval>;
 
   constructor(
@@ -102,6 +109,7 @@ export class DateMentionView implements NodeView {
     private view: EditorView,
     private getPos: () => number | undefined,
     private binding?: DateMentionBinding,
+    private allowSupplemental: () => boolean = () => true,
   ) {
     this.dom.contentEditable = "false";
     this.dom.tabIndex = 0;
@@ -123,42 +131,22 @@ export class DateMentionView implements NodeView {
       if (!this.panel) this.render();
     }, 60000);
   }
+  private supplemental() {
+    return this.binding?.supplemental() ?? this.allowSupplemental();
+  }
   private render() {
-    const attrs = this.node.attrs.nfmAttrs as DateAttributes;
-    this.dom.className = "pm-mention pm-date-mention";
+    const stored = this.supplemental() ? this.node.attrs.nfmAttrs : Object.fromEntries(Object.entries(this.node.attrs.nfmAttrs).filter(([key]) => !["reminder", "reminder-offset", "date-format", "time-format", "time-zone"].includes(key)));
+    const attrs = { ...stored, ...this.displayFormats } as DateAttributes;
+    const rendered = DOMSerializer.renderSpec(document, dateMentionDOM(attrs, true, this.node.attrs.label)).dom as HTMLElement;
+    this.dom.className = rendered.className;
     this.dom.dataset.mentionKind = "date";
-    this.dom.classList.toggle("pm-date-empty", !attrs.start);
-    this.dom.classList.toggle("pm-date-reminder", !!attrs.reminder);
-    this.dom.classList.toggle(
-      "pm-date-overdue",
-      !!attrs.reminder &&
-        (Date.parse(attrs.reminder) <= Date.now() ||
-          attrs.start?.slice(0, 10) === dateKey(new Date())),
-    );
+    this.dom.title = rendered.title;
+    this.dom.replaceChildren(...rendered.childNodes);
     this.dom.setAttribute(
       "aria-label",
       attrs.start ? "Edit date: " + dateLabel(attrs) : "Mention a date",
     );
     this.dom.setAttribute("aria-expanded", String(!!this.panel));
-    this.dom.title = [
-      this.node.attrs.label,
-      attrs.start,
-      attrs.end,
-      attrs.reminder && "Reminder: " + attrs.reminder,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    this.dom.replaceChildren();
-    if (attrs.reminder)
-      this.dom.append(
-        createElement(AlarmClock, {
-          width: 15,
-          height: 15,
-          "stroke-width": 1.5,
-        }),
-      );
-    else this.dom.append(document.createTextNode("@"));
-    this.dom.append(document.createTextNode(dateLabel(attrs)));
     this.position();
   }
   private position = () => {
@@ -232,7 +220,7 @@ export class DateMentionView implements NodeView {
       this.finish();
     };
     const paint = () => {
-      choices = renderDateSuggestions(panel, input.value, active, choose, this.binding?.supplemental() ?? true);
+      choices = renderDateSuggestions(panel, input.value, active, choose, this.supplemental());
       this.position();
     };
     input.oninput = () => {
@@ -309,14 +297,16 @@ export class DateMentionView implements NodeView {
     const focused = panel.contains(document.activeElement)
       ? document.activeElement?.getAttribute("aria-label")
       : null;
-    const formatsOpen = panel.querySelector("details")?.open || false;
     panel.replaceChildren();
-    const attrs = this.node.attrs.nfmAttrs as DateAttributes;
-    const includeTime = attrs.start.includes("T");
-    const zone =
-      attrs["time-zone"] ||
-      /([+-]\d\d:\d\d|Z)$/.exec(includeTime ? attrs.start : "")?.[1] ||
-      "local";
+    const attrs = { ...this.node.attrs.nfmAttrs, ...this.displayFormats } as DateAttributes;
+    const includeTime = !!dateTimePart(attrs);
+    const separateTime = hasOfficialDateTime(this.node) || !this.supplemental();
+    const zone = dateZone(attrs);
+    const endpoint = (values: DateAttributes, field: string) => (values[field] || "").slice(0, 10) + "T" + (dateTimePart(values, field) || "00:00");
+    const formatChange = (key: string, value: string) => {
+      if (this.supplemental()) this.set({ [key]: value });
+      else { this.displayFormats[key] = value; this.render(); }
+    };
     const error = document.createElement("output");
     error.className = "pm-date-error";
     error.setAttribute("aria-live", "polite");
@@ -340,31 +330,27 @@ export class DateMentionView implements NodeView {
       };
       const time = document.createElement("input");
       time.type = "time";
-      time.value = /T(\d\d:\d\d)/.exec(attrs[field])?.[1] || "09:00";
+      time.value = dateTimePart(attrs, field) || "09:00";
       time.setAttribute(
         "aria-label",
         field === "start" ? "Start time" : "End time",
       );
       const change = () => {
-        const value = includeTime
-          ? dateTime(input.value, time.value, zone)
-          : civilDate(input.value)
-            ? input.value
-            : null;
+        const changes = dateFieldChanges(field, input.value, time.value, includeTime, zone, separateTime);
         const current = this.node.attrs.nfmAttrs;
-        if (!value) {
+        if (!changes) {
           error.textContent = "Enter a valid date and time.";
           return;
         }
         if (
           current.end &&
-          (field === "start" ? value > current.end : value < current.start)
+          (field === "start" ? endpoint({ ...current, ...changes }, "start") > endpoint(current, "end") : endpoint({ ...current, ...changes }, "end") < endpoint(current, "start"))
         ) {
           error.textContent = "End date must be on or after start date.";
           return;
         }
         error.textContent = "";
-        this.set({ [field]: value });
+        this.set(changes);
         this.month = civilDate(input.value)!;
         this.month.setDate(1);
         drawDays();
@@ -424,27 +410,15 @@ export class DateMentionView implements NodeView {
         const button = this.button(key, () => {
           const old = this.node.attrs.nfmAttrs,
             field = this.target;
-          const value = includeTime
-            ? dateTime(
-                key,
-                /T(\d\d:\d\d)/.exec(old[field] || old.start)?.[1] || "09:00",
-                zone,
-              )!
-            : key;
-          if (!value) {
+          const changes = dateFieldChanges(field, key, dateTimePart(old, field) || dateTimePart(old) || "09:00", includeTime, zone, separateTime);
+          if (!changes) {
             error.textContent =
               "This local time does not exist. Choose another time.";
             return;
           }
-          if (field === "end" && value < old.start) {
-            this.set({ start: value, end: old.start });
-          } else
-            this.set({
-              [field]: value,
-              ...(field === "start" && old.end && value > old.end
-                ? { end: value }
-                : {}),
-            });
+          if (field === "end" && endpoint({ ...old, ...changes }, "end") < endpoint(old, "start")) {
+            this.set({ ...dateFieldChanges("start", key, dateTimePart(old, "end") || dateTimePart(old) || "09:00", includeTime, zone, separateTime)!, ...dateFieldChanges("end", old.start.slice(0, 10), dateTimePart(old) || "09:00", includeTime, zone, separateTime)! });
+          } else this.set({ ...changes, ...(field === "start" && old.end && endpoint({ ...old, ...changes }, "start") > endpoint(old, "end") ? dateFieldChanges("end", key, dateTimePart({ ...old, ...changes }) || "09:00", includeTime, zone, separateTime)! : {}) });
           this.month = new Date(day);
           this.month.setDate(1);
           if (old.end && field === "start") this.target = "end";
@@ -460,7 +434,7 @@ export class DateMentionView implements NodeView {
           "outside",
           day.getMonth() !== this.month.getMonth(),
         );
-        button.classList.toggle("today", key === dateKey(new Date()));
+        button.classList.toggle("today", key === dateToday(current));
         const selected =
           key === current.start.slice(0, 10) ||
           key === current.end?.slice(0, 10);
@@ -472,7 +446,7 @@ export class DateMentionView implements NodeView {
             key > current.start.slice(0, 10) &&
             key < current.end.slice(0, 10),
         );
-        if (key === dateKey(new Date()))
+        if (key === dateToday(current))
           button.setAttribute("aria-current", "date");
         grid.append(button);
       }
@@ -537,7 +511,7 @@ export class DateMentionView implements NodeView {
     });
     drawDays();
     panel.append(error);
-    if (this.binding?.supplemental() ?? true) this.selectRow(
+    if (this.supplemental()) this.selectRow(
       "Remind",
       attrs["reminder-offset"] || (attrs.reminder ? "custom" : "none"),
       [
@@ -546,9 +520,11 @@ export class DateMentionView implements NodeView {
         ...(includeTime
           ? [
               ["5", "5 minutes before"],
+              ["10", "10 minutes before"],
               ["15", "15 minutes before"],
               ["30", "30 minutes before"],
               ["60", "1 hour before"],
+              ["120", "2 hours before"],
             ]
           : []),
         ["1440", "1 day before"],
@@ -568,36 +544,28 @@ export class DateMentionView implements NodeView {
       },
     );
     this.toggle("End date", !!attrs.end, (checked) => {
-      this.set({ end: checked ? this.node.attrs.nfmAttrs.start : "" });
+      const current = this.node.attrs.nfmAttrs;
+      const next = checked ? dateFieldChanges("end", current.start.slice(0, 10), dateTimePart(current) || "09:00", includeTime, zone, separateTime) : { end: "", endTime: "" };
+      if (!next) { error.textContent = "Enter a valid date and time."; return; }
+      this.set(next);
       this.target = checked ? "end" : "start";
       this.buildCalendar();
     });
-    const supplemental = this.binding?.supplemental() ?? true;
-    if (supplemental) this.toggle("Include time", includeTime, (checked) => {
+    this.toggle("Include time", includeTime, (checked) => {
       const current = this.node.attrs.nfmAttrs,
         changes: DateAttributes = {};
       for (const field of ["start", "end"])
         if (current[field])
-          changes[field] = checked
-            ? dateTime(current[field].slice(0, 10), "09:00", zone)!
-            : current[field].slice(0, 10);
-      if (Object.values(changes).some((value) => value === null)) {
-        error.textContent = "Correct the date before including time.";
-        return;
-      }
-      if (checked) changes["time-zone"] = zone;
+          {
+            const next = dateFieldChanges(field, current[field].slice(0, 10), dateTimePart(current, field) || "09:00", checked, zone, separateTime);
+            if (!next) { error.textContent = "Correct the date before including time."; return; }
+            Object.assign(changes, next);
+          }
       if (!checked && Number(current["reminder-offset"]) < 1440)
         changes["reminder-offset"] = "0";
       this.set(changes);
       this.buildCalendar();
     });
-    const details = document.createElement("details"),
-      summary = document.createElement("summary");
-    summary.textContent = "Date format & timezone";
-    details.className = "pm-date-formats";
-    details.open = formatsOpen;
-    details.append(summary);
-    if (supplemental) panel.append(details);
     this.selectRow(
       "Date format",
       attrs["date-format"] || "relative",
@@ -608,8 +576,7 @@ export class DateMentionView implements NodeView {
         ["us", "MM/DD/YYYY"],
         ["eu", "DD/MM/YYYY"],
       ],
-      (value) => this.set({ "date-format": value }),
-      details,
+      (value) => formatChange("date-format", value),
     );
     if (includeTime) {
       this.selectRow(
@@ -619,18 +586,18 @@ export class DateMentionView implements NodeView {
           ["12", "12 hour"],
           ["24", "24 hour"],
         ],
-        (value) => this.set({ "time-format": value }),
-        details,
+        (value) => formatChange("time-format", value),
       );
       const zones = [
         ["local", "Local time"],
         ["Z", "UTC"],
-        ...Array.from({ length: 105 }, (_, i) => {
+        ...Intl.supportedValuesOf("timeZone").map(value => [value, value]),
+        ...(!separateTime ? Array.from({ length: 105 }, (_, i) => {
           const minutes = (i - 48) * 15,
             sign = minutes < 0 ? "-" : "+";
           const offset = `${sign}${String(Math.floor(Math.abs(minutes) / 60)).padStart(2, "0")}:${String(Math.abs(minutes) % 60).padStart(2, "0")}`;
           return [offset, "UTC" + offset];
-        }),
+        }) : []),
       ];
       this.selectRow(
         "Timezone",
@@ -638,25 +605,20 @@ export class DateMentionView implements NodeView {
         zones,
         (value) => {
           const current = this.node.attrs.nfmAttrs,
-            changes: DateAttributes = { "time-zone": value };
+            changes: DateAttributes = {};
           for (const field of ["start", "end"])
             if (current[field]) {
-              const nextValue = dateTime(
-                current[field].slice(0, 10),
-                current[field].slice(11, 16),
-                value,
-              );
-              if (!nextValue) {
+              const next = dateFieldChanges(field, current[field].slice(0, 10), dateTimePart(current, field) || "09:00", true, value, separateTime);
+              if (!next) {
                 error.textContent =
                   "This local time does not exist. Choose another time.";
                 return;
               }
-              changes[field] = nextValue;
+              Object.assign(changes, next);
             }
           this.set(changes);
           this.buildCalendar();
         },
-        details,
       );
     }
     const footer = document.createElement("div");

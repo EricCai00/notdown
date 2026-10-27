@@ -51,6 +51,8 @@ node --import tsx scripts/migrate-page-ids.ts ./vault --apply
 
 `syntax`、收藏、回收站、排序和更新时间也保存在对应记录中。未知顶层及页面字段保留。应用维护 `sourceHash` 辅助识别唯一的、内容未改变的外部文件重命名；同时改名和改正文不能可靠匹配旧身份。JSON 丢失时不能恢复只保存在其中的属性，因此备份和复制知识库时应同时包含 JSON 与 Markdown。
 
+The top-level `externalEntities` registry stores Notion names, URLs, available user data, import batches and explicit local bindings by provider, kind and original ID. Reference locations and availability are derived from current Markdown/properties and local objects. Later imports change resolution without rewriting old note bodies. `createVault.externalEntities` owns registry writes and uses CAS, preserving unknown fields and conflict proposals. See [External references](NOTION-IMPORT.md#external-references-and-users) and the [API](../reference/API.md#external-entity-library).
+
 新上传的附件使用顶层 `assets` 映射登记：键为稳定的 `assets/…` 相对路径，值包含原文件名 `name`、`contentType`、字节数 `size` 和登记时间 `addedAt`。文件字节仍保存在 `assets/`，引用关系从页面正文与有效属性计算，不写成第二份正文。浏览已有附件不迁移或补写登记信息；没有记录的原文件名不能推断恢复。上传只追加附件记录，不改变已有页面 revision。共享 JSON 使用原值校验写入；并发修改导致失败时，新文件和提议的元数据保存在原附件路径及 `.history/asset-conflicts/`，不覆盖外部修改、不自动强制重试。操作入口见[附件库](MEDIA-AND-EMBEDS.md#附件库)。
 
 ## 覆盖规则

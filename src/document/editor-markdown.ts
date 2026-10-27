@@ -8,6 +8,7 @@ import { editorSchema as schema } from "./editor-schema.js";
 import {
   attributesXml,
   escapeXml,
+  inlineColors,
   localPageTarget,
   pageUrl,
 } from "./notion-syntax.js";
@@ -114,19 +115,29 @@ export function parseInline(tokens: Token[]): EditorNode[] {
       // span would restore stale colors/underline after a menu edit or clear.
       const nativeAttrs = { ...attrs };
       delete nativeAttrs.color;
-      delete nativeAttrs.bg_color;
       delete nativeAttrs.underline;
       if (/(?:^|\s)smallcaps(?:\s|$)/.test(attrs.class || "")) extra = schema.marks.small_caps.create({ attributes: nativeAttrs, syntaxForm: "html" }).addToSet(extra);
       else if (attrs.class || attrs.id || attrs.lang) extra = schema.marks.native_span.create({ attributes: nativeAttrs, syntaxForm: "html" }).addToSet(extra);
       if (attrs.underline === "true")
         extra = schema.marks.underline.create().addToSet(extra);
-      if (attrs.color || attrs.bg_color || !extra.some(m => ["native_span", "small_caps"].includes(editorKind(m))) && Object.keys(attrs).some((key) => key !== "underline"))
+      if (attrs.color || !extra.some(m => ["native_span", "small_caps"].includes(editorKind(m))) && Object.keys(attrs).some((key) => key !== "underline"))
         extra = schema.marks.color
-          .create({ color: attrs.color || "", bg_color: attrs.bg_color || "", nfmAttrs: attrs })
+          .create({ color: attrs.color || "", nfmAttrs: attrs })
           .addToSet(extra);
       for (const child of parseInline(token.children ?? [])) {
         let combined = child.marks;
-        for (const mark of extra) combined = mark.addToSet(combined);
+        for (let mark of extra) {
+          const inner = combined.find(candidate => candidate.type === schema.marks.color);
+          if (inner && mark.type === schema.marks.color) {
+            const outerColors = inlineColors(mark.attrs), innerColors = inlineColors(inner.attrs);
+            mark = mark.type.create({
+              color: innerColors.color || outerColors.color,
+              bg_color: innerColors.bg_color || outerColors.bg_color,
+              nfmAttrs: { ...mark.attrs.nfmAttrs, ...inner.attrs.nfmAttrs },
+            });
+          }
+          combined = mark.addToSet(combined);
+        }
         result.push(child.mark(combined));
       }
     } else if (token.type === "nfm_mention") {
@@ -577,6 +588,12 @@ export function inlineMarkdown(
       .filter(([key]) => !key.startsWith("_"))
       .map(([key, value]) => ` ${key}="${value.replace(/"/g, "&quot;")}"`)
       .join("");
+  const colorOpen = (mark: Mark) => {
+    const { color, bg_color } = inlineColors(mark.attrs), attrs = { ...mark.attrs.nfmAttrs };
+    delete attrs.color; delete attrs.bg_color;
+    return `<span${attributesXml({ ...attrs, color: color || (bg_color ? `${bg_color}_bg` : "") })}>` +
+      (color && bg_color ? `<span color="${escapeXml(bg_color)}_bg">` : "");
+  };
   const open = (mark: Mark) =>
     options.notionV2 && (editorKind(mark) === "underline" || !options.notionMarkdownMarks && ["strong", "em", "strike"].includes(editorKind(mark))) ? `<${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
     isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
@@ -594,7 +611,7 @@ export function inlineMarkdown(
         : isEditorKind(mark, "underline")
           ? '<span underline="true">'
           : isEditorKind(mark, "color")
-            ? `<span${attributesXml({ ...mark.attrs.nfmAttrs, color: mark.attrs.color, bg_color: mark.attrs.bg_color })}>`
+            ? colorOpen(mark)
             : ({
                 em: "*",
                 strong: "**",
@@ -604,6 +621,7 @@ export function inlineMarkdown(
                 link: "[",
               }[editorKind(mark)] ?? "");
   const close = (mark: Mark) =>
+    isEditorKind(mark, "color") && inlineColors(mark.attrs).color && inlineColors(mark.attrs).bg_color ? "</span></span>" :
     options.notionV2 && (editorKind(mark) === "underline" || !options.notionMarkdownMarks && ["strong", "em", "strike"].includes(editorKind(mark))) ? `</${({ strong: "b", em: "i", strike: "s", underline: "u" } as Record<string,string>)[editorKind(mark)]}>` :
     isEditorKind(mark, "native_span") || isEditorKind(mark, "small_caps")
       ? (notion || mark.attrs.syntaxForm === "html" ? "</span>" : "]" + writeAttributes(mark.attrs.attributes).trimStart())

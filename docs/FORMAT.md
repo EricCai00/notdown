@@ -54,7 +54,7 @@ v2 保存时使用 `source` 媒体属性、连字符的同步块/目录标签、
 
 2026-09-23 封面图库与位置：内置 Gallery 选择使用稳定的 `/page-covers/<文件名>` 路径，上传封面继续使用当前知识库的 `assets/` 路径；外部 HTTP(S) 图片地址仍可用。纵向位置写页面 YAML 的 `properties.coverPosition`，为 0–100 的数字，缺省按 50 居中；更换封面时清除旧位置。两者均是页面属性，与正文 Markdown 方言无关；旧封面地址、未知 YAML 字段和正文保持原样，保存仍使用 `baseRevision`。
 
-2026-09-22 日期交互修订：继续使用 `<mention-date start="YYYY-MM-DD" end="…"/>`；`<mention-date/>` 是可点击的日期空态。包含时间时写 ISO 日期时间及明确 UTC 偏移。`reminder` 沿用本地提醒的绝对 ISO 时间；新增本地可选 `reminder-offset`（相对 start 提前的分钟数，无时间时以当日 09:00 为基准）、`date-format`（relative/full/iso/us/eu）、`time-format`（12/24）和 `time-zone`（local、Z 或固定偏移）。设置偏移后日期变更重新计算提醒；导入的独立 reminder 时间在用户未选择相对提醒前原样保留。相对日期显示根据 start 动态计算，不把 Today 写成日期真相；原标签文字和未知属性保留，未编辑日期不迁移。新选项是 Notdown 本地扩展，并非宣称完整实现 Notion 的日期编码或通知服务。
+2026-09-22 日期交互修订（2026-10-26 补充独立时间字段）：继续使用 `<mention-date start="YYYY-MM-DD" end="…"/>`；`<mention-date/>` 是可点击的日期空态。包含时间时沿用原有 ISO 日期时间及 UTC 偏移，或官方独立日期／时间字段（v2 为 `<date start="…" start-time="…" time-zone="IANA_TZ"/>`）；编辑保留原载体。`reminder` 沿用本地提醒的绝对 ISO 时间；本地可选 `reminder-offset`（相对 start 提前的分钟数，无时间时以当日 09:00 为基准）、`date-format`（relative/full/iso/us/eu）、`time-format`（12/24）和 `time-zone`（local、Z、固定偏移或 IANA 名称）。独立日期字段的 `timeZone` 沿用官方时区载体，不另写重复时区属性。设置偏移后日期／时间／时区变更重新计算提醒，按该日期的时区规则解析，不接受夏令时跳过的当地时间；重复时间选择第一次。导入的独立 reminder 时间在用户未选择相对提醒前原样保留。相对日期显示根据 start 动态计算，不把 Today 写成日期真相；原标签文字和未知属性保留，未编辑日期不迁移。提醒和持久化格式选项只在 Notdown 启用；官方方言的格式仅在视图会话生效，并非完整实现 Notion 的日期编码或通知服务。
 
 2026-09-22 嵌入修订：HTML 文档继续使用 `<html-embed>`，正文中的 `&`、`<`、`>` 按 XML 转义，包含代码围栏的 HTML 仍按文本读取；`<html-embed/>` 表示待输入的空块。新增本地 `<web-embed url="https://example.com" title="…"/>`，`<web-embed/>` 表示待填写链接，属于 `local_web_embed` 扩展，仅在 Notdown 可用并默认开启。两者均保留未知属性；HTML 上传读取文件内容写入正文，不复制其相对路径资源。HTML 使用禁用脚本的 sandbox iframe；Web 仅预览 HTTP(S) URL，禁止同源权限。已有 Typora `<iframe>` 沿用原载体和未知属性，不转换成新标签。编辑通过 ProseMirror 事务与现有 CAS 保存，不写缓存块 JSON。
 
@@ -201,20 +201,24 @@ $$
 
 提示块和折叠内容可编辑；公式由本地 KaTeX 渲染，点击编辑 LaTeX。颜色仅使用规范的有限名称映射，不执行任意 CSS。
 
-### Notdown 行内双颜色（2026-09-24）
+### 行内双颜色（2026-10-27）
 
-`syntax.variant: notdown` 且 `notion_colors` 开启时，沿用 span 载体，`color` 表示文字色，`bg_color` 独立表示背景色：
+Notdown 的颜色写入统一使用 Notion 的 `span color`：普通名称表示文字色，`_bg` 后缀表示背景色。双颜色使用嵌套标签，不另造背景属性：
 
 ```md
-<span color="red" bg_color="yellow">红字黄底，可含 **粗体**</span>
-<span bg_color="blue">仅背景色</span>
+<span color="red"><span color="yellow_bg">红字黄底，可含 **粗体**</span></span>
+<span color="blue_bg">仅背景色</span>
 ```
 
-两个字段均使用 `gray / brown / orange / yellow / green / blue / purple / pink / red`，省略即不设置该通道；不接受任意 CSS、十六进制值或 `bg_color="yellow_bg"`。未知值和属性仍保留，但不执行。嵌套 span 按通道继承，内层指定的同通道覆盖外层。
+颜色使用 `gray / brown / orange / yellow / green / blue / purple / pink / red` 及对应 `_bg` 名称；不执行任意 CSS 或十六进制值。嵌套 span 按通道继承，内层指定的同通道覆盖外层。
 
-旧 `color="yellow_bg"` 继续作为背景色读取，未修改原文不迁移；若同时指定 `bg_color`，以非空的后者为准。通过 Notdown 颜色菜单编辑选中文本时写独立字段，保留另一通道及未知属性。`Default text` 仅移除文字色，`Default background` 仅移除背景色，`Clear formatting` 同时清除两者；操作可撤销，页面与 HTML 输出均显示双颜色。
+Notdown（包括未标记 v2 的页面）及 Notion Markdown v2 可分别设置两个通道。`Default text` 仅移除文字色，`Default background` 仅移除背景色，`Clear formatting` 同时清除两者；操作可撤销。Notion Markdown v1 的菜单仍按原有单颜色能力处理。
 
-`bg_color` 仅扩展行内 span，不改变块颜色、表格颜色或页面 YAML。官方 `notion-markdown` 不解释或新写此属性，即使显式启用颜色扩展也不越界；带该属性的官方正文按可恢复原文保留，其他方言不启用双颜色语义。关闭颜色扩展、切换方言及代码中的标签均不批量改写源文件。
+自定义正文属性 `bg_color` 已移除语义支持，不提供兼容解析；含该属性的 span 按字面源码保留，不赋予颜色语义。内部编辑模型仍有独立背景通道字段，这不是正文语法。不更改块颜色、表格颜色或页面 YAML。
+
+这里保证本地嵌套标签的显示和保存，不等于 Notion 远端往返保证：公开 Rich Text 的 `annotations` 只有一个 `color` 枚举字段，块颜色则属于另一层。整块背景配行内文字色可分别表达；没有完成真实 Markdown 写回测试时，不承诺同一行内范围的双颜色都能被 Notion 接受和返还。
+
+本次按用户明确授权迁移 Default 与 Notion test 的活动正文，先完整备份，再按源码标签边界转换并通过 `createVault.update`、`baseRevision` 写入；代码示例和已有导入归档不转换。其他知识库不自动迁移。见[迁移与当前自定义写法审计](audits/CUSTOM-SYNTAX-AUDIT-2026-10-27.md)。
 
 ## 表格和目录
 

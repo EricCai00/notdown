@@ -7,6 +7,7 @@ import { isPageUuid, stablePageUuid } from "./page-id.js";
 import { createPageIdMigration } from "./page-id-migration.js";
 import { trashedPageIds } from "../features/pages/page-hierarchy.js";
 import { createPeople } from "./people.js";
+import { createExternalEntities } from "./external-entities";
 import { createRuntimeSettings } from "./runtime-settings";
 import { createPageHistory, historySignature, isHistoryTransientFile, type HistoryRecord } from "./history.js";
 import { createDatabases } from "./databases.js";
@@ -779,8 +780,21 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   });
 
   const assets = createAssets({ platform, root, serialize, readMetadata, readOptional, safeDirectory, atomicWrite,
-    pages: async () => [...(await scan()).values()].map(stored => stored.page) });
+    pages: async () => [...(await scan()).values()].map(stored => stored.page),
+    recycleFile: file => (options.recycleFile ?? platform.recycleFile)(file),
+    protectedPages: async () => {
+      const pages: Page[] = [];
+      for (const entry of await fs.readdir(conflictsPath, { withFileTypes: true })) {
+        if (entry.isSymbolicLink()) throw new VaultError(422, "Cannot inspect symbolic conflict records");
+        if (entry.isFile() && entry.name.endsWith(".json")) pages.push((await conflictRecord(entry.name.slice(0, -5))).proposed);
+      }
+      return pages;
+    } });
+  const people = createPeople({ platform, root, init, safeDirectory, atomicWrite, serialize });
+  const externalEntities = createExternalEntities({ platform, root, serialize, readMetadata, readOptional, safeDirectory, atomicWrite, scan,
+    people: () => people.list(true) });
   return {
+    externalEntities,
     vaultPath: root,
     history,
     checkpointHistory,
@@ -831,6 +845,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     sync: createSyncService(syncStore, `${platform.id}:${root}`, options.syncFetch),
     syncStore,
     listAssets: assets.list,
+    assetInfo: assets.info,
     /** Byte-preserving backup of the vault, including unknown files and history. */
     exportFiles(): Promise<VaultArchiveFile[]> {
       return serialize(async () => {
@@ -898,7 +913,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     },
     assetsPath,
     databases,
-    people: createPeople({ platform, root, init, safeDirectory, atomicWrite, serialize }),
+    people,
     runtimeSettings: createRuntimeSettings({ platform, root, atomicWrite, serialize }),
     init,
     planPageIdMigration: pageIdMigration.plan,
@@ -973,6 +988,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
             onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: "Checking attachments for this previously imported snapshot" });
             await recoverPending();
             await assets.registerImportedLocked(plan.assets, plan.id);
+            await people.registerNotionLocked(await externalEntities.registerImportedLocked(plan));
             onProgress?.({ phase: "finalizing", completed: previous.pageIds.length, total: plan.pages.length, step: "Existing imported snapshot verified" });
             return { id: plan.id, pageIds: previous.pageIds, alreadyImported: true };
           }
@@ -1031,6 +1047,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           }
           onProgress?.({ phase: "finalizing", completed, total: plan.pages.length, step: "Saving database resources and the import manifest" });
           if (plan.databaseResources) await databases.importLocked(plan.databaseResources);
+          await people.registerNotionLocked(await externalEntities.registerImportedLocked(plan));
           await atomicWrite(manifestPath, JSON.stringify({ ...manifest, completed: true }, null, 2));
         } catch (error) {
           throw new VaultError(500, "Import stopped. Original files are preserved. Retry the same folder selection to resume; existing content will not be overwritten.", { importId: plan.id });
@@ -1158,7 +1175,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         return decode(encoded.source, filePath, encoded.metadata).page;
       });
     },
-    recycle(id: string, baseRevision: string, baseRevisions: Record<string, string>): Promise<{ recycled: string[] }> {
+    recycle(id: string, baseRevision: string, baseRevisions: Record<string, string>): Promise<{ recycled: string[]; deletedAssets: string[]; warnings: string[] }> {
       return serialize(async () => {
         assertId(id);
         if (!baseRevisions || typeof baseRevisions !== "object" || Array.isArray(baseRevisions) ||
@@ -1213,7 +1230,8 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           }
           recycled.push(item.page.id);
         }
-        return { recycled };
+        const cleanup = await assets.recycleOrphansLocked([...selected.values()].map(item => item.page));
+        return { recycled, ...cleanup };
       });
     },
     async listConflicts(): Promise<Conflict[]> {

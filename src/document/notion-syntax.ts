@@ -127,7 +127,7 @@ export function colorStyle(color: string): string {
     : "";
 }
 
-/** Independent inline channels; the old color="yellow_bg" remains readable. */
+/** Internal model channels. Markdown encodes backgrounds as color="yellow_bg". */
 export function inlineColors(attrs: { color?: string; bg_color?: string }) {
   const legacyBackground = attrs.color?.endsWith("_bg");
   return {

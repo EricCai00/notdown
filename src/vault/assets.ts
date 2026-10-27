@@ -1,14 +1,16 @@
 import { Buffer } from "buffer";
 import { randomUUID } from "./crypto";
+import { assetStorageName, assetMimeExtensions as mimeExtensions } from "./asset-storage";
 import type { VaultPlatform, StorageError } from "./platform";
 import { VaultError, type Page } from "./vault";
-import { assetKind, type AssetLibrary, type AssetReference, type VaultAsset } from "../features/assets/asset-model";
+import { localAssetPath, assetKind, type AssetLibrary, type AssetReference, type VaultAsset } from "../features/assets/asset-model";
 import { pageAssetReferences } from "../features/assets/asset-references";
 import { trashedPageIds } from "../features/pages/page-hierarchy";
 import type { ImportPlan } from "../../server/markdown-import";
+import { recycleOrphanAssets, type AssetCleanupHost } from "./asset-cleanup";
 
 type AssetRecord = { name: string; contentType: string; size: number; addedAt: string; [key: string]: unknown };
-type Host = {
+type Host = AssetCleanupHost & {
   platform: VaultPlatform; root: string;
   serialize<T>(operation: () => Promise<T>): Promise<T>;
   pages(): Promise<Page[]>;
@@ -16,15 +18,6 @@ type Host = {
   readOptional(path: string): Promise<string | null>;
   safeDirectory(path: string): Promise<void>;
   atomicWrite(path: string, data: string | Buffer, expected?: string | null): Promise<void>;
-};
-const mimeExtensions: Record<string, string> = {
-  "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "image/avif": "avif", "image/svg+xml": "svg",
-  "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/wav": "wav", "audio/mp4": "m4a", "audio/flac": "flac", "audio/aac": "aac",
-  "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "application/pdf": "pdf",
-  "text/plain": "txt", "text/html": "html", "application/zip": "zip",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 };
 const recordMap = (metadata: Record<string, unknown>): Record<string, unknown> => {
   if (metadata.assets === undefined) return {};
@@ -54,6 +47,7 @@ export function createAssets(host: Host) {
     }
   }
   return {
+    recycleOrphansLocked: (pages: Page[]) => recycleOrphanAssets(host, pages),
     /** Called within importBatch's vault lock, after publishing the actual files. */
     async registerImportedLocked(items: ImportPlan["assets"], importId: string) {
       const imported = items.filter(item => item.origin || item.name || item.contentType);
@@ -83,6 +77,25 @@ export function createAssets(host: Host) {
       if (!changed.length) return;
       metadata.assets = records;
       await persistMetadata(metadata, before, { importId, paths: changed });
+    },
+    info(value: unknown) {
+      return host.serialize(async () => {
+        const key = localAssetPath(value);
+        if (!key) throw new VaultError(400, "Invalid attachment path");
+        let target = host.root, size: number | null = null;
+        const parts = key.split("/");
+        for (const [index, part] of parts.entries()) {
+          target = path.join(target, part);
+          const stat = await fs.lstat(target).catch(error => {
+            if ((error as StorageError).code === "ENOENT") throw new VaultError(404, "Attachment not found");
+            throw error;
+          });
+          if (stat.isSymbolicLink() || (index < parts.length - 1 ? !stat.isDirectory() : !stat.isFile())) throw new VaultError(422, "Invalid attachment path");
+          size = stat.size ?? null;
+        }
+        const stored = record(recordMap(await host.readMetadata())[key]);
+        return { path: key, name: stored.name || null, size };
+      });
     },
     list(): Promise<AssetLibrary> {
       return host.serialize(async () => {
@@ -146,11 +159,25 @@ export function createAssets(host: Host) {
         const records = recordMap(metadata);
         const mime = contentType.split(";")[0].trim().toLowerCase();
         const acceptedType = Object.hasOwn(mimeExtensions, mime) ? mime : "application/octet-stream";
-        const filename = `${randomUUID()}.${mimeExtensions[acceptedType] ?? "bin"}`, key = `assets/${filename}`;
+        const filename = assetStorageName(bytes, name, acceptedType), key = `assets/${filename}`;
         const cleanName = path.basename(name.replaceAll("\\", "/")).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 180) || filename;
-        metadata.assets = { ...records, [key]: { name: cleanName, contentType: acceptedType, size: bytes.length, addedAt: new Date().toISOString() } };
+        const existing = records[key];
+        if (existing !== undefined && (!existing || typeof existing !== "object" || Array.isArray(existing))) throw new VaultError(422, "Invalid attachment metadata; original metadata.json was preserved");
+        metadata.assets = { ...records, [key]: { name: cleanName, contentType: acceptedType, size: bytes.length, addedAt: new Date().toISOString(), ...existing as Record<string, unknown> } };
         await host.safeDirectory(directory);
-        await host.atomicWrite(path.join(directory, filename), bytes, null);
+        const target = path.join(directory, filename);
+        try {
+          const stat = await fs.lstat(target);
+          if (!stat.isFile() || stat.isSymbolicLink() || !(await fs.readFile(target)).equals(bytes)) {
+            const recovery = path.join(host.root, ".history", "asset-conflicts");
+            await host.safeDirectory(recovery);
+            await host.atomicWrite(path.join(recovery, `${randomUUID()}.json`), JSON.stringify({ path: key, name: cleanName, contentType: acceptedType, data: bytes.toString("base64"), reason: "content-path-changed" }), null);
+            throw new VaultError(409, "An attachment at this content path changed; its file and the proposed upload were preserved.");
+          }
+        } catch (error) {
+          if ((error as StorageError).code !== "ENOENT") throw error;
+          await host.atomicWrite(target, bytes, null);
+        }
         await persistMetadata(metadata, before, { path: key });
         return { path: key, name: cleanName, contentType: acceptedType };
       });

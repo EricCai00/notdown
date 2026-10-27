@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { get as httpsGet } from "node:https";
 import { get as httpGet } from "node:http";
-import { createHash } from "node:crypto";
+import { assetStorageName } from "../src/vault/asset-storage.js";
 import { publicBookmarkAddress } from "./bookmarks.js";
 import { notionSourceTags, notionProseSource } from "../src/document/notion-v2.js";
 import { notionInlineImages } from "../src/document/notion-markdown.js";
@@ -11,7 +11,17 @@ import { destinationMarker, type ImportPlan } from "./markdown-import.js";
 
 export type NotionAsset = { data: Buffer; contentType: string; name?: string };
 export type ReadNotionAsset = (url: string, signal: AbortSignal, maxBytes: number) => Promise<NotionAsset>;
-const mimeExtensions: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg", "image/avif": "avif", "application/pdf": "pdf", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav", "audio/ogg": "ogg", "video/mp4": "mp4", "video/webm": "webm", "text/html": "html", "text/plain": "txt", "application/zip": "zip", "application/json": "json", "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx", "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx" };
+
+/** Only Notion's signed file hosts have a stable identity independent of query credentials. */
+export function notionAssetIdentity(address: string): string {
+  try {
+    const url = new URL(address);
+    if (url.protocol === "https:" && (url.hostname === "file.notion.so" ||
+      /^(?:prod-files-secure|secure-notion-static)\.s3\.[a-z0-9-]+\.amazonaws\.com$/.test(url.hostname) ||
+      /^s3\.[a-z0-9-]+\.amazonaws\.com$/.test(url.hostname) && /^\/(?:secure\.notion-static\.com|prod-files-secure)\//.test(url.pathname))) return url.origin + url.pathname;
+  } catch { /* Unrecognized addresses retain exact identity. */ }
+  return address;
+}
 
 function safeName(value: unknown): string | undefined {
   if (typeof value !== "string") return;
@@ -63,7 +73,7 @@ export const readNotionAsset: ReadNotionAsset = async (address, signal, maxBytes
 };
 
 /** One cache per preview; asset names are stable content hashes, never URL names. */
-export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAsset; remaining(): number; reserve(bytes: number): void; warn(message: string): void; onRead?: (name: string | undefined, attempt: number) => void }) {
+export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAsset; remaining(): number; reserve(bytes: number): void; warn(message: string): void; nameHints?: Map<string, string>; onRead?: (name: string | undefined, attempt: number) => void }) {
   const assets: ImportPlan["assets"] = [], cache = new Map<string, string>();
   const names = new Map<string, { asset: ImportPlan["assets"][number]; priority: number }>(); let attempts = 0;
   const rememberName = (filename: string, value: unknown, priority: number) => {
@@ -72,6 +82,7 @@ export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAs
   };
   const save = async (url: string, nameHint?: string): Promise<string> => {
     if (!/^https?:\/\//.test(url)) return url;
+    nameHint ||= options.nameHints?.get(notionAssetIdentity(url));
     if (cache.has(url)) { const local = cache.get(url)!; if (local.startsWith("assets/")) rememberName(local.slice(7), nameHint, 3); return local; }
     const max = Math.min(10 * 1024 * 1024, options.remaining());
     try {
@@ -88,8 +99,8 @@ export function notionAssets(options: { signal: AbortSignal; read?: ReadNotionAs
       });
       if (file.data.length > max) throw new Error("Attachment too large");
       const contentType = file.contentType.split(";")[0].trim().toLowerCase() || "application/octet-stream";
-      const ext = mimeExtensions[contentType] || /\.([a-z0-9]{1,10})$/i.exec(file.name || safeName(nameHint) || new URL(url).pathname)?.[1].toLowerCase() || "bin";
-      const filename = `notion-${createHash("sha256").update(file.data).digest("hex")}.${ext}`;
+      const extensionName = [safeName(nameHint), file.name, notionAssetName(url)].find(name => name && /\.[a-z0-9]{1,10}$/i.test(name));
+      const filename = assetStorageName(file.data, extensionName, contentType);
       if (!names.has(filename)) {
         options.reserve(file.data.length);
         const asset = { filename, data: file.data, contentType, origin: "notion" as const };

@@ -3,12 +3,15 @@ import { editorKind, isEditorKind } from "../document/node-identity";
 import { removedChildPages } from "./child-page-deletion";
 import { insertFormats } from "./insert-format";
 import { inlineColors } from "../document/notion-syntax";
+import { localAssetPath } from "../features/assets/asset-model";
 import { inlineColorTransaction, selectedInlineColor, type InlineColorKind } from "./inline-colors";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
+import { ExternalLinkView, ExternalMentionView } from "../features/references/external-view";
+import { externalLibrary } from "../features/references/external-client";
 import { findReferenceLocation } from "../document/reference-locations";
 import { showLinkPicker } from "./link-picker";
 import { isListItem } from "../document/list-items";
-import { hasSupplementalAttributes, needsMarkdownTable, hasOfficialDateTime } from "../document/notdown-boundary";
+import { hasSupplementalAttributes, needsMarkdownTable } from "../document/notdown-boundary";
 import { localObjectPlugins } from "../markdown-engine/presets";
 import { officialNotionObject } from "../document/notion-official-blocks";
 import { footnotePresentation, projectFootnotes, restoreFootnotes, newFootnote, footnoteChoices, type FootnoteInput } from "./footnotes";
@@ -44,6 +47,7 @@ import { tableSelections } from "./table-selection";
 import { imageView } from "./image-view";
 import { insertInlineObject, type InlineInsertion } from "../document/inline-objects";
 import { objectProperties } from "./object-properties";
+import { inlineContextMenu } from "./inline-context-menu";
 import { blockProperties, blockPropertyFields, openBlockProperties } from "./block-properties";
 import { definitionControls } from "./definition-commands";
 import { markProperties } from "./mark-properties";
@@ -475,7 +479,7 @@ export class BlockEditor {
             if (!tr.docChanged || options.canCommand?.("notion_custom") === true) return true;
             let allowed = true;
             tr.doc.descendants(node => {
-              if (localObjectPlugins[editorKind(node)] && !officialNotionObject(node) || hasSupplementalAttributes(node) || needsMarkdownTable(node)) allowed = false;
+              if (localObjectPlugins[editorKind(node)] && !officialNotionObject(node) || hasSupplementalAttributes(node, options.canCommand?.("combined_colors") === true) || needsMarkdownTable(node)) allowed = false;
             });
             return allowed;
           } }),
@@ -503,7 +507,7 @@ export class BlockEditor {
           markProperties(),
           blockProperties(() => options.canCommand?.("notion_custom") === true),
           ...(options.interactionMode === "touch" ? [] : [selectionMenu({
-            canCombineColors: () => options.canCommand?.("notion_custom") === true,
+            canCombineColors: () => options.canCommand?.("combined_colors") === true || options.canCommand?.("notion_custom") === true,
             canCommand: name => options.canCommand?.(name) ?? (name !== "color" && name !== "underline" || this.bodyFormat === "notion-markdown"),
             convert: type => { this.bookmark = undefined; this.insertBlockType(type); },
             link: () => this.showLinkEditor(),
@@ -511,6 +515,15 @@ export class BlockEditor {
           exampleLists(),
           numberedListDisplayPlugin(),
           objectProperties(source => options.codec ? options.codec.parse(source) : this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source), () => options.canCommand?.("notion_custom") === true, () => options.canCommand?.("notion_image_caption") === true),
+          ...(options.interactionMode === "touch" ? [] : [inlineContextMenu({
+            parse: source => options.codec?.parse(source) ?? (this.bodyFormat === "notion-markdown" ? parseNotionMarkdown(source) : parseEditorMarkdown(source)),
+            serialize: doc => options.codec?.serialize(doc) ?? (this.bodyFormat === "notion-markdown" ? serializeNotionMarkdown(doc) : serializeEditorMarkdown(doc)),
+            canCommand: name => options.canCommand?.(name) ?? false,
+            editLink: () => this.showLinkEditor(),
+            onError: options.onError,
+            pages: options.pages,
+            currentPageId: () => options.currentPage?.()?.id,
+          })]),
           ...(options.interactionMode === "touch" ? [] : [createSlashPlugin((match) =>
             queueMicrotask(() => {
               if (this.destroyed) return;
@@ -547,6 +560,7 @@ export class BlockEditor {
         "aria-multiline": "true",
         spellcheck: "false",
       },
+      markViews: { link: mark => new ExternalLinkView(mark) },
       nodeViews: preserveSelectionDecorations({
         image: (node, view, getPos) => imageView(node, view, getPos, () => options.canCommand?.("notion_image_caption") === true || options.canCommand?.("image_caption") === true, () => options.canCommand?.("image_layout") === true),
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
@@ -578,7 +592,7 @@ export class BlockEditor {
         ...createPageNodeViews(options.pages, options.currentPage),
         link_preview: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
         link_mention: (node, view, getPos) => new LinkPreviewView(node, view, getPos),
-        mention: (node, view, getPos) => node.attrs.kind === "date" && options.canCommand?.("notion_custom") === true && !hasOfficialDateTime(node) ? new DateMentionView(node, view, getPos) : node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url) ? new PersonMentionView(node) : { dom: importSyntaxDOM(schema.nodes["inline.mention_page_or_data_source"].spec.toDOM!(node)) },
+        mention: (node, view, getPos) => node.attrs.kind === "date" ? new DateMentionView(node, view, getPos, undefined, () => options.canCommand?.("notion_custom") === true) : node.attrs.kind === "user" && personId(node.attrs.nfmAttrs.url) ? new PersonMentionView(node) : ["user", "database", "data-source"].includes(node.attrs.kind) ? new ExternalMentionView(node, options.onOpenPage) : { dom: importSyntaxDOM(schema.nodes["inline.mention_page_or_data_source"].spec.toDOM!(node)) },
         bullet_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
         numbered_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
         example_list_item: (node, view, getPos) => new ListItemView(node, view, getPos),
@@ -637,9 +651,12 @@ export class BlockEditor {
           window.open(href, "_blank", "noopener,noreferrer");
           return;
         }
+        // Local resources and download links use native browser navigation, not page resolution.
+        if (link.hasAttribute("download") || localAssetPath(href.replace(/^\/v\/[a-f0-9]{64}(?=\/)/, ""))) return;
         const reference = internalReference(href, (link.getAttribute("data-reference-syntax") || "markdown") as ReferenceSyntax);
         if (!reference) return;
-        const page = resolveReferencePage(reference, options.pages(), options.currentPage?.()?.id);
+        const registered = reference.addressing === "id" ? externalLibrary().entities.find(entity => entity.status === "resolved" && entity.localId === reference.address && entity.kind !== "user") : undefined;
+        const page = resolveReferencePage(reference, options.pages(), options.currentPage?.()?.id) ?? (registered?.localId ? { id: registered.localId } : undefined);
         if (page || reference.addressing === "current") {
           event.preventDefault();
           event.stopPropagation();
@@ -1092,7 +1109,7 @@ export class BlockEditor {
       activeColor: (kind: InlineColorKind) => selectedInlineColor(state, kind),
       color: (kind: InlineColorKind, value: string) => {
         if (this.options.canCommand?.(kind) === false || !restore()) return false;
-        return apply(inlineColorTransaction(this.view.state, kind, value, this.options.canCommand?.("notion_custom") === true));
+        return apply(inlineColorTransaction(this.view.state, kind, value, this.options.canCommand?.("combined_colors") === true || this.options.canCommand?.("notion_custom") === true));
       },
       can: (action: SelectionBlockAction) => allowed(action) && !!selectionBlockAction(state, action),
       run: (action: SelectionBlockAction) => allowed(action) && restore() && apply(selectionBlockAction(this.view.state, action)),
@@ -1194,7 +1211,7 @@ export class BlockEditor {
       if (format.mark !== "color") return type.create({ ...old?.attrs, ...format.attrs });
       const nfmAttrs = { ...old?.attrs.nfmAttrs };
       delete nfmAttrs.color; delete nfmAttrs.bg_color; delete nfmAttrs.underline;
-      const dual = this.options.canCommand?.("notion_custom") === true;
+      const dual = this.options.canCommand?.("combined_colors") === true || this.options.canCommand?.("notion_custom") === true;
       const colors = dual ? inlineColors(old?.attrs || {}) : { color: "", bg_color: "" };
       if (id === "background" && dual) colors.bg_color = "yellow";
       else colors.color = id === "background" ? "yellow_bg" : "blue";

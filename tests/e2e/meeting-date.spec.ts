@@ -18,13 +18,12 @@ for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant}:
     await panel.getByRole("switch", { name: "Include time" }).check();
     await panel.getByLabel("Start time", { exact: true }).fill("14:30");
     await panel.getByLabel("Remind", { exact: true }).selectOption("30");
-    await panel.locator("summary").click();
     await panel.getByLabel("Date format", { exact: true }).selectOption("iso");
     await panel.getByLabel("Time format", { exact: true }).selectOption("24");
     await panel.getByLabel("Timezone", { exact: true }).selectOption("+08:00");
     await page.screenshot({ path: "test-results/meeting-shared-date.png" });
   } else {
-    await expect(panel.getByRole("switch", { name: "Include time" })).toHaveCount(0);
+    await expect(panel.getByRole("switch", { name: "Include time" })).toHaveCount(1);
     await expect(panel.getByLabel("Remind", { exact: true })).toHaveCount(0);
   }
   await panel.getByRole("textbox", { name: "End date", exact: true }).fill("2030-06-19");

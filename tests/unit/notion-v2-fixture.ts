@@ -8,10 +8,11 @@ const unknown = (n: number) => `<unknown url="${url(1)}#${v2Id(n).replaceAll("-"
 export const v2Source = [
   '<h2 color="blue">Notion v2 import</h2>',
   `<p>See <mention url="${url(2)}">Child mention</mention> and [child](${url(2)}).</p>`,
-  `<page url="${url(2)}">Child page</page>`,
+  '<code>rdkit.Chem.BRICS.BRICSDecompose</code>',
+  `<page url="${url(2)}">\n<b>Child</b> page\n</page>`,
   `<folder url="${url(3)}">Research folder</folder>`,
   '<toggle heading="h2">Toggle heading\n\nEditable child</toggle>',
-  '<columns><column ratio="40">Left</column><column ratio="60">Right</column></columns>',
+  `<columns><column ratio="40">Left\n\n<page url="${url(2)}">\n<b>Child</b> page\n</page>\n</column><column ratio="60">Right</column></columns>`,
   '<tabs><tab icon="📘">Notes\n\nTab content</tab><tab>More\n\nSecond tab</tab></tabs>',
   '<meeting-notes attendees="user://one">Planning<meeting-notes-section-notes>Notes</meeting-notes-section-notes><meeting-notes-section-summary>Summary</meeting-notes-section-summary><meeting-notes-section-transcript>Complete transcript</meeting-notes-section-transcript></meeting-notes>',
   '<mail from="writer@example.com" subject="Imported message" attachments="https://files.example.test/report.pdf">Mail body</mail>',
@@ -38,6 +39,22 @@ export function v2Fixture(fallback?: typeof fetch, calls: string[] = []): typeof
     assert.equal(request.origin, "https://api.notion.com"); assert.equal(init?.method, "GET");
     calls.push(request.pathname + request.search);
     const markdown = (body: string) => Response.json({ object: "page_markdown", id, markdown: body, truncated: false, unknown_block_ids: [] });
+    if (id === v2Id(85)) {
+      const code = 'for i in $(ls *.pdbqt); do\nname=${i%.*};\necho "$name shen"\ndone';
+      if (request.pathname.endsWith("/markdown")) return markdown('```shen\n' + code + '\n```');
+      if (request.pathname.endsWith("/children")) return Response.json({ results: [{ object: "block", id: v2Id(86), type: "code", code: { language: "shell", rich_text: [{ type: "text", text: { content: code } }] } }], has_more: false, next_cursor: null });
+      return Response.json({ object: "page", id, properties: { Name: { type: "title", title: [{ plain_text: "Shell export mismatch" }] } } });
+    }
+    if (id === v2Id(82)) {
+      if (request.pathname.endsWith("/markdown")) return markdown('<span color="red">API words</span>\n\n<span color="blue">Cache words</span>');
+      if (request.pathname.endsWith("/children")) return Response.json({ results: [[83, "API words", "pink_background"], [84, "Cache words", "blue"]].map(([n,text,color]) => ({ object: "block", id: v2Id(Number(n)), type: "paragraph", last_edited_time: "2026-10-27T07:04:00.000Z", paragraph: { rich_text: [{ type: "text", text: { content: text, link: null }, plain_text: text, annotations: { bold: false, italic: false, strikethrough: false, underline: false, code: false, color } }] } })), has_more: false, next_cursor: null });
+      return Response.json({ object: "page", id, properties: { Name: { type: "title", title: [{ plain_text: "Dual color fixture" }] } } });
+    }
+    if (id === v2Id(80)) {
+      if (request.pathname.endsWith("/markdown")) return markdown('<date start="2026-10-24" start-time="09:00" time-zone="America/Los_Angeles"/>');
+      if (request.pathname.endsWith("/children")) return Response.json({ results: [{ object: "block", id: v2Id(81), type: "paragraph", last_edited_time: "2026-10-26T15:53:00.000Z", paragraph: { rich_text: [{ type: "mention", mention: { type: "date", date: { start: "2026-10-24T09:00:00-07:00", end: null } } }] } }], has_more: false, next_cursor: null });
+      return Response.json({ object: "page", id, properties: { Name: { type: "title", title: [{ plain_text: "Cached reminder fixture" }] } } });
+    }
     const block = (n: number, type: string, data: object, has_children = false) => ({ object: "block", id: v2Id(n), type, has_children, [type]: data });
     const blocks = [block(10,"toggle",{ rich_text: [{ type: "text", plain_text: "Recovered subtree" }] },true), block(11,"unsupported",{ block_type: "button" }), block(12,"template",{ rich_text: [{ type: "text", plain_text: "Insert template" }] },true), block(13,"unsupported",{ block_type: "ai_block" },true), block(14,"paragraph",{ rich_text: [{ type: "text", plain_text: "Template content", annotations: { bold: true } }] }), block(15,"paragraph",{ rich_text: [{ type: "text", plain_text: "Saved AI result" }] })];
     if (request.pathname.endsWith("/markdown")) {

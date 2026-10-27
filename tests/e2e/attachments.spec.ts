@@ -3,6 +3,33 @@ import { test, expect } from "@playwright/test";
 const picture = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="280" viewBox="0 0 640 280"><rect width="640" height="280" fill="#f1eee6"/><circle cx="520" cy="85" r="32" fill="#dfb97d"/><path d="M0 245 175 70 330 245 470 110 640 245" fill="#8ca79b"/><path d="M0 280 250 150 435 280" fill="#526f64"/><text x="28" y="42" font-family="sans-serif" font-size="18" fill="#526f64">Field notes · October</text></svg>');
 const syntax = { version: 1, variant: "notdown", extensions: {} };
 
+test("permanent page deletion cleans the last attachment reference and preserves shared files", async ({ page, request }) => {
+  const upload = async (name: string) => {
+    const response = await request.post("/api/assets", { data: { name, contentType: "text/plain", data: Buffer.from(name).toString("base64") } });
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  };
+  const only = await upload("delete-only.txt"), shared = await upload("keep-shared.txt");
+  const deleted = await (await request.post("/api/pages", { data: { title: "Delete with attachments", body: `[only](${only.path}) [shared](${shared.path})`, syntax } })).json();
+  const keep = await (await request.post("/api/pages", { data: { title: "Shared attachment survivor", properties: { cover: shared.path }, syntax } })).json();
+  await page.goto(`/#page/${deleted.id}`);
+  await expect(page.locator("#page-title")).toHaveValue(deleted.title);
+  await page.locator("#page-options > summary").click();
+  await page.locator("#page-options [role=menu]").getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
+  await expect(page.locator(`#page-tree [data-open="${deleted.id}"]`)).toHaveCount(0);
+  expect((await request.get("/" + only.path)).ok()).toBe(true);
+  await page.getByRole("button", { name: "Trash", exact: true }).click();
+  await page.locator(`[data-recycle="${deleted.id}"]`).click();
+  await expect(page.locator(`[data-recycle="${deleted.id}"]`)).toHaveCount(0);
+  await expect(page.locator(".toast")).toContainText("Removed 1 unreferenced attachment");
+  expect((await request.get("/" + only.path)).status()).toBe(404);
+  expect((await request.get("/" + shared.path)).ok()).toBe(true);
+  expect((await request.get(`/api/pages/${keep.id}`)).ok()).toBe(true);
+  const library = await (await request.get("/api/assets")).json();
+  expect(library.assets.some((asset: any) => asset.path === only.path)).toBe(false);
+  expect(library.assets.find((asset: any) => asset.path === shared.path).references).toHaveLength(1);
+});
+
 test("attachment library uploads, preserves names, previews, filters and reuses the same file", async ({ page, request }, testInfo) => {
   const note = await (await request.post("/api/pages", { data: { title: "Attachment workspace", body: "Before\n\nTail", syntax } })).json();
   await page.goto(`/#page/${note.id}`);
@@ -20,7 +47,7 @@ test("attachment library uploads, preserves names, previews, filters and reuses 
   await dialog.getByLabel("Attachment type").selectOption("image");
   await expect(dialog.locator(".attachment-row")).toHaveCount(1);
   await dialog.getByLabel("Attachment type").selectOption("file");
-  await expect(dialog.locator(".attachment-row")).toContainText("Reading list.txt");
+  await expect(dialog.locator(".attachment-row").filter({ hasText: "Reading list.txt" })).toHaveCount(1);
   await dialog.getByLabel("Attachment type").selectOption("");
   await dialog.getByLabel("Sort attachments").selectOption("size");
   await expect(dialog.locator(".attachment-row").first()).toContainText("Field notes.svg");
@@ -60,7 +87,7 @@ test("attachment library uploads, preserves names, previews, filters and reuses 
 });
 
 test("references navigate between pages, missing paths are visible, and File insertion keeps card semantics", async ({ page, request }, testInfo) => {
-  const upload = await (await request.post("/api/assets", { data: { name: "Shared diagram.svg", contentType: "image/svg+xml", data: picture.toString("base64") } })).json();
+  const upload = await (await request.post("/api/assets", { data: { name: "Shared diagram.svg", contentType: "image/svg+xml", data: Buffer.from(picture.toString().replace("Field notes", "Shared diagram")).toString("base64") } })).json();
   const first = await (await request.post("/api/pages", { data: { title: "Shared source", body: `![](${upload.path})`, syntax } })).json();
   const second = await (await request.post("/api/pages", { data: { title: "Shared destination", body: `Tail\n\n[Missing](assets/missing-check.pdf)`, properties: { cover: upload.path }, syntax } })).json();
   await page.goto(`/#page/${second.id}`);
@@ -114,7 +141,7 @@ test("attachment reuse in CommonMark produces a portable file link and keeps pen
 });
 
 test("source selection survives opening the library and stale backends show a recoverable error", async ({ page, request }) => {
-  const upload = await (await request.post("/api/assets", { data: { name: "Source attachment.txt", contentType: "text/plain", data: Buffer.from("reference").toString("base64") } })).json();
+  const upload = await (await request.post("/api/assets", { data: { name: "Source attachment.txt", contentType: "text/plain", data: Buffer.from("source reference").toString("base64") } })).json();
   const note = await (await request.post("/api/pages", { data: { title: "Source attachments", body: "Before\n\nAfter", syntax } })).json();
   await page.goto(`/#page/${note.id}`);
   await expect(page.locator(".pm-document")).toBeVisible();
@@ -142,4 +169,32 @@ test("source selection survives opening the library and stale backends show a re
   await dialog.getByRole("searchbox").fill("Source attachment");
   await expect(dialog.locator(".attachment-row")).toHaveCount(1);
   await expect(dialog.getByRole("status")).toBeHidden();
+});
+
+for (const variant of ["notdown", "notion-markdown"]) test(`${variant} File and HTML embed show original names without rewriting source`, async ({ page, request }, testInfo) => {
+  const name = "markdown & notion.xlsx", htmlName = "a & 中文.html";
+  const spreadsheet = await (await request.post("/api/assets", { data: { name, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", data: Buffer.from("spreadsheet fixture").toString("base64") } })).json();
+  const html = await (await request.post("/api/assets", { data: { name: htmlName, contentType: "text/html", data: Buffer.from("<h1>Embedded content</h1>").toString("base64") } })).json();
+  expect(spreadsheet.path).toMatch(/^assets\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.xlsx$/);
+  expect(html.path).toMatch(/^assets\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.html$/);
+  const body = `<file source="${spreadsheet.path}"/>\n\n<embed source="${html.path}"/>\n\nTail`;
+  const note = await (await request.post("/api/pages", { data: { title: "Named attachments", body, syntax: { version: 1, variant, notionVersion: "v2", extensions: {} } } })).json();
+  await page.goto(`/#page/${note.id}`);
+  await expect(page.locator(".pm-file-name")).toHaveText(name);
+  await expect(page.locator(".pm-file-card")).toHaveAttribute("download", name);
+  await expect(page.locator(".pm-embed-filename")).toHaveText(htmlName);
+  const fileDownload = page.waitForEvent("download");
+  await page.locator(".pm-file-card").click();
+  expect((await fileDownload).suggestedFilename()).toBe(name);
+  await page.locator(".pm-html-embed").getByRole("button", { name: "Embed options", exact: true }).click();
+  const htmlDownload = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "Download", exact: true }).click();
+  expect((await htmlDownload).suggestedFilename()).toBe(htmlName);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+s");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body);
+  await page.reload();
+  await expect(page.locator(".pm-file-name")).toHaveText(name);
+  await expect(page.locator(".pm-embed-filename")).toHaveText(htmlName);
+  await page.screenshot({ path: testInfo.outputPath("original-attachment-names.png") });
 });

@@ -66,6 +66,30 @@
 
 ## 审计与验证记录
 
+- [Windows 0.1.4 发布验证（2026-10-27）](verification/RELEASE-0.1.4-2026-10-27.md)
+
+- [当前自定义正文写法与背景色迁移（2026-10-27）](audits/CUSTOM-SYNTAX-AUDIT-2026-10-27.md)
+
+- [Notion 导入双颜色补全（2026-10-27）](verification/NOTION-COLOR-RECOVERY-IMPORT-2026-10-27.md)
+
+- [Notion v2 行内文字色与背景色（2026-10-27）](verification/NOTION-DUAL-COLORS-2026-10-27.md)
+
+- [Notion v2 行内代码兼容读取（2026-10-27）](verification/NOTION-CODE-TAGS-2026-10-27.md)
+
+- [Notion v2 多行子页面与引用块（2026-10-26）](verification/NOTION-MULTILINE-BLOCKS-2026-10-26.md)
+
+- [Notion SQLite 字段、缓存更新与导入可行性（2026-10-26）](audits/NOTION-SQLITE-2026-10-26.md)
+
+- [附件 UUID、页面删除清理与提醒导入核查（2026-10-26）](verification/ATTACHMENT-UUID-CLEANUP-2026-10-26.md)
+
+- [日期与提醒显示修正（2026-10-26）](verification/DATE-PRESENTATION-2026-10-26.md)
+
+- [External references and deferred resolution (2026-10-26)](verification/EXTERNAL-REFERENCES-2026-10-26.md)
+
+- [行内对象右键菜单与分区源码（2026-10-26）](verification/INLINE-CONTEXT-MENU-2026-10-26.md)
+
+- [附件原文件名与统一存储命名（2026-10-26）](verification/ATTACHMENT-NAMES-2026-10-26.md)
+
 - [设置界面统一与桌面 0.1.3（2026-10-26）](verification/SETTINGS-0.1.3-2026-10-26.md)
 
 - [Windows 托盘驻留、关闭保存与单实例（2026-10-26）](verification/TRAY-AND-SINGLE-INSTANCE-2026-10-26.md)

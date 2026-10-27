@@ -4,6 +4,7 @@ import { archivePath } from "./archive";
 import { hashBytes, randomUUID } from "./crypto";
 import { VaultError, assertId, type Page, type PageInput } from "./vault";
 import type { VaultPlatform, StorageError } from "./platform";
+import { externalKey, type ExternalObservation } from "../features/references/external-entity";
 import { absent, itemRevision, stateRevision, validateItem, type SyncItem, type SyncState, type SyncConflict, type SyncApply } from "../sync/protocol";
 
 type StoredPage = { page: Page; source: string; filePath: string; metadata: Record<string, unknown> };
@@ -26,7 +27,7 @@ type Change = { path: string; bytes: Buffer | null; expected: Buffer | null };
 type WriteBatch = { pages: Map<string, StoredPage>; index: Index; changes: Change[]; snapshots: Snapshot[]; previous: StoredPage[]; metadataChanged: boolean };
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 const own = (v: object, key: string) => Object.prototype.hasOwnProperty.call(v, key);
-const resourceGroups = ["databases", "dataSources", "views", "assets"];
+const resourceGroups = ["databases", "dataSources", "views", "assets", "externalEntities"];
 const resourceData = (group: string, record: unknown) => ["databases", "dataSources", "views"].includes(group) && object(record)
   ? Object.fromEntries(Object.entries(record).filter(([field]) => field !== "revision")) : record;
 export const syncLocalPath = ".notdown/sync";
@@ -196,6 +197,8 @@ export function createVaultSyncStore(host: Host) {
           value && !own(value, "data")) throw new VaultError(422, "Invalid synced metadata key");
       if (group === "assets") {
         if (!archivePath(key).startsWith("assets/") || value && !object(value.data)) throw new VaultError(422, "Invalid attachment metadata");
+      } else if (group === "externalEntities") {
+        if (!/^notion:(page|user|database|data-source|block):[^\s]{1,250}$/.test(key) || value && (!object(value.data) || externalKey(value.data as ExternalObservation) !== key)) throw new VaultError(422, "Invalid external entity identity");
       } else if (group !== "extra") { assertId(key); if (value && (!object(value.data) || value.data.id !== key)) throw new VaultError(422, "Invalid metadata resource identity"); }
     } else if (item.kind === "person") {
       allowedFile(`people/${name}`);

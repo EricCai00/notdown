@@ -33,10 +33,10 @@
 - 每批最多 500 个文件、总计 20 MiB；单个 Markdown 最多 10 MiB。支持 UTF-8 `.md` / `.markdown`，其他文件作为附件复制；界面排除隐藏文件及隐藏目录。
 - 原目录只读。导入根目录及子目录转换为父子页面；每页获得新的稳定导入 ID，不沿用源文件中的页面身份。有效的已有 `syntax` 设置优先于所选缺省方言。
 - 保留未知 YAML 字段和注释；规范化副本中的 `id`、`title`、`parent`、`icon`、`properties`、`bodyFormat`、`syntax`，清除旧的收藏、删除、排序、更新时间状态。所有原始字段与文件字节均保存在原件归档中。
-- 只修改解析得到的 Markdown 链接、图片及引用定义的目标范围；不全局替换正文、代码围栏或未知语法。标准相对页面链接改为 `#page/<id>`，附件改为 `assets/<name>`；附件查询及锚点保留。页面锚点及查询参数暂不支持，会在预览提示并从副本链接中省略。
-- Wiki 链接和原始 HTML 保留原写法，需要手动检查；不会自动完成 Obsidian 工作区或 Notion 导出包迁移。未解析的目标保留原文并给出提示。附件名采用安全扩展名，其他类型使用 `.bin`。
+- 只修改解析得到的 Markdown 链接、图片及引用定义的目标范围；不全局替换正文、代码围栏或未知语法。标准相对页面链接改为 `#page/<id>`，新附件改为 `assets/<带连字符的 UUID>.<扩展名>`，与上传、Notion 下载使用相同的内容确定 UUIDv5 命名；附件查询及锚点保留。旧附件和原链接继续兼容，不批量迁移。页面锚点及查询参数暂不支持，会在预览提示并从副本链接中省略。
+- Wiki 链接和原始 HTML 保留原写法，需要手动检查；不会自动完成 Obsidian 工作区或 Notion 导出包迁移。未解析的目标保留原文并给出提示。附件原文件名登记到附件库；规范化常见扩展名，其他简单字母数字扩展名保留，无法识别时使用 `.bin`。相同内容及规范扩展名复用同一文件，已有附件不自动迁移。
 - 导入预览只在内存中保留，30 分钟过期，每个服务最多三批；提交时使用预览的内容快照，不重新读取变化中的源目录。
-- 相同名称、方言、相对路径和内容产生相同导入批次。已完成批次再次提交不会重复创建或覆盖导入后编辑的页面；源内容改变则形成新的导入副本，不作为同步更新。
+- 同一导入格式版本下，相同名称、方言、相对路径和内容产生相同导入批次。已完成批次再次提交不会重复创建或覆盖导入后编辑的页面；源内容改变则形成新的导入副本，不作为同步更新。
 - 写入通过 `createVault.importBatch` 串行执行。导入只新建文件，不更新已有页面，因此不接受覆盖 revision；之后的编辑仍使用 `baseRevision` 与冲突分支。
 - `.history/imports/<批次 SHA-256>/manifest.json` 记录源路径与 `<编号>.source` 原件的对应、页面 ID、提示及完成状态。恢复原件时按 manifest 路径复制这些字节即可；目前没有专用恢复界面。
 - 提交先归档原件，再写附件及页面，最后标记完成。它不是整批原子事务；中断可能留下已导入的部分。重新选择相同内容可继续；已存在且不同的内容会阻止继续，不强行覆盖。单文件以临时文件同步落盘、硬链接发布，要求目标文件系统支持硬链接（Windows 推荐 NTFS）；不支持时明确失败并保留恢复材料。
@@ -52,6 +52,8 @@ npm run test:desktop
 ```
 
 `desktop:build` 先通过 `desktop:runtime` 检查或下载 Electron 二进制，再将前端构建至 `desktop-dist/frontend/`，主进程、本地服务与 preload 构建至 `desktop-dist/`。桌面前端产物独立于浏览器的 `dist/`，避免开发时互相覆盖。首次源码启动需要网络；已有匹配版本时不会重复下载。需要代理的环境可为 Node 配置 `HTTPS_PROXY` 与 `NODE_USE_ENV_PROXY=1`。`desktop:pack` 输出解包应用，`desktop:dist` 输出 NSIS 安装包，均位于 `.run/desktop-release/`。安装包不携带仓库的用户 `vault/`；卸载不删除知识库目录。
+
+Desktop packaging excludes `node_modules/@capacitor/**`. Mobile-only native packages and generated Android build trees are not desktop runtime dependencies; including them can introduce paths that the Windows updater cannot rename while replacing an older installation.
 
 `tests/unit/markdown-import.test.ts` 覆盖原文、YAML、链接、重复导入、部分恢复和 HTTP 预览提交。`tests/e2e/import-folder.spec.ts` 使用独立 Chrome 与临时知识库。`tests/e2e/desktop.test.ts` 使用隔离的 Electron 用户配置与临时目录，验证首次建库、关闭保存、冲突阻止关闭、最近目录和多库隔离；可设置 `NOTDOWN_PACKAGED_EXE` 为解包后的 exe 以验证实际打包产物。
 

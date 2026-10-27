@@ -4,7 +4,7 @@ import { encodeCodeCaption } from "../document/code-caption";
 import { objectTags } from "../document/object-model";
 import { localObjectPlugins } from "./presets";
 import { officialNotionObject } from "../document/notion-official-blocks";
-import { notionV2BlockMarkdown } from "../document/notion-v2";
+import { notionElement, notionV2BlockMarkdown } from "../document/notion-v2";
 import { installNotionRichText } from "../document/notion-rich-text";
 import { isListItem } from "../document/list-items";
 import { normalizeExampleNumbering } from "../document/example-numbering";
@@ -111,7 +111,7 @@ function unavailable(node: PMNode, config: SyntaxConfig): boolean {
   if (isEditorKind(node, "code_block") &&
       (node.attrs.markdownAttrs?.caption !== undefined || node.attrs.nfmAttrs?.caption !== undefined) &&
       (config.variant === "notion-markdown" || config.variant === "notdown" && !enabled(config, "fenced_code_attributes"))) return true;
-  if (config.variant !== "notdown" && hasSupplementalAttributes(node)) return true;
+  if (config.variant !== "notdown" && hasSupplementalAttributes(node, config.notionVersion === "v2")) return true;
   if (config.variant === "notion-markdown" && needsMarkdownTable(node)) return true;
   if (config.variant === "notion-markdown" && node.marks.some(mark =>
     ["native_span", "small_caps"].includes(editorKind(mark)))) return true;
@@ -357,8 +357,15 @@ function parser(config: SyntaxConfig): MarkdownIt {
       const rest = state.src.slice(state.pos),
         tag = openingTag(rest);
       if (!tag) return false;
+      if (tag.tag === "span" && Object.hasOwn(tag.attrs, "bg_color")) {
+        const element = notionElement(rest);
+        if (!element) return false;
+        state.push("text", "", 0).content = rest.slice(0, element.to);
+        state.pos += element.to;
+        return true;
+      }
       const requirement =
-        tag.tag === "span" && (tag.attrs.color || Object.hasOwn(tag.attrs, "bg_color"))
+        tag.tag === "span" && tag.attrs.color
           ? "notion_colors"
           : tag.tag === "span" && tag.attrs.underline
             ? "notion_underline"
@@ -370,7 +377,6 @@ function parser(config: SyntaxConfig): MarkdownIt {
               ? "notion_mentions"
               : null;
       if (!requirement || !enabled(config, requirement)) return false;
-      if (tag.tag === "span" && Object.hasOwn(tag.attrs, "bg_color") && config.variant !== "notdown") return false;
       if (tag.tag === "span" && ((tag.attrs.color && !enabled(config, "notion_colors")) || (tag.attrs.underline && !enabled(config, "notion_underline")))) return false;
       let close = rest.indexOf("</" + tag.tag + ">", tag.length);
       if (config.variant === "notdown" && tag.tag === "span" && !tag.selfClosing) {
@@ -552,7 +558,7 @@ function parser(config: SyntaxConfig): MarkdownIt {
   if (["quarto", "notdown"].includes(config.variant)) installQuarto(md);
   installGfm(md, config);
   if (parsers.size >= 16) parsers.delete(parsers.keys().next().value!);
-  if (usesNotionSyntax(config)) installNotionRichText(md, { citations: enabled(config, "notion_mentions"), math: enabled(config, "tex_math_dollars") });
+  if (usesNotionSyntax(config)) installNotionRichText(md, { citations: enabled(config, "notion_mentions"), math: enabled(config, "tex_math_dollars"), codeTags: config.variant === "notdown" && config.notionVersion === "v2" });
   parsers.set(key, md);
   return md;
 }
@@ -1003,7 +1009,7 @@ function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
 }
 export function serializeNative(doc: PMNode, config: SyntaxConfig): string {
   if (config.variant !== "notdown") doc.descendants(node => {
-    if (localObjectPlugins[editorKind(node)] && !officialNotionObject(node) || hasSupplementalAttributes(node) || config.variant === "notion-markdown" &&
+    if (localObjectPlugins[editorKind(node)] && !officialNotionObject(node) || hasSupplementalAttributes(node, config.notionVersion === "v2") || config.variant === "notion-markdown" &&
         (needsMarkdownTable(node) || isEditorKind(node, "code_block") && node.attrs.markdownAttrs?.caption !== undefined))
       throw new Error("Supplemental Notion content can only be written in the Notdown variant. Preserve the original source or switch variants.");
   });
@@ -1023,6 +1029,7 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
   md.parse(source, env);
   return {
     headingLimit: 6,
+    codeTags: config.notionVersion === "v2",
     inline(text: string): PMNode[] {
       const tokens = md.parseInline(text, env)[0]?.children ?? [];
       for (const token of tokens) {
