@@ -5,7 +5,7 @@ export const privateAi = "d8100000-0000-4000-8000-000000000002";
 export const privateOutput = "d8100000-0000-4000-8000-000000000003";
 export const privateButton = "d8100000-0000-4000-8000-000000000004";
 export const privateSource = `<unknown url="https://www.notion.so/${privateRoot}#${privateAi.replaceAll("-", "")}"/>\n\n<unknown url="https://www.notion.so/${privateButton}"/>`;
-export const privateApi = (id = privateAi) => ({ object: "block", id, type: "unsupported", unsupported: { block_type: id === privateAi ? "ai_block" : "button" }, has_children: id === privateAi, last_edited_time: "2026-10-28T10:18:00.000Z" });
+export const privateApi = (id = privateAi) => ({ object: "block", id, type: "unsupported", unsupported: { block_type: id === privateAi ? "ai_block" : "button" }, parent: { type: "page_id", page_id: privateRoot }, has_children: id === privateAi, last_edited_time: "2026-10-28T10:18:00.000Z" });
 export function privateSnapshot(): NotionCacheSnapshot {
   return { blocks: [], privateBlocks: [
     { id: privateAi, type: "ai_block", version: 16, lastEdited: Date.parse("2026-10-28T10:18:28.330Z"), properties: {}, format: { ai_block_configuration_menu: { type: "custom", version: 3, autofillInstructions: [["hi"]] }, ai_last_edited: 1793182708330 }, content: [privateOutput], parentId: privateRoot, parentTable: "block" },

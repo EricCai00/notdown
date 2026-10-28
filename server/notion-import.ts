@@ -19,6 +19,7 @@ import { supplementNotionColors } from "./notion-color-import.js";
 import { hasUnknownNotionCodeLanguage, supplementNotionCodeLanguages } from "./notion-code-import.js";
 import { blockifyNotionImages } from "./notion-image-import.js";
 import { recoverCachedNotionBlock } from "./notion-private-blocks.js";
+import { parseCopiedNotionBlocks, recoverCopiedNotionButton } from "./notion-copied-blocks.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -248,6 +249,7 @@ export async function prepareNotionImport(
     variant?: unknown;
     downloadAssets?: unknown;
     useDesktopCache?: unknown;
+    copiedBlocks?: unknown;
   } | null;
   if (
     !request ||
@@ -268,6 +270,8 @@ export async function prepareNotionImport(
   if (request.downloadAssets !== undefined && typeof request.downloadAssets !== "boolean") throw new VaultError(400, "Invalid attachment selection.");
   const variant = request.variant ?? "notion-markdown";
   if (variant !== "notdown" && variant !== "notion-markdown") throw new VaultError(400, "Choose Notdown or Notion Markdown for import.");
+  const copiedBlocks = variant === "notdown" ? parseCopiedNotionBlocks(request.copiedBlocks) : undefined;
+  let copiedButtons = 0;
   const token = request.token;
   const signal = AbortSignal.any([
     options.signal ?? new AbortController().signal,
@@ -289,7 +293,7 @@ export async function prepareNotionImport(
   }[] = [];
   const warnings = new Set<string>([
     "Page targets use this import's copies or unique existing Notion imports in the current vault; missing or ambiguous targets and unmapped block anchors stay remote.",
-    "Database records and supported properties become local copies. Formula/rollup results are read-only snapshots; permissions and automations are not imported. Original v2 Markdown and API responses are archived. Meeting transcripts are requested when accessible.",
+    "Database records and supported properties become local copies. Formula/rollup results are read-only snapshots; permissions and cloud automations are not imported. Original v2 Markdown and API responses are archived. Meeting transcripts are requested when accessible.",
     variant === "notdown" ? "Unknown blocks are recovered through v2 Markdown and Block API data, including readable template buttons. Missing button/AI/form configuration keeps a typed source reference." : "Unknown blocks are recovered using official v2 syntax. Supplemental Notdown controls remain preserved references.",
   ]);
   let bytes = 0,
@@ -678,9 +682,17 @@ export async function prepareNotionImport(
         normalizeId: notionPageId,
         version: "v2", local: variant === "notdown",
         readChildren,
-        recoverPrivateBlock: request.useDesktopCache === true && variant === "notdown" ? async block => {
+        recoverPrivateBlock: variant === "notdown" && (request.useDesktopCache === true || copiedBlocks) ? async block => {
           const kind = block.type === "unsupported" ? block.unsupported?.block_type : block.type;
           if (!["ai_block", "button"].includes(kind)) return;
+          const copied = recoverCopiedNotionButton(block, page.id, copiedBlocks);
+          for (const warning of copied.warnings) warnings.add(warning);
+          if (copied.source !== undefined) {
+            copiedButtons++;
+            archive(`copied-blocks/${block.id}.json`, Buffer.from(JSON.stringify(copied.evidence, null, 2)));
+            return copied.source;
+          }
+          if (request.useDesktopCache !== true) return;
           let snapshot;
           try { snapshot = await (options.readCache ?? readNotionDesktopCache)(page.id, [block.id]); }
           catch (error) {
@@ -781,6 +793,7 @@ export async function prepareNotionImport(
   }
   for (const page of pages) if (Buffer.byteLength(page.source) > 10 * 1024 * 1024)
     throw new VaultError(413, `Page ${page.id} exceeds 10 MB after block restoration.`);
+  if (copiedBlocks && !copiedButtons) warnings.add("No copied Button matched a complete supported workflow in this import. Copy the source buttons again; unmatched source placeholders were retained.");
   // File names are separate from captions in Block API data. Scan only the
   // current pages' block containers when descendants were excluded from import.
   if (request.downloadAssets !== false) {

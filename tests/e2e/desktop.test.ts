@@ -5,6 +5,8 @@ import path from "node:path";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { clipboardPickle } from "../unit/notion-copied-blocks-fixture.js";
+import { privateRoot } from "../unit/notion-private-blocks-fixture.js";
 
 async function readNotes(vaultPath: string) {
   const files = await fs.readdir(path.join(vaultPath, "pages"));
@@ -109,6 +111,32 @@ test("Notion token is encrypted outside the vault and autofills after a desktop 
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await openImport();
   await expect(page.getByLabel("Integration token", { exact: true })).toHaveValue("");
+});
+
+test("copied Notion blocks cross the restricted desktop bridge only on an explicit read", async () => {
+  const vaultPath = path.join(root, "Copied Notion buttons"); await fs.mkdir(vaultPath);
+  const page = await chooseFolder(vaultPath, "create");
+  // Replace only this test-owned process's clipboard method; never change the OS clipboard.
+  await desktop.evaluate(({ clipboard }, bytes) => {
+    let reads = 0;
+    Object.defineProperty(globalThis, "notdownClipboardReadCount", { get: () => reads });
+    clipboard.read = (async () => { reads++; return [{ types: ['electron application/osclipboard;format="Chromium Web Custom MIME Data Format"'], getType: async () => new Blob([new Uint8Array(bytes)]) }]; }) as typeof clipboard.read;
+  }, [...clipboardPickle()]);
+  const open = async () => {
+    await page.getByRole("button", { name: "Import", exact: true }).click();
+    await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  };
+  await open();
+  expect(await desktop.evaluate(() => (globalThis as any).notdownClipboardReadCount)).toBe(0);
+  await page.getByRole("button", { name: "Read copied Notion blocks", exact: true }).click();
+  await expect(page.locator("#notion-copied-status")).toContainText("snapshot loaded");
+  await expect(page.getByLabel("Page URL or ID", { exact: true })).toHaveValue(privateRoot);
+  expect(await desktop.evaluate(() => (globalThis as any).notdownClipboardReadCount)).toBe(1);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await open();
+  await expect(page.getByRole("button", { name: "Clear copied blocks", exact: true })).toBeHidden();
+  await expect(page.locator("#notion-copied-status")).toBeEmpty();
+  expect(await readNotes(vaultPath)).toHaveLength(0);
 });
 
 let root: string;

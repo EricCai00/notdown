@@ -28,9 +28,10 @@ export function openNotionImportDialog(options: {
     <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
     <label><input id="notion-assets" type="checkbox" checked /> Import files, media, covers and icons into Attachments</label>
     <label><input id="notion-cache" type="checkbox" checked /> Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache</label>
+    <div id="notion-copied" ${window.notdownDesktop?.notionImportClipboard ? "" : "hidden"}><p class="import-hint">To restore supported Button actions, select the buttons or their page in Notion and press Ctrl+C. Read the copied blocks here before previewing. This snapshot is kept only for this dialog.</p><button id="notion-read-copied" type="button">Read copied Notion blocks</button> <button id="notion-clear-copied" type="button" hidden>Clear copied blocks</button><p id="notion-copied-status" class="import-hint" role="status"></p></div>
     <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
     <p class="import-hint">Share the root page with your Notion connection and enable Read content. Up to 500 pages / 20 MB including archived responses.</p>
-    <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and automations remain in Notion.</p>
+    <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and cloud automations remain in Notion.</p>
     <div id="notion-preview" aria-live="polite"></div>
     <p id="notion-status" role="status"></p>
     <p id="notion-step" role="status" hidden></p>
@@ -74,6 +75,10 @@ export function openNotionImportDialog(options: {
   const attachments = dialog.querySelector<HTMLInputElement>("#notion-assets")!;
   const desktopCache = dialog.querySelector<HTMLInputElement>("#notion-cache")!;
   const variant = dialog.querySelector<HTMLSelectElement>("#notion-variant")!;
+  const readCopied = dialog.querySelector<HTMLButtonElement>("#notion-read-copied")!;
+  const clearCopied = dialog.querySelector<HTMLButtonElement>("#notion-clear-copied")!;
+  const copiedStatus = dialog.querySelector<HTMLElement>("#notion-copied-status")!;
+  let copiedBlocks: string | undefined;
   const previewButton = dialog.querySelector<HTMLButtonElement>(
     "#notion-preview-button",
   )!;
@@ -137,11 +142,13 @@ export function openNotionImportDialog(options: {
   const cancel = dialog.querySelector<HTMLButtonElement>("#notion-cancel")!;
   const close = dialog.querySelector<HTMLButtonElement>("#notion-close")!;
   let summary: Preview | null = null;
-  let state: "idle" | "preview" | "commit" = "idle";
+  let state: "idle" | "clipboard" | "preview" | "commit" = "idle";
   let controller: AbortController | undefined;
   const update = () => {
     token.disabled = page.disabled = children.disabled = attachments.disabled = desktopCache.disabled = variant.disabled = state !== "idle";
     previewButton.disabled = state !== "idle";
+    readCopied.disabled = clearCopied.disabled = state !== "idle";
+    dialog.querySelector<HTMLElement>("#notion-copied")!.hidden = !window.notdownDesktop?.notionImportClipboard || variant.value !== "notdown";
     commit.disabled = state !== "idle" || !summary;
     cancel.disabled = close.disabled = state === "commit";
   };
@@ -154,6 +161,25 @@ export function openNotionImportDialog(options: {
   };
   for (const input of [token, page, children, attachments, desktopCache, variant])
     input.addEventListener("input", invalidate);
+  readCopied.addEventListener("click", async () => {
+    if (state !== "idle" || !window.notdownDesktop?.notionImportClipboard) return;
+    copiedBlocks = undefined; clearCopied.hidden = true;
+    invalidate(); state = "clipboard"; update();
+    copiedStatus.textContent = "Reading copied Notion blocks…";
+    try {
+      const data = await window.notdownDesktop.notionImportClipboard.get();
+      if (!dialog.isConnected) return;
+      const snapshot = JSON.parse(data);
+      if (!page.value.trim()) page.value = snapshot.source.id;
+      copiedBlocks = data; clearCopied.hidden = false;
+      copiedStatus.textContent = "Copied Notion snapshot loaded. Preview will verify matching Button identities and supported actions.";
+    } catch {
+      if (dialog.isConnected) copiedStatus.textContent = "No readable Notion block copy was found. Select the buttons in Notion, press Ctrl+C, then try again.";
+    } finally { state = "idle"; update(); }
+  });
+  clearCopied.addEventListener("click", () => {
+    copiedBlocks = undefined; clearCopied.hidden = true; copiedStatus.textContent = "Copied blocks cleared."; invalidate();
+  });
   const dismiss = () => {
     if (state !== "commit") dialog.close();
   };
@@ -166,6 +192,7 @@ export function openNotionImportDialog(options: {
     finishProgress();
     controller?.abort();
     token.value = "";
+    copiedBlocks = undefined;
     summary = null;
     dialog.remove();
   });
@@ -198,6 +225,7 @@ export function openNotionImportDialog(options: {
           downloadAssets: attachments.checked,
           useDesktopCache: desktopCache.checked,
           variant: variant.value,
+          copiedBlocks: variant.value === "notdown" ? copiedBlocks : undefined,
         }),
       }, showProgress);
       if (!dialog.isConnected) return;

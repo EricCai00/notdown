@@ -1,6 +1,7 @@
 declare global {
   interface Window {
     notdownDesktop?: {
+      notionImportClipboard?: { get(): Promise<string> };
       notionImportToken: { get(): Promise<string>; set(token: string): Promise<void> };
       quit(): Promise<void>;
       onQuitState(callback: (active: boolean) => void): void;

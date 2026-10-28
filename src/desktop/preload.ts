@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("notdownDesktop", {
+  notionImportClipboard: { get: () => ipcRenderer.invoke("notion:clipboard:get") },
   notionImportToken: {
     get: () => ipcRenderer.invoke("notion:token:get"),
     set: (token: string) => ipcRenderer.invoke("notion:token:set", token),

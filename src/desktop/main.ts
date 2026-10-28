@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, safeStorage, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -7,6 +7,7 @@ import type { Server } from "node:http";
 import { createApp } from "../../server/app.js";
 import { createManagedVaultFolder, listManagedVaults, loadLocalEnv, resolveVaultLocation } from "../../server/vault-location.js";
 import { DesktopLifecycle } from "./lifecycle.js";
+import { readNotionClipboard } from "./notion-clipboard.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const welcomeURL = pathToFileURL(path.join(directory, "welcome.html")).href;
@@ -223,6 +224,7 @@ else {
       } });
     ipcMain.handle("app:quit", event => { trusted(event); void desktopLifecycle.requestQuit(); });
     ipcMain.handle("notion:token:get", event => { trusted(event); return readNotionToken(); });
+    ipcMain.handle("notion:clipboard:get", async event => { trusted(event); return readNotionClipboard(await clipboard.read()); });
     ipcMain.handle("notion:token:set", (event, token: unknown) => { trusted(event); return writeNotionToken(token); });
     ipcMain.handle("vault:welcome", event => { trusted(event); showWelcome(); });
     ipcMain.handle("vault:recents", event => { trusted(event, true); return recents(); });
