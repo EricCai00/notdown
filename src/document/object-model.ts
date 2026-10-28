@@ -75,11 +75,11 @@ export const objectMarkSpecs: Record<string, MarkSpec> = {
   small_caps: { attrs: attrs({ attributes: { class: "smallcaps" }, syntaxForm: "bracketed" }), parseDOM: [{ tag: "span.smallcaps", getAttrs: dom => ({ attributes: Object.fromEntries([...dom.attributes].map(a => [a.name, a.value])), syntaxForm: "html" }) }, { style: "font-variant=small-caps" }], toDOM: m => ["span", { ...domAttributes(m.attrs.attributes), class: "smallcaps " + (domAttributes(m.attrs.attributes).class || ""), style: "font-variant:small-caps" }, 0] },
 };
 export const objectSamples: Record<string, string> = {
-  web_embed: '<web-embed url="https://example.com"/>',
-  tabs: '<tabs active="0">\n<tab title="First">\nFirst tab content\n</tab>\n<tab title="Second">\nSecond tab content\n</tab>\n</tabs>',
-  web_bookmark: '<bookmark url="https://example.com" title="Example" description="Bookmark description" caption=""/>',
+  web_embed: '<embed source="https://example.com"></embed>',
+  tabs: '<tabs>\n\t<tab>\n\t\tFirst\n\t\tFirst tab content\n\t</tab>\n\t<tab>\n\t\tSecond\n\t\tSecond tab content\n\t</tab>\n</tabs>',
+  web_bookmark: '<bookmark source="https://example.com">Example</bookmark>',
   link_preview: '<link-preview url="https://example.com" title="Example" description="Link description"/>',
   breadcrumb: '<breadcrumb path=""/>', button: '<button label="New task" icon="＋" actions="[{&quot;type&quot;:&quot;insert-blocks&quot;,&quot;position&quot;:&quot;below&quot;,&quot;content&quot;:&quot;- [ ] New task&quot;}]"/>',
-  meeting_notes: '<meeting-notes title="Meeting notes" audio="">\nWrite meeting notes here.\n</meeting-notes>',
+  meeting_notes: '<meeting-notes>\n\tMeeting notes\n\t<notes>\n\t\tWrite meeting notes here.\n\t</notes>\n</meeting-notes>',
   ai_block: '<ai-block prompt="Summarize the following text" model="">\nWrite text to summarize here.\n</ai-block>',
 };

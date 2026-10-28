@@ -186,6 +186,24 @@ const kids = (node: PMNode): PMNode[] => {
 const paragraph = (text = "", attrs: Record<string, unknown> = {}) =>
   schema.nodes["block.paragraph"].create(attrs, notionInline(text));
 const nonempty = (nodes: PMNode[]) => (nodes.length ? nodes : [paragraph()]);
+// CommonMark lists and Markdown table cells emit standalone images as inline
+// nodes. In Notion v2 they retain their source but project as media blocks.
+function notionMediaBlocks(node: PMNode): PMNode {
+  let next: PMNode;
+  if (isEditorKind(node, "paragraph") && node.childCount === 1 && isEditorKind(node.firstChild, "image")) {
+    const image = node.firstChild!;
+    next = createEditorNode(schema, "image_block", { ...node.attrs, syntaxForm: "notion",
+      src: image.attrs.src, caption: image.attrs.alt || "", title: image.attrs.title || "",
+      markdownAttrs: image.attrs.markdownAttrs });
+  } else {
+    if (node.isLeaf) return node;
+    const children = kids(node).map(notionMediaBlocks);
+    if (children.every((child, index) => child === node.child(index))) return node;
+    if (["blockquote", "toggle_block"].includes(editorKind(node)) && !children[0]?.isTextblock) children.unshift(paragraph());
+    next = node.type.createAndFill(node.attrs, children, node.marks)!;
+  }
+  return next.type.create({ ...next.attrs, sourceFingerprint: editorFingerprint(next) }, next.content, next.marks);
+}
 const indent = (source: string) =>
   source
     .split("\n")
@@ -351,6 +369,15 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     order?: number;
   } {
     const text = textAt(from);
+    // Notdown is a union of the published formats: canonical media carriers
+    // are also readable in notes that predate the v2 page setting.
+    if (version !== "v2" && extensions && /^<(?:bookmark|embed)\s[^>]*\bsource=|^<link-preview(?:\s|\/?>)/.test(text)) {
+      const raw = lines.slice(from, end).map(line => line.slice(level));
+      const result = readNotionV2Block(raw, 0, raw.length,
+        source => parseNotionMarkdown(source, allowObject, extensions, version),
+        source => extensions.inline(source), (body, attrs) => parseTable(body, attrs, extensions.inline, true), true);
+      if (result) return { node: result.node, next: from + result.next };
+    }
     if (version === "v2" && text.trimStart().startsWith("![")) {
       const parsed = lineAttributes(text), tokens = md.parseInline(parsed.text.trim(), { mediaImage: true, notionV2: true })[0]?.children ?? [];
       if (tokens.length === 1 && tokens[0].type === "image") {
@@ -764,6 +791,7 @@ export function parseNotionMarkdown(source: string, allowObject: (name: string) 
     return result;
   }
   let nodes = sequence(0, lines.length, version === "v2" ? depthAt(Math.max(0, lines.findIndex(line => line.trim()))) : 0);
+  if (version === "v2") nodes = nodes.map(notionMediaBlocks);
   // A stray column or any future structural element must remain recoverable.
   nodes = nodes.map((node) =>
     node.type.isInGroup("block")
@@ -983,6 +1011,8 @@ export function notionBlockMarkdown(node: PMNode, write: (node: PMNode) => strin
     }
     case "opaque_block":
       return node.attrs.raw;
+    case "syntax_block":
+      return node.attrs.kind === "diagram" ? node.attrs.raw : node.textContent;
     default:
       return node.textContent;
   }

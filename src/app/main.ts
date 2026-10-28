@@ -8,12 +8,13 @@ import { openNotionImportDialog } from "../features/vault/notion-import-dialog";
 import { refreshExternalEntities } from "../features/references/external-client";
 import { openExternalLibrary } from "../features/references/external-library-dialog";
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
-import type { Database, DatabaseDataSource, DatabaseSnapshot } from "../features/databases/database-model";
+import type { Database, DatabaseDataSource, DatabaseSnapshot, DatabaseView } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
 import { databaseReference } from "../features/databases/database-reference";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { openVaultManager } from "../features/vault/vault-manager";
 import { applySidebarPreferences, mountSidebarPreferences } from "./sidebar-preferences";
+import { readSidebarTreePreferences, SidebarTreeExpansion, sidebarTreeKey, sidebarTreeChanged } from "./sidebar-tree-state";
 import { applyMarkdownControlPreferences, mountMarkdownControlPreferences } from "./markdown-control-preferences";
 import { mountSettingsLayout } from "./settings-layout";
 import { WorkspaceTabs, renderWorkspaceTabs } from "./workspace-tabs";
@@ -42,6 +43,9 @@ import { mountServiceSettings } from "./service-settings";
 import { mountRuntimeSettings } from "./runtime-settings";
 import { mountSyncSettings, installSyncScheduler } from "../features/vault/sync-settings";
 import { mountHistorySettings } from "../features/vault/history-settings";
+import { mountChildPageSettings } from "../features/pages/child-page-settings";
+import { appendChildPageEntries } from "../features/pages/child-page-entries";
+import type { PageMutation } from "../vault/vault";
 import { openPageHistory } from "../features/pages/history-dialog";
 import { openPeople } from "../features/people/people-view";
 import { openAssetLibrary } from "../features/assets/asset-library";
@@ -96,7 +100,7 @@ let view: View = "document";
 let libraryView: LibraryView = "gallery";
 let library = false;
 let databaseWorkspace: DatabaseWorkspace | undefined;
-let databaseRoute: { kind: "database"; id?: string } | undefined;
+let databaseRoute: { kind: "database"; id?: string; viewId?: string } | undefined;
 let databaseSchemaRevision: string | undefined;
 let databases: Database[] = [];
 let databaseApiAvailable = true;
@@ -135,6 +139,7 @@ let slashCleanup: (() => void) | undefined;
 let tocCleanup: (() => void) | undefined;
 let graphCleanup: (() => void) | undefined;
 let pageActionBusy = false;
+const pendingChildEntries = new Map<string, Page[]>();
 let pageIconCleanup: (() => void) | undefined;
 let coverPickerCleanup: (() => void) | undefined;
 let coverRepositionCleanup: (() => void) | undefined;
@@ -197,7 +202,18 @@ const draftSession = (() => {
   }
 })();
 const draftKey = (id: string) => `notdown-draft:${vaultPrefix() ? vaultPrefix() + ":" : ""}${id}:${draftSession}`;
-const collapsed = new Set<string>();
+const treeExpansion = new SidebarTreeExpansion();
+let treePreferences = readSidebarTreePreferences();
+type SidebarViews = { revision: string; views?: DatabaseView[]; error?: boolean };
+const sidebarViews = new Map<string, SidebarViews>();
+function syncTreePreferences() {
+  const next = readSidebarTreePreferences();
+  if (next.expandDepth !== treePreferences.expandDepth) treeExpansion.reset();
+  treePreferences = next;
+  renderSidebar();
+}
+window.addEventListener(sidebarTreeChanged, syncTreePreferences);
+window.addEventListener("storage", event => { if (event.key === sidebarTreeKey || event.key === null) syncTreePreferences(); });
 const libraryTreeExpansion = new Map<string, boolean>();
 const childPageExpansion = new Map<string, boolean>();
 function recentPages(): string[] {
@@ -295,21 +311,25 @@ async function save(): Promise<boolean> {
       clearTimeout(saveTimer);
       if (!current || !dirty) return true;
       const draft = structuredClone(current);
+      const editorBody = draft.body;
+      const pendingEntries = pendingChildEntries.get(draft.id);
+      if (pendingEntries?.length) draft.body = appendChildPageEntries(draft, pendingEntries, [...pages, ...pendingEntries]).body;
       let schemaRevision = databaseSchemaRevision;
       if (draft.dataSourceId && !schemaRevision) {
         try { schemaRevision = localStorage.getItem(`${draftKey(draft.id)}:schema`) ?? undefined; } catch { /* Optional browser draft. */ }
         schemaRevision ??= (await api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(draft.dataSourceId)}`)).revision;
         if (current?.id === draft.id) { databaseSchemaRevision = schemaRevision; persistDraft(current); }
       }
-      const saved = await api<Page>(`/pages/${draft.id}`, {
+      const saved = await api<PageMutation>(`/pages/${draft.id}`, {
         method: "PUT",
         body: JSON.stringify({ ...draft, baseRevision: draft.revision, ...(schemaRevision ? { schemaRevision } : {}) }),
       });
       pages = pages.map((page) => (page.id === saved.id ? saved : page));
+      if (pendingChildEntries.get(draft.id) === pendingEntries) pendingChildEntries.delete(draft.id);
       if (current?.id === saved.id) {
         captureEditor();
         const unchanged =
-          current.body === draft.body &&
+          current.body === editorBody &&
           current.bodyFormat === draft.bodyFormat &&
           JSON.stringify(current.syntax) === JSON.stringify(draft.syntax) &&
           current.title === draft.title &&
@@ -323,7 +343,12 @@ async function save(): Promise<boolean> {
         current.revision = saved.revision;
         current.updated = saved.updated;
         if (unchanged) {
+          const sourceChanged = current.body !== saved.body;
           Object.assign(current, saved);
+          if (sourceChanged) {
+            if (workspace) workspace.applySavedSource(saved.body);
+            else { destroyEditor(); renderDocument(); }
+          }
           const title = document.querySelector<HTMLTextAreaElement>("#page-title");
           if (title) title.value = saved.title;
           renderPageDecoration();
@@ -358,6 +383,22 @@ function pageIcon(page: Page) {
   return pageIconElement(page.icon).outerHTML;
 }
 let sidebarSnapshot: { container: Element; key: string } | undefined;
+function readSidebarViews(database: Database): SidebarViews {
+  const cached = sidebarViews.get(database.id);
+  if (cached?.revision === database.revision) return cached;
+  const state: SidebarViews = { revision: database.revision };
+  sidebarViews.set(database.id, state);
+  void api<DatabaseSnapshot>(`/databases/${encodeURIComponent(database.id)}`).then(snapshot => {
+    if (sidebarViews.get(database.id) !== state) return;
+    state.views = snapshot.views;
+    renderSidebar();
+  }).catch(() => {
+    if (sidebarViews.get(database.id) !== state) return;
+    state.error = true;
+    renderSidebar();
+  });
+  return state;
+}
 function renderSidebar() {
   renderTabs();
   if (sidebarDrag.isDragging()) return;
@@ -365,9 +406,10 @@ function renderSidebar() {
   if (!container) return;
   const tree = databaseTree(pages, databases);
   const activeId = databaseRoute?.id ? (databases.find(item => item.id === databaseRoute!.id)?.pageId ?? databaseRoute.id) : current?.id;
+  const activeViewId = databaseWorkspace?.selectedViewId;
   const key = JSON.stringify([
     tree.pages.map(page => [page.id, page.parent, page.title, page.icon, page.favorite, page.sidebarOrder, page.databaseId, page.dataSourceId]),
-    [...collapsed],
+    treeExpansion.entries(), treePreferences, [...sidebarViews], databases.map(database => [database.id, database.revision, database.viewIds]), activeViewId,
   ]);
   if (sidebarSnapshot?.container === container && sidebarSnapshot.key === key) {
     for (const row of container.querySelectorAll<HTMLElement>("[data-page-row]")) {
@@ -384,21 +426,31 @@ function renderSidebar() {
     childrenByParent.set(page.parent, siblings);
   }
   for (const siblings of childrenByParent.values()) siblings.sort(comparePageOrder);
+  const databasesById = new Map(databases.map(database => [database.id, database]));
+  const viewIcons: Record<string, string> = { table: "table-2", board: "columns-3", gallery: "layout-grid", list: "list", calendar: "calendar" };
+  function viewRows(database: Database, depth: number): string {
+    const state = readSidebarViews(database);
+    if (!state.views) return `<div class="tree-row" style="--depth:${depth}"><button class="tree-page" ${state.error ? `data-retry-sidebar-views="${e(database.id)}"` : "disabled"}>${icon(state.error ? "rotate-cw" : "loader")}<span>${state.error ? "Retry loading views" : "Loading views…"}</span></button></div>`;
+    return state.views.map(view => `<div class="tree-row ${databaseRoute?.id === database.id && activeViewId === view.id ? "active" : ""}" data-database-view-row="${e(view.id)}" style="--depth:${depth}"><button class="tree-page" data-open-database="${e(database.id)}" data-database-view="${e(view.id)}">${icon(viewIcons[view.type] ?? "table-2")}<span>${e(view.name)}</span></button></div>`).join("") || `<p class="empty-small">No views yet.</p>`;
+  }
   function rows(parent: string | null, depth: number): string {
     return (childrenByParent.get(parent) ?? [])
       .map((p) => {
         if (visited.has(p.id)) return "";
         visited.add(p.id);
-        const children = childrenByParent.has(p.id);
+        const database = p.databaseId ? databasesById.get(p.databaseId) : undefined;
+        const showViews = treePreferences.databaseChildren === "views" && !!database;
+        const children = showViews ? !!database.viewIds.length : childrenByParent.has(p.id);
+        const expanded = treeExpansion.isExpanded(p.id, depth, treePreferences.expandDepth);
         return `<div data-page-row="${e(p.id)}" ${p.databaseId ? `data-database-row="${e(p.databaseId)}"` : ""} class="tree-row ${activeId === p.id && !library ? "active" : ""}" style="--depth:${depth}" ${p.parent ? `data-tree-parent="${e(p.parent)}"` : ""}>
-        ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}" aria-expanded="${!collapsed.has(p.id)}">${icon(collapsed.has(p.id) ? "chevron-right" : "chevron-down")}</button>` : ""}
+        ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}" aria-expanded="${expanded}">${icon(expanded ? "chevron-down" : "chevron-right")}</button>` : ""}
         <button class="tree-page" draggable="${!p.dataSourceId && !tree.virtualIds.has(p.id)}" ${p.databaseId ? `data-open-database="${e(p.databaseId)}" data-open="${e(p.id)}"` : `data-open="${e(p.id)}"`}>${pageIcon(p)}<span>${e(p.title)}</span></button>
-        ${tree.virtualIds.has(p.id) ? "" : `<button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button>`}${p.databaseId ? `<button class="tree-add" data-database-new-record="${e(p.databaseId)}" aria-label="Add database record">${icon("plus")}</button>` : `<button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button>`}</div>${collapsed.has(p.id) ? "" : rows(p.id, depth + 1)}`;
+        ${tree.virtualIds.has(p.id) ? "" : `<button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button>`}${p.databaseId ? `<button class="tree-add" data-database-new-record="${e(p.databaseId)}" aria-label="Add database record">${icon("plus")}</button>` : `<button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button>`}</div>${!expanded ? "" : showViews ? viewRows(database, depth + 1) : rows(p.id, depth + 1)}`;
       })
       .join("");
   }
   container.innerHTML =
-    rows(null, 0) || `<p class="empty-small">No pages yet. Write down your first idea.</p>`;
+    rows(null, 0) || `<p class="empty-small">No pages yet.</p>`;
   const favorites = document.querySelector("#favorite-pages");
   if (favorites) favorites.innerHTML = tree.pages.some((page) => page.favorite)
     ? `<div class="section-label">Favorites</div>${tree.pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="${!page.dataSourceId}" ${page.databaseId ? `data-open-database="${e(page.databaseId)}" data-open="${e(page.id)}"` : `data-open="${e(page.id)}"`}>${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
@@ -731,11 +783,19 @@ function renderContent() {
           () => generation === editorGeneration && current?.id === pageId && isCurrent()),
         onCreatePage: async (title, parent) => {
           if (generation !== editorGeneration || current?.id !== pageId) return null;
-          const created = await api<Page>("/pages", {
+          if (!await save()) return null;
+          const ownerRevision = current.revision;
+          const created = await api<PageMutation>("/pages", {
             method: "POST",
             body: JSON.stringify({ title, parent, icon: "file-text", body: "", properties: {} }),
           });
           pages = [...pages.filter(page => page.id !== created.id), created];
+          const updated = created.relatedPages?.find(page => page.id === current?.id);
+          if (updated && current?.id === pageId && current.revision === ownerRevision) {
+            current.revision = updated.revision;
+            pendingChildEntries.set(pageId, [...(pendingChildEntries.get(pageId) ?? []), created]);
+            markDirty();
+          }
           renderSidebar();
           return created;
         },
@@ -781,7 +841,7 @@ function renderContent() {
       current.bodyFormat,
       current.syntax,
     );
-    content.innerHTML = `<p class="view-description">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="${view === "mindmap" ? "mindmap" : "outline-view"}">${view === "mindmap" ? `<div class="mindmap-root">${e(current.title)}</div>` : ""}${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3>Give your notes some structure</h3><p>Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button">Start editing</button></div>`}`;
+    content.innerHTML = `<p class="view-description">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="${view === "mindmap" ? "mindmap" : "outline-view"}">${view === "mindmap" ? `<div class="mindmap-root">${e(current.title)}</div>` : ""}${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3>No outline yet</h3><p>Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button">Start editing</button></div>`}`;
   }
   renderToc();
   refreshIcons();
@@ -789,19 +849,14 @@ function renderContent() {
 function outlineHTML(nodes: OutlineNode[]): string {
   return `<ul>${nodes.map((node) => `<li><details open><summary><span class="outline-dot"></span>${e(node.text)}</summary>${node.children.length ? outlineHTML(node.children) : ""}</details></li>`).join("")}</ul>`;
 }
-function documentHeadings() {
-  return Array.from(
-    document.querySelectorAll<HTMLElement>(
-      "#editor .pm-document :is(h1,h2,h3,h4,h5,h6)",
-    ),
-  );
-}
 function renderToc() {
   tocCleanup?.();
   tocCleanup = undefined;
   const toc = document.querySelector<HTMLElement>("#floating-toc");
   if (!toc) return;
-  const headings = documentHeadings();
+  // Node views can contain their own h1–h6 (for example a meeting card title).
+  // Only document heading nodes belong in page navigation.
+  const headings = editor?.headingElements() ?? [];
   toc.hidden = view !== "document" || !headings.length;
   if (toc.hidden) {
     toc.replaceChildren();
@@ -1076,7 +1131,8 @@ function closeModal() {
 async function newPage(parent: string | null = null, embed = false) {
   if (!(await save())) return;
   const ownerId = current?.id;
-  const page = await api<Page>("/pages", {
+  const ownerRevision = current?.revision;
+  const page = await api<PageMutation>("/pages", {
     method: "POST",
     body: JSON.stringify({
       title: "New page",
@@ -1087,12 +1143,23 @@ async function newPage(parent: string | null = null, embed = false) {
     }),
   });
   pages.push(page);
+  const updatedOwner = page.relatedPages?.find(page => page.id === ownerId);
+  if (updatedOwner && current && current.id === ownerId && current.revision === ownerRevision) {
+    current.revision = updatedOwner.revision;
+    if (!embed) {
+      // This response contains our own append. Preserve any input typed during the request.
+      pendingChildEntries.set(current.id, [...(pendingChildEntries.get(current.id) ?? []), page]);
+      dirty = true;
+    }
+  }
+  if (parent) treeExpansion.set(parent, true);
   if (embed && current?.id === ownerId) {
     insertMarkdown(
       `\n<page url="${escapeXml(pageUrl(page.id))}">${escapeXml(page.title)}</page>\n`,
     );
     if (!(await save())) return;
   }
+  if (updatedOwner && !embed && !await save()) return;
   closeModal();
   view = "document";
   await openPage(page.id);
@@ -1119,8 +1186,8 @@ async function createDatabase(parent: string | null, mode?: "inline" | "full") {
       body: JSON.stringify({ title: "New database", parent, ...(parentPage ? { parentRevision: parentPage.revision } : {}) }),
     });
     pages = await refreshWorkspacePages();
-    if (parent) collapsed.delete(parent);
-    collapsed.delete(snapshot.database.pageId ?? snapshot.database.id);
+    if (parent) treeExpansion.set(parent, true);
+    treeExpansion.set(snapshot.database.pageId ?? snapshot.database.id, true);
     renderSidebar();
     if (location.hash !== originalRoute) return;
     if (mode && current?.id === ownerId) {
@@ -1205,14 +1272,14 @@ async function deleteChildPages(ids: string[], isCurrent: () => boolean): Promis
   });
 }
 
-async function loadDatabases(id?: string, isCurrent = () => true): Promise<boolean> {
+async function loadDatabases(id?: string, isCurrent = () => true, viewId?: string): Promise<boolean> {
   if (!(await save()) || !isCurrent()) return false;
   const loadedPages = await refreshWorkspacePages();
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   if (!databaseApiAvailable) {
     closeModal(); closePageContextMenu(); destroyEditor();
     current = null; library = false; dirty = false; pages = loadedPages;
-    databaseRoute = { kind: "database", ...(id ? { id } : {}) };
+    databaseRoute = { kind: "database", ...(id ? { id } : {}), ...(viewId ? { viewId } : {}) };
     document.querySelector("#main")!.innerHTML = `<section class="database-workspace"><h1>Databases</h1><p>${e(databaseRestartMessage)}</p><button class="primary-button" data-action="retry-databases">Check connection</button></section>`;
     renderPageOptions();
     renderSidebar(); updateCounts(); status("Server update needed", "error");
@@ -1221,6 +1288,16 @@ async function loadDatabases(id?: string, isCurrent = () => true): Promise<boole
   const host = document.createElement("div");
   const controller = new DatabaseWorkspace(host, {
     vaultKey: vaultPath,
+    initialViewId: viewId,
+    viewChanged: () => {
+      if (databaseWorkspace !== controller) return;
+      const selected = controller.selectedViewId;
+      if (id && selected && databaseRoute) {
+        databaseRoute.viewId = selected;
+        navigation?.selectDatabaseView(id, selected);
+      }
+      renderSidebar();
+    },
     openPage,
     openDatabase: id => navigation?.navigate({ kind: "database", ...(id ? { id } : {}) }) ?? Promise.resolve(false),
     changed: saved => { const index = pages.findIndex(page => page.id === saved.id); if (index < 0) pages.push(saved); else pages[index] = saved; renderSidebar(); },
@@ -1232,7 +1309,7 @@ async function loadDatabases(id?: string, isCurrent = () => true): Promise<boole
   closeModal(); closePageContextMenu(); destroyEditor();
   current = null; library = false; dirty = false;
   pages = loadedPages;
-  databaseWorkspace = controller; databaseRoute = { kind: "database", ...(id ? { id } : {}) };
+  databaseWorkspace = controller; databaseRoute = { kind: "database", ...(id ? { id } : {}), ...(viewId ? { viewId } : {}) };
   document.querySelector("#main")!.replaceChildren(host);
   document.querySelector("#breadcrumb")!.textContent = "Databases";
   const sourceMenu = document.querySelector<HTMLElement>("#source-file-options"); if (sourceMenu) sourceMenu.hidden = true;
@@ -1294,14 +1371,14 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
       : base.body;
     const schemaRevision = base.dataSourceId && patch !== "duplicate" && patch.title !== undefined
       ? (await api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(base.dataSourceId)}`)).revision : undefined;
-    const saved = await api<Page>(`/pages/${page.id}${move ? "/move" : patch === "duplicate" ? "/duplicate" : ""}`, {
+    const saved = await api<PageMutation>(`/pages/${page.id}${move ? "/move" : patch === "duplicate" ? "/duplicate" : ""}`, {
       method: move || patch === "duplicate" ? "POST" : "PUT",
       body: JSON.stringify({ ...(move ?? (patch === "duplicate" ? {} : patch)), ...(renamedBody !== base.body ? { body: renamedBody } : {}), baseRevision: base.revision, ...(schemaRevision ? { schemaRevision } : {}) }),
     });
     if (patch !== "duplicate" && Object.entries(patch).some(([key, value]) => saved[key as keyof Page] !== value))
       toast("Document metadata overrides this property. Edit its YAML or title block to change it.");
     if (patch !== "duplicate" && current?.id === saved.id) {
-      if (renamedBody !== base.body) {
+      if (renamedBody !== base.body || saved.body !== base.body) {
         destroyEditor();
         current = saved;
         renderDocument();
@@ -1314,6 +1391,12 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
       if (parent) parent.value = saved.parent ?? "";
     }
     pages = await refreshWorkspacePages();
+    const related = saved.relatedPages?.find(page => page.id === current?.id);
+    if (related && current && !dirty && !editorChanged) {
+      Object.assign(current, related);
+      if (workspace) workspace.applySavedSource(related.body);
+      else { destroyEditor(); renderDocument(); }
+    }
     closeModal();
     if (current && !pages.some((item) => item.id === current!.id)) {
       destroyEditor();
@@ -1374,7 +1457,27 @@ function pageActionForm(page: Page, action: "rename" | "move") {
 }
 
 async function handlePageAction(page: Page, action: PageAction) {
-  if (action === "open-tab") {
+  if (action === "insert-parent") {
+    if (pageActionBusy) return;
+    pageActionBusy = true; app.inert = true;
+    try {
+      if (!await save()) return;
+      const child = current?.id === page.id ? current : pages.find(item => item.id === page.id) ?? page;
+      const parent = current?.id === child.parent ? current : pages.find(item => item.id === child.parent);
+      if (!parent) throw new Error("Open an active child page with a parent first.");
+      const saved = await api<Page>(`/pages/${page.id}/insert-into-parent`, { method: "POST",
+        body: JSON.stringify({ baseRevision: child.revision, parentRevision: parent.revision }) });
+      const changed = saved.revision !== parent.revision;
+      pages = await refreshWorkspacePages();
+      if (current?.id === saved.id) {
+        Object.assign(current, saved);
+        if (workspace) workspace.applySavedSource(saved.body);
+        else { destroyEditor(); renderDocument(); }
+      }
+      renderSidebar(); renderRelations();
+      toast(changed ? "Child page inserted at the end of its parent page." : "This child page already has an entry in its parent page.");
+    } finally { app.inert = false; pageActionBusy = false; }
+  } else if (action === "open-tab") {
     await workspaceTabs?.open(page.databaseId ? { kind: "database", id: page.databaseId } : { kind: "page", id: page.id });
   } else if (action === "link") {
     const url = new URL(location.href);
@@ -1454,23 +1557,24 @@ async function recycleTrashPage(page: Page, all: Page[]) {
 }
 
 function sidebarContextMenu(target: Element, x?: number, y?: number) {
-  const row = target.closest<HTMLElement>("[data-page-row]");
+  const row = target.closest<HTMLElement>("[data-page-row], .child-card[data-open]");
   if (!row || pageActionBusy) return;
   captureEditor();
-  const page = current?.id === row.dataset.pageRow ? current : pages.find((item) => item.id === row.dataset.pageRow);
+  const id = row.dataset.pageRow ?? row.dataset.open;
+  const page = current?.id === id ? current : pages.find((item) => item.id === id);
   if (!page) return;
-  const anchor = row.querySelector<HTMLElement>("[data-page-menu]")!;
+  const anchor = row.querySelector<HTMLElement>("[data-page-menu]") ?? row;
   const rect = anchor.getBoundingClientRect();
   showPageContextMenu(structuredClone(page), x ?? rect.right, y ?? rect.bottom, anchor, (action) => void handlePageAction(structuredClone(page), action).catch(report));
 }
 
 document.addEventListener("contextmenu", (event) => {
-  if (!(event.target as Element).closest("[data-page-row]")) return;
+  if (!(event.target as Element).closest("[data-page-row], .child-card[data-open]")) return;
   event.preventDefault();
   sidebarContextMenu(event.target as Element, event.clientX, event.clientY);
 });
 document.addEventListener("keydown", (event) => {
-  if ((event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) && (event.target as Element).closest("[data-page-row]")) {
+  if ((event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) && (event.target as Element).closest("[data-page-row], .child-card[data-open]")) {
     event.preventDefault();
     sidebarContextMenu(event.target as Element);
   }
@@ -1636,7 +1740,7 @@ function startCoverReposition() {
 function showSettings() {
   const settingsDialog = modal(
     "Workspace settings",
-    `<div class="settings-section" data-settings-category="workspace"><h3>Your files belong to you</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section" data-settings-category="appearance"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section" data-settings-category="advanced"><h3>About Notdown</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync in Sync &amp; history to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
+    `<div class="settings-section" data-settings-category="workspace"><h3>Vault storage</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section" data-settings-category="appearance"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section" data-settings-category="advanced"><h3>About Notdown</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync in Sync &amp; history to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
   );
   settingsDialog.classList.add("workspace-settings-dialog");
   settingsDialog.setAttribute("aria-label", "Workspace settings");
@@ -1717,6 +1821,20 @@ function showSettings() {
   void mountServiceSettings(groups.connections);
   void mountSyncSettings(groups.sync, { beforeSync: save });
   void mountHistorySettings(groups.sync, save);
+  void mountChildPageSettings(groups.editing, {
+    beforeChange: save,
+    busy: value => { pageActionBusy = value; document.querySelector<HTMLElement>("#main")!.inert = value; },
+    afterChange: async () => {
+      pages = await refreshWorkspacePages();
+      const fresh = pages.find(page => page.id === current?.id);
+      if (fresh && current) {
+        Object.assign(current, fresh);
+        if (workspace) workspace.applySavedSource(fresh.body);
+        else { destroyEditor(); renderDocument(); }
+      }
+      renderSidebar(); renderRelations();
+    },
+  });
   mountSidebarPreferences(groups.appearance);
   mountMarkdownControlPreferences(groups.editing);
   groups.advanced.append(groups.appearance.querySelector(".experimental-preferences")!);
@@ -2231,7 +2349,7 @@ async function handleInsert(id: string) {
   }
   if (id === "embed") {
     const localWeb = !workspace || enabled(workspace.session.snapshot.config, "notion_web_embed");
-    insertMarkdown("\n\n" + (localWeb ? '<web-embed/>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
+    insertMarkdown("\n\n" + (localWeb ? '<embed source=""></embed>' : '<iframe src="" title="Web embed"></iframe>') + "\n\n");
     return;
   }
   if (id === "tabs" && workspace && ["notdown", "notion-markdown"].includes(workspace.session.snapshot.config.variant)) {
@@ -2244,9 +2362,9 @@ async function handleInsert(id: string) {
   if (objectSamples[id]) {
     const emptyObjects: Record<string, string> = {
       button: '<button label="Button" actions="[]"/>', ai_block: '<ai-block/>',
-      web_bookmark: '<bookmark/>', link_preview: '<link-preview/>', breadcrumb: '<breadcrumb/>',
-      tabs: '<tabs>\n<tab title="">\n\n</tab>\n<tab title="">\n\n</tab>\n</tabs>',
-      meeting_notes: '<meeting-notes title="">\n\n</meeting-notes>',
+      web_bookmark: '<bookmark source=""></bookmark>', link_preview: '<link-preview/>', breadcrumb: '<breadcrumb/>',
+      tabs: objectSamples.tabs,
+      meeting_notes: objectSamples.meeting_notes,
     };
     if (emptyObjects[id]) insertMarkdown("\n\n" + emptyObjects[id] + "\n\n");
     return;
@@ -2527,7 +2645,7 @@ async function exportHTML() {
 function routeForNewTab(target: EventTarget | null): PageRoute | undefined {
   const element = target instanceof Element ? target.closest<HTMLElement>("[data-open-database],[data-open],a[href]") : null;
   if (!element || element.closest("#workspace-tabs")) return;
-  if (element.dataset.openDatabase) return { kind: "database", id: element.dataset.openDatabase };
+  if (element.dataset.openDatabase) return { kind: "database", id: element.dataset.openDatabase, ...(element.dataset.databaseView ? { viewId: element.dataset.databaseView } : {}) };
   if (element.dataset.open) {
     const page = pages.find(page => page.id === element.dataset.open);
     if (page) return page.databaseId ? { kind: "database", id: page.databaseId } : { kind: "page", id: page.id };
@@ -2566,7 +2684,7 @@ document.addEventListener("keydown", event => {
 document.addEventListener("click", (event) => {
   const target = event.target as Element;
   const actionEl = target.closest<HTMLElement>(
-    "[data-action],[data-source-file],[data-current-page-action],[data-page-menu],[data-open],[data-open-database],[data-database-new-record],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
+    "[data-action],[data-source-file],[data-current-page-action],[data-page-menu],[data-open],[data-open-database],[data-retry-sidebar-views],[data-database-new-record],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
   );
   if (!actionEl) return;
   event.preventDefault();
@@ -2592,8 +2710,9 @@ document.addEventListener("click", (event) => {
       return;
     }
     if (actionEl.dataset.openDatabase) {
-      closeModal(); await navigation?.navigate({ kind: "database", id: actionEl.dataset.openDatabase }); return;
+      closeModal(); await navigation?.navigate({ kind: "database", id: actionEl.dataset.openDatabase, ...(actionEl.dataset.databaseView ? { viewId: actionEl.dataset.databaseView } : {}) }); return;
     }
+    if (actionEl.dataset.retrySidebarViews) { sidebarViews.delete(actionEl.dataset.retrySidebarViews); renderSidebar(); return; }
     if (actionEl.dataset.databaseNewRecord) { await addDatabaseRecord(actionEl.dataset.databaseNewRecord); return; }
     if (actionEl.dataset.open) {
       closeModal();
@@ -2628,7 +2747,7 @@ document.addEventListener("click", (event) => {
     if (actionEl.dataset.toggle) {
       const id = actionEl.dataset.toggle;
       const restoreFocus = document.activeElement === actionEl;
-      collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
+      treeExpansion.set(id, actionEl.getAttribute("aria-expanded") !== "true");
       renderSidebar();
       if (restoreFocus) document.querySelector<HTMLButtonElement>(`[data-toggle="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
       return;
@@ -2680,7 +2799,7 @@ document.addEventListener("click", (event) => {
         break;
       case "retry-databases": {
         if (!(await save())) break;
-        if (databaseRoute) await loadDatabases(databaseRoute.id);
+        if (databaseRoute) await loadDatabases(databaseRoute.id, undefined, databaseRoute.viewId);
         else { pages = await refreshWorkspacePages(); renderSidebar(); if (!databaseApiAvailable) toast(databaseRestartMessage); }
         break;
       }
@@ -2755,7 +2874,20 @@ document.addEventListener("click", (event) => {
         break;
       case "external-references":
         closeModal();
-        await openExternalLibrary();
+        if (!(await save())) break;
+        await openExternalLibrary({ onError: report, onOpenReference: async origin => {
+          if (!(await navigation?.navigate({ kind: "page", id: origin.pageId })) || current?.id !== origin.pageId) return;
+          if (origin.location === "Properties") { showProperties(); return; }
+          workspace?.capture();
+          if (view !== "document" && view !== "split") {
+            if (workspace) { if (!(await workspace.setMode("document"))) return; }
+            else { view = "document"; renderDocument(); }
+            view = "document";
+            renderPageOptions(); renderToc();
+          }
+          if (!origin.key || origin.occurrence === undefined || !editor?.scrollToReferenceOccurrence({ key: origin.key, occurrence: origin.occurrence }))
+            toast("Reference location not found. It may have changed since the list was opened.");
+        } });
         break;
       case "import-notion":
         closeModal();
@@ -3020,7 +3152,7 @@ const sidebarDrag = installSidebarDrag({
   drop: (page, move) => {
     if (move === "trash") void handlePageAction(page, "trash").catch(report);
     else {
-      if (move.parent) collapsed.delete(move.parent);
+      if (move.parent) treeExpansion.set(move.parent, true);
       void mutateSidebarPage(page, { parent: move.parent, sidebarOrder: move.sidebarOrder }, move).then((success) => {
         if (success) toast("Page moved.");
       }).catch(report);
@@ -3050,6 +3182,7 @@ document.addEventListener("notdown-database-record-saved", event => {
 document.addEventListener("notdown-database-updated", event => {
   const snapshot = (event as CustomEvent<DatabaseSnapshot>).detail;
   if (!snapshot?.database?.id) return;
+  sidebarViews.set(snapshot.database.id, { revision: snapshot.database.revision, views: snapshot.views });
   databases = databases.map(database => database.id === snapshot.database.id ? snapshot.database : database);
   if (snapshot.hostPage && current?.id !== snapshot.hostPage.id) {
     const host = snapshot.hostPage;
@@ -3080,7 +3213,7 @@ async function boot() {
   const saved = localStorage.getItem("notdown-page");
   const route = parseRoute(location.hash);
   const linked = route?.kind === "page" ? route.id : null;
-  if (route?.kind === "database") await loadDatabases(route.id);
+  if (route?.kind === "database") await loadDatabases(route.id, undefined, route.viewId);
   else if (pages.length && route?.kind !== "vault")
     await loadPage(pages.find((p) => p.id === linked || linked && p.legacyIds?.includes(linked))?.id || pages.find((p) => p.id === saved || saved && p.legacyIds?.includes(saved))?.id || pages[0].id);
   else await loadLibrary(route?.kind === "vault" ? route.view : "gallery");
@@ -3088,7 +3221,7 @@ async function boot() {
     databaseRoute ?? (current && !library ? { kind: "page", id: current.id, ...(route?.kind === "page" && route.id === current.id && route.fragment ? { fragment: route.fragment } : {}) } : { kind: "vault", view: libraryView }),
     async (route, isCurrent, allowTrashed) => {
       workspaceTabs?.capture();
-      if (route.kind === "database") return loadDatabases(route.id, isCurrent);
+      if (route.kind === "database") return loadDatabases(route.id, isCurrent, route.viewId);
       if (route.kind === "vault") return loadLibrary(route.view, isCurrent);
       const loaded = await loadPage(route.id, allowTrashed, isCurrent);
       if (loaded && isCurrent() && route.fragment) revealReference(internalReference("#" + encodeURIComponent(route.fragment))!);

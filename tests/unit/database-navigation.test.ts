@@ -9,6 +9,8 @@ test("database routes retain distinct collection and database identities", () =>
   assert.equal(routeHash({ kind: "database", id: "abc/def" }), "#database/abc%2Fdef");
   assert.equal(parseRoute("#database/"), null);
   assert.equal(parseRoute("#database/%zz"), null);
+  const viewRoute = { kind: "database", id: "abc/def", viewId: "view/? a" } as const;
+  assert.deepEqual(parseRoute(routeHash(viewRoute)), viewRoute);
   assert.deepEqual(parseRoute("#page/example#anchor"), { kind: "page", id: "example", fragment: "anchor" });
   assert.deepEqual(parseRoute("#vault/list"), { kind: "vault", view: "list" });
 });

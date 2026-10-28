@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 
 async function readNotes(vaultPath: string) {
   const files = await fs.readdir(path.join(vaultPath, "pages"));
@@ -15,6 +16,36 @@ async function readNotes(vaultPath: string) {
     return { ...defaults, ...(match ? parse(match[1]) : {}), body: match ? source.slice(match[0].length) : source };
   }));
 }
+
+test("desktop bookmarks follow the system session proxy and changes without restarting the vault", async () => {
+  const requests: string[] = [];
+  const proxy = createServer((req, res) => {
+    requests.push(req.url!);
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end("<title>Desktop proxy bookmark</title>");
+  });
+  await new Promise<void>(resolve => proxy.listen(0, "127.0.0.1", resolve));
+  const address = proxy.address();
+  if (!address || typeof address === "string") throw new Error("Proxy did not start");
+  try {
+    const vaultPath = path.join(root, "Proxy bookmarks"); await fs.mkdir(vaultPath);
+    const page = await chooseFolder(vaultPath, "create");
+    await desktop.evaluate(async ({ session }, port) => {
+      await session.defaultSession.setProxy({ proxyRules: `127.0.0.1:${port}` });
+    }, address.port);
+    const resolve = (url: string) => page.evaluate(async target => {
+      const response = await fetch("/api/bookmarks/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: target }) });
+      return { status: response.status, body: await response.json() };
+    }, url);
+    expect(await resolve("http://93.184.216.34/desktop-bookmark")).toMatchObject({ status: 200, body: { title: "Desktop proxy bookmark" } });
+    expect(requests).toEqual(["http://93.184.216.34/desktop-bookmark"]);
+    await desktop.evaluate(async ({ session }) => { await session.defaultSession.setProxy({ proxyRules: "127.0.0.1:1" }); });
+    expect((await resolve("http://93.184.216.34/desktop-bookmark")).status).toBe(502);
+    await desktop.evaluate(async ({ session }) => { await session.defaultSession.setProxy({ mode: "direct" }); });
+    expect((await resolve("http://127.0.0.1/private")).status).toBe(502);
+    expect(requests).toHaveLength(1);
+  } finally { proxy.closeAllConnections(); await new Promise<void>(resolve => proxy.close(() => resolve())); }
+});
 
 test("managed vaults use sibling named folders and remain separate", async () => {
   const welcome = await desktop.firstWindow();
@@ -46,6 +77,38 @@ test("desktop settings has grouped navigation and the Markdown display preferenc
   await page.screenshot({ path: ".run/logs/settings-desktop-packaged.png" });
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(dialog).toHaveCount(0);
+});
+
+test("Notion token is encrypted outside the vault and autofills after a desktop restart", async () => {
+  const vaultPath = path.join(root, "Notion token"); await fs.mkdir(vaultPath);
+  let page = await chooseFolder(vaultPath, "create");
+  const openImport = async () => {
+    await page.getByRole("button", { name: "Import", exact: true }).click();
+    await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  };
+  await openImport();
+  const token = "desktop-notion-test-key";
+  await page.getByLabel("Integration token", { exact: true }).fill(token);
+  const filename = path.join(root, "profile", "notion-import-token.bin");
+  await expect.poll(() => fs.readFile(filename).then(value => value.length).catch(() => 0)).toBeGreaterThan(0);
+  const encrypted = await fs.readFile(filename);
+  expect(encrypted.includes(Buffer.from(token))).toBe(false);
+  expect(await desktop.evaluate(({ safeStorage }, bytes) => safeStorage.decryptString(Buffer.from(bytes)), [...encrypted])).toBe(token);
+  expect(await fs.readdir(vaultPath)).not.toContain("notion-import-token.bin");
+  await page.screenshot({ path: ".run/logs/notion-token-desktop.png" });
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const closed = desktop.waitForEvent("close");
+  await desktop.evaluate(({ app }) => app.exit(0)); await closed;
+  desktop = await electron.launch({ executablePath: process.env.NOTDOWN_PACKAGED_EXE, args: [...launchArgs, `--vault=${vaultPath}`], env: launchEnv });
+  page = await desktop.firstWindow();
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await openImport();
+  await expect(page.getByLabel("Integration token", { exact: true })).toHaveValue(token);
+  await page.getByLabel("Integration token", { exact: true }).clear();
+  await expect.poll(() => fs.access(filename).then(() => true, () => false)).toBe(false);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await openImport();
+  await expect(page.getByLabel("Integration token", { exact: true })).toHaveValue("");
 });
 
 let root: string;
@@ -172,7 +235,7 @@ async function chooseFolder(folder: string, mode: "create" | "open") {
 }
 test("closing saves pending input to the vault, hides to tray and restores the same window and tabs", async () => {
   const welcome = await desktop.firstWindow();
-  await expect(welcome.getByRole("heading", { name: "A home for your notes." })).toBeVisible();
+  await expect(welcome.getByRole("heading", { name: "Notdown", exact: true })).toBeVisible();
   const vaultPath = path.join(root, "My vault"); await fs.mkdir(vaultPath);
   const page = await chooseFolder(vaultPath, "create");
   expect(await fs.readdir(path.join(vaultPath, "pages"))).toEqual([]);

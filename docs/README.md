@@ -30,6 +30,7 @@
 - [扩展来源](reference/EXTENSION-PROVENANCE.md)、[Notion 参考](reference/NOTION-REFERENCE.md)
 - [Notion MCP 规范语法与实现边界](reference/NOTION-MCP-SYNTAX.md)
 - [补充内容对象](reference/LOCAL-OBJECTS.md)、[产品语法](reference/PRODUCT-SYNTAX.md)
+- [保留的 Notdown 自定义语法及官方替代](reference/NOTDOWN-EXTENSIONS.md)
 - [HTTP API](reference/API.md)、[MyBase 集成](reference/MYBASE.md)
 
 ## 功能说明
@@ -65,6 +66,10 @@
 - [联系人](features/PEOPLE.md)
 
 ## 审计与验证记录
+
+- [Windows 0.1.6 发布验证（2026-10-28）](verification/RELEASE-0.1.6-2026-10-28.md)
+
+- [Notion AI block 缓存恢复与 Button 调查（2026-10-28）](verification/NOTION-AI-BLOCK-RECOVERY-2026-10-28.md)
 
 - [Windows 0.1.4 与 0.1.5 补丁验证（2026-10-27）](verification/RELEASE-0.1.4-2026-10-27.md)
 

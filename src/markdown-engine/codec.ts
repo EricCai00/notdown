@@ -5,6 +5,7 @@ import { objectTags } from "../document/object-model";
 import { localObjectPlugins } from "./presets";
 import { officialNotionObject } from "../document/notion-official-blocks";
 import { notionElement, notionV2BlockMarkdown } from "../document/notion-v2";
+import { canonicalNotionBlock } from "../document/canonical-notion";
 import { installNotionRichText } from "../document/notion-rich-text";
 import { isListItem } from "../document/list-items";
 import { normalizeExampleNumbering } from "../document/example-numbering";
@@ -42,7 +43,7 @@ import {
   type SyntaxConfig,
 } from "./config.js";
 import { installMarkdownBlocks } from "./blocks.js";
-import { installProductRules } from "./products.js";
+import { diagramLanguage, installProductRules } from "./products.js";
 import { readAttributes, writeAttributes } from "./attributes.js";
 import { renderRawHtml } from "./html.js";
 import { installDialectRules, dialectCodeBlock } from "./dialects.js";
@@ -669,6 +670,33 @@ export function parseNative(
   return depth === 0 ? normalizeExampleNumbering(doc) : doc;
 }
 
+/** Notion's v2 block reader owns code boundaries, including nested fences.
+ * Project only recognized diagram code after that reader, retaining its source
+ * and attributes instead of letting a generic code block hide the preview. */
+function notionDiagrams(node: PMNode, config: SyntaxConfig): PMNode {
+  if (isEditorKind(node, "code_block")) {
+    const language = diagramLanguage(String(node.attrs.params || ""), config);
+    if (!language) return node;
+    const raw = node.attrs.source ?? notionBlockMarkdown(node);
+    const lines = String(raw).split(/\r\n|\n|\r/);
+    const fence = /^[\t ]*(`{3,}|~{3,})/.exec(lines[0]);
+    if (!fence || lines.length < 2 ||
+        !new RegExp(`^[\\t ]*${fence[1][0]}{${fence[1].length},}[\\t ]*$`).test(lines.at(-1)!)) return node;
+    const diagram = createEditorNode(schema, "syntax_block", {
+      ...node.attrs, kind: "diagram", config,
+      // Source keeps the exact imported bytes. The editable fence is local to
+      // this block; parent writers supply indentation when the block changes.
+      raw: [lines[0].trimStart(), node.textContent, lines.at(-1)!.trimStart()].join("\n"),
+      data: { language, code: node.textContent },
+    });
+    return diagram.type.create({ ...diagram.attrs, sourceFingerprint: editorFingerprint(diagram) });
+  }
+  const content = children(node).map(child => notionDiagrams(child, config));
+  if (content.every((child, index) => child === node.child(index))) return node;
+  const projected = node.type.create(node.attrs, content, node.marks);
+  return projected.type.create({ ...projected.attrs, sourceFingerprint: editorFingerprint(projected) }, projected.content, projected.marks);
+}
+
 function parseNativeDocument(
   source: string,
   config: SyntaxConfig,
@@ -684,7 +712,8 @@ function parseNativeDocument(
       createEditorNode(schema, "opaque_block", { raw: source }),
     ]);
   if (usesNotionSyntax(config)) {
-    const doc = parseNotionMarkdown(source, name => allowNotionObject(config, name), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined, config.notionVersion);
+    const parsed = parseNotionMarkdown(source, name => allowNotionObject(config, name), config.variant === "notdown" ? notdownExtensions(source, config, depth, context) : undefined, config.notionVersion);
+    const doc = enabled(config, "diagrams") ? notionDiagrams(parsed, config) : parsed;
     const nodes = children(doc).map((node) =>
       unavailable(node, config)
         ? preserve(node, node.attrs.source ?? notionBlockMarkdown(node))
@@ -818,6 +847,7 @@ function writeBlock(node: PMNode, config: SyntaxConfig): string {
     : written;
 }
 function writeBlockBody(node: PMNode, config: SyntaxConfig): string {
+  if (config.variant === "notdown") node = canonicalNotionBlock(node);
   const object = writeObjectBlock(node, child => writeBlock(child, config));
   if (object !== undefined) return object;
   const kids = children(node),
@@ -1118,6 +1148,7 @@ function notdownExtensions(source: string, config: SyntaxConfig, depth: number, 
 }
 
 function writeNotdownBlock(node: PMNode, config: SyntaxConfig): string {
+  node = canonicalNotionBlock(node);
   if (isEditorKind(node, "executable_chunk")) return rChunkMarkdown(node);
   if (needsMarkdownTable(node)) {
     if (!canConvertNotionTable(node)) throw new Error("This table has attributes that a Pandoc grid table cannot preserve. Keep the original source.");

@@ -7,8 +7,10 @@ type Json = Record<string, any>;
 export type CachedNotionBlock = {
   id: string; type: string; version: number; lastEdited: number;
   properties: Json;
+  format?: Json; content?: string[]; parentId?: string; parentTable?: string;
+  crdtData?: string; crdtEncoding?: "text" | "base64"; crdtFormatVersion?: number;
 };
-export type NotionCacheSnapshot = { blocks: CachedNotionBlock[]; warning?: string };
+export type NotionCacheSnapshot = { blocks: CachedNotionBlock[]; privateBlocks?: CachedNotionBlock[]; warning?: string };
 export type ReadNotionCache = (pageId: string, blockIds: readonly string[]) => Promise<NotionCacheSnapshot>;
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
@@ -35,8 +37,30 @@ export async function readNotionDesktopCache(
     if (roots.length !== 1) return { blocks: [], warning: "Requested page is missing or ambiguous across accounts in the local Notion cache." };
     const root = roots[0];
     const query = db.prepare("SELECT id,type,version,last_edited_time,properties FROM block WHERE id=? AND meta_user_id=? AND space_id=? AND alive=1");
+    const columns = new Set(db.prepare("PRAGMA table_info(block)").all().map(row => String(row.name)));
+    const crdtColumns = columns.has("crdt_data") && columns.has("crdt_format_version") ? ",crdt_data,crdt_format_version" : "";
+    const privateQuery = ["format", "content", "parent_id", "parent_table"].every(name => columns.has(name))
+      ? db.prepare(`SELECT id,type,version,last_edited_time,properties,format,content,parent_id,parent_table${crdtColumns} FROM block WHERE id=? AND meta_user_id=? AND space_id=? AND alive=1`) : undefined;
     const blocks: CachedNotionBlock[] = [];
+    const privateBlocks = new Map<string, CachedNotionBlock>();
     let bytes = 0;
+    const readPrivate = (id: string, parent?: string, ancestors = new Set<string>()) => {
+      if (!uuid.test(id) || ancestors.has(id) || ancestors.size >= 30 || privateBlocks.size >= 1000) return;
+      const row = privateQuery?.get(id, root.meta_user_id, root.space_id);
+      if (!row || parent && (row.parent_id !== parent || row.parent_table !== "block")) return;
+      let properties: Json, format: Json, content: string[];
+      try { properties = JSON.parse(String(row.properties || "{}")); format = JSON.parse(String(row.format || "{}")); content = JSON.parse(String(row.content || "[]")); }
+      catch { return; }
+      bytes += Buffer.byteLength(JSON.stringify([properties, format, content]));
+      const crdt = typeof row.crdt_data === "string" ? row.crdt_data : row.crdt_data instanceof Uint8Array ? Buffer.from(row.crdt_data).toString("base64") : undefined;
+      bytes += crdt ? Buffer.byteLength(crdt) : 0;
+      if (bytes > 10 * 1024 * 1024) throw new Error("cache snapshot too large");
+      if (!properties || typeof properties !== "object" || Array.isArray(properties) || !format || typeof format !== "object" || Array.isArray(format) || !Array.isArray(content) || content.some(id => typeof id !== "string" || !uuid.test(id)) || !Number.isFinite(Number(row.version)) || !Number.isFinite(Number(row.last_edited_time))) return;
+      privateBlocks.set(id, { id, type: String(row.type), version: Number(row.version), lastEdited: Number(row.last_edited_time), properties, format, content, parentId: String(row.parent_id || ""), parentTable: String(row.parent_table || ""), ...(crdt ? { crdtData: crdt, crdtEncoding: typeof row.crdt_data === "string" ? "text" : "base64", crdtFormatVersion: Number(row.crdt_format_version) } : {}) });
+      // Only owned content descendants, never linked pages, databases or other pointers.
+      if (!["page", "collection_view", "collection_view_page", "transclusion_reference", "alias"].includes(String(row.type)))
+        for (const child of content) readPrivate(child, id, new Set([...ancestors, id]));
+    };
     for (const id of new Set(blockIds)) {
       const row = query.get(id, root.meta_user_id, root.space_id);
       if (!row) continue;
@@ -46,9 +70,10 @@ export async function readNotionDesktopCache(
       const properties = JSON.parse(raw);
       if (!properties || Array.isArray(properties) || typeof properties !== "object") continue;
       blocks.push({ id: String(row.id), type: String(row.type), version: Number(row.version), lastEdited: Number(row.last_edited_time), properties });
+      if (["ai_block", "button"].includes(String(row.type))) readPrivate(id);
     }
     db.exec("COMMIT");
-    return { blocks };
+    return { blocks, ...(privateBlocks.size ? { privateBlocks: [...privateBlocks.values()] } : {}) };
   } catch {
     // Do not expose local paths, SQL, cached text or runtime errors in the UI.
     return { blocks: [], warning: "Local Notion cache could not be read (missing, busy or unsupported schema). API import continues without it." };

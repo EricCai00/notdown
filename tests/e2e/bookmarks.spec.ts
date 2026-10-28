@@ -1,4 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { parse } from "parse5";
+import { bookmarkImage } from "../../server/bookmark-images";
 
 async function open(page: Page, request: APIRequestContext, body = '<bookmark custom="keep"/>\n\nTail') {
   const note = await (await request.post("/api/pages", { data: { title: "Web bookmark", body, syntax: { version: 1, variant: "notdown", extensions: {} } } })).json();
@@ -6,6 +8,35 @@ async function open(page: Page, request: APIRequestContext, body = '<bookmark cu
   await page.goto("/"); return note;
 }
 const metadata = { title: "哔哩哔哩 (゜-゜)つロ 干杯~-bilibili", description: "哔哩哔哩（bilibili.com)是国内知名的视频弹幕网站，这里有及时的动漫新番，活跃的ACG氛围，有创意的Up主。大家可以在这里找到许多欢乐。", icon: "https://i0.hdslb.com/bfs/static/jinkela/long/images/512.png", image: "" };
+
+test("Bangumi cover previews render without changing imported Markdown and refresh persists the image", async ({ page, request }, testInfo) => {
+  const url = "https://bgm.tv/subject/236020";
+  const preview = { title: "あそびあそばせ | Bangumi 番组计划", description: "来玩游戏吧", icon: "https://bgm.tv/img/favicon.ico", image: bookmarkImage(parse('<div id="bangumiInfo"><img class="cover" src="//lain.bgm.tv/cover.jpg"></div>'), url) };
+  await page.route("**/api/bookmarks/resolve", route => route.fulfill({ json: preview }));
+  await page.route(preview.icon, route => route.fulfill({ status: 404, body: "" }));
+  await page.route(preview.image, route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="#d0dec4"/><path d="M0 220L70 70l60 150 40-90 30 90v80H0" fill="#638658"/></svg>' }));
+  const source = `<bookmark url="${url}" caption="Watch later" custom="keep"/>\n\nTail`;
+  const note = await open(page, request, source);
+  const block = page.locator(".pm-object-web_bookmark");
+  const cover = block.locator(".pm-bookmark-image");
+  await expect(cover).toBeVisible();
+  await expect.poll(() => cover.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(200);
+  expect((await block.boundingBox())!.height).toBeLessThan(230);
+  await expect(block.locator(".pm-bookmark-description")).toHaveText("来玩游戏吧");
+  await page.keyboard.press("Control+s");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(source);
+  await block.screenshot({ path: testInfo.outputPath("bookmark-cover-desktop.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(cover).toBeVisible();
+  expect(Math.abs((await cover.boundingBox())!.height - (await block.locator(".pm-bookmark-image-frame").boundingBox())!.height)).toBeLessThan(1);
+  const bounds = await block.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await block.screenshot({ path: testInfo.outputPath("bookmark-cover-mobile.png") });
+  await block.getByRole("button", { name: "Refresh bookmark" }).click();
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain(`image="${preview.image}"`);
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('custom="keep"');
+  await page.reload(); await expect(cover).toBeVisible();
+});
 
 test("bookmark empty state, URL validation, creation, undo, persistence and responsive card", async ({ page, request }) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
@@ -113,6 +144,7 @@ test("cancel during creation discards the response and broken images keep the ca
   await page.getByLabel("Bookmark URL").fill("https://example.com"); await page.getByLabel("Bookmark URL").press("Enter");
   await expect(page.locator(".pm-bookmark-card")).toContainText(metadata.title);
   await expect(page.locator(".pm-bookmark-image")).toHaveCount(0);
+  await expect(page.locator(".pm-bookmark-image-frame")).toHaveCount(0);
   await expect(page.locator(".pm-bookmark-icon svg")).toHaveCount(1);
 });
 
@@ -146,7 +178,7 @@ test("URL-only bookmarks load a visual preview without editing the document; ref
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('title="bilibili"');
   const saved = await (await request.get(`/api/pages/${note.id}`)).json();
   expect(saved.body).toContain('custom="keep"');
-  expect(saved.body).toContain('caption="Saved caption"');
+  expect(saved.body).toContain('>Saved caption</bookmark>');
   expect(saved.body).toContain(`icon="${preview.icon}"`);
 });
 

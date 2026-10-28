@@ -3,7 +3,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { documentMetadata } from "../src/features/metadata/document-metadata.js";
 import { parseNotionMarkdown, notionInlineLinks } from "../src/document/notion-markdown.js";
 import { editorKind } from "../src/document/node-identity.js";
-import { openingTag, readAttributes, decodeXml } from "../src/document/notion-syntax.js";
+import { openingTag, readAttributes, decodeXml, escapeXml } from "../src/document/notion-syntax.js";
+import { notionBlockContent } from "./notion-block-content.js";
 import { destinationMarker, type ImportPlan } from "./markdown-import.js";
 import { isPageUuid, stablePageUuid } from "../src/vault/page-id.js";
 import { VaultError } from "./vault.js";
@@ -16,6 +17,8 @@ import type { ImportProgress } from "../src/shared/import-progress.js";
 import { readNotionDesktopCache, supplementNotionDates, type ReadNotionCache } from "./notion-desktop-cache.js";
 import { supplementNotionColors } from "./notion-color-import.js";
 import { hasUnknownNotionCodeLanguage, supplementNotionCodeLanguages } from "./notion-code-import.js";
+import { blockifyNotionImages } from "./notion-image-import.js";
+import { recoverCachedNotionBlock } from "./notion-private-blocks.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -408,7 +411,8 @@ export async function prepareNotionImport(
     queued.add(id); queue.push(item);
     return item;
   };
-  const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue, onResource: title => report({ currentTitle: title }) });
+  const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue, includeChildren: request.includeChildren !== false,
+    enqueueDatabase: (id, parent, info) => { enqueue(id, parent).database = info; }, onResource: title => report({ currentTitle: title }) });
   report({ step: "Identifying the Notion page, database or data source" });
   const rootPage = await get(`/pages/${root}`, "probe");
   if (rootPage.object === "unavailable") {
@@ -434,12 +438,13 @@ export async function prepareNotionImport(
     return result;
   }
   const childCache = new Map<string, Json[]>();
-  async function readChildren(id: string): Promise<Json[]> {
+  const unavailableChildren = new Set<string>();
+  async function readChildren(id: string, optional = false): Promise<Json[]> {
     if (childCache.has(id)) return childCache.get(id)!;
     const children: Json[] = [], cursors = new Set<string>(); let cursor = "";
     do {
-      const result = await get(`/blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ""}`, true);
-      if (result.object === "unavailable") { warnings.add(`Block ${id}: children unavailable; references remain incomplete.`); break; }
+      const result = await get(`/blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ""}`, optional ? "optional" : true);
+      if (result.object === "unavailable") { unavailableChildren.add(id); if (!optional || cursor) warnings.add(`Block ${id}: children unavailable; references remain incomplete.`); break; }
       if (!Array.isArray(result.results) || typeof result.has_more !== "boolean") throw new VaultError(502, "Invalid Notion child block response.");
       for (const block of result.results) {
         if (!block || typeof block.id !== "string" || !uuid.test(block.id)) throw new VaultError(502, "Invalid Notion block ID.");
@@ -450,6 +455,29 @@ export async function prepareNotionImport(
       cursor = result.next_cursor; cursors.add(cursor);
     } while (true);
     childCache.set(id, children); return children;
+  }
+  async function homeBlocks(children: Json[], ancestors = new Set<string>()): Promise<string> {
+    const content: string[] = [];
+    for (const block of children) {
+      const id = notionPageId(block.id), url = `https://www.notion.so/${id}`;
+      if (ancestors.has(id) || ancestors.size >= 30) throw new VaultError(422, "Wiki Home contains a cyclic or excessively deep block tree.");
+      const kind = block.type;
+      if (kind === "child_page" || kind === "child_database") {
+        const tag = kind === "child_page" ? "page" : "database";
+        content.push(`<${tag} url="${url}">${escapeXml(block[kind]?.title || "Untitled")}</${tag}>`); continue;
+      }
+      const nested = block.has_children && !(kind === "synced_block" && block.synced_block?.synced_from)
+        ? await homeBlocks(await readChildren(id), new Set([...ancestors, id])) : "";
+      const rendered = notionBlockContent(block, nested ? [nested] : [], variant === "notdown");
+      if (rendered !== undefined) content.push(rendered);
+      else {
+        warnings.add(`Wiki Home block ${id}: ${String(kind)} could not be converted; its placeholder and original JSON are retained.`);
+        // The normal unknown-block recovery pass restores readable descendants.
+        // Appending them here as well would duplicate content in that pass.
+        content.push(`<unknown url="${url}" alt="${escapeXml(String(kind))}"/>`);
+      }
+    }
+    return content.join("\n\n");
   }
   async function discover(page: string) {
     const containers = [page];
@@ -492,22 +520,36 @@ export async function prepareNotionImport(
   for (let index = 0; index < queue.length; index++) {
     const item = queue[index];
     report({ phase: "reading", completed: index, step: "Preparing page", currentTitle: item.database?.title ?? item.folderTitle ?? (item.record ? titleOf(item.record, "Untitled") : blocks.get(item.id)?.child_page?.title) ?? item.id });
+    let databaseMarkdown: Json | undefined;
+    const databaseRaw = item.database ? databaseImport.rawDatabase(item.id) : undefined;
     if (item.database) {
-      pages.push({ id: item.id, parent: item.parent, source: "", title: item.database.title, icon: item.database.icon });
-      report({ phase: "reading", completed: index + 1, step: "Database records discovered", currentTitle: item.database.title });
-      continue;
+      const children = databaseRaw?.notionSourceOnly ? [] : await readChildren(item.id, true);
+      if (children.length || !databaseRaw?.notionSourceOnly && (databaseImport.possibleWiki(item.id) || unavailableChildren.has(item.id))) {
+        databaseMarkdown = await readMarkdown(item.id, true);
+        if (databaseMarkdown.object === "unavailable" && children.length) {
+          databaseMarkdown = { object: "page_markdown", id: item.id, markdown: await homeBlocks(children), truncated: false, unknown_block_ids: [] };
+          warnings.add(`Database ${item.database.title}: Home reconstructed from readable blocks; original block JSON is archived.`);
+        }
+        if (databaseMarkdown.object !== "unavailable") databaseImport.markHome(item.id);
+        else warnings.add(`Database ${item.database.title}: the API did not expose readable Home content. Records were imported; the Home page could not be recovered.`);
+      }
+      if (!databaseImport.hasHome(item.id)) {
+        pages.push({ id: item.id, parent: item.parent, source: "", title: item.database.title, icon: item.database.icon, cover: databaseRaw?.cover?.[databaseRaw.cover.type]?.url, imageIcon: databaseRaw?.icon?.[databaseRaw.icon.type]?.url });
+        if (request.includeChildren !== false && children.length) await discover(item.id);
+        continue;
+      }
     }
-    const page = item.folder ? { object: "page", id: item.id, properties: {} } : item.record ?? await get(`/pages/${item.id}`);
+    const page = item.database ? { ...databaseRaw, object: "page", id: item.id, properties: {} } : item.folder ? { object: "page", id: item.id, properties: {} } : item.record ?? await get(`/pages/${item.id}`);
     if (
       page.object !== "page" ||
       typeof page.id !== "string" ||
       page.id.toLowerCase() !== item.id
     )
       throw new VaultError(502, "Notion did not return the requested page.");
-    const title = titleOf(page, item.folder ? item.folderTitle || "Folder" : "Untitled");
+    const title = item.database?.title ?? titleOf(page, item.folder ? item.folderTitle || "Folder" : "Untitled");
     report({ phase: "reading", completed: index, step: "Reading page properties", currentTitle: title });
     await databaseImport.pageProperties(item.id, page);
-    const response = await readMarkdown(item.id);
+    const response = databaseMarkdown ?? await readMarkdown(item.id);
     if (
       response.object !== "page_markdown" ||
       typeof response.id !== "string" ||
@@ -556,7 +598,7 @@ export async function prepareNotionImport(
         typeof page.icon.emoji === "string" &&
         page.icon.emoji.length <= 100
           ? page.icon.emoji
-          : item.folder ? "folder" : "file-text",
+          : item.database ? item.database.icon : item.folder ? "folder" : "file-text",
     });
     // <page> is the official child-page carrier. Localize only parsed tags;
     report({ phase: "reading", completed: index + 1, step: "Finding child pages and databases", currentTitle: title });
@@ -589,7 +631,8 @@ export async function prepareNotionImport(
   }
   // A reference can be imported before its owning page is scanned. Resolve the
   // final hierarchy after discovery, rather than keeping the earlier copy.
-  for (const page of pages) page.parent = queue.find(entry => entry.id === page.id)!.parent;
+  const discoveredPageIds = new Set(pages.map(page => page.id));
+  for (const page of pages) page.parent = databaseImport.recordParent(page.id, discoveredPageIds) ?? queue.find(entry => entry.id === page.id)!.parent;
   report({ phase: "restoring", completed: pages.length, step: "Completing database record properties", currentTitle: undefined });
   const recordTitles = await databaseImport.completeProperties();
   for (const page of pages) if (recordTitles.get(page.id)) page.title = recordTitles.get(page.id)!;
@@ -601,6 +644,22 @@ export async function prepareNotionImport(
         normalizeId: notionPageId,
         version: "v2", local: variant === "notdown",
         readChildren,
+        recoverPrivateBlock: request.useDesktopCache === true && variant === "notdown" ? async block => {
+          const kind = block.type === "unsupported" ? block.unsupported?.block_type : block.type;
+          if (!["ai_block", "button"].includes(kind)) return;
+          let snapshot;
+          try { snapshot = await (options.readCache ?? readNotionDesktopCache)(page.id, [block.id]); }
+          catch (error) {
+            if (signal.aborted || error instanceof VaultError) throw error;
+            warnings.add("Local Notion cache supplement failed; unsupported block source was retained.");
+            return;
+          }
+          if (snapshot.warning) warnings.add(snapshot.warning);
+          const result = recoverCachedNotionBlock(block, snapshot);
+          for (const warning of result.warnings) warnings.add(warning);
+          if (result.evidence) archive(`private-blocks/${block.id}.json`, Buffer.from(JSON.stringify(result.evidence, null, 2)));
+          return result.source;
+        } : undefined,
         readMarkdown: async id => { const result = await readMarkdown(id, true); return result.object === "page_markdown" ? result.markdown : undefined; },
         readBlock: async id => {
           if (!blocks.has(id)) blocks.set(id, await get(`/blocks/${id}`, true));
@@ -722,6 +781,7 @@ export async function prepareNotionImport(
     await databaseImport.saveAttachments(media.save);
     if (media.assets.length) warnings.add(`${media.assets.length} unique attachment(s), including available covers and custom icons, are ready for the Attachments library.`);
   } else warnings.add("Attachment downloading is disabled; remote attachment URLs can expire.");
+  for (const page of pages) page.source = blockifyNotionImages(page.source, variant);
   report({ phase: "finalizing", completed: pages.length, step: "Resolving local links and preparing the preview", currentTitle: undefined });
   const localizePageReferences = (source: string, resolvePage: ResolvePage, databases?: Record<string, unknown>) => {
     for (const reference of blockReferences(source, variant === "notdown", "v2").sort((a, b) => b.from - a.from)) {
@@ -767,8 +827,9 @@ export async function prepareNotionImport(
     JSON.stringify([
       `notion-markdown-v2-recovery-${variant}`,
       "page-links-v2-mentions-and-existing-imports",
+      "image-blocks-v1",
       [...externalBindings].sort(([a], [b]) => a.localeCompare(b)),
-      "database-resources-v2-local-references",
+      "database-resources-v3-wiki-views",
       root,
       request.includeChildren !== false,
       request.downloadAssets !== false,
@@ -803,6 +864,8 @@ export async function prepareNotionImport(
   };
   for (const page of pages) visit(page);
   const localizedPages = ordered.map(page => ({ ...page, source: localizePageReferences(page.source, resolvePage, databaseResult.resources.databases) }));
+  const homePages = localizedPages.filter(page => databaseImport.hasHome(page.id));
+  if (localizedPages.length + homePages.length > 500) throw new VaultError(413, "Notion import exceeds 500 pages including database Home pages.");
   return {
     id,
     name: pages[0].title,
@@ -811,10 +874,10 @@ export async function prepareNotionImport(
     errors: [],
     ...(Object.keys(databaseResult.resources.databases).length ? { databaseResources: databaseResult.resources } : {}),
     warnings: [...warnings],
-    pages: localizedPages.map((page) => ({
+    pages: [...localizedPages.map((page) => ({
       id: localId(page.id),
       path: `${page.title} (${page.id})`,
-      source: page.source,
+      source: databaseImport.hasHome(page.id) ? "" : page.source,
       metadata: {
         id: localId(page.id),
         title: page.title,
@@ -834,6 +897,12 @@ export async function prepareNotionImport(
           ...(page.imageIcon ? { iconUrl: page.imageIcon } : {}),
         },
       },
-    })),
+    })), ...homePages.map(page => ({
+      id: localId(`home-${page.id}`), path: `${page.title} - Home`, source: page.source,
+      metadata: { id: localId(`home-${page.id}`), title: "Home", parent: localId(page.id), icon: "file-text",
+        bodyFormat: "notion-markdown", syntax: { version: 1, variant, notionVersion: "v2", extensions: {} },
+        notionImport: { batchId: id, resourceType: "wiki-home", sourceDatabaseId: page.id, url: `https://www.notion.so/${page.id}`, apiVersion: VERSION, markdownVersion: "v2" },
+      },
+    }))],
   };
 }

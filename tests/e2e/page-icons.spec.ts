@@ -1,5 +1,24 @@
 import { test, expect } from "@playwright/test";
 
+for (const style of ["system", "noto", "openmoji"]) test(`bare Notion emoji uses emoji presentation on every page icon surface (${style})`, async ({ page, request }) => {
+  await page.addInitScript(style => localStorage.setItem("notdown-emoji-style", style), style);
+  const note = await (await request.post("/api/pages", { data: { title: "Genomics", icon: "⚗", body: "Imported page icon" } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const emblem = page.getByRole("button", { name: "Change page icon", exact: true });
+  for (const host of [emblem, page.locator(`#page-tree .tree-page[data-open="${note.id}"]`), page.locator('#breadcrumb [aria-current="page"]'), page.locator('#workspace-tabs [role="tab"][aria-selected="true"]')]) {
+    await expect(host.locator(".emoji")).toHaveText("⚗️");
+  }
+  await page.evaluate(() => document.fonts.ready);
+  await emblem.screenshot({ path: `test-results/page-icon-alembic-${style}.png` });
+  // Display qualification must not rewrite the imported metadata, including after a save.
+  await page.locator("#page-title").fill("Genomics icon checked");
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).title).toBe("Genomics icon checked");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).icon).toBe("⚗");
+  await page.reload();
+  await expect(emblem.locator(".emoji")).toHaveText("⚗️");
+});
+
 for (const style of ["system", "noto", "openmoji"]) test(`page icon hover contains the ${style} glyph and stays clear of Add cover`, async ({ page, request }) => {
   await page.addInitScript(style => localStorage.setItem("notdown-emoji-style", style), style);
   const note = await (await request.post("/api/pages", { data: { title: "Obsidian", icon: "✅", body: "Icon spacing" } })).json();

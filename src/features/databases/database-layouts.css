@@ -1,0 +1,72 @@
+.database-alternate-layout { padding: 16px 0; min-width: 0; }
+.database-workspace .database-record-card { border: 1px solid var(--database-rule); border-radius: 6px; background: var(--surface,#fff); box-shadow: 0 1px 2px #00000008; overflow: hidden; min-width: 0; }
+.database-record-card:hover { background: var(--hover,#fafaf9); }
+.database-workspace .database-card-title { display:flex; align-items:center; gap:7px; width:100%; min-height:38px; padding:10px 12px 6px; text-align:left; font-weight:550; color:inherit; border:0; background:none; }
+.database-workspace .database-card-title { justify-content:flex-start; }
+.database-card-title > svg,.database-card-title > .page-icon,.database-card-title > .page-link-icon { flex-shrink:0; width:17px; height:17px; }
+.database-card-title > span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.database-card-properties { padding: 0 12px 10px; display:flex; flex-wrap:wrap; gap:6px 10px; font-size:12px; color:var(--database-muted); }
+.database-card-property { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-flex; gap:4px; }
+.database-card-preview { height:160px; background:#f7f7f5; border-bottom:1px solid var(--database-rule); overflow:hidden; }
+.database-card-preview img { width:100%; height:100%; }
+.database-card-preview.is-content { padding:16px; font-size:12px; line-height:1.7; white-space:pre-wrap; color:var(--database-muted); }
+.database-group-heading { display:flex; align-items:center; gap:9px; font-size:12px; color:var(--database-muted); margin:0 0 10px; min-height:28px; }
+.database-workspace .database-layout-add { border:0; background:none; color:var(--database-muted); text-align:left; padding:9px 7px; border-radius:4px; width:100%; font-size:14px; }
+.database-layout-add:hover { background:var(--hover,#f1f1ef); }
+.database-layout-gallery .database-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr)); gap:16px; }
+.database-layout-gallery[data-size=small] .database-cards { grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr)); }
+.database-layout-gallery[data-size=large] .database-cards { grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr)); }
+.database-layout-gallery .database-card-group + .database-card-group,.database-layout-list .database-card-group + .database-card-group { margin-top:24px; }
+.database-layout-board { display:flex; align-items:flex-start; gap:16px; overflow-x:auto; min-height:360px; }
+.database-layout-board .database-card-group { flex:0 0 260px; padding:8px; border-radius:6px; background:var(--hover,#f7f7f5); min-height:160px; }
+.database-layout-board[data-size=small] .database-card-group { flex-basis:210px; }
+.database-layout-board[data-size=large] .database-card-group { flex-basis:320px; }
+.database-layout-board .database-cards { display:flex; flex-direction:column; gap:8px; min-height:15px; }
+.database-record-card[draggable=true] { cursor:grab; }
+.database-record-card.is-dragging { opacity:.4; }
+.database-alternate-layout .is-drop-target { outline:2px solid #4b91d1; outline-offset:-2px; background:#eaf3fc; }
+.database-layout-list .database-record-card { display:flex; align-items:center; border:0; border-bottom:1px solid var(--database-rule); border-radius:0; box-shadow:none; }
+.database-layout-list .database-card-title { flex:1; min-width:140px; padding:9px 4px; }
+.database-layout-list .database-card-properties { padding:0 8px; justify-content:flex-end; flex:1; }
+.database-layout-list .database-card-preview { display:none; }
+.database-calendar-toolbar { display:flex; align-items:center; gap:5px; margin:0 0 18px; }
+.database-calendar-toolbar h2 { flex:1; font-size:20px; margin:0; font-weight:600; }
+.database-workspace .database-calendar-toolbar button { border:0; padding:5px 9px; background:none; color:inherit; }
+.database-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-top:1px solid var(--database-rule); border-left:1px solid var(--database-rule); }
+.database-calendar-weekday { color:var(--database-muted); font-size:12px; padding:8px; border-bottom:1px solid var(--database-rule); border-right:1px solid var(--database-rule); }
+.database-calendar-day { min-height:115px; padding:4px; border-right:1px solid var(--database-rule); border-bottom:1px solid var(--database-rule); min-width:0; }
+.database-calendar-day > header { display:flex; align-items:center; justify-content:space-between; font-size:12px; height:25px; padding:0 2px; color:var(--database-muted); }
+.database-workspace .database-calendar-day > header button { background:none; border:0; padding:0 5px; color:inherit; opacity:0; }
+.database-calendar-day:hover > header button,.database-calendar-day:focus-within > header button { opacity:1; }
+.database-calendar-day.is-other-month { background:var(--hover,#fafaf9); }
+.database-calendar-day.is-today > header > span { background:#d94b4b; color:white; padding:2px 5px; border-radius:50%; }
+.database-calendar-day .database-record-card { margin:3px 0; }
+.database-calendar-day .database-card-title { padding:5px; font-size:12px; min-height:28px; }
+.database-calendar-day .database-card-properties { padding:0 5px 4px; gap:3px; font-size:11px; }
+.database-calendar-undated { margin-top:20px; }
+.database-calendar-undated h3 { font-size:14px; color:var(--database-muted); }
+.database-calendar-undated .database-record-card { margin:6px 0; }
+.database-layout-hint { color:var(--database-muted); font-size:13px; }
+.database-workspace .database-layout-setup { background:none; border:1px dashed var(--database-rule); width:100%; padding:40px 20px; color:var(--database-muted); border-radius:6px; }
+.database-view-picker { position:fixed; width:360px; max-width:calc(100vw - 20px); padding:16px; border:1px solid #e6e6e4; border-radius:12px; box-shadow:0 8px 28px #0002; background:var(--surface,#fff); z-index:1000; }
+.database-view-picker p { margin:0 0 12px; color:#787774; font-size:12px; }
+.database-view-picker-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+.database-view-picker button { display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px 5px; border:0; border-radius:6px; background:none; color:inherit; font-size:13px; cursor:pointer; }
+.database-view-picker button:hover,.database-view-picker button:focus-visible { background:#f1f1ef; }
+.database-view-picker svg { width:20px; height:20px; }
+.database-dialog .database-filter-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:6px; align-items:center; margin-bottom:7px; }
+.database-dialog .database-filter-row > * { min-width:0; width:100%; }
+.database-dialog .database-filter-row button { padding:5px; }
+.database-dialog .database-settings-section { border:0; border-top:1px solid #e7e7e5; margin:14px 0 0; padding:12px 0 0; }
+.database-settings-section legend { font-size:12px; color:#787774; padding-right:8px; }
+.database-dialog [hidden] { display:none!important; }
+.database-dialog { max-height:85vh; overflow-y:auto; }
+@media (max-width:700px) { .database-layout-list .database-card-properties { max-width:48%; } .database-layout-calendar { overflow-x:auto; } .database-calendar-grid { min-width:630px; } .database-calendar-day > header button { opacity:1!important; } .database-dialog .database-filter-row { grid-template-columns:1fr 1fr; } }
+.database-workspace .database-layout-list { padding-top:4px; }
+.database-workspace .database-layout-list .database-record-card { display:grid; align-items:center; gap:14px; border:0; border-radius:4px; min-height:32px; }
+.database-workspace .database-layout-list .database-card-title { min-height:32px; padding:4px; font-size:14px; font-weight:500; }
+.database-workspace .database-layout-list .database-card-properties { display:contents; }
+.database-workspace .database-layout-list .database-card-property { display:block; font-size:13px; color:inherit; min-width:0; }
+.database-wrap-content .database-card-title>span:last-child,.database-card-property.database-wrap-property { white-space:pre-wrap; overflow-wrap:anywhere; }
+.database-card-property.database-wrap-property { flex-wrap:wrap; }
+.database-layout-list .database-card-property .database-tag { margin-right:4px; }

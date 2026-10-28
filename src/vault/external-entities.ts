@@ -86,7 +86,8 @@ export function createExternalEntities(host: Host) {
       if (found.uncertain) warnings.push(`Some references in “${item.page.title}” could not be checked.`);
       for (const observation of found.observations) {
         const entity = add(observation);
-        if (!entity.references.some(ref => ref.pageId === item.page.id && ref.location === observation.location)) entity.references.push({ pageId: item.page.id, location: observation.location });
+        if (!entity.references.some(ref => ref.pageId === item.page.id && ref.location === observation.location && ref.occurrence === observation.occurrence))
+          entity.references.push({ pageId: item.page.id, location: observation.location, ...(observation.occurrence !== undefined ? { occurrence: observation.occurrence } : {}) });
       }
     }
     for (const person of people) if (!person.deleted && person.notionUserId) add({ provider: "notion", kind: "user", id: person.notionUserId, label: person.name }).candidates.push(person.id);

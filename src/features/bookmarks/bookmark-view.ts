@@ -75,9 +75,10 @@ export class BookmarkView implements NodeView {
     body.append(el("div", "pm-bookmark-url", saved.url));
     link.append(body);
     if (bookmarkUrl(a.image)) {
+      const frame = el("div", "pm-bookmark-image-frame");
       const image = el("img", "pm-bookmark-image");
       image.src = a.image; image.alt = ""; image.loading = "lazy"; image.referrerPolicy = "no-referrer";
-      image.onerror = () => image.remove(); link.append(image);
+      image.onerror = () => frame.remove(); frame.append(image); link.append(frame);
     }
     this.dom.append(link);
     if (saved.caption) this.dom.append(el("div", "pm-bookmark-caption", saved.caption));

@@ -12,10 +12,12 @@ test("official Notion editing cannot write supplemental toggle, column, date or 
   await page.locator('.pm-document [data-mention-kind="date"]').dblclick();
   await expect(page.getByRole('textbox', { name: 'Start time', exact: true })).toHaveValue('12:30');
   await expect(page.getByText('Reminder date and time', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.locator('.pm-document td').first().click();
-  await expect(page.getByRole('button', { name: 'Merge right', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Add caption', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Table options', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Merge right', exact: true })).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('menuitem', { name: 'Add caption', exact: true })).toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
   const tail = page.locator('.pm-document > p').filter({ hasText: /^Tail$/ });
   await tail.click(); await page.keyboard.press('End'); await page.keyboard.type(' edited');
   await page.keyboard.press('Control+s');
@@ -24,7 +26,7 @@ test("official Notion editing cannot write supplemental toggle, column, date or 
   await expect(page.locator('.pm-column-resizer').first()).toBeVisible();
   await page.locator('.pm-toggle-chevron').click();
   await page.keyboard.press('Control+s');
-  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('open="false"');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(body.replace(/Tail$/, 'Tail edited'));
 });
 
 test("retired figure and legacy directives remain source when another paragraph is edited", async ({ page, request }) => {

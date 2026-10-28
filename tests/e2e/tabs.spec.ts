@@ -98,7 +98,8 @@ test("tabs use compact menus, preserve edits and attributes, and undo structure 
   await page.keyboard.press("Control+s");
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('icon="📚"');
   const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
-  for (const value of ['custom="keep-group"', 'custom="keep-one"', 'custom="keep-two"', "dsfsdf pending", 'title="Research"']) expect(saved).toContain(value);
+  for (const value of ['custom="keep-group"', 'custom="keep-one"', 'custom="keep-two"', "dsfsdf pending", 'Research']) expect(saved).toContain(value);
+  expect(saved).not.toContain('<tab title='); expect(saved).not.toContain('<tabs active=');
   await page.reload();
   await expect(tabs.first()).toHaveText("📚Research");
   await expect(active).toContainText("dsfsdf pending");

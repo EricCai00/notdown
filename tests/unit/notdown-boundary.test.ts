@@ -13,7 +13,8 @@ import type { Page } from "../../src/shared/types";
 const config = (variant: SyntaxConfig["variant"]): SyntaxConfig => ({ version: 1, variant, extensions: {} });
 
 test("supplemental Notion objects are Notdown-only even with legacy or explicit overrides", () => {
-  for (const { id } of dialects) for (const [name, sample] of Object.entries(objectSamples)) {
+  const legacySamples = { ...objectSamples, tabs: '<tabs active="0">\n<tab title="First">\nBody\n</tab>\n</tabs>', meeting_notes: '<meeting-notes title="Meeting" audio="assets/a.wav">\nBody\n</meeting-notes>' };
+  for (const { id } of dialects) for (const [name, sample] of Object.entries(legacySamples)) {
     const flag = localObjectPlugins[name];
     const c = { ...config(id), extensions: { [flag]: true, [flag.replace(/^notion_/, "local_")]: true } };
     const official = id === "notion-markdown" && ["tabs", "meeting_notes"].includes(name);

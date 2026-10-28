@@ -3,6 +3,13 @@ import type { ReadNotionAsset } from "../../server/notion-assets.js";
 
 export const v2Id = (n: number) => `e2000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 export const v2Root = v2Id(1), v2Child = v2Id(2), v2Folder = v2Id(3);
+export const v2MermaidSource = [
+  '```mermaid\nflowchart LR\nA[Imported start] --> B[Imported finish]\n```',
+  '<callout>\n```mermaid\nsequenceDiagram\nAlice->>Bob: Nested diagram\n```\n</callout>',
+  '- Parent\n\t```MeRmAiD\n\tflowchart TD\n\tC[Nested start] --> D[Nested finish]\n\t```',
+  '```markdown\nLiteral example\n```',
+  'Tail',
+].join("\n\n");
 const url = (n: number) => `https://www.notion.so/${v2Id(n)}`;
 const unknown = (n: number) => `<unknown url="${url(1)}#${v2Id(n).replaceAll("-", "")}" alt="Original placeholder" />`;
 export const v2Source = [
@@ -39,6 +46,11 @@ export function v2Fixture(fallback?: typeof fetch, calls: string[] = []): typeof
     assert.equal(request.origin, "https://api.notion.com"); assert.equal(init?.method, "GET");
     calls.push(request.pathname + request.search);
     const markdown = (body: string) => Response.json({ object: "page_markdown", id, markdown: body, truncated: false, unknown_block_ids: [] });
+    if (id === v2Id(88)) {
+      if (request.pathname.endsWith("/markdown")) return markdown(v2MermaidSource);
+      if (request.pathname.endsWith("/children")) return Response.json({ results: [], has_more: false, next_cursor: null });
+      return Response.json({ object: "page", id, properties: { Name: { type: "title", title: [{ plain_text: "Imported Mermaid diagrams" }] } } });
+    }
     if (id === v2Id(85)) {
       const code = 'for i in $(ls *.pdbqt); do\nname=${i%.*};\necho "$name shen"\ndone';
       if (request.pathname.endsWith("/markdown")) return markdown('```shen\n' + code + '\n```\n\n```shen\n\n```');

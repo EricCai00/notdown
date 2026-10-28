@@ -37,6 +37,8 @@ export const localObjectPlugins: Record<string, string> = {
 dialectDefaults["notion-markdown"] = flags("strikeout task_lists tex_math_dollars notion_columns notion_callouts notion_toggles notion_tables notion_pages notion_mentions notion_media notion_databases notion_synced notion_toc notion_nesting notion_colors notion_underline");
 dialectDefaults["notion-markdown"].notion_tabs = true;
 dialectDefaults["notion-markdown"].notion_meeting_notes = true;
+// Mermaid fences are part of the official Enhanced Markdown code syntax.
+dialectDefaults["notion-markdown"].diagrams = true;
 // Content extensions form a superset; competing lexical conventions (smart
 // punctuation, reversed wiki labels, backslash math, literate code, etc.) remain opt-in.
 export const notdownMarkdownDefaults = flags(`

@@ -61,7 +61,7 @@ test("mixed embeds retain source through independent edits, undo and dialect cha
   session.documentChanged(edited);
   const saved = session.snapshot.source;
   assert.ok(saved.startsWith(html + '\r\n\r\n'));
-  assert.ok(saved.includes('url="https://example.com/new"'));
+  assert.ok(saved.includes('source="https://example.com/new"'));
   assert.ok(!/editorRepresentation=|kind=|data=|config=|raw=/.test(saved));
   assert.equal(editorKind(parseNative(saved, config).child(1)), "web_embed");
   session.undo(); assert.equal(session.snapshot.source, source);

@@ -155,6 +155,7 @@ test("mobile full-page databases create fields, records, saved views and edit re
   await expect(page.getByLabel("Note: First task", { exact: true })).toHaveValue("Edited in record");
   await expect(page.getByRole("button", { name: "State: First task", exact: true })).toHaveText("Done");
   await page.getByRole("button", { name: "New view", exact: true }).click();
+  await page.getByRole("dialog", { name: "Add a new view", exact: true }).getByRole("button", { name: "Table", exact: true }).click();
   const view = page.getByRole("dialog", { name: "New view", exact: true });
   await view.getByLabel("View name").fill("Done tasks");
   await view.getByRole("button", { name: "Create view", exact: true }).click();

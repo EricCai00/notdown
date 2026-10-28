@@ -1,5 +1,7 @@
 # 媒体与嵌入
 
+2026-10-27：Web embed 新建/编辑统一写官方 `<embed source="…">题注</embed>`，不再生成 web-embed 标签。HTML embed 的既有官方 src 编码仍保留。尺寸、对齐等官方缺失信息使用必要补充属性，见[自定义扩展说明](../reference/NOTDOWN-EXTENSIONS.md)。下文旧载体举例仅作历史说明。
+
 从 `/` 菜单选择 Image、Video、Audio、PDF、File、HTML embed 或 Web embed。可用入口取决于当前 Markdown 方言；不支持媒体块的方言提供图片和普通文件链接。
 
 ## 选择合适的内容类型

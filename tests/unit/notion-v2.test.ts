@@ -326,6 +326,42 @@ test('v2 source scanning protects fenced and inline code, unknown containers and
   assert.equal(notionSourceTags(source).filter(tag => tag.tag === 'unknown').length, 1);
 });
 
+for (const variant of ['notdown','notion-markdown'] as const) test(`${variant}: v2 ordered tag starts survive real edits without losing list attributes or children`, () => {
+  const config = { version: 1 as const, variant, notionVersion: 'v2' as const, extensions: {} };
+  const source = '2. White\r\n\r\n<ol start="4" future="keep">\r\n<li color="red">Red\r\n\r\n- Child</li>\r\n<li>Rose</li>\r\n</ol>\r\n\r\nTail';
+  const doc = parseNative(source, config); doc.check();
+  assert.equal(doc.childCount, 3);
+  assert.equal(doc.child(0).attrs.order, 2);
+  assert.equal(doc.child(1).attrs.order, 4);
+  assert.equal(doc.child(1).childCount, 2);
+  assert.equal(serializeNative(doc, config), source);
+  let position = -1;
+  doc.descendants((node, pos) => { if (node.isText && node.text === 'Red') position = pos; });
+  assert.ok(position > 0);
+  const edited = EditorState.create({ doc }).tr.insertText('!', position).doc;
+  const written = serializeNative(edited, config), reopened = parseNative(written, config);
+  reopened.check();
+  assert.equal(reopened.child(1).attrs.order, 4, written);
+  assert.equal(reopened.child(1).attrs.nfmAttrs.future, 'keep', written);
+  assert.equal(reopened.child(1).firstChild!.attrs.color, 'red', written);
+  assert.equal(reopened.child(1).firstChild!.child(1).textContent, 'Child', written);
+  assert.equal(reopened.textContent, edited.textContent);
+  assert.ok(written.startsWith('2. White\r\n\r\n'));
+  for (const start of [-2, 0, 1, 4, 12]) {
+    const raw = `<ol start="${start}"><li>First</li><li>Second</li></ol>`;
+    const parsed = parseNative(raw, config);
+    assert.equal(parsed.firstChild!.attrs.order, start);
+    const changed = EditorState.create({ doc: parsed }).tr.insertText('!', 3).doc;
+    const saved = serializeNative(changed, config);
+    assert.equal(parseNative(saved, config).firstChild!.attrs.order, start, saved);
+    // Flattening the carrier into Markdown would merge this restart with the
+    // preceding list and silently renumber the second group on reopening.
+    const adjacent = parseNative('2. White\n\n' + saved, config);
+    assert.equal(adjacent.childCount, 2, saved);
+    assert.equal(adjacent.child(1).attrs.order, start, saved);
+  }
+});
+
 for (const variant of ['notdown','notion-markdown'] as const) test(`${variant}: v2 CommonMark paragraphs, breaks, nested lists and ordered starts survive editing`, () => {
   const config = { version:1 as const, variant, notionVersion:'v2' as const, extensions:{} };
   for (const source of ['First line\nsecond line', 'First\\\nSecond', '7. Seven\n8. Eight\n   - Child', '- [x] Done\n- [ ] Pending', '<p> edge <b> bold </b> </p>']) {

@@ -24,7 +24,7 @@ Notdown is a local note-taking app that combines block editing with Markdown fil
 - **Write your way.** Keep pages in tabs on desktop or in your browser. Use Page, Source and Split views, slash commands, inline formatting, and blocks you can select and move.
 - **Connect your notes.** Nested pages, search, favorites, backlinks, an outline, a mind map and a page graph.
 - **Work with rich content.** Images and media, tables, callouts, equations, Mermaid diagrams, footnotes and citations, with selectable Markdown dialects. Browse and reuse local files in the [attachment library](docs/features/MEDIA-AND-EMBEDS.md).
-- **Organize structured information.** Full-page and inline databases on desktop and Android, with table views, typed properties and records backed by Markdown pages.
+- **Organize structured information.** Full-page and inline databases on desktop and Android, with table, list, gallery, board and calendar views, typed properties and records backed by Markdown pages.
 - **Bring existing notes.** Preview and import Markdown folders or Notion pages and databases as local copies.
 - **Keep control of your files.** Local Markdown storage, revision-checked saves, recoverable history and conflict copies, with optional local Git history on desktop.
 
@@ -80,7 +80,7 @@ Notdown is an actively developed local application prototype. The interface is c
 
 - **Device sync:** experimental foreground sync supports Supabase or WebDAV on desktop and Android. There is no bundled cloud service, end-to-end encryption, or real-time collaboration. See [setup and limits](docs/features/CLOUD-SYNC.md).
 - **Format support:** compatibility varies by dialect; complex or unsupported content may need source editing.
-- **Databases and imports:** databases currently have table views; imported formulas and rollups are read-only snapshots. Notion imports save accessible attachments locally; failed downloads and unsupported cloud features remain incomplete.
+- **Databases and imports:** databases support five local layouts; imported formulas and rollups are read-only snapshots. Notion imports save accessible attachments locally; failed downloads and unsupported cloud features remain incomplete.
 - **Platforms:** the Windows build is unsigned; Android is an early development build requiring device validation. Automatic updates and macOS/Linux installers are not available yet.
 
 ## Documentation

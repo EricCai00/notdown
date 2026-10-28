@@ -124,6 +124,7 @@ export class DatabaseBlockView implements NodeView {
       const workspace = new DatabaseWorkspace(this.mount, {
         interactionMode: this.interactionMode,
         vaultKey: this.draftScope(vaultPath, hostId),
+        initialSourceUrl: typeof this.node.attrs.dataSourceUrl === "string" ? this.node.attrs.dataSourceUrl : undefined,
         openPage: id => this.openPage(id), openDatabase: id => this.openDatabase(id),
         changed: saved => {
           // The supplied page list can contain the outer editor's live draft.
@@ -154,7 +155,7 @@ export class DatabaseBlockView implements NodeView {
     return true;
   }
   update(node: PMNode) {
-    if (node.type !== this.node.type || node.attrs.url !== this.node.attrs.url || node.attrs.inline !== this.node.attrs.inline) return false;
+    if (node.type !== this.node.type || node.attrs.url !== this.node.attrs.url || node.attrs.inline !== this.node.attrs.inline || node.attrs.dataSourceUrl !== this.node.attrs.dataSourceUrl) return false;
     this.node = node; this.renderReference(); return true;
   }
   stopEvent() { return true; }

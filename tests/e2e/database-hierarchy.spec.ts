@@ -24,7 +24,11 @@ async function addRecord(page: Page, title: string, container = page.locator("#m
 
 async function expand(page: Page, id: string) {
   const toggle = page.locator(`#page-tree [data-toggle="${id}"]`);
-  if (await toggle.count() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(toggle).toHaveCount(1);
+  if (await toggle.getAttribute("aria-expanded") === "false") {
+    await page.locator(`#page-tree [data-page-row="${id}"]`).hover();
+    await toggle.click();
+  }
 }
 
 test("a root database is a single sidebar page and its records are children", async ({ page, request }) => {

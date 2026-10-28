@@ -48,7 +48,7 @@ export function openAssetLibrary(options: Options) {
   const renderDetail = () => {
     preview?.destroy(); preview = undefined;
     const asset = data.assets.find(item => item.path === selected);
-    if (!asset) { detail.innerHTML = `<div class="attachments-welcome"><i data-lucide="paperclip"></i><h3>${data.assets.length ? "Select an attachment" : "Your files, in one place"}</h3><p>Preview a file, see where it is used, or reuse it in a page.</p></div>`; refreshIcons(); return; }
+    if (!asset) { detail.innerHTML = `<div class="attachments-welcome"><i data-lucide="paperclip"></i><h3>${data.assets.length ? "Select an attachment" : "No attachments yet"}</h3><p>Preview a file, see where it is used, or reuse it in a page.</p></div>`; refreshIcons(); return; }
     const kinds = ([asset.kind === "html" ? "file" : asset.kind, "file"] as MediaInsertKind[])
       .filter((kind, index, all) => all.indexOf(kind) === index && options.canInsert?.(kind));
     const active = asset.references.filter(ref => !ref.trashed).length;

@@ -55,6 +55,25 @@ export function dateZone(attrs: DateAttributes): string {
 export function dateTimePart(attrs: DateAttributes, field = "start"): string {
   return attrs[field + "Time"] || /T(\d\d:\d\d)/.exec(attrs[field] || "")?.[1] || "";
 }
+/** Use documented split fields where HH:mm + an IANA zone is lossless. */
+export function canonicalDateAttributes(original: DateAttributes): DateAttributes {
+  if (original.timeZone && original["time-zone"] && original.timeZone !== original["time-zone"]) return original;
+  const attrs = { ...original };
+  const zone = attrs.timeZone || attrs["time-zone"] || "local";
+  const officialZone = zone === "local" ? Intl.DateTimeFormat().resolvedOptions().timeZone : zone === "Z" ? "UTC" : zone;
+  try { new Intl.DateTimeFormat("en-US", { timeZone: officialZone }); } catch { return original; }
+  let changed = false;
+  for (const field of ["start", "end"]) {
+    if (!attrs[field]?.includes("T")) continue;
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):00(?:\.000)?(Z|[+-]\d{2}:\d{2})$/.exec(attrs[field]);
+    if (!match || attrs[field + "Time"] && attrs[field + "Time"] !== match[2]) return original;
+    const resolved = dateTime(match[1], match[2], officialZone);
+    if (!resolved || Date.parse(resolved) !== Date.parse(attrs[field])) return original;
+    attrs[field] = match[1]; attrs[field + "Time"] = match[2]; changed = true;
+  }
+  if (changed) { attrs.timeZone = officialZone; delete attrs["time-zone"]; }
+  return changed ? attrs : original;
+}
 /** Keep the existing official split fields or the legacy ISO carrier. */
 export function dateFieldChanges(field: string, day: string, time: string, includeTime: boolean, zone: string, separate: boolean): DateAttributes | null {
   if (!civilDate(day) || includeTime && !dateTime(day, time, zone)) return null;

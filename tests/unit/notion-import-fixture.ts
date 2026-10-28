@@ -7,7 +7,7 @@ export const notionContainer = "44444444-4444-4444-8444-444444444444";
 export const notionDatabase = "55555555-5555-4555-8555-555555555555";
 export const notionLinksRoot = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const notionImagesRoot = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-export const notionImagesSource = '![](https://example.com/empty.png)\r\n\r\n![Caption](https://example.com/caption.png)\r\n\r\n<callout>\r\n\t![](https://example.com/nested.png)\r\n</callout>\r\n\r\nTail';
+export const notionImagesSource = '![](https://example.com/empty.png)\r\n\r\n![Caption](https://example.com/caption.png)\r\n\r\n<callout>\r\n\t![](https://example.com/nested.png)\r\n</callout>\r\n\r\nBefore ![Inline](https://example.com/inline.png) after\r\n\r\n- Parent\r\n\r\n    ![List image](https://example.com/list.png)\r\n\r\n- ![Image only](https://example.com/item.png)\r\n\r\nTail';
 export const notionLinksSource = `## 1. [Python](/p/${notionChild.replace(/-/g, "")}?pvs=25)\r\n\r\n[Deep Learning](https://app.notion.com/p/${notionSibling}?pvs=25)\r\n\r\n<mention-page url="https://www.notion.so/${notionChild}">Mentioned child</mention-page> and <mention url="https://app.notion.com/p/${notionSibling}">Mentioned sibling</mention>\r\n`;
 export const notionToggleCodeSource = [
   '## API code toggle {toggle="true"}',

@@ -9,6 +9,9 @@ import { trashedPageIds } from "../features/pages/page-hierarchy.js";
 import { createPeople } from "./people.js";
 import { createExternalEntities } from "./external-entities";
 import { createRuntimeSettings } from "./runtime-settings";
+import { createPageBatch } from "./page-batch";
+import { appendChildPageEntries } from "../features/pages/child-page-entries";
+import { defaultChildPageSettings, type ChildPageSettings, type ChildPageSettingsSnapshot } from "../shared/child-page-settings";
 import { createPageHistory, historySignature, isHistoryTransientFile, type HistoryRecord } from "./history.js";
 import { createDatabases } from "./databases.js";
 import { createVaultSyncStore, isSyncLocalFile } from "./sync-store.js";
@@ -47,6 +50,7 @@ export type Page = {
 export type PageInput = Partial<
   Pick<Page, "title" | "parent" | "icon" | "properties" | "body" | "bodyFormat" | "favorite" | "trashed" | "sidebarOrder">
 > & { syntax?: SyntaxConfig | null };
+export type PageMutation = Page & { relatedPages?: Page[] };
 export type Conflict = {
   syncId?: string;
   id: string;
@@ -355,6 +359,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     }
   }
   async function recoverPending() {
+    await pageBatch.recover();
     await syncStore.recover();
     await pageIdMigration.recover();
     for (const entry of await fs.readdir(historyPath, { withFileTypes: true })) {
@@ -468,7 +473,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     return decode(source, filePath, { ...entryMetadata(entry), id });
   }
   async function pagesForUpdate(id: string, input: PageInput) {
-    if (options.privateReplica && Object.keys(input).every(key => ["body", "title", "syntax", "bodyFormat"].includes(key))) {
+    if (options.privateReplica && childSettings(await readMetadata()).allowUninserted && Object.keys(input).every(key => ["body", "title", "syntax", "bodyFormat"].includes(key))) {
       const current = await indexedPage(id);
       if (current && !current.page.dataSourceId && !current.page.databaseId) {
         let overlay: Record<string, unknown> | undefined, previousOverlay: Record<string, unknown> | undefined;
@@ -541,6 +546,97 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     }
   }
   const history = createPageHistory({ root, platform, safeDirectory, atomicWrite, readOptional, serialize });
+  const pageBatch = createPageBatch({ platform, root, readOptional, atomicWrite });
+
+  function childSettings(index: MetadataFile): ChildPageSettings {
+    const raw = index.childPageSettings;
+    if (raw === undefined) return { ...defaultChildPageSettings };
+    if (!raw || typeof raw !== "object" || Array.isArray(raw) ||
+        typeof (raw as ChildPageSettings).allowUninserted !== "boolean" || typeof (raw as ChildPageSettings).autoInsert !== "boolean")
+      throw new VaultError(422, "Invalid child page settings; the original metadata was preserved");
+    const settings = raw as ChildPageSettings;
+    return { allowUninserted: settings.allowUninserted, autoInsert: settings.autoInsert };
+  }
+  const childSettingsRevision = (index: MetadataFile) => hash(JSON.stringify(index.childPageSettings ?? null));
+  type PageChange = { current?: StoredPage; proposed: StoredPage };
+  function appendEntries(parent: StoredPage, children: Page[], all: Map<string, StoredPage>) {
+    try {
+      return appendChildPageEntries(parent.page, children, [...all.values()].map(item => item.page));
+    } catch (error) { throw new VaultError(422, `${parent.page.title}: ${error instanceof Error ? error.message : String(error)}`); }
+  }
+  async function commitChildPageChanges(changes: Map<string, PageChange>, settings?: ChildPageSettings) {
+    const before = await readOptional(metadataPath), index = await readMetadata();
+    const files: { path: string; before: string | null; after: string }[] = [];
+    for (const [id, { current, proposed }] of changes) {
+      const source = await readOptional(proposed.filePath);
+      const latest = source === null ? undefined : decode(source, proposed.filePath, index.pages[id] ? entryMetadata(index.pages[id]) : {});
+      if (current ? !latest || latest.page.revision !== current.page.revision : source !== null || index.pages[id]) {
+        if (latest && current) return registerConflict(latest, { body: proposed.source }, current.page.revision);
+        throw new VaultError(409, "A page changed while preparing child page entries. No changes were applied.");
+      }
+      if (current) await history.snapshot(current, false, "Before child page update");
+      index.pages[id] = { ...proposed.metadata, file: path.basename(proposed.filePath), sourceHash: hash(proposed.source) };
+      files.push({ path: `pages/${path.basename(proposed.filePath)}`, before: source, after: proposed.source });
+    }
+    if (settings) index.childPageSettings = { ...(index.childPageSettings as object ?? {}), ...settings };
+    files.push({ path: "metadata.json", before, after: JSON.stringify(index, null, 2) + "\n" });
+    await pageBatch.commit(files);
+    for (const id of changes.keys()) historyChanged(id);
+    return index;
+  }
+  function planMissingChildEntries(all: Map<string, StoredPage>) {
+    const changes = new Map<string, PageChange>(), hidden = trashedPageIds([...all.values()].map(item => item.page));
+    let inserted = 0;
+    for (const parent of all.values()) {
+      if (hidden.has(parent.page.id) || parent.page.databaseId) continue;
+      const children = [...all.values()].map(item => item.page).filter(child => child.parent === parent.page.id &&
+        !hidden.has(child.id) && !child.dataSourceId && !child.databaseId).sort(comparePageOrder);
+      if (!children.length) continue;
+      const result = appendEntries(parent, children, all);
+      if (!result.inserted) continue;
+      const encoded = encode(parent, parent.page.id, { body: result.body });
+      changes.set(parent.page.id, { current: parent, proposed: decode(encoded.source, parent.filePath, encoded.metadata) });
+      inserted += result.inserted;
+    }
+    return { changes, inserted };
+  }
+  async function repairRequiredChildEntries() {
+    if (childSettings(await readMetadata()).allowUninserted) return;
+    const { changes } = planMissingChildEntries(await scan());
+    if (changes.size) await commitChildPageChanges(changes);
+  }
+  async function persistWithChildEntries(current: StoredPage | undefined, proposed: StoredPage, all: Map<string, StoredPage>): Promise<PageMutation> {
+    const settings = childSettings(await readMetadata());
+    if (settings.allowUninserted && !settings.autoInsert) {
+      await persist(proposed.filePath, { source: proposed.source, metadata: proposed.metadata }, current);
+      return proposed.page;
+    }
+    const changes = new Map<string, PageChange>([[proposed.page.id, { current, proposed }]]);
+    const family = new Map(all); family.set(proposed.page.id, proposed);
+    const hidden = trashedPageIds([...family.values()].map(item => item.page));
+    const append = (parent: StoredPage, children: Page[]) => {
+      if (hidden.has(parent.page.id) || parent.page.databaseId) return;
+      const result = appendEntries(parent, children.filter(child => !hidden.has(child.id) && !child.dataSourceId && !child.databaseId), family);
+      if (!result.inserted) return;
+      const encoded = encode(parent, parent.page.id, { body: result.body });
+      const next = decode(encoded.source, parent.filePath, encoded.metadata);
+      changes.set(parent.page.id, { current: changes.get(parent.page.id)?.current ?? parent, proposed: next });
+      family.set(parent.page.id, next);
+    };
+    if (!settings.allowUninserted && !proposed.page.trashed)
+      append(proposed, [...family.values()].map(item => item.page).filter(page => page.parent === proposed.page.id));
+    if (proposed.page.parent && !hidden.has(proposed.page.id) && !proposed.page.dataSourceId && !proposed.page.databaseId &&
+        (!settings.allowUninserted || !current || proposed.page.parent !== current.page.parent || current.page.trashed && !proposed.page.trashed)) {
+      const parent = family.get(proposed.page.parent);
+      if (parent) append(parent, [proposed.page]);
+    }
+    if (changes.size === 1) {
+      const only = changes.get(proposed.page.id)!;
+      await persist(only.proposed.filePath, { source: only.proposed.source, metadata: only.proposed.metadata }, current);
+    } else await commitChildPageChanges(changes);
+    return { ...changes.get(proposed.page.id)!.proposed.page,
+      relatedPages: [...changes].filter(([id]) => id !== proposed.page.id).map(([, change]) => change.proposed.page) };
+  }
   const historyDirty = new Set<string>();
   const historyTouched = new Set<string>();
   const historyTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -618,7 +714,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     input: PageInput,
     baseRevision: string,
     databaseValidation?: { schemaRevision?: string },
-  ): Promise<Page> {
+  ): Promise<PageMutation> {
     assertId(id);
     checkInput(input);
     if (
@@ -656,9 +752,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       return registerConflict(latest, input, baseRevision);
     const proposed = decode(encoded.source, current.filePath, encoded.metadata);
     if (!proposed.page.trashed) checkParent(id, proposed.page.parent, pages);
-    await persist(current.filePath, encoded, current);
+    const saved = await persistWithChildEntries(current, proposed, pages);
     historyTouched.add(id);
-    return proposed.page;
+    return saved;
   }
   async function conflictRecord(id: string): Promise<Conflict> {
     assertId(id);
@@ -838,8 +934,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           await databases.validatePageUpdateLocked(current.page, input, baseRevision, hash(JSON.stringify(schema)));
         }
         await history.snapshot(current, true, "Before restore");
-        await persist(current.filePath, encoded, current);
-        return proposed.page;
+        return persistWithChildEntries(current, proposed, pages);
       });
     },
     sync: createSyncService(syncStore, `${platform.id}:${root}`, options.syncFetch),
@@ -915,6 +1010,49 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     databases,
     people,
     runtimeSettings: createRuntimeSettings({ platform, root, atomicWrite, serialize }),
+    childPageSettings: {
+      get(): Promise<ChildPageSettingsSnapshot> {
+        return serialize(async () => {
+          await prepareRead();
+          const index = await readMetadata();
+          return { settings: childSettings(index), revision: childSettingsRevision(index) };
+        });
+      },
+      configure(input: { settings: ChildPageSettings; baseRevision: string }): Promise<ChildPageSettingsSnapshot> {
+        return serialize(async () => {
+          const all = await scan(), index = await readMetadata();
+          if (!input || !input.settings || typeof input.settings.allowUninserted !== "boolean" || typeof input.settings.autoInsert !== "boolean" ||
+              typeof input.baseRevision !== "string" || !/^[a-f0-9]{64}$/.test(input.baseRevision))
+            throw new VaultError(400, "Expected child page settings and baseRevision");
+          if (childSettingsRevision(index) !== input.baseRevision) {
+            const conflictFile = `child-page-settings-conflict-${randomUUID()}.json`;
+            await atomicWrite(path.join(historyPath, conflictFile), JSON.stringify({ current: childSettings(index), proposed: input.settings, baseRevision: input.baseRevision }, null, 2), null);
+            throw new VaultError(409, `Child page settings changed in another window. Both versions are preserved in .history/${conflictFile}. Reopen Settings to review them.`);
+          }
+          const settings = { allowUninserted: input.settings.allowUninserted, autoInsert: input.settings.autoInsert };
+          const { changes, inserted } = settings.allowUninserted ? { changes: new Map<string, PageChange>(), inserted: 0 } : planMissingChildEntries(all);
+          const saved = await commitChildPageChanges(changes, settings);
+          return { settings, revision: childSettingsRevision(saved), inserted, updatedPages: changes.size };
+        });
+      },
+    },
+    insertChildPage(id: string, input: { baseRevision: string; parentRevision: string }): Promise<Page> {
+      return serialize(async () => {
+        assertId(id);
+        if (!input || !/^[a-f0-9]{64}$/.test(input.baseRevision ?? "") || !/^[a-f0-9]{64}$/.test(input.parentRevision ?? ""))
+          throw new VaultError(400, "Inserting requires the child page and parent page revisions");
+        const all = await scan(), child = all.get(id), hidden = trashedPageIds([...all.values()].map(item => item.page));
+        if (!child) throw new VaultError(404, "Page not found");
+        const parent = child.page.parent ? all.get(child.page.parent) : undefined;
+        if (!parent || hidden.has(id) || child.page.databaseId || child.page.dataSourceId || parent.page.databaseId)
+          throw new VaultError(400, "Choose an ordinary child page with an active parent page");
+        if (child.page.revision !== input.baseRevision || parent.page.revision !== input.parentRevision)
+          return registerConflict(parent, { body: appendEntries(parent, [child.page], all).body }, input.parentRevision);
+        const result = appendEntries(parent, [child.page], all);
+        if (!result.inserted) return parent.page;
+        return updateLocked(parent.page.id, { body: result.body }, parent.page.revision);
+      });
+    },
     init,
     planPageIdMigration: pageIdMigration.plan,
     migratePageIds: pageIdMigration.migrate,
@@ -989,6 +1127,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
             await recoverPending();
             await assets.registerImportedLocked(plan.assets, plan.id);
             await people.registerNotionLocked(await externalEntities.registerImportedLocked(plan));
+            await repairRequiredChildEntries();
             onProgress?.({ phase: "finalizing", completed: previous.pageIds.length, total: plan.pages.length, step: "Existing imported snapshot verified" });
             return { id: plan.id, pageIds: previous.pageIds, alreadyImported: true };
           }
@@ -1048,6 +1187,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           onProgress?.({ phase: "finalizing", completed, total: plan.pages.length, step: "Saving database resources and the import manifest" });
           if (plan.databaseResources) await databases.importLocked(plan.databaseResources);
           await people.registerNotionLocked(await externalEntities.registerImportedLocked(plan));
+          await repairRequiredChildEntries();
           await atomicWrite(manifestPath, JSON.stringify({ ...manifest, completed: true }, null, 2));
         } catch (error) {
           throw new VaultError(500, "Import stopped. Original files are preserved. Retry the same folder selection to resume; existing content will not be overwritten.", { importId: plan.id });
@@ -1091,7 +1231,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       return { path: result.filePath, source: result.source };
       });
     },
-    create(input: PageInput, options: { id?: string } = {}): Promise<Page> {
+    create(input: PageInput, options: { id?: string } = {}): Promise<PageMutation> {
       return serialize(async () => {
         checkInput(input);
         const pages = await scan();
@@ -1112,14 +1252,13 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         }
         const proposed = decode(encoded.source, filePath, encoded.metadata);
         checkParent(id, proposed.page.parent, pages);
-        await persist(filePath, encoded);
-        return proposed.page;
+        return persistWithChildEntries(undefined, proposed, pages);
       });
     },
-    update(id: string, input: PageInput, baseRevision: string, schemaRevision?: string): Promise<Page> {
+    update(id: string, input: PageInput, baseRevision: string, schemaRevision?: string): Promise<PageMutation> {
       return serialize(() => updateLocked(id, input, baseRevision, { schemaRevision }));
     },
-    move(id: string, input: PageMoveInput, baseRevision: string): Promise<Page> {
+    move(id: string, input: PageMoveInput, baseRevision: string): Promise<PageMutation> {
       return serialize(async () => {
         assertId(id);
         if (!input || !own(input, "parent") || !own(input, "sidebarOrder") ||
@@ -1171,8 +1310,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         });
         delete encoded.metadata.pageIdMigration;
         const filePath = path.join(pagesPath, `${copyId}.md`);
-        await persist(filePath, encoded);
-        return decode(encoded.source, filePath, encoded.metadata).page;
+        return persistWithChildEntries(undefined, decode(encoded.source, filePath, encoded.metadata), all);
       });
     },
     recycle(id: string, baseRevision: string, baseRevisions: Record<string, string>): Promise<{ recycled: string[]; deletedAssets: string[]; warnings: string[] }> {

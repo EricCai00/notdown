@@ -1,7 +1,7 @@
 import express from "express";
 import { contentServices } from "./content-services";
 import { linkPreviews } from "./link-previews";
-import { bookmarks } from "./bookmarks";
+import { bookmarks, bookmarkPageReader, type BookmarkProxyResolver } from "./bookmarks";
 import type { Request, Response, NextFunction } from "express";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -31,6 +31,7 @@ export function createApp(options: {
   accessToken?: string;
   vaultManagement?: BrowserVaultManagement;
   notionImportTransport?: Parameters<typeof prepareNotionImport>[1];
+  bookmarkProxyResolver?: BookmarkProxyResolver;
 }) {
   const app = express();
   let gitHistory: ReturnType<typeof createGitHistory>;
@@ -111,6 +112,9 @@ export function createApp(options: {
   app.get("/api/databases/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.get(String(req.params.id))); }));
   app.put("/api/databases/:id", route(async (req, res) => res.json(await vault.databases.updatePresentation(String(req.params.id), req.body))));
   app.put("/api/databases/:id/icon", route(async (req, res) => res.json(await vault.databases.updateIcon(String(req.params.id), req.body))));
+  app.get("/api/data-sources", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.listSources()); }));
+  app.post("/api/databases/:id/data-sources", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.status(201).json(await vault.databases.createSource(String(req.params.id), input, baseRevision)); }));
+  app.post("/api/databases/:id/data-sources/link", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.linkSource(String(req.params.id), input, baseRevision)); }));
   app.get("/api/data-sources/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.getSource(String(req.params.id))); }));
   app.put("/api/data-sources/:id", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.updateSource(String(req.params.id), input, baseRevision)); }));
   app.put("/api/database-views/:id", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.updateView(String(req.params.id), input, baseRevision)); }));
@@ -267,7 +271,7 @@ export function createApp(options: {
   }));
   const services = contentServices(vault);
   const previews = linkPreviews(vault);
-  const webBookmarks = bookmarks();
+  const webBookmarks = bookmarks(bookmarkPageReader({ resolveProxy: options.bookmarkProxyResolver }));
   app.post('/api/bookmarks/resolve', route(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); return res.json(await webBookmarks.resolve(req.body)); }));
   app.get('/api/link-previews/settings', route(async (_req, res) => { res.setHeader('Cache-Control', 'no-store'); return res.json(await previews.settings()); }));
   app.put('/api/link-previews/settings', route(async (req, res) => res.json(await previews.configure(req.body))));
@@ -295,6 +299,12 @@ export function createApp(options: {
     finally { res.off("close", cancel); }
   }));
 
+  app.get("/api/child-pages/settings", route(async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(await vault.childPageSettings.get());
+  }));
+  app.put("/api/child-pages/settings", route(async (req, res) => res.json(await vault.childPageSettings.configure(req.body))));
+  app.post("/api/pages/:id/insert-into-parent", route(async (req, res) => res.json(await vault.insertChildPage(String(req.params.id), req.body))));
   app.get(
     "/api/status",
     route(async (_req, res) => {

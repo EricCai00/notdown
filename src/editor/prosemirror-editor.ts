@@ -6,7 +6,8 @@ import { inlineColors } from "../document/notion-syntax";
 import { localAssetPath } from "../features/assets/asset-model";
 import { inlineColorTransaction, selectedInlineColor, type InlineColorKind } from "./inline-colors";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
-import { ExternalLinkView, ExternalMentionView } from "../features/references/external-view";
+import { ExternalMentionView } from "../features/references/external-view";
+import { referenceOccurrences, type ReferenceOccurrenceTarget } from "../features/references/reference-occurrences";
 import { externalLibrary } from "../features/references/external-client";
 import { findReferenceLocation } from "../document/reference-locations";
 import { showLinkPicker } from "./link-picker";
@@ -560,7 +561,6 @@ export class BlockEditor {
         "aria-multiline": "true",
         spellcheck: "false",
       },
-      markViews: { link: mark => new ExternalLinkView(mark) },
       nodeViews: preserveSelectionDecorations({
         image: (node, view, getPos) => imageView(node, view, getPos, () => options.canCommand?.("notion_image_caption") === true || options.canCommand?.("image_caption") === true, () => options.canCommand?.("image_layout") === true),
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, () => options.canCommand?.("code_caption") === true),
@@ -944,6 +944,26 @@ export class BlockEditor {
     element.scrollIntoView({ block: "center" });
     return true;
   }
+  scrollToReferenceOccurrence(target: ReferenceOccurrenceTarget): boolean {
+    // Resolve against the live projection so edits and footnote layout cannot leave stale positions.
+    const ref = referenceOccurrences(this.view.state.doc).find(ref => ref.key === target.key && ref.occurrence === target.occurrence);
+    if (!ref) return false;
+    const dom = this.view.domAtPos(ref.from).node;
+    const element = this.view.nodeDOM(ref.from) ?? (dom instanceof HTMLElement ? dom : dom.parentElement);
+    const host = element instanceof HTMLElement ? element : element?.parentElement;
+    if (!host) return false;
+    host.dispatchEvent(new Event("notdown-reveal-reference", { bubbles: true }));
+    for (let parent = host; parent && parent !== this.view.dom; parent = parent.parentElement!)
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    this.revealHeading(host);
+    const node = this.view.state.doc.nodeAt(ref.from);
+    const selection = node?.isAtom && NodeSelection.isSelectable(node) ? NodeSelection.create(this.view.state.doc, ref.from)
+      : TextSelection.between(this.view.state.doc.resolve(ref.from), this.view.state.doc.resolve(ref.to));
+    this.view.dispatch(this.view.state.tr.setSelection(selection).scrollIntoView());
+    host.scrollIntoView({ block: "center" });
+    this.view.focus();
+    return true;
+  }
   getDocument() {
     return restoreFootnotes(this.view.state.doc);
   }
@@ -1031,6 +1051,16 @@ export class BlockEditor {
       this.view.composing ||
       !!slashPluginKey.getState(this.view.state)?.composing
     );
+  }
+  headingElements(): HTMLElement[] {
+    if (this.destroyed) return [];
+    const headings: HTMLElement[] = [];
+    this.view.state.doc.descendants((node, pos) => {
+      if (!isEditorKind(node, "heading")) return;
+      const element = this.view.nodeDOM(pos);
+      if (element instanceof HTMLElement) headings.push(element);
+    });
+    return headings;
   }
   revealHeading(heading: HTMLElement) {
     if (this.destroyed || !this.view.dom.contains(heading)) return;
@@ -1618,6 +1648,12 @@ export class BlockEditor {
   private rowRect(block: EditorBlock) {
     const dom = this.view.nodeDOM(block.pos);
     if (!(dom instanceof HTMLElement)) return null;
+    if (isEditorKind(block.node, "horizontal_rule")) {
+      // A rule is only a border. Center its controls and hover area on the
+      // visible line without changing the document's block spacing.
+      const rect = dom.getBoundingClientRect();
+      return rect.height ? new DOMRect(rect.left, rect.top - (24 - rect.height) / 2, rect.width, 24) : rect;
+    }
     if (dom.matches(".pm-content-object, .pm-embed")) return dom.getBoundingClientRect();
     if (isEditorKind(block.node, "callout")) {
       // The first content row represents the entire callout. Keep its vertical
@@ -1647,8 +1683,8 @@ export class BlockEditor {
   private candidate(x: number, y: number): EditorBlock | null {
     const bounds = this.view.dom.getBoundingClientRect();
     if (
-      y < bounds.top - 3 ||
-      y > bounds.bottom + 3 ||
+      y < bounds.top - 12 ||
+      y > bounds.bottom + 12 ||
       x < bounds.left - 108 ||
       x > bounds.right + 24
     )
@@ -1667,7 +1703,8 @@ export class BlockEditor {
     }
     const hit = this.view.posAtCoords({
       left: Math.max(bounds.left + 1, Math.min(x, bounds.right - 1)),
-      top: y,
+      // The first/last divider's hover area can extend beyond the document.
+      top: Math.max(bounds.top, Math.min(y, bounds.bottom - 1)),
     });
     const block = hit ? blockAtPos(this.view.state.doc, hit.pos) : null;
     if (!block) return null;

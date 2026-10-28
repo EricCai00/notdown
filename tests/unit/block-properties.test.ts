@@ -24,7 +24,7 @@ test("block property saves preserve unknown attributes, no-op source and undo as
 });
 
 test("properties validate tabs, reject stale targets and reset changed synced sources", () => {
-  const state = EditorState.create({ doc: parseNative(objectSamples.tabs, config) });
+  const state = EditorState.create({ doc: parseNative('<tabs active="0">\n<tab title="First">\nBody\n</tab>\n<tab title="Second">\nOther\n</tab>\n</tabs>', config) });
   assert.throws(() => blockPropertiesTransaction(state, 0, state.doc.firstChild!, { active: "2" }), /Active tab/);
   assert.throws(() => blockPropertiesTransaction(state, 0, state.doc.firstChild!, { active: "0.5" }), /Active tab/);
   const changed = state.apply(blockPropertiesTransaction(state, 0, state.doc.firstChild!, { active: "1" })!);

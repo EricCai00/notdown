@@ -1,10 +1,12 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { get as httpGet } from "node:http";
-import { get as httpsGet } from "node:https";
+import { Agent as HttpsAgent, get as httpsGet } from "node:https";
 import { parse, type DefaultTreeAdapterMap } from "parse5";
 import { bookmarkUrl, type BookmarkMetadata } from "../src/features/bookmarks/bookmark";
 import { VaultError } from "./vault";
+import { systemBookmarkProxy } from "./bookmark-system-proxy";
+import { bookmarkImage } from "./bookmark-images";
 
 // Requests are pinned to the checked IPv4 address, including after redirects.
 // IPv6-only and non-public destinations fall back to a plain bookmark.
@@ -37,7 +39,8 @@ export function parseBookmarkMetadata(html: string, pageUrl: string): BookmarkMe
     }
     if ("childNodes" in node) node.childNodes.forEach(visit);
   };
-  visit(parse(html));
+  const document = parse(html);
+  visit(document);
   const asset = (value: string) => {
     try { return value ? bookmarkUrl(new URL(value, pageUrl).href) : ""; } catch { return ""; }
   };
@@ -45,23 +48,63 @@ export function parseBookmarkMetadata(html: string, pageUrl: string): BookmarkMe
     title: clean(meta.get("og:title") || meta.get("twitter:title") || title || new URL(pageUrl).hostname, 500),
     description: clean(meta.get("og:description") || meta.get("description") || meta.get("twitter:description") || "", 2000),
     icon: asset(favicon || "/favicon.ico"),
-    image: asset(meta.get("og:image") || meta.get("twitter:image") || ""),
+    image: bookmarkImage(document, pageUrl),
   };
 }
 
 type PageResponse = { status: number; location?: string; type: string; body: Buffer };
-async function readPage(url: URL, signal: AbortSignal): Promise<PageResponse> {
-  if (url.port && !["80", "443"].includes(url.port)) throw new Error("Unsupported port");
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  const addresses = isIP(host) ? [{ address: host }] : await lookup(host, { family: 4, all: true });
-  signal.throwIfAborted();
-  if (!addresses.length || addresses.some(a => !publicBookmarkAddress(a.address))) throw new Error("Non-public host");
-  return new Promise((resolve, reject) => {
-    const request = (url.protocol === "https:" ? httpsGet : httpGet)(url, {
-      agent: false, signal,
-      family: 4,
-      lookup: (_hostname, _options, callback) => callback(null, addresses[0].address, 4),
-      headers: { "User-Agent": "Notdown-Bookmark/1.0", Accept: "text/html,application/xhtml+xml", "Accept-Encoding": "identity" },
+// Electron supplies Chromium's per-URL proxy result (including PAC and bypass rules).
+// Keep this adapter independent of Electron so the browser server remains usable.
+export type BookmarkProxyResolver = (url: string, signal?: AbortSignal) => Promise<string>;
+export function bookmarkPageReader(options: {
+  resolveProxy?: BookmarkProxyResolver;
+  lookupHost?: (host: string) => Promise<string[]>;
+} = {}) {
+  const lookupHost = options.lookupHost ?? (async (host: string) => (await lookup(host, { family: 4, all: true })).map(a => a.address));
+  const resolveProxy = options.resolveProxy ?? systemBookmarkProxy;
+  return async (url: URL, signal: AbortSignal): Promise<PageResponse> => {
+    if (url.port && !["80", "443"].includes(url.port)) throw new Error("Unsupported port");
+    const host = url.hostname.replace(/^\[|\]$/g, "");
+    const addresses = isIP(host) ? [host] : await lookupHost(host);
+    signal.throwIfAborted();
+    if (!addresses.length || addresses.some(a => !publicBookmarkAddress(a))) throw new Error("Non-public host");
+    // Pin the URL itself, not lookup(): a proxy resolves CONNECT/absolute-form
+    // destinations independently. Preserve the original HTTP Host and TLS SNI.
+    const destination = new URL(url);
+    destination.hostname = addresses[0];
+    destination.hash = "";
+    const routes = (await resolveProxy(url.href, signal)).split(";");
+    let failure: unknown = new Error("No supported bookmark proxy");
+    for (const route of routes) {
+      signal.throwIfAborted();
+      try {
+        let proxy: URL | undefined;
+        if (route.trim() !== "DIRECT") {
+          const match = /^(PROXY|HTTPS)\s+(\S+)$/i.exec(route.trim());
+          if (!match) throw new Error("Unsupported bookmark proxy");
+          proxy = new URL(`${match[1].toUpperCase() === "HTTPS" ? "https" : "http"}://${match[2]}`);
+          if (!proxy.hostname || proxy.pathname !== "/" || proxy.search || proxy.hash) throw new Error("Invalid bookmark proxy");
+        }
+        return await requestPage(destination, url, signal, proxy);
+      } catch (error) { failure = error; }
+    }
+    // A configured proxy failing never silently changes to a direct connection.
+    throw failure;
+  };
+}
+
+async function requestPage(destination: URL, original: URL, signal: AbortSignal, proxy?: URL): Promise<PageResponse> {
+  const forward = !!proxy && destination.protocol === "http:";
+  const connection = forward ? new URL(proxy) : destination;
+  const authorization = forward && (connection.username || connection.password)
+    ? `Basic ${Buffer.from(`${decodeURIComponent(connection.username)}:${decodeURIComponent(connection.password)}`).toString("base64")}` : "";
+  if (forward) { connection.username = ""; connection.password = ""; }
+  const agent = proxy && !forward ? new HttpsAgent({ keepAlive: false, proxyEnv: { HTTPS_PROXY: proxy.href } }) : undefined;
+  try { return await new Promise<PageResponse>((resolve, reject) => {
+    const request = (connection.protocol === "https:" ? httpsGet : httpGet)(connection, {
+      agent: agent ?? false, signal,
+      ...(forward ? { path: destination.href } : destination.protocol === "https:" && !isIP(original.hostname) ? { servername: original.hostname } : {}),
+      headers: { Host: original.host, "User-Agent": "Notdown-Bookmark/1.0", Accept: "text/html,application/xhtml+xml", "Accept-Encoding": "identity", ...(authorization ? { "Proxy-Authorization": authorization } : {}) },
     }, response => {
       const status = response.statusCode || 0;
       const type = response.headers["content-type"] || "";
@@ -83,10 +126,10 @@ async function readPage(url: URL, signal: AbortSignal): Promise<PageResponse> {
       response.on("aborted", () => reject(new Error("Response interrupted")));
     });
     request.on("error", reject);
-  });
+  }); } finally { agent?.destroy(); }
 }
 
-export function bookmarks(read = readPage) {
+export function bookmarks(read = bookmarkPageReader()) {
   let active = 0;
   return { async resolve(input: unknown): Promise<BookmarkMetadata> {
     const url = bookmarkUrl((input as { url?: unknown } | null)?.url);

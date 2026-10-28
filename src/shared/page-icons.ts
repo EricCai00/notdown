@@ -17,6 +17,13 @@ export function lucidePageIcon(name?: string): IconNode | undefined {
     ? lookup.get(name.replaceAll("-", "").toLowerCase()) : undefined;
 }
 
+/** Imported emoji may omit VS16 (e.g. Notion's bare alembic). Qualify only
+ * display text; keep saved metadata and explicit text/emoji selectors intact. */
+export function emojiIconPresentation(icon: string): string {
+  return icon.replace(/\p{Emoji}(?![\uFE0E\uFE0F\u20E3\p{Emoji_Modifier}])/gu, char =>
+    /\p{Emoji_Presentation}|[0-9#*]/u.test(char) ? char : char + "\uFE0F");
+}
+
 /** Unknown names fall back without changing the saved metadata; symbols stay text. */
 export function pageIconElement(icon?: string): Element {
   if (icon && /^assets\/[a-zA-Z0-9_-]+\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i.test(icon)) {
@@ -30,7 +37,7 @@ export function pageIconElement(icon?: string): Element {
     const span = document.createElement("span");
     span.className = "page-link-icon emoji";
     span.setAttribute("aria-hidden", "true");
-    span.textContent = icon;
+    span.textContent = emojiIconPresentation(icon);
     return span;
   }
   return createElement(node ?? icons.FileText, {

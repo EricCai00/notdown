@@ -1,5 +1,7 @@
 # Meeting notes
 
+2026-10-27：旧属性式 title/transcript 编辑后使用官方标题正文和 Transcript 分区；audio/language 合并到现有 meeting-config，保留本地转写能力与未知配置。详见[保留扩展及原因](../reference/NOTDOWN-EXTENSIONS.md)。
+
 会议笔记使用专用 NodeView：标题与日期、参与者入口、Notes / Summary / Transcript 标签、Settings 与 Start transcribing、底部摘要指令与同意提示。空笔记显示占位说明，正文仍属于单个 ProseMirror 文档；标签仅隐藏分区，不搬运或复制正文。标题可双击或从设置重命名；新建会议使用当天的明确日期值，不会随重新打开漂移。
 
 日期使用既有 `mention-date` 标题语法，直接复用正文 mention 的 `DateMentionView` 与 `date.css`，没有独立会议日历。Notdown 下共用月历、日期范围、时间、格式、时区、提醒、键盘操作与视口定位；会议标题提醒进入既有本地提醒服务。带官方独立日期／时间字段不再限制菜单：Notdown 提供完整本地菜单，官方方言开放原生日期、时间和 IANA 时区，格式仅在当前节点会话显示，不写入 Notdown 扩展或本地提醒。修改接入既有统一撤销历史；清除、重新添加、视图切换、外部标题更新均清理旧面板。参与者入口添加 People 本地联系人的既有人物提及，不发送邀请。旧的属性式标题保留原编码，仍可从设置编辑。

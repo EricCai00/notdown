@@ -1,5 +1,16 @@
 import { escapeXml, localPageTarget } from "../../document/notion-syntax";
 import { resolveExternal } from "../references/external-client";
+import type { DatabaseSnapshot, DatabaseView } from "./database-model";
+
+/** A collection:// carrier chooses a source; it is not a database/page identity. */
+export function databaseSourceView(snapshot: DatabaseSnapshot, sourceUrl: unknown): DatabaseView | undefined {
+  if (typeof sourceUrl !== "string") return;
+  const match = /^collection:\/\/([0-9a-f-]{32,36})\/?$/i.exec(sourceUrl);
+  if (!match) return;
+  const same = (value: unknown) => typeof value === "string" && value.replace(/-/g, "").toLowerCase() === match[1].replace(/-/g, "").toLowerCase();
+  const source = snapshot.dataSources.find(source => same(source.id) || same((source.notion as { id?: string } | undefined)?.id));
+  return source ? snapshot.views.find(view => view.dataSourceId === source.id) : undefined;
+}
 
 /** Local identity carried by the existing official database URL attribute. */
 export function databaseHostId(url: unknown): string | undefined {

@@ -44,7 +44,7 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
   }
   function paintDetail() {
     if (!draft) {
-      detail.innerHTML = `<div class="people-welcome"><span class="person-avatar" aria-hidden="true">@</span><h3>${selected ? "Person unavailable" : "A place for the people in your notes"}</h3><p>${selected ? "This contact could not be found. Existing mentions keep their saved name." : "Keep contact details together, then mention a person from any note that supports mentions."}</p></div>`;
+      detail.innerHTML = `<div class="people-welcome"><span class="person-avatar" aria-hidden="true">@</span><h3>${selected ? "Person unavailable" : "Select or add a person"}</h3><p>${selected ? "This contact could not be found. Existing mentions keep their saved name." : "Add contact details and mention people in notes."}</p></div>`;
       return;
     }
     const original = draft.original, removed = original?.deleted;

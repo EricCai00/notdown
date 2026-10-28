@@ -1,5 +1,7 @@
 # Markdown 正文格式 v0.4：方言配置与 Notion Enhanced Markdown
 
+2026-10-27 官方载体收敛：Notdown 新建和编辑的 Web embed/书签使用官方 source 与题注正文；Tabs 标题写正文，活动页签不写入；会议标题、笔记、转录使用官方分区，音频/语言统一放现有 meeting-config；有效旧列宽统一为 ratio 百分比，能无损核验的日期时间统一为官方分列。折叠 open 不再作为正文状态写入。未知原文保持可恢复；本次用户明确授权迁移 Default 与 Notion test，其他库不自动迁移。保留项目及无法用官方形式表达的原因见[自定义扩展说明](reference/NOTDOWN-EXTENSIONS.md)，本修订覆盖下文相冲突的历史写法。
+
 ## Notion Markdown 版本
 
 新 Notion API 导入显式保存 `syntax.notionVersion: "v2"`，使用官方 [Notion-flavored Markdown](https://developers.notion.com/guides/data-apis/notion-flavored-markdown) 的 CommonMark/GFM 正文、统一容器与行内标签。API header 的版本与 Markdown 的 v2 参数独立。未标记的旧文件沿用原有读取方式，不批量转换。

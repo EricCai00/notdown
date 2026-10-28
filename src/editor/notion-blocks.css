@@ -241,7 +241,7 @@
 .pm-document .pm-media-caption {
   padding: 6px 2px 0;
   color: var(--text-muted, #787774);
-  font-size: 14px;
+  font-size: var(--font-size-caption, 13px);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

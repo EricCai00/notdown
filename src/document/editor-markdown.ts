@@ -5,6 +5,7 @@ import { type Mark, type Node as EditorNode } from "prosemirror-model";
 import type Token from "markdown-it/lib/token.mjs";
 import { parseMarkdownTokens } from "./markdown.js";
 import { editorSchema as schema } from "./editor-schema.js";
+import { canonicalDateAttributes } from "../features/dates/date-mention";
 import {
   attributesXml,
   escapeXml,
@@ -739,7 +740,7 @@ export function inlineMarkdown(
       result += options.notionV2 ? `<link-preview${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url })} />` : `<mention-link${attributesXml({ ...child.attrs.nfmAttrs, url: child.attrs.url })}>${escapeXml(child.attrs.label)}</mention-link>`;
     } else if (isEditorKind(child, "mention")) {
       const tag = options.notionV2 ? child.attrs.kind === "date" ? "date" : "mention" : `mention-${child.attrs.kind}`;
-      const attrs = { ...child.attrs.nfmAttrs, ...(options.notionV2 && child.attrs.kind === "database" ? { type: "database" } : {}) };
+      const attrs = { ...(child.attrs.kind === "date" ? canonicalDateAttributes(child.attrs.nfmAttrs) : child.attrs.nfmAttrs), ...(options.notionV2 && child.attrs.kind === "database" ? { type: "database" } : {}) };
       if (options.notionV2 && child.attrs.kind === "date") for (const [from,to] of [["startTime","start-time"],["endTime","end-time"],["timeZone","time-zone"]]) if (attrs[from] !== undefined) { attrs[to] = attrs[from]; delete attrs[from]; }
       result += child.attrs.label
         ? `<${tag}${attributesXml(attrs)}>${escapeXml(child.attrs.label)}</${tag}>`

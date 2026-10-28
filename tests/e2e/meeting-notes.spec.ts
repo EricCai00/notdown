@@ -7,6 +7,37 @@ async function open(page: Page, request: APIRequestContext, body = empty, varian
   await page.addInitScript(id => localStorage.setItem("notdown-page", id), note.id); await page.goto("/");
   await expect(page.locator(".pm-object-meeting_notes")).toBeVisible(); return note;
 }
+
+for (const variant of ["notdown", "notion-markdown"]) {
+  test(`${variant}: page outline excludes the meeting card title and keeps document headings`, async ({ page, request }) => {
+    const source = [
+      "# Page heading",
+      '## Toggle heading {toggle="true"}\n\t### Nested heading',
+      "<columns>\n\t<column>\n\t\t#### Column heading\n\t</column>\n\t<column>\n\t\tOther content\n\t</column>\n</columns>",
+      empty.replace("\t\t\n", "\t\t#### Notes heading\n"),
+      "<table_of_contents/>",
+    ].join("\n\n");
+    const note = await open(page, request, source, variant);
+    const headings = ["Page heading", "Toggle heading", "Nested heading", "Column heading", "Notes heading"];
+    const toc = page.locator("#floating-toc");
+    const entries = toc.getByRole("button");
+    await expect(page.locator(".pm-object-meeting_notes > header h3")).toContainText("Meeting");
+    await expect(entries).toHaveText(headings);
+    await expect(page.locator(".pm-toc button")).toHaveText(headings);
+    await toc.hover();
+    await entries.filter({ hasText: /^Column heading$/ }).click();
+    await expect(toc.locator('[aria-current="location"]')).toHaveText("Column heading");
+    expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(source);
+
+    await page.keyboard.press("Control+e");
+    await page.locator("#source-editor").fill(empty);
+    await page.keyboard.press("Control+e");
+    await expect(page.locator(".pm-object-meeting_notes > header h3")).toBeVisible();
+    await expect(toc).toBeHidden();
+    await expect(entries).toHaveCount(0);
+  });
+}
+
 test("meeting card, calendar, language and instruction menus save without losing unknown properties", async ({ page, request }) => {
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   const note = await open(page, request); const card = page.locator(".pm-object-meeting_notes");

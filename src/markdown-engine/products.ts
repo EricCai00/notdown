@@ -28,6 +28,13 @@ const sourceBlock = (
   data: unknown = {},
   html = "",
 ) => createEditorNode(schema, "syntax_block", { kind, raw, config, data, html });
+
+export function diagramLanguage(info: string, config: SyntaxConfig): string | undefined {
+  const language = info.trim().split(/\s/)[0].toLowerCase();
+  const supported = ["notion-markdown", "obsidian", "gfm"].includes(config.variant)
+    ? ["mermaid"] : ["mermaid", "sequence", "flow"];
+  return enabled(config, "diagrams") && supported.includes(language) ? language : undefined;
+}
 const inlineNode = (
   kind: string,
   raw: string,
@@ -610,11 +617,8 @@ export function installProductRules(
         ? s.src.split("\n").slice(t.map[0], t.map[1]).join("\n")
         : t.content;
       if (t.type === "fence") {
-        const language = t.info.trim().split(/\s/)[0];
-        if (
-          enabled(config, "diagrams") &&
-          (config.variant === "obsidian" || config.variant === "gfm" ? ["mermaid"] : ["mermaid", "sequence", "flow"]).includes(language)
-        )
+        const language = diagramLanguage(t.info, config);
+        if (language)
           node = sourceBlock("diagram", raw, config, {
             language,
             code: t.content,

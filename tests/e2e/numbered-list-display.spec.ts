@@ -13,13 +13,42 @@ async function open(page: Page, request: APIRequestContext, body: string, varian
 
 async function choose(page: Page, value: "markdown" | "notion") {
   await page.getByRole("button", { name: "Workspace settings", exact: true }).click();
-  await page.getByLabel("Numbered list display", { exact: true }).selectOption(value);
+  await page.getByRole("combobox", { name: "Numbered list display", exact: true }).selectOption(value);
   await page.locator("#dialog").getByRole("button", { name: "Done", exact: true }).click();
 }
 
 async function styles(page: Page) {
   return page.locator(".pm-document ol").evaluateAll(lists => lists.map(list => getComputedStyle(list).listStyleType));
 }
+
+for (const variant of ["notdown", "notion-markdown"]) test(`${variant}: imported v2 numbering restarts retain 2, 4, 5 after editing and reloading`, async ({ page, request }) => {
+  const body = '2. White\n\n<ol start="4">\n<li>Red</li>\n<li>Rose</li>\n</ol>\n\nTail';
+  const response = await request.post('/api/pages', { data: {
+    title: 'Imported numbering restarts', body, bodyFormat: 'notion-markdown',
+    syntax: { version: 1, variant, notionVersion: 'v2', extensions: {} },
+  } });
+  expect(response.status()).toBe(201);
+  const note = await response.json();
+  await page.goto(`/#page/${note.id}`);
+  const lists = page.locator('.pm-document > ol');
+  await expect(lists).toHaveCount(2);
+  await expect(lists.nth(0)).toHaveAttribute('start', '2');
+  await expect(lists.nth(1)).toHaveAttribute('start', '4');
+  await expect(lists.nth(1).locator(':scope > li')).toHaveCount(2);
+  const red = lists.nth(1).locator('p').filter({ hasText: /^Red$/ });
+  await red.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' edited');
+  await page.keyboard.press('Control+s');
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('Red edited');
+  const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
+  expect(saved).toContain('<ol start="4"');
+  expect(saved).toMatch(/^2\. White\n\n/);
+  await page.reload();
+  await expect(lists).toHaveCount(2);
+  await expect(lists.nth(1)).toHaveAttribute('start', '4');
+  await expect(lists.nth(1)).toContainText('Red edited');
+});
 
 test("numbering cycles at arbitrary depth, persists, and toggles without rewriting source or revision", async ({ page, request }) => {
   const body = Array.from({ length: 7 }, (_, depth) => `${"    ".repeat(depth)}1. Level ${depth + 1}`).join("\n") + "\n";
@@ -31,7 +60,7 @@ test("numbering cycles at arbitrary depth, persists, and toggles without rewriti
   await page.reload();
   await expect.poll(() => styles(page)).toEqual(cycle);
   await page.getByRole("button", { name: "Workspace settings", exact: true }).click();
-  await expect(page.getByLabel("Numbered list display", { exact: true })).toHaveValue("notion");
+  await expect(page.getByRole("combobox", { name: "Numbered list display", exact: true })).toHaveValue("notion");
   await page.locator("#dialog").getByRole("button", { name: "Done", exact: true }).click();
   await choose(page, "markdown");
   await expect.poll(() => styles(page)).toEqual(Array(7).fill("decimal"));

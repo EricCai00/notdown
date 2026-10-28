@@ -3,6 +3,54 @@ import { test, expect } from "@playwright/test";
 const target = "de111111-1111-4111-8111-111111111111", user = "de222222-2222-4222-8222-222222222222", database = "de333333-3333-4333-8333-333333333333";
 const syntax = { version: 1, variant: "notdown", notionVersion: "v2", extensions: {} };
 
+test("reference review defaults to unresolved internal links, preserves URLs and returns to each occurrence", async ({ page, request }, info) => {
+  const remote = "ea999999-9999-4999-8999-999999999999", urlOnly = "ea888888-8888-4888-8888-888888888888";
+  const destination = await (await request.post("/api/pages", { data: { title: "Panel linked destination", body: "Destination body" } })).json();
+  const body = `First occurrence <mention url="https://www.notion.so/${remote}">Remote page</mention>\n\n${Array.from({ length: 25 }, (_, i) => `Spacer paragraph ${i + 1}.`).join("\n\n")}\n\nSecond occurrence <mention url="https://www.notion.so/${remote}">Remote page</mention>\n\n[[Panel missing destination|First local]] and [[Panel missing destination|Second local]]\n\n[[${destination.id}|Panel linked destination]]\n\n[Ordinary URL](https://www.notion.so/${urlOnly}) [Broken website](https://example.test/missing)`;
+  const note = await (await request.post("/api/pages", { data: { title: "Panel referring note", body, syntax } })).json();
+  await page.goto(`/#page/${destination.id}`);
+  const openPanel = async () => {
+    await page.locator('.sidebar [data-action="import"]').click();
+    await page.getByRole("button", { name: "External references", exact: true }).click();
+    const panel = page.getByRole("dialog", { name: "External references" });
+    await expect(panel.locator("output")).not.toHaveText("Loading…");
+    return panel;
+  };
+  let panel = await openPanel();
+  await expect(panel.getByRole("checkbox", { name: "Include resolved references" })).not.toBeChecked();
+  await panel.getByRole("searchbox").fill(destination.id);
+  await expect(panel.locator(".external-library-row")).toHaveCount(0);
+  await panel.getByRole("checkbox", { name: "Include resolved references" }).check();
+  await expect(panel.locator(".external-library-row")).toHaveCount(1);
+  await panel.getByRole("checkbox", { name: "Include resolved references" }).uncheck();
+  await panel.getByRole("searchbox").fill(urlOnly);
+  await expect(panel.locator(".external-library-row")).toHaveCount(0);
+  await panel.getByRole("searchbox").fill(remote);
+  await expect(panel.getByRole("button", { name: /Go to reference/ })).toHaveCount(2);
+  await panel.screenshot({ path: info.outputPath("unresolved-reference-panel.png") });
+  await panel.getByRole("button", { name: /Go to reference/ }).nth(1).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`#page/${note.id}$`));
+  const selected = page.locator(".ProseMirror-selectednode");
+  await expect(selected.locator("..")).toContainText("Second occurrence");
+  await expect(selected).toBeInViewport();
+  const editor = page.locator(".page-pane .ProseMirror");
+  await expect(editor.getByRole("link", { name: "Ordinary URL", exact: true })).toHaveAttribute("href", `https://www.notion.so/${urlOnly}`);
+  await expect(editor.getByRole("link", { name: "Broken website", exact: true })).toHaveAttribute("href", "https://example.test/missing");
+  await page.locator("#page-options > summary").click();
+  await page.locator('[data-view="source"]').click();
+  await expect(page.locator(".markdown-workspace")).toHaveAttribute("data-mode", "source");
+  panel = await openPanel();
+  await panel.getByRole("searchbox").fill("Panel missing destination");
+  await expect(panel.getByRole("button", { name: /Go to reference/ })).toHaveCount(2);
+  await panel.getByRole("button", { name: /Go to reference/ }).nth(1).click();
+  await expect(page.locator(".ProseMirror-selectednode .page-link-label")).toHaveText("Unknown page");
+  // The second of two same-target links must be selected, without following the missing target.
+  await expect(editor.locator('[data-page-target="Panel missing destination"]').nth(1)).toHaveClass(/ProseMirror-selectednode/);
+  await expect(page.locator(".markdown-workspace")).toHaveAttribute("data-mode", "document");
+  expect((await (await request.get(`/api/pages/${note.id}`)).json()).body).toBe(note.body);
+});
+
 test("unknown references are inert chips; later imports and new contacts resolve without rewriting a draft", async ({ page, request }, info) => {
   const body = `<p>Page <mention url="https://www.notion.so/${target}">Original page</mention> and [Original link](https://www.notion.so/${target}).</p>\n\n<p>User <mention url="user://${user}">Original user</mention>.</p>\n\n<database url="https://www.notion.so/${database}" inline="true"/>\n\n<p>Draft text.</p>`;
   const note = await (await request.post("/api/pages", { data: { title: "Deferred references", body, syntax } })).json();
@@ -12,9 +60,9 @@ test("unknown references are inert chips; later imports and new contacts resolve
   await expect(mention).toHaveText(/Unknown page/);
   await expect(mention.locator(".page-link-label")).toBeVisible();
   await expect(mention).not.toHaveAttribute("href");
-  const link = editor.locator('a.external-reference[aria-label="Unknown page"]');
-  await expect(link).toHaveAttribute("aria-disabled", "true");
-  await expect(link).not.toHaveAttribute("href");
+  const link = editor.getByRole("link", { name: "Original link", exact: true });
+  await expect(link).toHaveAttribute("href", `https://www.notion.so/${target}`);
+  await expect(link).not.toHaveAttribute("aria-disabled");
   await expect(editor.locator('[data-mention-kind="user"]')).toHaveText("@Unknown user");
   await expect(editor.locator(".pm-database-reference")).toContainText("Unknown database");
   await expect(editor.locator(".pm-database-reference .page-link-label")).toBeVisible();
@@ -31,11 +79,11 @@ test("unknown references are inert chips; later imports and new contacts resolve
   await expect(editor.locator('[data-mention-kind="user"]')).toHaveText("@Resolved user", { timeout: 15000 });
   await expect(editor).toContainText("Live draft.");
   await expect(editor.locator(".page-mention")).toHaveAttribute("href", `#page/${preview.documents[0].id}`);
-  await expect(editor.locator("a.external-reference")).toHaveAttribute("href", `#page/${preview.documents[0].id}`);
+  await expect(link).toHaveAttribute("href", `https://www.notion.so/${target}`);
   await page.reload();
   const resolved = page.locator(`.page-pane .ProseMirror .page-mention[href="#page/${preview.documents[0].id}"]`);
   await expect(resolved).toBeVisible();
-  await expect(page.locator('.ProseMirror a.external-reference').filter({ hasText: "Original link" })).toHaveAttribute("href", `#page/${preview.documents[0].id}`);
+  await expect(editor.getByRole("link", { name: "Original link", exact: true })).toHaveAttribute("href", `https://www.notion.so/${target}`);
   const saved = await (await request.get(`/api/pages/${note.id}`)).json();
   expect(saved.body).toContain(`https://www.notion.so/${target}`);
   expect(saved.body).toContain(`user://${user}`);

@@ -21,9 +21,14 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "POST" && operation === "resolve") { const { baseRevision, schemaRevision, ...patch } = input; return await vault.resolveConflict(id, patch, baseRevision, schemaRevision); }
       }
       if (resource === "pages") {
+        if (method === "POST" && operation === "insert-into-parent") return await vault.insertChildPage(id, input);
         if (method === "GET") return await (id ? vault.get(id) : vault.list({ includeTrashed: url.searchParams.get("includeTrashed") === "true" }));
         if (method === "POST" && !id) return await vault.create(input);
         if (method === "PUT" && id) { const { baseRevision, schemaRevision, ...patch } = input; return await vault.update(id, patch, baseRevision, schemaRevision); }
+      }
+      if (resource === "child-pages" && id === "settings") {
+        if (method === "GET") return await vault.childPageSettings.get();
+        if (method === "PUT") return await vault.childPageSettings.configure(input);
       }
       if (resource === "assets" && method === "POST") return await vault.uploadAsset(input.name, input.contentType, input.data);
       if (resource === "assets" && method === "GET" && id === "info") return await vault.assetInfo(url.searchParams.get("path"));
@@ -38,12 +43,14 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "PUT" && id === "binding") return await vault.externalEntities.bind(input.key, input.localId, input.baseRevision);
       }
       if (resource === "databases") {
+        if (method === "POST" && operation === "data-sources" && (!child || child === "link")) { const { baseRevision, ...patch } = input; return child === "link" ? await vault.databases.linkSource(id, patch, baseRevision) : await vault.databases.createSource(id, patch, baseRevision); }
         if (method === "GET") return await (id ? vault.databases.get(id) : vault.databases.list());
         if (method === "POST" && !id) return await vault.databases.create(input);
         if (method === "POST" && operation === "views") { const { baseRevision, ...patch } = input; return await vault.databases.createView(id, patch, baseRevision); }
         if (method === "PUT" && id) return await (operation === "icon" ? vault.databases.updateIcon(id, input) : vault.databases.updatePresentation(id, input));
       }
       if (resource === "data-sources") {
+        if (method === "GET" && !id) return await vault.databases.listSources();
         if (method === "GET" && id) return await vault.databases.getSource(id);
         if (method === "PUT" && id && !operation) { const { baseRevision, ...patch } = input; return await vault.databases.updateSource(id, patch, baseRevision); }
         if (method === "PUT" && operation === "records" && child) return await vault.databases.updateCell(id, child, input);

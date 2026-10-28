@@ -1,17 +1,22 @@
 export type LibraryRoute = "gallery" | "list" | "tree" | "graph";
-export type PageRoute = { kind: "page"; id: string; fragment?: string } | { kind: "vault"; view: LibraryRoute } | { kind: "database"; id?: string };
+export type PageRoute = { kind: "page"; id: string; fragment?: string } | { kind: "vault"; view: LibraryRoute } | { kind: "database"; id?: string; viewId?: string };
 type Entry = { session: string; index: number; route: PageRoute };
 const key = "notdownNavigation";
 
 export function routeHash(route: PageRoute): string {
-  if (route.kind === "database") return route.id ? `#database/${encodeURIComponent(route.id)}` : "#databases";
+  if (route.kind === "database") return route.id ? `#database/${encodeURIComponent(route.id)}${route.viewId ? "?view=" + encodeURIComponent(route.viewId) : ""}` : "#databases";
   return route.kind === "page" ? `#page/${encodeURIComponent(route.id)}${route.fragment ? "#" + encodeURIComponent(route.fragment) : ""}` : `#vault/${route.view}`;
 }
 
 export function parseRoute(hash: string): PageRoute | null {
   if (hash === "#databases") return { kind: "database" };
   if (hash.startsWith("#database/")) {
-    try { const id = decodeURIComponent(hash.slice(10)); return id ? { kind: "database", id } : null; }
+    try {
+      const separator = hash.indexOf("?", 10);
+      const id = decodeURIComponent(hash.slice(10, separator < 0 ? undefined : separator));
+      const viewId = separator < 0 ? null : new URLSearchParams(hash.slice(separator + 1)).get("view");
+      return id ? { kind: "database", id, ...(viewId ? { viewId } : {}) } : null;
+    }
     catch { return null; }
   }
   if (hash.startsWith("#page/")) {
@@ -32,7 +37,7 @@ function entry(): Entry | null {
   const value = history.state?.[key];
   const route = value?.route;
   const validRoute = route && (route.kind === "page" ? typeof route.id === "string" && route.id.length > 0
-    : route.kind === "database" ? route.id === undefined || typeof route.id === "string" && route.id.length > 0
+    : route.kind === "database" ? (route.id === undefined || typeof route.id === "string" && route.id.length > 0) && (route.viewId === undefined || typeof route.viewId === "string" && route.viewId.length > 0)
     : route.kind === "vault" && ["gallery", "list", "tree", "graph"].includes(route.view));
   return value && typeof value.session === "string" && Number.isInteger(value.index) && value.index >= 0 &&
     validRoute ? value : null;
@@ -71,6 +76,13 @@ export class PageNavigation {
 
   private get storageKey() { return `notdown-navigation:${this.active.session}`; }
   get route(): PageRoute { return structuredClone(this.active.route); }
+  /** A view tab changes the mounted database without replacing its editor. */
+  selectDatabaseView(id: string, viewId: string) {
+    if (this.loading || this.active.route.kind !== "database" || this.active.route.id !== id) return;
+    this.active = { ...this.active, route: { kind: "database", id, viewId } };
+    this.write(this.active, false);
+    this.changed();
+  }
   get loading() { return this.pending || this.restoring; }
   get canBack() { return !this.pending && !this.restoring && this.active.index > 0; }
   get canForward() { return !this.pending && !this.restoring && this.active.index < this.upper; }

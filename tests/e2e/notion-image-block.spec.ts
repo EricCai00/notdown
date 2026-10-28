@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { notionImagesRoot, notionImagesSource } from "../unit/notion-import-fixture";
+import { notionImagesRoot } from "../unit/notion-import-fixture";
 import { stablePageUuid } from "../../src/vault/page-id";
 
 for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imported images keep block identity through caption editing and reload`, async ({ page, request }) => {
@@ -10,10 +10,12 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imported 
   expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
   const id = stablePageUuid(`notion-${preview.id.slice(0, 24)}-${notionImagesRoot}`);
   const stored = async () => (await (await request.get(`/api/pages/${id}`)).json()).body;
-  expect(await stored()).toBe(notionImagesSource);
+  expect(await stored()).toContain("https://example.com/inline.png");
   await page.goto(`/#page/${id}`);
   const blocks = page.locator(".pm-document figure.pm-image-block-view");
-  await expect(blocks).toHaveCount(3);
+  await expect(blocks).toHaveCount(6);
+  await expect(page.locator(".pm-document")).toContainText("Before");
+  await expect(page.locator(".pm-document")).toContainText("after");
   const types = () => page.locator(".pm-document[contenteditable=true]").evaluate(element => {
     const found: string[] = [];
     (element as any).pmViewDesc.node.descendants((node: any) => {
@@ -21,16 +23,16 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imported 
     });
     return found;
   });
-  await expect.poll(types).toEqual(Array(3).fill("block.image_block"));
+  await expect.poll(types).toEqual(Array(6).fill("block.image_block"));
   await blocks.first().hover();
   await blocks.first().getByRole("button", { name: "Edit caption", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Image caption", exact: true });
   await dialog.getByLabel("Caption", { exact: true }).fill("Added caption");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await page.keyboard.press("Control+s");
-  await expect.poll(stored).toContain('<image source="https://example.com/empty.png">Added caption</image>');
+  await expect.poll(stored).toContain('![Added caption](https://example.com/empty.png)');
   await page.reload();
-  await expect.poll(types).toEqual(Array(3).fill("block.image_block"));
+  await expect.poll(types).toEqual(Array(6).fill("block.image_block"));
   await expect(blocks.first().locator("figcaption")).toHaveText("Added caption");
   await page.screenshot({ path: `test-results/notion-image-block-${variant}.png` });
   await blocks.first().hover();
@@ -38,8 +40,8 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imported 
   await dialog.getByLabel("Caption", { exact: true }).fill("");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await page.keyboard.press("Control+s");
-  await expect.poll(stored).toContain('<image source="https://example.com/empty.png"></image>');
+  await expect.poll(stored).toContain('![](https://example.com/empty.png)');
   await page.reload();
-  await expect.poll(types).toEqual(Array(3).fill("block.image_block"));
+  await expect.poll(types).toEqual(Array(6).fill("block.image_block"));
   await expect(blocks.first().locator("figcaption")).toBeHidden();
 });

@@ -4,7 +4,8 @@ import type { VaultPlatform, StorageError } from "./platform.js";
 import { VaultError, assertId, type Page, type PageInput } from "./vault.js";
 import { documentMetadata } from "../features/metadata/document-metadata.js";
 import { trashedPageIds } from "../features/pages/page-hierarchy.js";
-import { databasePropertyReadOnly, databasePropertyTypes, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabaseResources, type DatabaseSnapshot, type DatabaseView } from "../features/databases/database-model.js";
+import { databasePropertyReadOnly, databasePropertyTypes, databaseViewTypes, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabaseResources, type DatabaseSnapshot, type DatabaseView } from "../features/databases/database-model.js";
+import { validFilter, groupable } from "../features/databases/database-query.js";
 
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
 type PresentationInput = { title?: string; icon?: string; baseRevision: string; hostRevision?: string };
@@ -154,10 +155,37 @@ export function createDatabases(host: Host) {
     const hostPage = databaseHost(ctx, database);
     return { database: presentedDatabase(ctx, database, hidden), ...(hostPage ? { hostPage } : {}), dataSources: database.dataSourceIds.map(id => source(ctx, id)), views: database.viewIds.map(id => ctx.views[id]).filter(Boolean), pages: ctx.pages.filter(page => page.dataSourceId && database.dataSourceIds.includes(page.dataSourceId) && !hidden.has(page.id)) };
   }
+  function sourceOwner(ctx: Context, item: DatabaseDataSource) {
+    const owner = owningDatabase(ctx, item);
+    if (!owner || presentedDatabase(ctx, owner).trashed) throw new VaultError(422, "Restore the source database before linking its data source");
+    return presentedDatabase(ctx, owner);
+  }
+  async function addSource(ctx: Context, database: Database, item: DatabaseDataSource) {
+    const id = randomUUID(), hidden = trashedPageIds(ctx.pages);
+    ctx.views[id] = stamped({ id, databaseId: database.id, dataSourceId: item.id, name: item.title, type: "table", rowOrder: ctx.pages.filter(page => page.dataSourceId === item.id && !hidden.has(page.id)).map(page => page.id), revision: "" });
+    validateView(ctx.views[id], ctx);
+    ctx.databases[database.id] = stamped({ ...ctx.databases[database.id], dataSourceIds: [...database.dataSourceIds, item.id], viewIds: [...database.viewIds, id] });
+    await save(ctx); return snapshot(ctx, database.id);
+  }
   function validateView(view: DatabaseView, ctx: Context, previous?: DatabaseView) {
     label(view.name);
-    if (view.type !== "table") throw new VaultError(400, "Only table views are currently supported");
+    if (!databaseViewTypes.includes(view.type)) throw new VaultError(400, "Unsupported database view type");
     const fields = source(ctx, view.dataSourceId).properties;
+    if (view.filterMode !== undefined && !["and", "or"].includes(view.filterMode)) throw new VaultError(400, "Invalid filter mode");
+    if (view.layout !== undefined) {
+      const layout = view.layout;
+      if (!object(layout)) throw new VaultError(400, "Invalid view layout");
+      if (layout.groupBy && !fields.some(field => field.id === layout.groupBy && groupable(field))) throw new VaultError(400, "Grouping requires a Select, Status or Checkbox property");
+      if (layout.datePropertyId && !fields.some(field => field.id === layout.datePropertyId && field.type === "date")) throw new VaultError(400, "Calendar requires a Date property");
+      for (const key of ["groupOrder", "hiddenGroups", "collapsedGroups"] as const) if (layout[key] !== undefined && (!Array.isArray(layout[key]) || layout[key]!.some(value => typeof value !== "string") || new Set(layout[key]).size !== layout[key]!.length)) throw new VaultError(400, "Invalid group list");
+      for (const [key, values] of [["cardSize", ["small", "medium", "large"]], ["preview", ["none", "cover", "content"]], ["calendarRange", ["week", "month"]]] as const) if (layout[key] !== undefined && !values.includes(layout[key] as never)) throw new VaultError(400, "Invalid layout option");
+      for (const key of ["fitImage", "hideEmptyGroups", "showDataSourceTitle", "showVerticalLines", "showPageIcon", "wrapContent", "showGroupCount"] as const) if (layout[key] !== undefined && typeof layout[key] !== "boolean") throw new VaultError(400, "Invalid layout flag");
+    }
+    if (view.layout?.groupColors !== undefined && (!object(view.layout.groupColors) || Object.values(view.layout.groupColors).some(color => typeof color !== "string" || !["default", "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"].includes(color)))) throw new VaultError(400, "Invalid group colors");
+    if (view.layout?.openPagesIn !== undefined && !["side", "center", "full"].includes(view.layout.openPagesIn)) throw new VaultError(400, "Invalid page opening mode");
+    if (view.layout?.loadLimit !== undefined && ![0, 25, 50, 100].includes(view.layout.loadLimit)) throw new VaultError(400, "Invalid load limit");
+    if (view.layout?.frozenPropertyId && !fields.some(field => field.id === view.layout!.frozenPropertyId)) throw new VaultError(400, "Invalid frozen property");
+    if (view.layout?.wrapPropertyIds !== undefined && (!Array.isArray(view.layout.wrapPropertyIds) || view.layout.wrapPropertyIds.some(id => !fields.some(field => field.id === id)))) throw new VaultError(400, "Invalid wrapping properties");
     if (view.propertyIds !== undefined && (!Array.isArray(view.propertyIds) || new Set(view.propertyIds).size !== view.propertyIds.length || view.propertyIds.some(id => !fields.some(field => field.id === id)))) throw new VaultError(400, "Invalid visible property IDs");
     if (view.rowOrder !== undefined) {
       if (!Array.isArray(view.rowOrder) || view.rowOrder.length > 100_000 || new Set(view.rowOrder).size !== view.rowOrder.length) throw new VaultError(400, "Row order must contain unique page IDs");
@@ -171,7 +199,7 @@ export function createDatabases(host: Host) {
       }
     }
     if (view.filters !== undefined && !Array.isArray(view.filters) || view.sorts !== undefined && !Array.isArray(view.sorts)) throw new VaultError(400, "Invalid view filters or sorts");
-    for (const filter of view.filters ?? []) if (!object(filter) || !fields.some(field => field.id === filter.propertyId) || filter.operator !== "contains" || typeof filter.value !== "string") throw new VaultError(400, "Only contains filters on existing properties are supported");
+    for (const filter of view.filters ?? []) if (!validFilter(filter, fields)) throw new VaultError(400, "Invalid filter value or operator");
     for (const sort of view.sorts ?? []) if (!object(sort) || !fields.some(field => field.id === sort.propertyId) || !["ascending", "descending"].includes(sort.direction)) throw new VaultError(400, "Invalid property sort");
   }
   async function updatePresentationLocked(id: string, input: PresentationInput) {
@@ -205,6 +233,43 @@ export function createDatabases(host: Host) {
     list: () => host.serialize(async () => { const ctx = await context(), hidden = trashedPageIds(ctx.pages); return Object.values(ctx.databases).map(database => presentedDatabase(ctx, database, hidden)).filter(database => !database.trashed); }),
     get: (id: string) => host.serialize(async () => snapshot(await context(), id)),
     getSource: (id: string) => host.serialize(async () => source(await context(), id)),
+    listSources: () => host.serialize(async () => {
+      const ctx = await context(), hidden = trashedPageIds(ctx.pages);
+      return Object.values(ctx.dataSources).flatMap(item => {
+        const owner = owningDatabase(ctx, item);
+        if (!owner) return [];
+        const presented = presentedDatabase(ctx, owner, hidden);
+        const databases = Object.values(ctx.databases).filter(database => database.dataSourceIds.includes(item.id))
+          .map(database => presentedDatabase(ctx, database, hidden)).filter(database => !database.trashed)
+          .map(database => ({ id: database.id, title: database.title, isOwner: database.id === owner.id,
+            views: database.viewIds.map(id => ctx.views[id]).filter(view => view?.databaseId === database.id && view.dataSourceId === item.id)
+              .map(view => ({ id: view.id, name: view.name, type: view.type })) }))
+          .sort((a, b) => Number(b.isOwner) - Number(a.isOwner) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+        return presented.trashed ? [] : [{ id: item.id, title: item.title, revision: item.revision, ownerDatabaseId: owner.id, ownerTitle: presented.title, propertyCount: item.properties.length, recordCount: ctx.pages.filter(page => page.dataSourceId === item.id && !hidden.has(page.id)).length, databases }];
+      }).sort((a, b) => a.ownerTitle.localeCompare(b.ownerTitle) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+    }),
+    createSource: (databaseId: string, input: { title: string }, baseRevision: string) => host.serialize(async () => {
+      base(baseRevision); label(input?.title);
+      const ctx = await context(), database = snapshot(ctx, databaseId).database;
+      if (database.revision !== baseRevision) return conflict(database, input, baseRevision);
+      if (database.trashed) throw new VaultError(422, "Restore this database before adding a data source");
+      const id = randomUUID();
+      const item = stamped({ id, ownerDatabaseId: databaseId, title: input.title, properties: [{ id: randomUUID(), name: "Name", key: "title", type: "title" }], revision: "" } as DatabaseDataSource);
+      ctx.dataSources[id] = item;
+      return addSource(ctx, database, item);
+    }),
+    linkSource: (databaseId: string, input: { dataSourceId: string; sourceRevision: string }, baseRevision: string) => host.serialize(async () => {
+      base(baseRevision); base(input?.sourceRevision);
+      const ctx = await context(), database = snapshot(ctx, databaseId).database, current = source(ctx, input.dataSourceId);
+      if (database.revision !== baseRevision) return conflict(database, input, baseRevision);
+      if (current.revision !== input.sourceRevision) return conflict(current, input, input.sourceRevision);
+      if (database.trashed) throw new VaultError(422, "Restore this database before linking a data source");
+      const owner = sourceOwner(ctx, current);
+      if (database.dataSourceIds.includes(current.id)) return snapshot(ctx, databaseId);
+      // Pin an older source's existing effective owner before adding another container.
+      if (!current.ownerDatabaseId) ctx.dataSources[current.id] = stamped({ ...current, ownerDatabaseId: owner.id });
+      return addSource(ctx, database, current);
+    }),
     updatePresentation: (id: string, input: PresentationInput) => host.serialize(() => updatePresentationLocked(id, input)),
     updateIcon: (id: string, input: { icon: string; baseRevision: string; hostRevision?: string }) => host.serialize(() => {
       if (typeof input?.icon !== "string") throw new VaultError(400, "An icon string is required");
@@ -240,8 +305,10 @@ export function createDatabases(host: Host) {
         }
       }
       const removed = current.properties.filter(field => !proposed.properties.some(next => next.id === field.id)).map(field => field.id);
-      if (removed.length && Object.values(ctx.views).some(view => view.dataSourceId === id && [...(view.propertyIds ?? []), ...(view.filters ?? []).map(item => object(item) ? item.propertyId : null), ...(view.sorts ?? []).map(item => object(item) ? item.propertyId : null)].some(fieldId => removed.includes(fieldId)))) throw new VaultError(422, "Remove references from views before deleting a field");
-      ctx.dataSources[id] = stamped(proposed); await save(ctx); return ctx.dataSources[id];
+      if (removed.length && Object.values(ctx.views).some(view => view.dataSourceId === id && [view.layout?.groupBy, view.layout?.datePropertyId, view.layout?.frozenPropertyId, ...(view.layout?.wrapPropertyIds ?? []), ...(view.propertyIds ?? []), ...(view.filters ?? []).map(item => object(item) ? item.propertyId : null), ...(view.sorts ?? []).map(item => object(item) ? item.propertyId : null)].some(fieldId => removed.includes(fieldId!)))) throw new VaultError(422, "Remove references from views before deleting a field");
+      ctx.dataSources[id] = stamped(proposed);
+      for (const view of Object.values(ctx.views)) if (view.dataSourceId === id) validateView(view, ctx, view);
+      await save(ctx); return ctx.dataSources[id];
     }),
     updateView: (id: string, input: Partial<DatabaseView>, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); assertId(id); const ctx = await context(), current = ctx.views[id];

@@ -29,7 +29,7 @@ test("Notion shows live page counts and titles, cancels reading, and imports wit
   await open();
   await expect(status).toContainText("Ready", { timeout: 15_000 });
   await expect(progress).toBeHidden();
-  await expect(page.locator("#notion-token")).toHaveValue("");
+  await expect(page.locator("#notion-token")).toHaveValue("progress-test-notion-token");
   await page.getByLabel("Page URL or ID", { exact: true }).fill("invalid");
   await page.getByLabel("Integration token", { exact: true }).fill("progress-test-notion-token");
   await page.getByRole("button", { name: "Preview", exact: true }).click();

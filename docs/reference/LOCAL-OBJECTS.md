@@ -1,5 +1,7 @@
 # 本地对象与服务
 
+当前写入规则见[保留的自定义扩展](NOTDOWN-EXTENSIONS.md)：Web embed、书签、Tabs、会议标题与转录改用官方载体；下文旧属性形式仅为历史记录。服务与布局缺口仍以文档列出的补充字段保留。
+
 2026-09-27：MCP 已明确的 Tabs、分区 Meeting notes、HTML 附件 embed、Folder/Database 引用等现已在 Notdown 与 Notion Markdown 共同支持，见[规范语法](NOTION-MCP-SYNTAX.md)。下文 Tabs 的 title/active 属性、会议笔记的 audio/language 等属于旧 Notdown 补充编码，只保留兼容读取和编辑；新插入的 Tabs、会议笔记使用官方形式。`<embed>` 也共用 `block.web_embed`，并保留自己的 URL 附件编码。此修订优先于下面的历史说明。
 
 2026-09-22 方言边界修正：各方言默认值按上游规范独立定义，仅 Pandoc 自身预设沿用 Pandoc 3.11 快照。九种本地对象改为默认关闭的独立插件，在页面语法面板开启；旧正文不迁移、不删除。已实现默认规则隔离、显式启用、解析／命令／目录统一门控；尚未宣称完整上游一致性或跨端同步。详见[方言核对与插件说明](./DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。

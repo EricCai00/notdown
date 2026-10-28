@@ -98,7 +98,7 @@ test("slash web embed validates URL, persists edits and fits narrow screens", as
   await expect(frame).toHaveAttribute("sandbox", "allow-scripts allow-forms allow-presentation");
   await page.keyboard.press("Control+z"); await expect(page.getByRole("button", { name: "Embed a webpage", exact: true })).toBeVisible();
   await page.keyboard.press("Control+Shift+z"); await page.keyboard.press("Control+s");
-  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain("<web-embed");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('<embed source=');
   await page.reload(); await expect(frame).toHaveAttribute("src", "https://example.com/embed?a=1&b=2");
   await page.setViewportSize({ width: 390, height: 844 }); await embedAction(page, "Replace");
   const bounds = await dialog.boundingBox(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
@@ -161,7 +161,7 @@ test("HTML embed interaction, caption, resize, alignment, fullscreen and actions
   await page.keyboard.press('Control+s');
   await expect.poll(async () => (await (await request.get(`/api/pages/${note.id}`)).json()).body).toContain('height="430"');
   const saved = (await (await request.get(`/api/pages/${note.id}`)).json()).body;
-  expect(saved).toContain('caption="sdfsadfasdfasdfsdfas"'); expect(saved).toContain('align="left"'); expect(saved).toContain('custom="keep"');
+  expect(saved).toContain('>sdfsadfasdfasdfsdfas</embed>'); expect(saved).toContain('align="left"'); expect(saved).toContain('custom="keep"');
   await page.reload(); await expect(preview).toHaveCSS('height', '430px'); await expect(caption).toHaveValue('sdfsadfasdfasdfsdfas'); await expect(embed).toHaveAttribute('data-align', 'left');
   await embed.getByRole('button', { name: 'Embed options', exact: true }).click();
   await menu.getByLabel('Search embed actions').fill('duplicate');

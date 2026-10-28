@@ -5,6 +5,7 @@ import { inlineMarkdown } from "./editor-markdown";
 import { attributesXml, decodeXml, escapeXml, inlineColors, localPageTarget, openingTag, readAttributes, type TagAttributes } from "./notion-syntax";
 import { needsMarkdownTable } from "./notdown-boundary";
 import { notionInline, parseNotionMarkdown } from "./notion-markdown";
+import { canonicalNotionBlock } from "./canonical-notion";
 
 export type NotionElement = { tag: string; attrs: TagAttributes; from: number; openEnd: number; bodyEnd: number; to: number; selfClosing: boolean };
 
@@ -113,6 +114,11 @@ export function notionProseSource(source: string): string {
 }
 
 const childNodes = (node: PMNode) => [...node.content.content];
+const orderedStart = (value: string | undefined): number | undefined => {
+  if (value === undefined || !/^[+-]?\d+$/.test(value.trim())) return;
+  const number = Number(value);
+  return Number.isSafeInteger(number) ? number : undefined;
+};
 const supported = new Set([...traversable, "image", "file", "audio", "video", "pdf", "bookmark", "embed", "link-preview", "page", "folder", "database", "table-of-contents", "equation", "custom-block", "external_object_instance", "unknown"]);
 const localMediaFields: Record<string, readonly string[]> = {
   web_bookmark: ["title", "description", "image", "icon"],
@@ -125,7 +131,7 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
   const first = lines[start].trimStart(), tag = openingTag(first);
   if (!tag || !supported.has(tag.tag) || ["span", "b", "i", "s", "u"].includes(tag.tag)) return;
   // Existing Notdown/MCP encodings remain distinct from the v2 carriers.
-  if (tag.tag === "bookmark" && !tag.attrs.source || tag.tag === "embed" && tag.attrs.src ||
+  if (tag.tag === "bookmark" && !Object.hasOwn(tag.attrs, "source") || tag.tag === "embed" && tag.attrs.src ||
       tag.tag === "tabs" && Object.hasOwn(tag.attrs, "active") ||
       tag.tag === "meeting-notes" && ["title", "audio", "language", "transcript"].some(key => Object.hasOwn(tag.attrs, key))) return;
   const source = [first, ...lines.slice(start + 1, end)].join("\n");
@@ -174,9 +180,9 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
       if (tag.tag === "ol") child = schema.nodes["block.numbered_list_item"].create(child.attrs, child.content);
       nodes.push(child);
     }
-    node = createEditorNode(schema, ({ ul: "bullet_list", ol: "ordered_list", columns: "columns", tabs: "tabs" } as Record<string,string>)[tag.tag], { ...attrs, syntaxForm: "notion", ...(tag.tag === "ol" ? { markerStyle: tag.attrs.type === "a" ? "alpha" : tag.attrs.type === "i" ? "roman" : "decimal" } : {}) }, nodes);
+    node = createEditorNode(schema, ({ ul: "bullet_list", ol: "ordered_list", columns: "columns", tabs: "tabs" } as Record<string,string>)[tag.tag], { ...attrs, syntaxForm: "notion", ...(tag.tag === "ol" ? { order: orderedStart(tag.attrs.start) ?? 1, markerStyle: tag.attrs.type === "a" ? "alpha" : tag.attrs.type === "i" ? "roman" : "decimal" } : {}) }, nodes);
   } else if (tag.tag === "column") node = schema.nodes["structure.column"].create(attrs, content());
-  else if (tag.tag === "tab") { const h = header(); node = schema.nodes["structure.tab"].create({ ...attrs, syntaxForm: "notion", title: decodeXml(h.title) }, h.children.length ? h.children : paragraph()); }
+  else if (tag.tag === "tab") { const h = header(); node = schema.nodes["structure.tab"].create({ ...attrs, syntaxForm: "notion", title: h.title }, h.children.length ? h.children : paragraph()); }
   else if (tag.tag === "callout") node = schema.nodes["block.callout"].create({ ...attrs, icon: tag.attrs.icon ?? "💡" }, content());
   else if (tag.tag === "synced-block" || tag.tag === "synced-block-reference") node = schema.nodes["block.synced_block"].create({ ...attrs, reference: tag.tag.endsWith("reference"), url: tag.attrs.url || "" }, content());
   else if (tag.tag === "table") node = parseTable(body, attrs) ?? undefined;
@@ -200,7 +206,7 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
     const sections = sectionStart === undefined ? [] : elements(body.slice(sectionStart));
     if (!sections || sections.some(part => !["meeting-notes-section-notes", "meeting-notes-section-summary", "meeting-notes-section-transcript"].includes(part.tag))) return preserve(next);
     const sectionSource = sectionStart === undefined ? "" : body.slice(sectionStart);
-    node = createEditorNode(schema, "meeting_notes", { ...attrs, syntaxForm: "notion", title: decodeXml(title) }, sections.length ? sections.map(part => schema.nodes["structure.meeting_section"].create({ section: part.tag.slice(22), nfmAttrs: part.attrs }, content(sectionSource.slice(part.openEnd, part.bodyEnd).replace(/^\n|\n$/g, "")))) : [paragraph()]);
+    node = createEditorNode(schema, "meeting_notes", { ...attrs, syntaxForm: "notion", title }, sections.length ? sections.map(part => schema.nodes["structure.meeting_section"].create({ section: part.tag.slice(22), nfmAttrs: part.attrs }, content(sectionSource.slice(part.openEnd, part.bodyEnd).replace(/^\n|\n$/g, "")))) : [paragraph()]);
   } else if (tag.tag === "mail") node = schema.nodes["block.mail"].create(attrs, content());
   else if (tag.tag === "custom-block") node = schema.nodes["block.custom_block"].create({ ...attrs, definitionId: tag.attrs["definition-id"] || "", url: tag.attrs.url || "" });
   else if (tag.tag === "external_object_instance") node = schema.nodes["block.external_object_instance"].create({ ...attrs, integration: tag.attrs.integration || "", label: decodeXml(body), url: tag.attrs.url || "" });
@@ -237,6 +243,7 @@ function v2InlineMarkdown(node: PMNode): string {
 
 export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => string, localProperties = false,
   parse: (source: string) => PMNode = source => parseNotionMarkdown(source, undefined, undefined, "v2")): string {
+  if (localProperties) node = canonicalNotionBlock(node);
   const write = (child: PMNode): string => notionV2BlockMarkdown(child, fallback, localProperties, parse);
   const kind = editorKind(node);
   if (Object.keys(node.attrs.markdownAttrs || {}).length ||
@@ -252,9 +259,18 @@ export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => 
   if (localProperties && node.attrs.syntaxForm === "notion") for (const field of localMediaFields[kind] || []) {
     if (node.attrs[field]) attrs[field] = node.attrs[field]; else delete attrs[field];
   }
-  const tag = (name: string, text: string, extra: TagAttributes = {}) => `<${name}${attributesXml({ ...attrs, ...extra })}>${text}</${name}>`;
-  const titleBody = () => (node.firstChild ? inline(node.firstChild) : "") + (kids.length > 1 ? "\n\n" + kids.slice(1).map(write).join("\n\n") : "");
-  const caption = () => node.attrs.caption === node.attrs.sourceCaptionText ? node.attrs.sourceCaption : escapeXml(node.attrs.caption || "");
+  const tag = (name: string, text: string, extra: TagAttributes = {}) => {
+    // Fences need their own lines even when a container begins/ends in code.
+    // Inline closing tags on a fence line would become literal diagram source.
+    const lines = text.split("\n");
+    if (/^[\t ]*(?:`{3,}|~{3,})/.test(lines[0])) text = "\n" + text;
+    if (/^[\t ]*(?:`{3,}|~{3,})[\t ]*$/.test(lines.at(-1)!)) text += "\n";
+    return `<${name}${attributesXml({ ...attrs, ...extra })}>${text}</${name}>`;
+  };
+  const titleBody = () => (node.firstChild ? !node.firstChild.content.size && kids.length > 1 &&
+    ["bullet_list_item", "numbered_list_item", "task_list_item", "blockquote", "toggle_block"].includes(kind)
+    ? "<p />" : inline(node.firstChild) : "") + (kids.length > 1 ? "\n\n" + kids.slice(1).map(write).join("\n\n") : "");
+  const caption = () => node.attrs.caption === node.attrs.sourceCaptionText ? node.attrs.sourceCaption : escapeXml(node.attrs.caption || "").replace(/\r?\n/g,"\\\n");
   const noAttrs = (values: TagAttributes, allowed: string[] = []) => Object.keys(values).every(key => allowed.includes(key));
   const plainTextBlock = (child: PMNode) => editorKind(child) === "paragraph" &&
     !Object.keys(child.attrs.nfmAttrs || {}).length && !Object.keys(child.attrs.markdownAttrs || {}).length && !child.attrs.color &&
@@ -274,13 +290,17 @@ export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => 
     case "bullet_list":
     case "ordered_list": {
       const ordered = kind === "ordered_list";
-      const plain = noAttrs(attrs, ordered && (!attrs.type || attrs.type === "1") ? ["type"] : []) &&
+      // A restart is part of the list's meaning. Keep its source attribute in
+      // sync with edits, while preserving unrecognized values as opaque fields.
+      const explicitRestart = ordered && Object.hasOwn(attrs, "start");
+      const plain = !explicitRestart && noAttrs(attrs, ordered && (!attrs.type || attrs.type === "1") ? ["type"] : []) &&
+        (!ordered || node.attrs.order >= 0 && node.attrs.order <= 999999999) &&
         (!ordered || !node.attrs.markerStyle || node.attrs.markerStyle === "decimal") &&
         kids.every(item => noAttrs(item.attrs.nfmAttrs || {}, item.attrs.checked !== null ? ["checked"] : []) &&
           !item.attrs.color && item.childCount === 1 && plainTextBlock(item.firstChild!) && !inline(item.firstChild!).includes("\n"));
       if (plain) return kids.map((item, index) => `${ordered ? `${Number(node.attrs.order) + index}.` : "-"} ${item.attrs.checked === null ? "" : item.attrs.checked ? "[x] " : "[ ] "}${inline(item.firstChild!)}`).join("\n");
       if (kids.every(child => child.attrs.checked !== null)) return kids.map(write).join("\n\n");
-      if (editorKind(node) === "ordered_list" && node.attrs.order > 1) return kids.map((child, index) => `${node.attrs.order + index}. ${childNodes(child).map((part, n) => n ? write(part) : inline(part)).join("\n\n").replace(/\n/g, "\n    ")}`).join("\n");
+      if (ordered && (node.attrs.order !== 1 || orderedStart(attrs.start) !== undefined)) attrs.start = String(node.attrs.order);
       return tag(editorKind(node) === "ordered_list" ? "ol" : "ul", "\n" + body() + "\n", editorKind(node) === "ordered_list" ? { type: node.attrs.markerStyle === "alpha" ? "a" : node.attrs.markerStyle === "roman" ? "i" : "1" } : {});
     }
     case "bullet_list_item": case "numbered_list_item": return tag("li", titleBody());
@@ -290,11 +310,11 @@ export function notionV2BlockMarkdown(node: PMNode, fallback: (node: PMNode) => 
     case "callout": return tag("callout", body(), { icon: node.attrs.icon });
     case "synced_block": return tag(node.attrs.reference ? "synced-block-reference" : "synced-block", body(), { ...(node.attrs.url ? { url: node.attrs.url } : {}) });
     case "tabs": return node.attrs.syntaxForm === "notion" ? tag("tabs", "\n" + body() + "\n") : fallback(node);
-    case "tab": return node.attrs.syntaxForm === "notion" ? tag("tab", escapeXml(node.attrs.title) + "\n\n" + body()) : fallback(node);
+    case "tab": return node.attrs.syntaxForm === "notion" ? tag("tab", String(node.attrs.title) + "\n\n" + body()) : fallback(node);
     case "meeting_notes": {
       if (node.attrs.syntaxForm !== "notion") return fallback(node);
       const content = kids.some(child => editorKind(child) === "meeting_section") ? body() : `<meeting-notes-section-notes>${body()}</meeting-notes-section-notes>`;
-      return tag("meeting-notes", escapeXml(node.attrs.title) + "\n" + content);
+      return tag("meeting-notes", String(node.attrs.title) + "\n" + content);
     }
     case "meeting_section": return tag(`meeting-notes-section-${node.attrs.section}`, body());
     case "mail": return tag("mail", body());

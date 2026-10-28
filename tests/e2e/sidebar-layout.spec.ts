@@ -61,6 +61,10 @@ test("parent arrows replace icons without shifting titles and keep keyboard expa
   await page.goto(`/#page/${leaf.id}`);
   const row = (id: string) => page.locator(`#page-tree [data-page-row="${id}"]`);
   const parentRow = row(parent.id), childRow = row(child.id), leafRow = row(leaf.id);
+  await parentRow.hover();
+  await parentRow.locator(".tree-toggle").click();
+  await childRow.hover();
+  await childRow.locator(".tree-toggle").click();
   const arrow = parentRow.locator(".tree-toggle");
   const icon = parentRow.locator(".page-link-icon");
   const titleX = (id: string) => row(id).locator(".tree-page > span:last-child").evaluate(el => el.getBoundingClientRect().x);
@@ -131,6 +135,7 @@ async function width(page: Page) {
   return sidebar(page).evaluate((element) => element.getBoundingClientRect().width);
 }
 async function dragTo(page: Page, x: number, finish = true) {
+  await expect(page.locator("#app")).not.toHaveAttribute("inert", "");
   const box = (await handle(page).boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, 300);
   await page.mouse.down();

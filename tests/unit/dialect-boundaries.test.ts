@@ -18,7 +18,8 @@ const has = (source: string, c: SyntaxConfig, type: string) => {
 };
 
 test("supplemental carriers cannot be enabled in upstream dialects, including by saved overrides", () => {
-  for (const { id: variant } of dialects.filter(d => d.id !== "notdown")) for (const [name, sample] of Object.entries(objectSamples)) {
+  const supplementalSamples = { ...objectSamples, tabs: '<tabs active="0">\n<tab title="First">\nBody\n</tab>\n</tabs>', meeting_notes: '<meeting-notes title="Meeting" audio="assets/a.wav">\nBody\n</meeting-notes>' };
+  for (const { id: variant } of dialects.filter(d => d.id !== "notdown")) for (const [name, sample] of Object.entries(supplementalSamples)) {
     const base = config(variant), plugin = localObjectPlugins[name], active = config(variant, { [plugin]: true, future_option: true });
     const official = variant === "notion-markdown" && ["tabs", "meeting_notes"].includes(name);
     assert.equal(enabled(base, plugin), official, `${variant}: ${plugin}`);

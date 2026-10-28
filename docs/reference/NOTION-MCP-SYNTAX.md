@@ -43,6 +43,8 @@
 
 富文本同时接受 MCP 的 `` $`x^2`$ `` 与公开文档的 `$x^2$`，编辑后保留各自分隔符。行内代码支持 `` `first<br>second` ``，保存时把代码内部换行写为 `<br>`；真实多行反引号代码不会被误判成此语法。代码围栏内的标签保持字面内容。
 
+官方 Code 语法中的 `mermaid` 围栏默认使用本地 Diagram 预览，适用于 v1/v2、Notdown 与官方 Notion 方言，以及 Callout、列表等嵌套内容。关闭 **Diagram** 扩展时保留可编辑代码，重新开启恢复图表；源码、围栏属性和未知字段继续原样保留。sequence/flow 是其他方言支持的图表写法，不随 Mermaid 支持进入官方 Notion 方言。
+
 引用支持 `[^https://example.com]`、`[^example.com]` 和 `[^{{1}}]`。Notdown 中有显式脚注定义时，仍优先遵循已有脚注定义。`src="{{1}}"` 和 `file-upload://…` 保留原值，但没有 MCP 上下文中的 URL 映射或上传资源解析器时不会被当成可访问的本地地址。
 
 旧 Notdown `<tabs active="…"><tab title="…">…`、`<meeting-notes title="…" audio="…">…` 编码继续读取且不批量迁移；这些额外属性没有因此成为官方语法。`<web-embed>`、`<page-link>`、Button、AI block 等补充协议仍仅限 Notdown。已停用的 `<html-embed>` 不会因本次 MCP 支持重新启用。表格合并仍使用已有 Pandoc 编码，不把 rowspan/colspan 提升为官方语法。

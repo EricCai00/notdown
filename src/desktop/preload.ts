@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("notdownDesktop", {
+  notionImportToken: {
+    get: () => ipcRenderer.invoke("notion:token:get"),
+    set: (token: string) => ipcRenderer.invoke("notion:token:set", token),
+  },
   quit: () => ipcRenderer.invoke("app:quit"),
   onQuitState: (callback: (active: boolean) => void) => {
     ipcRenderer.on("vault:quit-state", (_event, active: boolean) => callback(active));

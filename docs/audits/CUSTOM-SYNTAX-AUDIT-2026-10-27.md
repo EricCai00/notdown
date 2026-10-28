@@ -1,5 +1,21 @@
 # 当前自定义正文写法与背景色迁移
 
+## 后续：官方载体统一
+
+用户进一步要求移除可由官方语法完整表达的项目写法。当前契约见[保留的自定义扩展及官方替代](../reference/NOTDOWN-EXTENSIONS.md)；下文“仍存在”表为这一轮修改前的审计快照。
+
+本轮替换 Web embed、书签 URL/题注、Tabs 标题/活动项、会议标题/转录、有效列宽别名、可核验的 ISO 日期时间，并停止将折叠状态写入正文。卡片缓存、布局、本地提醒、同步与服务配置只有官方缺少对应语义时才保留。未知属性、代码和未知容器均受原文边界保护；冲突属性不猜测转换。
+
+先预检再备份，经 createVault/baseRevision 保存并复核：Default 扫描 219 页、修改 6 页，Notion test 扫描 137 页、修改 2 页；两阶段共转换/清理 17 个块。重复预检剩余可转换项为 0，767 个既有 Notion 导入归档逐项哈希不变。
+
+首阶段完整备份：`D:/ProgramData/Notdown/backups/canonical-syntax-20261027-231458/`；折叠状态阶段完整备份：`D:/ProgramData/Notdown/backups/canonical-view-state-20261027-231944/`。本机计划、逐页旧/新哈希和 revision、结果分别在 `.run/logs/canonical-vault-carriers.json`、`canonical-vault-migration.json`、`canonical-vault-verification.json`。旧备份、历史和导入归档未做格式转换。
+
+验证：全部单元测试文件分组执行，1183 通过、5 跳过；R notebook 文件的 3 项独立运行并在断言完成后退出，避免该 Windows worker 残留句柄造成挂起，其余 1180 项正常退出。修正后的载体/字面标题/日期/边界专项 29 项通过。构建、桌面打包通过，相关 Chrome 回归分批覆盖 46 项，包括嵌入、书签、Tabs、会议、列宽、官方边界和 v2 导入。首轮旧编码断言、旧菜单定位已更新；一次 ECONNRESET 的书签测试隔离复测通过。20 项补测完成全部断言后测试服务清理挂起，手动终止了本次独立服务；最后的边界 2 项在另一独立端口正常通过。本记录不代表整个 E2E 目录通过。
+
+最终安装包：`.run/desktop-release/Notdown-Setup-0.1.5-canonical-syntax-x64.exe`，205253210 字节；生成后未覆盖安装。日志位于 `.run/logs/canonical-syntax-*`。标题里的转义标签/格式字符经转换保持字面意义，既不误解成提及也不二次转义；无法核验的边界仍拒绝转换。
+
+## 早先：bg_color 退役与审计
+
 2026-10-27。检查当前解析器、写入器、对象样例和属性边界，并对照 [Enhanced Markdown v1 官方规范](https://developers.notion.com/guides/data-apis/enhanced-markdown)与 [Notion-flavored Markdown v2 官方规范](https://developers.notion.com/guides/data-apis/notion-flavored-markdown)。这份记录覆盖旧审计中已过时的分类。标签是官方的，不表示本地附加属性也是官方的；内部模型字段、DOM data 属性与正文编码分开核对。
 
 ## bg_color 已退役

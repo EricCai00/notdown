@@ -112,17 +112,12 @@ class ToggleView implements NodeView {
     const current = pos === undefined ? null : this.view.state.doc.nodeAt(pos);
     if (current?.type !== this.node.type) return;
     this.open = open;
-    const heading = isEditorKind(current, "nested_block"), head = current.firstChild!;
+    const head = current.firstChild!;
     const tr = this.view.state.tr;
     const childStart = pos! + 1 + head.nodeSize;
     const { from, to } = tr.selection;
     const hidingSelection = !open && from < pos! + current.nodeSize - 1 && to >= childStart;
     if (hidingSelection) tr.setSelection(TextSelection.create(tr.doc, pos! + head.nodeSize));
-    if (this.supplemental() && this.view.editable) {
-      const target = heading ? head : current;
-      closeHistory(tr).setNodeMarkup(pos! + (heading ? 1 : 0), undefined,
-        { ...target.attrs, nfmAttrs: { ...target.attrs.nfmAttrs, open: String(open) } });
-    }
     if (tr.docChanged || tr.selectionSet) this.view.dispatch(tr);
     this.render();
     if (hidingSelection) this.view.focus();
@@ -141,7 +136,6 @@ class ToggleView implements NodeView {
     if (node.type !== this.node.type) return false;
     if (isEditorKind(node, "nested_block") && !node.firstChild?.attrs.toggle) return false;
     this.node = node;
-    if (this.supplemental()) this.open = (isEditorKind(node, "nested_block") ? node.firstChild : node)?.attrs.nfmAttrs?.open !== "false";
     this.render();
     return true;
   }

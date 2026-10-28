@@ -14,6 +14,7 @@ export function readOfficialNotionBlock(lines: string[], start: number, end: num
   parse: (source: string) => PMNode): { node: PMNode; next: number } | undefined {
   const first = lines[start].trimStart(), tag = openingTag(first);
   if (!tag || !["tabs", "meeting-notes", "embed", "folder", "database"].includes(tag.tag)) return;
+  if (tag.tag === "embed" && Object.hasOwn(tag.attrs,"source") && !Object.hasOwn(tag.attrs,"src")) return;
   // Old local title/active encodings keep their Notdown-only reader.
   if (tag.tag === "tabs" && Object.hasOwn(tag.attrs, "active") ||
       tag.tag === "meeting-notes" && ["title", "audio", "language", "transcript"].some(key => Object.hasOwn(tag.attrs, key))) return;
@@ -117,6 +118,15 @@ export function writeOfficialNotionBlock(node: PMNode, write: (node: PMNode) => 
   const indent = (raw: string) => raw.split("\n").map(line => "\t" + line).join("\n");
   const content = () => { const blocks: string[] = []; node.forEach(child => blocks.push(write(child))); return blocks.join("\n\n"); };
   const kind = editorKind(node);
+  if (["web_embed", "web_bookmark", "link_preview"].includes(kind)) {
+    for (const key of kind === "web_embed" ? ["title", "width", "height", "align"] : kind === "link_preview" ? ["title", "description", "image", "caption"] : ["title", "description", "icon", "image"]) {
+      if (node.attrs[key]) attrs[key] = String(node.attrs[key]); else delete attrs[key];
+    }
+    delete attrs.url;
+    if (kind !== "link_preview") delete attrs.caption;
+    if (kind === "link_preview") return `<link-preview${attributesXml({ ...attrs, url: node.attrs.url })} />`;
+    return `<${kind === "web_embed" ? "embed" : "bookmark"}${attributesXml({ ...attrs, source: node.attrs.url })}>${escapeXml(node.attrs.caption || "").replace(/\r?\n/g,"<br>")}</${kind === "web_embed" ? "embed" : "bookmark"}>`;
+  }
   if (kind === "notion_embed") return `<embed${attributesXml({ ...attrs, src: node.attrs.src })}>${escapeXml(node.attrs.caption)}</embed>`;
   if (kind === "folder" || kind === "database") {
     if (node.attrs.url) attrs.url = node.attrs.url; else delete attrs.url;

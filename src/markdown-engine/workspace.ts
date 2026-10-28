@@ -682,6 +682,14 @@ export class MarkdownWorkspace {
     }
   }
 
+  /** Incorporate a source returned by this window's successful save without resetting the caret. */
+  applySavedSource(source: string) {
+    this.flush();
+    if (!this.session.sourceChanged(source)) return;
+    this.syncSource();
+    this.blocks.replaceDocument(this.session.snapshot.doc);
+    this.pending = false; this.pendingSource = false;
+  }
   insert(text: string) {
     if (this.activePane === "source") {
       this.source.dispatch(this.source.state.replaceSelection(text));

@@ -1,3 +1,5 @@
+import { readSidebarTreePreferences, sidebarTreeKey, sidebarTreeChanged } from "./sidebar-tree-state";
+
 const items = [["search", "Search"], ["home", "Vault"], ["databases", "Databases"], ["attachments", "Attachments"], ["people", "People"], ["graph", "Graph"], ["conflicts", "Conflicts and versions"]] as const;
 const key = "notdown-sidebar-hidden";
 const defaultHidden = ["people", "graph", "conflicts"];
@@ -41,6 +43,18 @@ export function mountSidebarPreferences(dialog: HTMLElement) {
     applySidebarPreferences();
   });
   section.append(reset, defaults);
+  const tree = document.createElement("div");
+  tree.innerHTML = `<h4>Page tree</h4><label class="switch-row"><span>Database children</span><select aria-label="Database children"><option value="pages">Pages</option><option value="views">Views</option></select></label><label class="switch-row"><span>Default expanded levels</span><select aria-label="Default expanded levels"><option value="0">0 — Collapsed</option>${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("")}<option value="all">All levels</option></select></label><p>0 shows only root pages; 1 also shows their children. Changes apply immediately. Manual expansion lasts until reload or a depth change.</p>`;
+  const children = tree.querySelector<HTMLSelectElement>('[aria-label="Database children"]')!;
+  const depth = tree.querySelector<HTMLSelectElement>('[aria-label="Default expanded levels"]')!;
+  const preferences = readSidebarTreePreferences();
+  children.value = preferences.databaseChildren; depth.value = String(preferences.expandDepth);
+  const saveTree = () => {
+    localStorage.setItem(sidebarTreeKey, JSON.stringify({ databaseChildren: children.value, expandDepth: depth.value === "all" ? "all" : Number(depth.value) }));
+    window.dispatchEvent(new Event(sidebarTreeChanged));
+  };
+  children.addEventListener("change", saveTree); depth.addEventListener("change", saveTree);
+  section.append(tree);
   const actions = dialog.querySelector(".dialog-actions");
   if (actions) actions.before(section); else dialog.append(section);
   const experimental = document.createElement("section");

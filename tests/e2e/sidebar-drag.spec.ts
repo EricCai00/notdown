@@ -47,6 +47,10 @@ test("dragging changes parent, returns to root, and trashes a subtree without lo
   expect((await (await request.get(`/api/pages/${note.id}`)).json()).trashed).toBe(true);
   await page.getByRole("button", { name: "Trash", exact: true }).click();
   await page.locator(`[data-restore="${note.id}"]`).click();
+  await expect(page.locator(`[data-restore="${note.id}"]`)).toHaveCount(0);
+  await page.locator("#dialog").getByRole("button", { name: "Close", exact: true }).click();
+  await row(page, note.id).hover();
+  await row(page, note.id).locator(".tree-toggle").click();
   await expect(row(page, child.id)).toBeVisible();
 });
 
@@ -54,6 +58,8 @@ test("dragging into a descendant or canceling a drag never changes hierarchy", a
   const parent = await create(request, "Invalid drag parent"), child = await create(request, "Invalid drag child", parent.id);
   await page.goto(`/#page/${parent.id}`);
   await expect(page.locator("#page-title")).toHaveValue(parent.title);
+  await row(page, parent.id).hover();
+  await row(page, parent.id).locator(".tree-toggle").click();
   await drop(page, parent.id, child.id, "inside");
   expect((await (await request.get(`/api/pages/${parent.id}`)).json()).parent).toBeNull();
   await source(page, parent.id).hover();

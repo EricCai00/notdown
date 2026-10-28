@@ -4,6 +4,8 @@ import type { Node as PMNode } from "prosemirror-model";
 import { editorSchema as schema } from "./editor-schema";
 import { objectTags, objectNodeSpecs } from "./object-model";
 import { openingTag, attributesXml } from "./notion-syntax";
+import { canonicalNotionBlock } from "./canonical-notion";
+import { writeOfficialNotionBlock } from "./notion-official-blocks";
 
 // A shared PM type includes attributes from all of its source encodings.
 // Read/write only this encoding's fields; leave unknown XML attributes intact.
@@ -89,6 +91,8 @@ export function readObjectBlock(lines: string[], start: number, end: number, par
   return { node: createEditorNode(schema, name, properties, type.spec.content ? parseChildren(body).content : undefined), next };
 }
 export function writeObjectBlock(node: PMNode, write: (node: PMNode) => string): string | undefined {
+  const canonical = canonicalNotionBlock(node);
+  if (canonical !== node) return writeOfficialNotionBlock(canonical, write);
   if (isEditorKind(node, "image_block")) {
     if (node.attrs.syntaxForm === "notion") {
       const image = schema.nodes["inline.image"].create({ src: node.attrs.src, alt: node.attrs.caption, title: node.attrs.title || null });

@@ -14,6 +14,7 @@ type Options = {
   local?: boolean;
   readMarkdown?(id: string): Promise<string | undefined>;
   readChildren?(id: string): Promise<Json[]>;
+  recoverPrivateBlock?(block: Json): Promise<string | undefined>;
 };
 
 /** Enrich only parsed unknown placeholders. Their URL addresses the source
@@ -95,7 +96,8 @@ async function enrichV2(source: string, options: Options, ancestors = new Set<st
     const block = await options.readBlock(id);
     const valid = block.object === "block" && typeof block.id === "string" && block.id.toLowerCase() === id && !block.archived && !block.in_trash;
     let replacement: string | undefined;
-    if (valid && block.type === "link_to_page") {
+    if (valid && options.local && options.recoverPrivateBlock) replacement = await options.recoverPrivateBlock(block);
+    if (replacement === undefined && valid && block.type === "link_to_page") {
       const data = block.link_to_page;
       if (data && ["page_id", "database_id", "data_source_id"].includes(data.type)) {
         let target: string | undefined;
@@ -150,7 +152,7 @@ async function enrichV2(source: string, options: Options, ancestors = new Set<st
     }
   }
   const restored = edits.filter(edit => !edit.text.startsWith("<unknown")).length;
-  if (restored) options.warn(`Restored ${restored} unknown block(s) using v2 Markdown and verified Block API data.`);
+  if (restored) options.warn(`Restored ${restored} unknown block(s) using v2 Markdown, verified Block API data and optional local supplements.`);
   for (const edit of edits.sort((a,b) => b.from - a.from)) source = source.slice(0, edit.from) + edit.text + source.slice(edit.to);
   if (Buffer.byteLength(source) > 10 * 1024 * 1024) throw new VaultError(413, "Recovered Notion content exceeds 10 MB.");
   return source;

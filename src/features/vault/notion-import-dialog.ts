@@ -20,14 +20,16 @@ export function openNotionImportDialog(options: {
   dialog.setAttribute("aria-label", "Import from Notion API");
   dialog.innerHTML = `<header><h2>Import from Notion API</h2><button id="notion-close" aria-label="Close import">×</button></header>
     <p>Import a local copy of a page, database or data source using Notion's API.</p>
-    <p class="import-hint">The API omits reminders. Matching public API colors are combined automatically. On Windows, the local Notion desktop cache can fill missing colors and Notdown reminders. Open the source pages in Notion and let them sync before previewing. Stale, conflicting or ambiguous content is preserved for review.</p>
+    <p class="import-hint">Matching public API colors are combined automatically. On Windows, the local Notion desktop cache can also restore missing colors, Notdown reminders and supported AI block prompts and output. Open the source pages in Notion and let them sync before previewing. Stale, conflicting or incomplete content is preserved for review.</p>
     <label>Integration token<input id="notion-token" type="password" autocomplete="off" spellcheck="false" /></label>
+    <p class="import-hint">The token is saved on this device and filled in next time. Clear the field to forget it.</p>
+    <p id="notion-token-status" class="import-hint" role="status" hidden></p>
     <label>Page URL or ID<input id="notion-page" type="text" placeholder="https://www.notion.so/..." autocomplete="off" spellcheck="false" /></label>
     <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
     <label><input id="notion-assets" type="checkbox" checked /> Import files, media, covers and icons into Attachments</label>
-    <label><input id="notion-cache" type="checkbox" checked /> Restore missing colors and Notdown reminders from this computer's Notion desktop cache</label>
+    <label><input id="notion-cache" type="checkbox" checked /> Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache</label>
     <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
-    <p class="import-hint">Share the root page with your Notion connection and enable Read content. The token is used only for this preview and is not saved. Up to 500 pages / 20 MB including archived responses.</p>
+    <p class="import-hint">Share the root page with your Notion connection and enable Read content. Up to 500 pages / 20 MB including archived responses.</p>
     <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and automations remain in Notion.</p>
     <div id="notion-preview" aria-live="polite"></div>
     <p id="notion-status" role="status"></p>
@@ -38,6 +40,35 @@ export function openNotionImportDialog(options: {
     <footer><button id="notion-cancel">Cancel</button><button id="notion-preview-button" class="primary-button">Preview</button><button id="notion-commit" class="primary-button" disabled>Import copies</button></footer>`;
   document.body.append(dialog);
   const token = dialog.querySelector<HTMLInputElement>("#notion-token")!;
+  const tokenStatus = dialog.querySelector<HTMLElement>("#notion-token-status")!;
+  // Desktop origins use a different port after a restart; keep the key in the
+  // profile's encrypted store instead of origin-scoped browser storage.
+  const tokenStorage = window.notdownDesktop?.notionImportToken ?? {
+    get: async () => localStorage.getItem("notdown-notion-import-token") ?? "",
+    set: async (value: string) => {
+      if (value) localStorage.setItem("notdown-notion-import-token", value);
+      else localStorage.removeItem("notdown-notion-import-token");
+    },
+  };
+  let tokenEdit = 0;
+  const persistToken = () => {
+    const edit = ++tokenEdit;
+    void tokenStorage.set(token.value.trim()).then(() => {
+      if (dialog.isConnected && edit === tokenEdit) tokenStatus.hidden = true;
+    }, () => {
+      if (!dialog.isConnected || edit !== tokenEdit) return;
+      tokenStatus.hidden = false;
+      tokenStatus.textContent = "The token could not be saved on this device. You can still preview with the entered token.";
+    });
+  };
+  token.addEventListener("input", persistToken);
+  void tokenStorage.get().then(value => {
+    if (dialog.isConnected && tokenEdit === 0) token.value = value;
+  }, () => {
+    if (!dialog.isConnected || tokenEdit !== 0) return;
+    tokenStatus.hidden = false;
+    tokenStatus.textContent = "The saved token could not be loaded. Enter a token to continue.";
+  });
   const page = dialog.querySelector<HTMLInputElement>("#notion-page")!;
   const children = dialog.querySelector<HTMLInputElement>("#notion-children")!;
   const attachments = dialog.querySelector<HTMLInputElement>("#notion-assets")!;
@@ -150,6 +181,7 @@ export function openNotionImportDialog(options: {
       page.focus();
       return;
     }
+    persistToken();
     invalidate();
     state = "preview";
     update();
@@ -189,7 +221,6 @@ export function openNotionImportDialog(options: {
         status.textContent =
           error instanceof Error ? error.message : String(error);
     } finally {
-      token.value = "";
       finishProgress();
       state = "idle";
       update();

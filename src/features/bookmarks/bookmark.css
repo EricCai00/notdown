@@ -1,35 +1,36 @@
 .pm-content-object.pm-object-web_bookmark { padding:0; border:0; border-radius:12px; position:relative; color:var(--text,#37352f) }
-.pm-object-web_bookmark .pm-bookmark-empty { display:flex; align-items:center; gap:18px; width:100%; min-height:60px; margin:0; padding:16px 20px; border:0; border-radius:12px; background:#f8f7f6; color:#62615e; font-family:inherit; font-size:18px; line-height:28px; text-align:left; cursor:pointer }
-.pm-bookmark-empty svg { flex-shrink:0; width:25px; height:25px }
+.pm-object-web_bookmark .pm-bookmark-empty { display:flex; align-items:center; gap:12px; width:100%; min-height:50px; margin:0; padding:13px 16px; border:0; border-radius:10px; background:#f8f7f6; color:#62615e; font-family:inherit; font-size:var(--font-size-ui,14px); line-height:24px; text-align:left; cursor:pointer }
+.pm-bookmark-empty svg { flex-shrink:0; width:20px; height:20px }
 .pm-object-web_bookmark .pm-bookmark-empty:hover { background:#f0efed }
 .pm-object-web_bookmark .pm-bookmark-empty:disabled { cursor:default }
 .pm-document .pm-bookmark-card { display:flex; min-width:0; width:100%; box-sizing:border-box; overflow:hidden; border:1px solid #e9e9e7; border-radius:12px; color:inherit; text-decoration:none; background:var(--surface,#fff); transition:background .12s }
 .pm-document .pm-bookmark-card:hover { background:#faf9f8; text-decoration:none }
-.pm-bookmark-body { flex:1; min-width:0; padding:24px 30px 16px }
-.pm-bookmark-icon { display:flex; align-items:center; justify-content:center; width:26px; height:26px; margin-bottom:6px; color:#787774 }
-.pm-bookmark-icon img { display:block; width:26px; height:26px; object-fit:contain; border-radius:5px }
-.pm-bookmark-icon svg { width:24px; height:24px }
+.pm-bookmark-body { flex:1; min-width:0; padding:12px 14px 14px }
+.pm-bookmark-icon { display:flex; align-items:center; justify-content:center; width:16px; height:16px; margin-bottom:4px; color:#787774 }
+.pm-bookmark-icon img { display:block; width:16px; height:16px; object-fit:contain; border-radius:3px }
+.pm-bookmark-icon svg { width:16px; height:16px }
 .pm-bookmark-action svg { width:15px; height:15px }
-.pm-bookmark-title { font-size:20px; line-height:26px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-.pm-bookmark-description { margin-top:4px; font-size:16px; line-height:23px; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden }
-.pm-bookmark-url { margin-top:12px; color:var(--muted,#9b9a97); font-size:16px; line-height:22px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
-.pm-bookmark-image { width:28%; max-width:240px; object-fit:cover; align-self:stretch; min-height:150px }
+.pm-bookmark-title { font-size:var(--font-size-body,16px); line-height:20px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.pm-bookmark-description { margin-top:4px; font-size:var(--font-size-small,12px); line-height:16px; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden }
+.pm-bookmark-url { margin-top:8px; color:var(--muted,#9b9a97); font-size:var(--font-size-small,12px); line-height:16px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+.pm-bookmark-image-frame { flex:0 0 28%; max-width:240px; position:relative; min-height:150px; overflow:hidden }
+.pm-object-web_bookmark .pm-bookmark-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover }
 .pm-bookmark-caption { padding:8px 2px 0; font-size:13px; color:#787774; white-space:pre-wrap; overflow-wrap:anywhere }
 .pm-bookmark-actions { position:absolute; top:6px; right:6px; display:flex; gap:2px; padding:2px; border:1px solid #e3e2e0; border-radius:6px; background:var(--surface,#fff); box-shadow:0 2px 6px #0001; opacity:0; transition:opacity .12s }
 .pm-object-web_bookmark:hover .pm-bookmark-actions,.pm-object-web_bookmark:focus-within .pm-bookmark-actions { opacity:1 }
 .pm-object-web_bookmark .pm-bookmark-action { display:flex; align-items:center; margin:0; border:0; padding:5px; background:transparent; font-size:12px; border-radius:4px }
 .pm-object-web_bookmark .pm-bookmark-action:hover { background:#eeedeb }
 .pm-object-web_bookmark .pm-bookmark-status { padding:6px 2px; color:#787774; font-size:12px }
-.pm-bookmark-popover { position:fixed; inset:auto; margin:0; box-sizing:border-box; width:378px; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; padding:20px 15px 10px; border:1px solid #37352f; border-radius:15px; background:var(--surface,#fff); color:var(--text,#37352f); box-shadow:0 14px 28px #0001; font-family:inherit; font-size:16px; line-height:1.5 }
-.pm-bookmark-popover input { box-sizing:border-box; width:100%; height:36px; border:1px solid #aaa9a6; border-radius:7px; padding:6px; background:#f8f7f6; color:inherit; font-family:inherit; font-size:16px; line-height:22px }
+.pm-bookmark-popover { position:fixed; inset:auto; margin:0; box-sizing:border-box; width:378px; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; padding:20px 15px 10px; border:1px solid #37352f; border-radius:15px; background:var(--surface,#fff); color:var(--text,#37352f); box-shadow:0 14px 28px #0001; font-family:inherit; font-size:var(--font-size-ui,14px); line-height:1.5 }
+.pm-bookmark-popover input { box-sizing:border-box; width:100%; height:36px; border:1px solid #aaa9a6; border-radius:7px; padding:6px; background:#f8f7f6; color:inherit; font-family:inherit; font-size:var(--font-size-ui,14px); line-height:22px }
 .pm-bookmark-popover input::placeholder { color:#a5a5a3 }
 .pm-bookmark-popover input:focus { outline:2px solid #4c8bef; outline-offset:-1px; border-color:#4c8bef }
-.pm-bookmark-popover button { width:100%; margin-top:15px; height:36px; border:0; border-radius:7px; background:#315da5; color:#fff; font-family:inherit; font-size:16px; font-weight:600; cursor:pointer }
+.pm-bookmark-popover button { width:100%; margin-top:15px; height:36px; border:0; border-radius:7px; background:#315da5; color:#fff; font-family:inherit; font-size:var(--font-size-ui,14px); font-weight:500; cursor:pointer }
 .pm-bookmark-popover button:hover { background:#294f8e }
 .pm-bookmark-popover button:disabled { opacity:.55; cursor:default }
-.pm-bookmark-popover p { margin:14px 0 0; text-align:center; font-size:14px; line-height:22px; color:#787774 }
+.pm-bookmark-popover p { margin:12px 0 0; text-align:center; font-size:var(--font-size-small,12px); line-height:18px; color:#787774 }
 .pm-bookmark-error { display:block; color:#a34436; font-size:13px; margin-top:8px }
 .pm-bookmark-error:empty { display:none }
 .pm-link-paste-menu button[hidden] { display:none }
 .pm-bookmark-empty:focus-visible,.pm-bookmark-card:focus-visible,.pm-bookmark-action:focus-visible,.pm-bookmark-popover button:focus-visible { outline:2px solid #4c8bef; outline-offset:2px }
-@media (max-width:600px) { .pm-bookmark-body { padding:18px } .pm-bookmark-title { font-size:18px } .pm-bookmark-description,.pm-bookmark-url { font-size:14px } .pm-bookmark-image { width:25% } .pm-bookmark-actions { opacity:1 } }
+@media (max-width:600px) { .pm-bookmark-body { padding:12px } .pm-bookmark-image-frame { flex-basis:25% } .pm-bookmark-actions { opacity:1 } .pm-bookmark-popover input { font-size:16px } }

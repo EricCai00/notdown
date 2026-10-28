@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -11,6 +11,8 @@ import { DesktopLifecycle } from "./lifecycle.js";
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const welcomeURL = pathToFileURL(path.join(directory, "welcome.html")).href;
 const preload = path.join(directory, "preload.cjs");
+// The app uses a light palette; native caption hover colors must match it even on dark Windows themes.
+nativeTheme.themeSource = "light";
 const integratedTitleBar: BrowserWindowConstructorOptions = {
   titleBarStyle: "hidden", titleBarOverlay: { color: "#f7f7f5", symbolColor: "#66645f", height: 36 },
 };
@@ -21,6 +23,7 @@ const pendingCloses = new Map<number, { id: string; timer: NodeJS.Timeout; promi
 export let desktopLifecycle: DesktopLifecycle;
 let startup: Promise<void>;
 let recentsQueue = Promise.resolve();
+let notionTokenQueue = Promise.resolve();
 let openingQueue = Promise.resolve();
 app.setName("Notdown");
 // Test invocations use a separate profile; packaged user launches always use Electron's normal profile.
@@ -39,6 +42,36 @@ function trusted(event: IpcMainInvokeEvent | Electron.IpcMainEvent, welcomeOnly 
   throw new Error("Untrusted desktop request");
 }
 const settingsPath = () => path.join(app.getPath("userData"), "vaults.json");
+const notionTokenPath = () => path.join(app.getPath("userData"), "notion-import-token.bin");
+function requireTokenEncryption() {
+  if (!safeStorage.isEncryptionAvailable() || process.platform === "linux" && safeStorage.getSelectedStorageBackend() === "basic_text")
+    throw new Error("Encrypted token storage is unavailable on this device.");
+}
+async function readNotionToken() {
+  await notionTokenQueue.catch(() => {});
+  let encrypted: Buffer;
+  try { encrypted = await fs.readFile(notionTokenPath()); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return ""; throw new Error("The saved Notion token could not be read."); }
+  requireTokenEncryption();
+  try { return safeStorage.decryptString(encrypted); }
+  catch { throw new Error("The saved Notion token could not be decrypted."); }
+}
+function writeNotionToken(input: unknown) {
+  if (typeof input !== "string" || input.length > 4000 || /[\r\n\0]/.test(input))
+    throw new Error("Invalid Notion integration token.");
+  const token = input.trim();
+  notionTokenQueue = notionTokenQueue.catch(() => {}).then(async () => {
+    const filename = notionTokenPath();
+    if (!token) { await fs.rm(filename, { force: true }); return; }
+    requireTokenEncryption();
+    const encrypted = safeStorage.encryptString(token);
+    await fs.mkdir(path.dirname(filename), { recursive: true });
+    const temporary = `${filename}.tmp`;
+    await fs.writeFile(temporary, encrypted, { mode: 0o600 });
+    await fs.rename(temporary, filename);
+  });
+  return notionTokenQueue;
+}
 async function recents(): Promise<string[]> {
   try {
     const data = JSON.parse(await fs.readFile(settingsPath(), "utf8"));
@@ -126,7 +159,7 @@ async function openVaultNow(selected: string, create: boolean) {
   if (create && names.length) throw new Error("Create a vault in an empty folder. Import existing Markdown after opening the new vault.");
   if (!create && !names.includes("pages")) throw new Error("This is not a Notdown vault. Create a new vault, then use Import Markdown folder to copy these notes.");
   const token = randomUUID();
-  const web = createApp({ vaultPath: root, frontendDir: path.join(directory, "frontend"), allowedOrigins: [], accessToken: token, openFile: async filename => { const error = await shell.openPath(filename); if (error) throw new Error(error); }, recycleFile: filename => shell.trashItem(filename) });
+  const web = createApp({ vaultPath: root, frontendDir: path.join(directory, "frontend"), allowedOrigins: [], accessToken: token, bookmarkProxyResolver: url => session.defaultSession.resolveProxy(url), openFile: async filename => { const error = await shell.openPath(filename); if (error) throw new Error(error); }, recycleFile: filename => shell.trashItem(filename) });
   await web.locals.vault.list();
   const server = await new Promise<Server>((resolve, reject) => { const active = web.listen(0, "127.0.0.1", () => resolve(active)); active.once("error", reject); });
   server.once("close", () => web.locals.closeRNotebook());
@@ -138,7 +171,7 @@ async function openVaultNow(selected: string, create: boolean) {
   vaultSession.setPermissionRequestHandler((_contents, permission, callback, details) => callback(details.requestingUrl.startsWith(`${origin}/`) && permission === "clipboard-sanitized-write"));
   vaultSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) => requestingOrigin === origin && permission === "clipboard-sanitized-write");
   vaultSession.webRequest.onBeforeSendHeaders({ urls: [`${origin}/*`] }, (details, callback) => callback({ requestHeaders: { ...details.requestHeaders, "X-Notdown-Desktop": token } }));
-  const window = new BrowserWindow({ ...integratedTitleBar, width: 1440, height: 950, minWidth: 700, minHeight: 540, title: `Notdown — ${path.basename(root)}`, icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, session: vaultSession, contextIsolation: true, sandbox: true, nodeIntegration: false } });
+  const window = new BrowserWindow({ ...integratedTitleBar, width: 1440, height: 950, minWidth: 700, minHeight: 540, title: "Notdown", icon: path.join(directory, "icon.png"), show: !process.env.NOTDOWN_DESKTOP_HEADLESS, webPreferences: { preload, session: vaultSession, contextIsolation: true, sandbox: true, nodeIntegration: false } });
   const vault = { origin, server, windows: new Set([window]), primary: window };
   vaults.set(root, vault);
   configureWindow(window, origin);
@@ -189,6 +222,8 @@ else {
         }
       } });
     ipcMain.handle("app:quit", event => { trusted(event); void desktopLifecycle.requestQuit(); });
+    ipcMain.handle("notion:token:get", event => { trusted(event); return readNotionToken(); });
+    ipcMain.handle("notion:token:set", (event, token: unknown) => { trusted(event); return writeNotionToken(token); });
     ipcMain.handle("vault:welcome", event => { trusted(event); showWelcome(); });
     ipcMain.handle("vault:recents", event => { trusted(event, true); return recents(); });
     ipcMain.handle("vault:managed", async event => { trusted(event, true); return { dataPath, vaults: await listManagedVaults(dataPath) }; });

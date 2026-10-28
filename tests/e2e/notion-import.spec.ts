@@ -84,7 +84,7 @@ test("Notion API preview, exact Markdown import and duplicate snapshot preserve 
     await expect(page.locator("#notion-status")).toContainText("Ready");
   };
   await open();
-  await expect(page.locator("#notion-token")).toHaveValue("");
+  await expect(page.locator("#notion-token")).toHaveValue("test-secret-not-saved");
   await expect(page.locator("#notion-preview")).toContainText("3 pages");
   await expect(page.locator("#notion-markdown-source")).toContainText(
     '<callout icon="📘" color="blue_bg">',

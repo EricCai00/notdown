@@ -53,4 +53,4 @@ EPL 在这里指易语言（Easy Programming Language），不指同缩写的事
 - Lean 以 Lean 4 为目标，不运行证明检查或语言服务器。Notion Formula 仅本地词法着色，不执行公式。
 - 两个引擎输出原文偏移，ProseMirror Decoration 负责着色。模板钩子恢复占位内容后验证原文；SVG、模板和代码不会作为可执行 HTML 注入。
 - 高亮异常、未知语言、超过 32,000 个 UTF-16 代码单元的块均保留可编辑纯文本。颜色采用 Notdown 本地色板，不宣称复刻 Notion 或各语言 IDE。
-- Mermaid 原有围栏和 Diagram 路径保留；关闭 diagrams 扩展后原文仍可恢复，不重新添加为代码语言候选项。
+- Mermaid 围栏在 Notdown 和官方 Notion 方言（v1/v2，包括导入页）中默认显示 Diagram 预览，嵌套块同样支持；**Edit source** 可编辑源码，渲染错误时保留源码并显示错误。关闭 diagrams 扩展后显示普通代码块，重新开启可恢复图表；不因显示预览改写原文或添加新的正文协议。官方 Notion 方言仅支持 Mermaid，不额外启用 sequence/flow 围栏。

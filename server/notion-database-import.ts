@@ -1,6 +1,7 @@
 import type { DatabaseResources, DatabaseProperty } from "../src/features/databases/database-model.js";
 import { notionTableProperties } from "../src/features/databases/database-columns.js";
 import { VaultError } from "./vault.js";
+import { importNotionView } from "./notion-view-import.js";
 
 type Json = Record<string, any>;
 type Read = (endpoint: string, allowMissing?: boolean | "probe" | "optional", body?: Json) => Promise<Json>;
@@ -13,6 +14,8 @@ export function notionDatabaseImport(options: {
   normalizeId: (value: unknown) => string;
   warn: (message: string) => void;
   enqueue: (id: string, parent: string | null, record?: Json) => void;
+  enqueueDatabase: (id: string, parent: string, info: { title: string; icon: string }) => void;
+  includeChildren?: boolean;
   onResource?: (title: string) => void;
 }) {
   const { read, normalizeId, warn, enqueue } = options;
@@ -22,6 +25,46 @@ export function notionDatabaseImport(options: {
   const records = new Map<string, Json>();
   const completedProperties = new Set<string>();
   const viewsByDatabase = new Map<string, Json[]>();
+  const wikiIds = new Set<string>();
+  const homeIds = new Set<string>();
+  const sourceHosts = new Map<string, string>();
+  const nestedSources = new Map<string, string>();
+  const unavailableDatabases = new Set<string>();
+  const activeDatabases = new Set<string>();
+  const sourceIdsByDatabase = new Map<string, Set<string>>();
+
+  async function importSource(sourceId: string, hostId: string, supplied?: Json, optional = false) {
+    if (sources.has(sourceId)) return true;
+    const source = supplied?.properties ? supplied : await read(`/data_sources/${sourceId}`, optional);
+    if (source.object === "unavailable") { warn(`View data source ${sourceId} is unavailable; its view definition is archived without inventing local records.`); return false; }
+    if (source.object !== "data_source" || typeof source.id !== "string" || !sameId(source.id, sourceId) || !source.properties || typeof source.properties !== "object" || Array.isArray(source.properties))
+      throw new VaultError(502, "Notion did not return the requested data source schema.");
+    sources.set(sourceId, source); sourceHosts.set(sourceId, hostId);
+    const result = await paginate(cursor => read(`/data_sources/${sourceId}/query`, false, { page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }));
+    for (const record of result!) {
+      if (record?.object === "data_source") {
+        wikiIds.add(hostId);
+        if (options.includeChildren === false) continue;
+        const childSourceId = normalizeId(record.id);
+        const detail = record.parent?.database_id ? record : await read(`/data_sources/${childSourceId}`);
+        const childDatabaseId = normalizeId(detail.parent?.database_id);
+        if (activeDatabases.has(childDatabaseId) || childSourceId === sourceId) throw new VaultError(422, "Notion returned a cyclic Wiki database membership.");
+        const info = await database(childDatabaseId);
+        if (info) {
+          nestedSources.set(childDatabaseId, sourceId);
+          options.enqueueDatabase(childDatabaseId, hostId, info);
+        }
+        continue;
+      }
+      if (record?.object !== "page") throw new VaultError(422, "A Notion data source query returned an unsupported record; no import was prepared.");
+      const pageId = normalizeId(record.id);
+      if (sourceByPage.has(pageId) && sourceByPage.get(pageId) !== sourceId) throw new VaultError(422, "Notion returned conflicting data source membership for a page.");
+      sourceByPage.set(pageId, sourceId);
+      if (!completedProperties.has(pageId)) records.set(pageId, record);
+      enqueue(pageId, hostId, record);
+    }
+    return true;
+  }
 
   async function paginate(load: (cursor?: string) => Promise<Json>, optional = false) {
     const all: Json[] = [], cursors = new Set<string>();
@@ -43,9 +86,11 @@ export function notionDatabaseImport(options: {
   }
 
   async function database(id: string, supplied?: Json): Promise<{ title: string; icon: string } | null> {
-    if (databases.has(id)) return { title: databases.get(id)!.localTitle, icon: "database" };
+    if (unavailableDatabases.has(id)) return null;
+    if (databases.has(id)) return { title: databases.get(id)!.localTitle, icon: databases.get(id)!.icon?.emoji || "database" };
     const raw = supplied ?? await read(`/databases/${id}`, true);
     if (raw.object === "unavailable") {
+      unavailableDatabases.add(id);
       warn(`A child database ${id} is unavailable; its remote reference is retained and its records could not be imported.`);
       return null;
     }
@@ -54,22 +99,14 @@ export function notionDatabaseImport(options: {
     const title = (plain(raw.title).trim() || "Untitled database").slice(0, 500);
     options.onResource?.(title);
     databases.set(id, { ...raw, localTitle: title });
+    activeDatabases.add(id);
+    const localSources = new Set<string>();
+    sourceIdsByDatabase.set(id, localSources);
+    if (raw.is_wiki === true) wikiIds.add(id);
     for (const sourceRef of raw.data_sources) {
       const sourceId = normalizeId(sourceRef.id);
-      if (sources.has(sourceId)) continue;
-      const source = sourceRef.object === "data_source" && sourceRef.properties ? sourceRef : await read(`/data_sources/${sourceId}`);
-      if (source.object !== "data_source" || typeof source.id !== "string" || !sameId(source.id, sourceId) || !source.properties || typeof source.properties !== "object" || Array.isArray(source.properties))
-        throw new VaultError(502, "Notion did not return the requested data source schema.");
-      sources.set(sourceId, source);
-      // Query POST is read-only; the transport only permits this specific endpoint.
-      const result = await paginate(cursor => read(`/data_sources/${sourceId}/query`, false, { page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }));
-      for (const record of result!) {
-        if (record?.object !== "page") throw new VaultError(422, "A Notion data source query returned a non-page record. Its response is incomplete; no import was prepared.");
-        const pageId = normalizeId(record.id);
-        sourceByPage.set(pageId, sourceId);
-        if (!completedProperties.has(pageId)) records.set(pageId, record);
-        enqueue(pageId, id, record);
-      }
+      await importSource(sourceId, id, sourceRef.object === "data_source" ? sourceRef : undefined);
+      localSources.add(sourceId);
     }
     const remoteViews = await paginate(cursor => read(`/views?${raw.notionSourceOnly ? "data_source_id" : "database_id"}=${encodeURIComponent(id)}&page_size=100${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ""}`, "optional"), true);
     if (!remoteViews) warn(`Database ${title}: views are unavailable. A local table view is created.`);
@@ -78,11 +115,22 @@ export function notionDatabaseImport(options: {
       for (const item of remoteViews) {
         const viewId = normalizeId(item.id);
         const detail = await read(`/views/${viewId}`, "optional");
-        full.push(detail.object === "unavailable" ? item : detail);
+        if (detail.object !== "unavailable" && (detail.object !== "view" || typeof detail.id !== "string" || !sameId(detail.id, viewId))) throw new VaultError(502, "Notion returned a mismatched view.");
+        const view = detail.object === "unavailable" ? item : detail;
+        // Listing by source also returns views in other database containers.
+        if (raw.notionSourceOnly && view.data_source_id && !sameId(view.data_source_id, id)) continue;
+        full.push(view);
+        if (view.data_source_id) {
+          const sourceId = normalizeId(view.data_source_id);
+          if (!await importSource(sourceId, id, undefined, true)) continue;
+          // Referenced sources are shared resources, never copies of their rows.
+          localSources.add(sourceId);
+        }
       }
       viewsByDatabase.set(id, full);
-      if (full.length) warn(`Database ${title}: original view definitions are archived. Local tables show all records; Notion layouts, filters, sorting and grouping are not applied.`);
+      if (full.some(view => !view.data_source_id)) warn(`Database ${title}: some views have no readable data source (including dashboard/Home views); their definitions are archived. Local tables show all records where view settings cannot be mapped.`);
     }
+    activeDatabases.delete(id);
     return { title, icon: raw.icon?.type === "emoji" ? raw.icon.emoji : "database" };
   }
 
@@ -139,22 +187,36 @@ export function notionDatabaseImport(options: {
         fields.push(field); byName.set(name, field);
       }
       fieldMaps.set(id, byName);
-      resources.dataSources[localId(id)] = { id: localId(id), title: (plain(raw.title).trim() || "Imported data source").slice(0, 500), properties: notionTableProperties(fields, [], id), revision: "", notion: raw };
+      const canonicalOwner = raw.parent?.database_id ? normalizeId(raw.parent.database_id) : undefined;
+      resources.dataSources[localId(id)] = { id: localId(id), ownerDatabaseId: localId(canonicalOwner && databases.has(canonicalOwner) ? canonicalOwner : sourceHosts.get(id)!), title: (plain(raw.title).trim() || "Imported data source").slice(0, 500), properties: notionTableProperties(fields, [], id), revision: "", notion: raw };
     }
     for (const [id, raw] of databases) {
-      const sourceIds = raw.data_sources.map((source: Json) => localId(normalizeId(source.id)));
+      const remoteSourceIds = [...sourceIdsByDatabase.get(id)!];
+      const sourceIds = remoteSourceIds.map(localId);
       const viewIds: string[] = [];
+      for (const remote of viewsByDatabase.get(id) ?? []) {
+        if (!remote.data_source_id) continue;
+        const remoteSourceId = normalizeId(remote.data_source_id), sourceId = localId(remoteSourceId);
+        if (!sourceIds.includes(sourceId)) continue;
+        const mapped = importNotionView(remote, resources.dataSources[sourceId].properties, remoteSourceId);
+        const viewId = localId(`view-${id}-${normalizeId(remote.id)}`);
+        if (viewIds.includes(viewId)) continue;
+        for (const message of mapped.importWarnings) warn(`Database ${raw.localTitle}, view ${mapped.name}: ${message}`);
+        resources.views[viewId] = { ...mapped, id: viewId, databaseId: localId(id), dataSourceId: sourceId, rowOrder: [...sourceByPage].filter(([pageId, source]) => importedPages.has(pageId) && source === remoteSourceId).map(([pageId]) => localId(pageId)), revision: "" };
+        viewIds.push(viewId);
+      }
       for (const sourceId of sourceIds) {
+        if (viewIds.some(viewId => resources.views[viewId].dataSourceId === sourceId)) continue;
         const viewId = localId(`view-${id}-${sourceId}`);
         viewIds.push(viewId);
         // Keep the data source query's discovery order across local reloads.
         // This does not reproduce a remote Notion view's manual ordering.
         const rowOrder = [...sourceByPage].filter(([pageId, remoteSourceId]) => importedPages.has(pageId) && localId(remoteSourceId) === sourceId).map(([pageId]) => localId(pageId));
-        const remoteSourceId = raw.data_sources.find((source: Json) => localId(normalizeId(source.id)) === sourceId).id;
+        const remoteSourceId = remoteSourceIds.find(id => localId(id) === sourceId)!;
         const fields = notionTableProperties(resources.dataSources[sourceId].properties, viewsByDatabase.get(id), remoteSourceId);
         resources.views[viewId] = { id: viewId, databaseId: localId(id), dataSourceId: sourceId, name: sourceIds.length > 1 ? resources.dataSources[sourceId].title : "All records", type: "table", propertyIds: fields.map(field => field.id), rowOrder, revision: "" };
       }
-      resources.databases[localId(id)] = { id: localId(id), title: raw.localTitle, pageId: localId(id), dataSourceIds: sourceIds, viewIds, revision: "", notion: raw, notionViews: viewsByDatabase.get(id) ?? [] };
+      resources.databases[localId(id)] = { id: localId(id), title: raw.localTitle, pageId: localId(id), dataSourceIds: sourceIds, viewIds, revision: "", notion: raw, notionViews: viewsByDatabase.get(id) ?? [], ...(wikiIds.has(id) ? { notionWiki: true } : {}), ...(homeIds.has(id) ? { homePageId: localId(`home-${id}`) } : {}), ...(nestedSources.has(id) ? { notionWikiParentSourceId: localId(nestedSources.get(id)!) } : {}) };
     }
     const metadata = (pageId: string): Record<string, unknown> => {
       if (databases.has(pageId)) return { databaseId: localId(pageId) };
@@ -188,7 +250,19 @@ export function notionDatabaseImport(options: {
       records.set(id, { ...record, properties });
     }
   }
-  return { database, dataSource, pageProperties, completeProperties, finish, saveAttachments };
+  return { database, dataSource, pageProperties, completeProperties, finish, saveAttachments,
+    recordParent: (id: string, imported: Set<string>) => {
+      const sourceId = sourceByPage.get(id); if (!sourceId) return undefined;
+      const parent = records.get(id)?.parent;
+      if (parent?.page_id) { const parentId = normalizeId(parent.page_id); if (imported.has(parentId)) return parentId; }
+      const owner = sources.get(sourceId)?.parent?.database_id;
+      return owner && imported.has(normalizeId(owner)) ? normalizeId(owner) : sourceHosts.get(sourceId);
+    },
+    rawDatabase: (id: string) => databases.get(id),
+    hasHome: (id: string) => homeIds.has(id),
+    markHome: (id: string) => { homeIds.add(id); },
+    possibleWiki: (id: string) => wikiIds.has(id) || (databases.get(id)?.data_sources ?? []).some((ref: Json) => Object.values<Json>(sources.get(normalizeId(ref.id))?.properties ?? {}).some(field => field.type === "verification")),
+  };
 }
 
 function decodePropertyId(value: string) { try { return decodeURIComponent(value); } catch { return value; } }

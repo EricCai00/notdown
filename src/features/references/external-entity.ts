@@ -7,7 +7,7 @@ export interface ExternalEntity extends ExternalObservation {
   status: "resolved" | "unresolved" | "ambiguous";
   localId?: string;
   candidates: string[];
-  references: { pageId: string; location: string }[];
+  references: { pageId: string; location: string; occurrence?: number }[];
   importIds: string[];
 }
 export interface ExternalLibrary { revision: string; entities: ExternalEntity[]; warnings: string[] }
