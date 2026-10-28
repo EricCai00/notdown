@@ -143,7 +143,9 @@ System recycling requires a revision map covering the exact current subtree, a t
 | Request | Body | Response |
 | --- | --- | --- |
 | `GET /api/databases` | — | `Database[]` |
-| `POST /api/databases` | `{title,parent?:string|null,parentRevision?:string}` | 201 `DatabaseSnapshot`; creates a Markdown host page, one data source, title property and table view |
+| `POST /api/databases` | `{title,parent?:string|null,parentRevision?:string,kind?:"database"\|"wiki"}` | 201 `DatabaseSnapshot`; creates a Markdown host page, one data source and title property; Wiki starts with Home and an All pages list |
+| `POST /api/pages/:id/wiki` | `{baseRevision}` | `DatabaseSnapshot`; converts an active standalone page without rewriting Markdown or page identities |
+| `POST /api/databases/:id/undo-wiki` | `{baseRevision,hostRevision}` | `Page`; restores the host to an ordinary page, preserves the tree and property values, archives removed Wiki resources |
 | `GET /api/databases/:id` | — | `DatabaseSnapshot` |
 | `PUT /api/databases/:id` | `{title?,icon?,baseRevision,hostRevision?}` | Updated `DatabaseSnapshot`; requires at least one of title/icon |
 | `PUT /api/databases/:id/icon` | `{icon,baseRevision,hostRevision?}` | Updated `DatabaseSnapshot`; icon-only alias |

@@ -10,6 +10,7 @@ import { openExternalLibrary } from "../features/references/external-library-dia
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
 import type { Database, DatabaseDataSource, DatabaseSnapshot, DatabaseView } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
+import { isWikiDatabase } from "../features/databases/database-model";
 import { databaseReference } from "../features/databases/database-reference";
 import { installDesktopCloseGuard } from "../features/vault/desktop-bridge";
 import { openVaultManager } from "../features/vault/vault-manager";
@@ -124,7 +125,7 @@ async function readDatabaseList(): Promise<Database[]> {
 async function refreshWorkspacePages(): Promise<Page[]> {
   const [loaded, resources] = await Promise.all([api<Page[]>("/pages"), readDatabaseList(), refreshExternalEntities(), refreshPeople()]);
   databases = resources;
-  return loaded;
+  return loaded.map(page => page.databaseId && isWikiDatabase(resources.find(database => database.id === page.databaseId)) ? { ...page, wiki: true } : page);
 }
 let dirty = false;
 let saving: Promise<boolean> | null = null;
@@ -444,7 +445,7 @@ function renderSidebar() {
         const expanded = treeExpansion.isExpanded(p.id, depth, treePreferences.expandDepth);
         return `<div data-page-row="${e(p.id)}" ${p.databaseId ? `data-database-row="${e(p.databaseId)}"` : ""} class="tree-row ${activeId === p.id && !library ? "active" : ""}" style="--depth:${depth}" ${p.parent ? `data-tree-parent="${e(p.parent)}"` : ""}>
         ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}" aria-expanded="${expanded}">${icon(expanded ? "chevron-down" : "chevron-right")}</button>` : ""}
-        <button class="tree-page" draggable="${!p.dataSourceId && !tree.virtualIds.has(p.id)}" ${p.databaseId ? `data-open-database="${e(p.databaseId)}" data-open="${e(p.id)}"` : `data-open="${e(p.id)}"`}>${pageIcon(p)}<span>${e(p.title)}</span></button>
+        <button class="tree-page" draggable="${(!p.dataSourceId || p.wikiMember) && !tree.virtualIds.has(p.id)}" ${p.databaseId ? `data-open-database="${e(p.databaseId)}" data-open="${e(p.id)}"` : `data-open="${e(p.id)}"`}>${pageIcon(p)}<span>${e(p.title)}</span></button>
         ${tree.virtualIds.has(p.id) ? "" : `<button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button>`}${p.databaseId ? `<button class="tree-add" data-database-new-record="${e(p.databaseId)}" aria-label="Add database record">${icon("plus")}</button>` : `<button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button>`}</div>${!expanded ? "" : showViews ? viewRows(database, depth + 1) : rows(p.id, depth + 1)}`;
       })
       .join("");
@@ -453,7 +454,7 @@ function renderSidebar() {
     rows(null, 0) || `<p class="empty-small">No pages yet.</p>`;
   const favorites = document.querySelector("#favorite-pages");
   if (favorites) favorites.innerHTML = tree.pages.some((page) => page.favorite)
-    ? `<div class="section-label">Favorites</div>${tree.pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="${!page.dataSourceId}" ${page.databaseId ? `data-open-database="${e(page.databaseId)}" data-open="${e(page.id)}"` : `data-open="${e(page.id)}"`}>${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
+    ? `<div class="section-label">Favorites</div>${tree.pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="${!page.dataSourceId || page.wikiMember}" ${page.databaseId ? `data-open-database="${e(page.databaseId)}" data-open="${e(page.id)}"` : `data-open="${e(page.id)}"`}>${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
   const count = document.querySelector("#page-count");
   if (count) count.textContent = String(pages.length);
   sidebarSnapshot = { container, key };
@@ -580,7 +581,7 @@ function revealReference(reference: InternalReference) {
 }
 async function openPage(id: string, allowTrashed = false) {
   const databaseId = pages.find(page => page.id === id)?.databaseId ?? databases.find(database => (database.pageId ?? database.id) === id)?.id;
-  if (databaseId && !allowTrashed) return navigation?.navigate({ kind: "database", id: databaseId });
+  if (databaseId && !allowTrashed && !isWikiDatabase(databases.find(database => database.id === databaseId))) return navigation?.navigate({ kind: "database", id: databaseId });
   return navigation?.navigate({ kind: "page", id }, allowTrashed);
 }
 
@@ -603,7 +604,7 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   // The list already contains full, fresh disk snapshots. A second GET would
   // scan the whole vault again. Clone so edits cannot mutate the sidebar snapshot.
   const page = activePage ? structuredClone(activePage) : await api<Page>(`/pages/${encodeURIComponent(id)}`);
-  if (page.databaseId && !allowTrashed) return loadDatabases(page.databaseId, isCurrent);
+  if (page.databaseId && !allowTrashed && !isWikiDatabase(databases.find(database => database.id === page.databaseId))) return loadDatabases(page.databaseId, isCurrent);
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   // Input may have arrived while fetching the destination. Save it before
   // destroying the outgoing DOM; never pair it with the destination revision.
@@ -717,6 +718,12 @@ function renderDocument() {
         .join("") || `<span class="muted">Add page properties</span>`
     }</button></div><div id="page-metadata"></div></div></details>
     <div id="database-page-properties"></div><div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents"></aside></div>`;
+  const wiki = databases.find(database => isWikiDatabase(database) && (database.pageId === p.id || database.homePageId === p.id));
+  if (wiki) {
+    const nav = document.createElement("nav"); nav.className = "database-view-tabs wiki-home-tabs"; nav.setAttribute("aria-label", "Wiki views");
+    nav.innerHTML = `<button type="button" aria-current="page">${icon("house")}Home</button><button type="button" data-open-database="${e(wiki.id)}" data-database-view="${e(wiki.viewIds[0])}">${icon("list")}All pages</button>`;
+    document.querySelector(".page-header")!.after(nav);
+  }
   renderContent();
   renderPageDecoration();
   void renderDatabasePageProperties(p);
@@ -1169,7 +1176,7 @@ async function newPage(parent: string | null = null, embed = false) {
 }
 
 let databaseCreationBusy = false;
-async function createDatabase(parent: string | null, mode?: "inline" | "full") {
+async function createDatabase(parent: string | null, mode?: "inline" | "full", kind: "database" | "wiki" = "database") {
   if (databaseCreationBusy) return;
   databaseCreationBusy = true;
   app.inert = true;
@@ -1183,7 +1190,7 @@ async function createDatabase(parent: string | null, mode?: "inline" | "full") {
     if (parent && !parentPage) throw new Error("The parent page is no longer available.");
     const snapshot = await api<DatabaseSnapshot>("/databases", {
       method: "POST",
-      body: JSON.stringify({ title: "New database", parent, ...(parentPage ? { parentRevision: parentPage.revision } : {}) }),
+      body: JSON.stringify({ title: kind === "wiki" ? "New wiki" : "New database", kind, parent, ...(parentPage ? { parentRevision: parentPage.revision } : {}) }),
     });
     pages = await refreshWorkspacePages();
     if (parent) treeExpansion.set(parent, true);
@@ -1193,8 +1200,8 @@ async function createDatabase(parent: string | null, mode?: "inline" | "full") {
     if (mode && current?.id === ownerId) {
       const hostId = snapshot.database.pageId ?? snapshot.database.id;
       const source = workspace && usesNotionSyntax(workspace.session.snapshot.config) && enabled(workspace.session.snapshot.config, "notion_databases")
-        ? databaseReference(hostId, "", mode === "inline")
-        : `[New database](#database/${snapshot.database.id})`;
+        ? databaseReference(hostId, "", mode === "inline", kind === "wiki")
+        : `[${snapshot.database.title}](#database/${snapshot.database.id})`;
       insertMarkdown(`\n${source}\n`);
       if (!(await save())) { toast("Database created in the tree. Its page reference remains in your unsaved draft."); return; }
     }
@@ -1276,6 +1283,8 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
   if (!(await save()) || !isCurrent()) return false;
   const loadedPages = await refreshWorkspacePages();
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
+  const wiki = databases.find(database => database.id === id && isWikiDatabase(database));
+  if (wiki && !viewId) return loadPage(typeof wiki.homePageId === "string" ? wiki.homePageId : wiki.pageId ?? wiki.id, false, isCurrent);
   if (!databaseApiAvailable) {
     closeModal(); closePageContextMenu(); destroyEditor();
     current = null; library = false; dirty = false; pages = loadedPages;
@@ -1302,6 +1311,11 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
     openDatabase: id => navigation?.navigate({ kind: "database", ...(id ? { id } : {}) }) ?? Promise.resolve(false),
     changed: saved => { const index = pages.findIndex(page => page.id === saved.id); if (index < 0) pages.push(saved); else pages[index] = saved; renderSidebar(); },
     createDatabase: () => createDatabase(null),
+    createWiki: () => createDatabase(null, undefined, "wiki"),
+    undoWiki: async snapshot => {
+      await api<Page>(`/databases/${snapshot.database.id}/undo-wiki`, { method: "POST", body: JSON.stringify({ baseRevision: snapshot.database.revision, hostRevision: snapshot.hostPage!.revision }) });
+      pages = await refreshWorkspacePages(); await openPage(snapshot.hostPage!.id);
+    },
   });
   try { await controller.load(id); }
   catch (error) { controller.destroy(); throw error; }
@@ -1322,6 +1336,7 @@ async function renderDatabasePageProperties(page: Page) {
   const host = document.querySelector<HTMLElement>("#database-page-properties");
   if (!host) return;
   if (page.databaseId) {
+    if (isWikiDatabase(databases.find(database => database.id === page.databaseId))) return;
     const button = document.createElement("button"); button.className = "primary-button"; button.textContent = "Open database";
     button.addEventListener("click", () => void navigation?.navigate({ kind: "database", id: page.databaseId })); host.append(button);
   }
@@ -1457,6 +1472,27 @@ function pageActionForm(page: Page, action: "rename" | "move") {
 }
 
 async function handlePageAction(page: Page, action: PageAction) {
+  if (action === "turn-into-wiki" || action === "undo-wiki") {
+    if (pageActionBusy) return;
+    pageActionBusy = true; app.inert = true;
+    try {
+      if (!await save()) return;
+      const latest = current?.id === page.id ? current : page;
+      if (action === "turn-into-wiki") await api<DatabaseSnapshot>(`/pages/${page.id}/wiki`, { method: "POST", body: JSON.stringify({ baseRevision: latest.revision }) });
+      else {
+        const snapshot = await api<DatabaseSnapshot>(`/databases/${latest.databaseId}`);
+        await api<Page>(`/databases/${snapshot.database.id}/undo-wiki`, { method: "POST", body: JSON.stringify({ baseRevision: snapshot.database.revision, hostRevision: latest.revision }) });
+      }
+      pages = await refreshWorkspacePages();
+      // Remount against the converted metadata; pending input was collected above.
+      if (current?.id === page.id) { destroyEditor(); current = null; }
+      await openPage(page.id);
+      if (current?.id !== page.id) await loadPage(page.id);
+      renderSidebar();
+    } catch (error) { report(error); }
+    finally { pageActionBusy = false; app.inert = false; }
+    return;
+  }
   if (action === "insert-parent") {
     if (pageActionBusy) return;
     pageActionBusy = true; app.inert = true;
@@ -2336,12 +2372,12 @@ async function handleInsert(id: string) {
     editor.captureSelection();
   }
   if (id === "attachments") { await showAttachments(); return; }
-  if (id === "database_full_page" || id === "database_inline") {
+  if (id === "database_full_page" || id === "database_inline" || id === "wiki") {
     if (!current) return;
     if (id === "database_inline" && (!workspace || !usesNotionSyntax(workspace.session.snapshot.config) || !enabled(workspace.session.snapshot.config, "notion_databases"))) return;
     const parent = current.id;
     closeModal();
-    await createDatabase(parent, id === "database_inline" ? "inline" : "full");
+    await createDatabase(parent, id === "database_inline" ? "inline" : "full", id === "wiki" ? "wiki" : "database");
     return;
   }
   if (id === "html_embed") {

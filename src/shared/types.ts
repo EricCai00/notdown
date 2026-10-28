@@ -4,6 +4,8 @@ import { apiUrl } from "./vault-url";
 export interface Page {
   dataSourceId?: string;
   databaseId?: string;
+  wiki?: boolean;
+  wikiMember?: boolean;
   legacyIds?: string[];
   id: string;
   title: string;

@@ -19,7 +19,7 @@ import { supplementNotionColors } from "./notion-color-import.js";
 import { hasUnknownNotionCodeLanguage, supplementNotionCodeLanguages } from "./notion-code-import.js";
 import { blockifyNotionImages } from "./notion-image-import.js";
 import { recoverCachedNotionBlock } from "./notion-private-blocks.js";
-import { parseCopiedNotionBlocks, recoverCopiedNotionButton } from "./notion-copied-blocks.js";
+import { parseCopiedNotionSnapshots, recoverCopiedNotionButton } from "./notion-copied-blocks.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -270,7 +270,7 @@ export async function prepareNotionImport(
   if (request.downloadAssets !== undefined && typeof request.downloadAssets !== "boolean") throw new VaultError(400, "Invalid attachment selection.");
   const variant = request.variant ?? "notion-markdown";
   if (variant !== "notdown" && variant !== "notion-markdown") throw new VaultError(400, "Choose Notdown or Notion Markdown for import.");
-  const copiedBlocks = variant === "notdown" ? parseCopiedNotionBlocks(request.copiedBlocks) : undefined;
+  const copiedBlocks = variant === "notdown" ? parseCopiedNotionSnapshots(request.copiedBlocks) : undefined;
   let copiedButtons = 0;
   const token = request.token;
   const signal = AbortSignal.any([
@@ -670,6 +670,8 @@ export async function prepareNotionImport(
   // A reference can be imported before its owning page is scanned. Resolve the
   // final hierarchy after discovery, rather than keeping the earlier copy.
   const discoveredPageIds = new Set(pages.map(page => page.id));
+  const unusedCopiedPages = new Set(copiedBlocks?.map(snapshot => snapshot.source.id).filter(id => !discoveredPageIds.has(id)));
+  if (unusedCopiedPages.size) warnings.add(`Copied snapshots from ${unusedCopiedPages.size} page(s) are outside the selected import. Choose their common parent with descendants included, or import those pages separately.`);
   for (const page of pages) page.parent = databaseImport.recordParent(page.id, discoveredPageIds) ?? queue.find(entry => entry.id === page.id)!.parent;
   report({ phase: "restoring", completed: pages.length, step: "Completing database record properties", currentTitle: undefined });
   const recordTitles = await databaseImport.completeProperties();

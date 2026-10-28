@@ -14,6 +14,8 @@ import { appendChildPageEntries } from "../features/pages/child-page-entries";
 import { defaultChildPageSettings, type ChildPageSettings, type ChildPageSettingsSnapshot } from "../shared/child-page-settings";
 import { createPageHistory, historySignature, isHistoryTransientFile, type HistoryRecord } from "./history.js";
 import { createDatabases } from "./databases.js";
+import { reconcileWikiMembership } from "./wiki.js";
+import { isWikiDatabase, type Database } from "../features/databases/database-model.js";
 import { createVaultSyncStore, isSyncLocalFile } from "./sync-store.js";
 import type { SyncConflict, SyncItem } from "../sync/protocol.js";
 import { createSyncService } from "../sync/service.js";
@@ -32,6 +34,8 @@ import {
 export type Page = {
   dataSourceId?: string;
   databaseId?: string;
+  wiki?: boolean;
+  wikiMember?: boolean;
   legacyIds?: string[];
   id: string;
   title: string;
@@ -194,6 +198,8 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         id: id as string, title: title as string, parent: parent as string | null,
         ...(typeof defaults.dataSourceId === "string" ? { dataSourceId: defaults.dataSourceId } : {}),
         ...(typeof defaults.databaseId === "string" ? { databaseId: defaults.databaseId } : {}),
+        ...(defaults.wiki === true ? { wiki: true } : {}),
+        ...(typeof defaults.wikiMembership === "string" ? { wikiMember: true } : {}),
         icon: icon as string, properties, updated: updated as string, body: source,
         bodyFormat: bodyFormat as BodyFormat,
         ...(syntax === undefined ? {} : { syntax: syntax as SyntaxConfig }),
@@ -380,7 +386,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       await fs.rm(journalPath);
     }
   }
-  async function persist(filePath: string, encoded: ReturnType<typeof encode>, current?: StoredPage, databaseCreation?: { resources: DatabaseResources; expectedMetadata: string | null }) {
+  async function persist(filePath: string, encoded: ReturnType<typeof encode>, current?: StoredPage, databaseCreation?: { resources: DatabaseResources; expectedMetadata: string | null }, reconcileWiki = true) {
     const before = await readOptional(metadataPath);
     const index = await readMetadata();
     const id = String(encoded.metadata.id);
@@ -402,6 +408,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         return registerConflict(latest, { ...encoded.metadata, body: encoded.source } as PageInput, current.page.revision);
     }
     index.pages[id] = { ...encoded.metadata, file: path.basename(filePath), sourceHash: hash(encoded.source) };
+    if (reconcileWiki) await reconcileWikiIndex(index, [decode(encoded.source, filePath, encoded.metadata).page]);
+    if (!index.pages[id].dataSourceId) delete encoded.metadata.dataSourceId;
+    if (!index.pages[id].wikiMembership) delete encoded.metadata.wikiMembership;
+    Object.assign(encoded.metadata, entryMetadata(index.pages[id]));
     const after = JSON.stringify(index, null, 2) + "\n";
     // Preserve both halves before touching either canonical file.
     const recovery = path.join(historyPath, `pending-${id}.json`);
@@ -419,6 +429,18 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     await safeDirectory(conflictsPath);
     await safeDirectory(assetsPath);
     await recoverPending();
+  }
+  async function reconcileWikiIndex(index: MetadataFile, changed: Page[] = []) {
+    if (!Object.values((index.databases ?? {}) as Record<string, Database>).some(isWikiDatabase) && !Object.values(index.pages).some(entry => entry.wikiMembership)) return;
+    const stored = await scan(), unindexed = [...stored.values()].filter(item => !index.pages[item.page.id]);
+    for (const item of unindexed) index.pages[item.page.id] = { ...item.metadata, file: path.basename(item.filePath), sourceHash: hash(item.source) };
+    const all = new Map([...stored.values()].map(item => [item.page.id, item.page]));
+    for (const page of changed) all.set(page.id, page);
+    reconcileWikiMembership(index, [...all.values()]);
+    for (const item of unindexed) if (!index.pages[item.page.id].wikiMembership) delete index.pages[item.page.id];
+  }
+  async function wikiParent(databaseId: string) {
+    return isWikiDatabase(((await readMetadata()).databases as Record<string, Database> | undefined)?.[databaseId]);
   }
   async function scan(): Promise<Map<string, StoredPage>> {
     await prepareRead();
@@ -579,8 +601,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       files.push({ path: `pages/${path.basename(proposed.filePath)}`, before: source, after: proposed.source });
     }
     if (settings) index.childPageSettings = { ...(index.childPageSettings as object ?? {}), ...settings };
+    await reconcileWikiIndex(index, [...changes.values()].map(change => change.proposed.page));
     files.push({ path: "metadata.json", before, after: JSON.stringify(index, null, 2) + "\n" });
     await pageBatch.commit(files);
+    for (const [id, change] of changes) change.proposed = decode(change.proposed.source, change.proposed.filePath, entryMetadata(index.pages[id]));
     for (const id of changes.keys()) historyChanged(id);
     return index;
   }
@@ -609,7 +633,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     const settings = childSettings(await readMetadata());
     if (settings.allowUninserted && !settings.autoInsert) {
       await persist(proposed.filePath, { source: proposed.source, metadata: proposed.metadata }, current);
-      return proposed.page;
+      return decode(proposed.source, proposed.filePath, proposed.metadata).page;
     }
     const changes = new Map<string, PageChange>([[proposed.page.id, { current, proposed }]]);
     const family = new Map(all); family.set(proposed.page.id, proposed);
@@ -634,7 +658,8 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       const only = changes.get(proposed.page.id)!;
       await persist(only.proposed.filePath, { source: only.proposed.source, metadata: only.proposed.metadata }, current);
     } else await commitChildPageChanges(changes);
-    return { ...changes.get(proposed.page.id)!.proposed.page,
+    const saved = changes.get(proposed.page.id)!.proposed;
+    return { ...decode(saved.source, saved.filePath, saved.metadata).page,
       relatedPages: [...changes].filter(([id]) => id !== proposed.page.id).map(([, change]) => change.proposed.page) };
   }
   const historyDirty = new Set<string>();
@@ -729,8 +754,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     if (current.page.revision !== baseRevision)
       return registerConflict(current, input, baseRevision);
     if (own(input, "parent") && input.parent !== current.page.parent) {
-      if (current.page.dataSourceId) throw new VaultError(422, "Database records stay inside their database; remove the record from the collection first");
-      if (input.parent && findStoredPage(pages, input.parent)?.page.databaseId) throw new VaultError(422, "Use the database to add records; ordinary pages cannot be moved into a database");
+      if (current.page.dataSourceId && !current.page.wikiMember) throw new VaultError(422, "Database records stay inside their database; remove the record from the collection first");
+      const parentDatabase = input.parent && findStoredPage(pages, input.parent)?.page.databaseId;
+      if (parentDatabase && !await wikiParent(parentDatabase)) throw new VaultError(422, "Use the database to add records; ordinary pages cannot be moved into a database");
     }
     if (databaseValidation && current.page.dataSourceId)
       await databases.validatePageUpdateLocked(current.page, input, baseRevision, databaseValidation.schemaRevision);
@@ -853,8 +879,47 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       }
       const encoded = encode(undefined, id, input), filePath = path.join(pagesPath, `${id}.md`);
       encoded.metadata.databaseId = id;
+      if (isWikiDatabase(resources.databases[id])) encoded.metadata.wiki = true;
       await persist(filePath, encoded, undefined, { resources, expectedMetadata });
       return decode(encoded.source, filePath, encoded.metadata).page;
+    },
+    convertWikiPage: async (id, revision, resources, expectedMetadata, wiki) => {
+      const all = await scan(), current = all.get(id);
+      if (!current) throw new VaultError(404, "Page not found");
+      if (current.page.revision !== revision) return registerConflict(current, {}, revision);
+      const before = await readOptional(metadataPath), index = await readMetadata();
+      if (before !== expectedMetadata) {
+        const directory = path.join(historyPath, "database-conflicts"); await safeDirectory(directory);
+        const recoveryPath = path.join(directory, `${randomUUID()}.json`);
+        await atomicWrite(recoveryPath, JSON.stringify({ current: index, proposed: resources, pageId: id, wiki, baseRevision: revision, expectedMetadata }, null, 2));
+        throw new VaultError(409, "The vault changed while preparing the wiki conversion. Both versions were preserved; reopen the page before retrying.", { recoveryPath });
+      }
+      await history.snapshot(current, false, wiki ? "Before turning into wiki" : "Before undoing wiki");
+      // Archive resources and every page's metadata before the single CAS write. Markdown is unchanged.
+      const directory = path.join(historyPath, "database-transactions"); await safeDirectory(directory);
+      if (!wiki) {
+        const previous = (index.databases as Record<string, Database>)[id];
+        for (const page of all.values()) if (page.page.dataSourceId && previous.dataSourceIds.includes(page.page.dataSourceId) && index.pages[page.page.id]) index.pages[page.page.id].wikiMembership = id;
+      }
+      Object.assign(index, { databases: resources.databases, dataSources: resources.dataSources, views: resources.views });
+      const entry = index.pages[id] ?? { ...current.metadata, file: path.basename(current.filePath), sourceHash: hash(current.source) };
+      index.pages[id] = entry;
+      if (wiki) { entry.databaseId = id; entry.wiki = true; }
+      else { delete entry.databaseId; delete entry.wiki; }
+      const unindexed = [...all.values()].filter(item => !index.pages[item.page.id]);
+      for (const item of unindexed) index.pages[item.page.id] = { ...item.metadata, file: path.basename(item.filePath), sourceHash: hash(item.source) };
+      reconcileWikiMembership(index, [...all.values()].map(item => item.page));
+      for (const item of unindexed) if (!index.pages[item.page.id].wikiMembership) delete index.pages[item.page.id];
+      const after = JSON.stringify(index, null, 2) + "\n", recoveryPath = path.join(directory, `${randomUUID()}.json`);
+      await atomicWrite(recoveryPath, JSON.stringify({ operation: wiki ? "turn-into-wiki" : "undo-wiki", before, after }, null, 2));
+      // External text edits do not take our process lock; verify all affected files before changing membership.
+      const previousPages = JSON.parse(before ?? '{"pages":{}}').pages;
+      for (const stored of all.values()) if (JSON.stringify(index.pages[stored.page.id]) !== JSON.stringify(previousPages[stored.page.id])) {
+        if (await readOptional(stored.filePath) !== stored.source) throw new VaultError(409, "A page changed during wiki conversion; the proposal was preserved.", { recoveryPath });
+      }
+      try { await atomicWrite(metadataPath, after, before); }
+      catch (error) { throw new VaultError(409, "Metadata changed during wiki conversion; both versions were preserved.", { recoveryPath, cause: String(error) }); }
+      return decode(current.source, current.filePath, entryMetadata(entry)).page;
     },
     updateRecord: updateLocked,
     conflictRecord: async (id, input, revision) => {
@@ -1181,7 +1246,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           for (const item of plan.pages) {
             onProgress?.({ phase: "importing", completed, total: plan.pages.length, step: "Writing page Markdown and metadata", currentTitle: String(item.metadata.title ?? "Untitled") });
             await writeNew(path.join(pagesPath, `${item.id}.md`), item.source);
-            await persist(path.join(pagesPath, `${item.id}.md`), { source: item.source, metadata: item.metadata });
+            await persist(path.join(pagesPath, `${item.id}.md`), { source: item.source, metadata: item.metadata }, undefined, undefined, false);
             onProgress?.({ phase: "importing", completed: ++completed, total: plan.pages.length, step: "Page imported", currentTitle: String(item.metadata.title ?? "Untitled") });
           }
           onProgress?.({ phase: "finalizing", completed, total: plan.pages.length, step: "Saving database resources and the import manifest" });
@@ -1240,7 +1305,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         if (!isPageUuid(id)) throw new VaultError(400, "New page IDs must be UUIDs");
         if (pages.has(id)) throw new VaultError(409, "Page ID already exists");
         checkParent(id, input.parent, pages);
-        if (input.parent && findStoredPage(pages, input.parent)?.page.databaseId)
+        if (input.parent && findStoredPage(pages, input.parent)?.page.databaseId && !await wikiParent(findStoredPage(pages, input.parent)!.page.databaseId!))
           throw new VaultError(422, "Use the database to create a record inside it");
         const encoded = encode(undefined, id, input);
         const filePath = path.join(pagesPath, `${id}.md`);

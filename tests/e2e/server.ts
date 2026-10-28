@@ -8,6 +8,7 @@ import { inlineDatabaseFixture } from "../unit/notion-inline-database-fixture.js
 import { wikiFixture } from "../unit/notion-wiki-fixture.js";
 import { v2Fixture, v2Asset, v2Id } from "../unit/notion-v2-fixture.js";
 import { privateFixture, privateRoot, privateSnapshot } from "../unit/notion-private-blocks-fixture.js";
+import { multipleButtonsFixture } from "../unit/notion-copied-blocks-fixture.js";
 import { setTimeout as delay } from "node:timers/promises";
 
 // This test server deliberately does not read VAULT_PATH, the normal seed, or
@@ -23,7 +24,7 @@ const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-e2e-"));
 // Browser tests use a private stand-in; native Windows recycling is tested separately.
 const recyclePath = path.join(vaultPath, "test-system-recycle-bin");
 await fs.mkdir(recyclePath);
-const notionFetch = privateFixture(wikiFixture({}, v2Fixture(inlineDatabaseFixture(enrichmentFixture()))));
+const notionFetch = multipleButtonsFixture(privateFixture(wikiFixture({}, v2Fixture(inlineDatabaseFixture(enrichmentFixture())))));
 const app = await createBrowserApp({ vaultPath, dataPath: path.join(vaultPath, "test-managed-vaults"), frontendDir, recycleFile: (file) => fs.rename(file, path.join(recyclePath, path.basename(file))),
   notionImportTransport: { fetch: async (input, init) => {
     // Only the progress test simulates network latency; abort cancels its delay.

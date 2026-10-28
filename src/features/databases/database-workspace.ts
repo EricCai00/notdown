@@ -7,6 +7,7 @@ import { renderSourceCatalog } from "./database-source-catalog";
 import type { DatabaseSourceSummary } from "./database-model";
 import { Database as DatabaseIcon } from "lucide";
 import { databasePropertyReadOnly, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabasePropertyType, type DatabaseSnapshot, type DatabaseView } from "./database-model";
+import { isWikiDatabase } from "./database-model";
 import { createElement, Columns3, LayoutGrid, List, Table2, Plus, ChevronDown, Type, CircleChevronDown, AlignLeft, SquareCheck, Hash, Calendar, Link, Users, FileText, PanelRight, ListFilter, ArrowDownUp, Search, SlidersHorizontal, Ellipsis, ArrowLeft, X, Check, type IconNode } from "lucide";
 import { DatabasePeek } from "./database-peek";
 import { openCalloutIconPicker } from "../../blocks/callout-icon-picker";
@@ -22,7 +23,7 @@ import { requestPeople } from "../people/people-client";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
 type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
-type Hooks = { vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown> };
+type Hooks = { vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown>; undoWiki?: (snapshot: DatabaseSnapshot) => Promise<unknown> };
 const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"];
 const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone" };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -243,6 +244,10 @@ export class DatabaseWorkspace {
       if (!this.alive) return;
       this.host.innerHTML = `<section class="database-workspace"><header class="database-heading"><div><h1>Databases</h1><p>Organize Markdown pages with shared properties and saved views.</p></div><button class="primary-button" data-db-new>New database</button></header><div class="database-list">${databases.map(database => `<button data-db-open="${e(database.id)}"><strong>${e(database.title)}</strong><span>${database.dataSourceIds.length} data source${database.dataSourceIds.length === 1 ? "" : "s"} →</span></button>`).join("") || '<div class="database-empty"><h2>No databases yet</h2><p>Create a database, or import one from Notion using the sidebar.</p></div>'}</div></section>`;
       this.host.querySelector("[data-db-new]")!.addEventListener("click", () => this.newDatabase());
+      const newWiki = document.createElement("button"); newWiki.className = "secondary-button"; newWiki.textContent = "New wiki";
+      newWiki.onclick = () => { void (this.hooks.createWiki ? this.hooks.createWiki() : api<DatabaseSnapshot>("/databases", { method: "POST", body: JSON.stringify({ title: "New wiki", kind: "wiki" }) }).then(snapshot => this.hooks.openDatabase(snapshot.database.id))); };
+      this.host.querySelector(".database-heading")!.append(newWiki);
+      for (const database of databases) if (isWikiDatabase(database)) this.host.querySelector(`[data-db-open="${CSS.escape(database.id)}"] span`)!.textContent = "Wiki · Home and page views →";
       this.host.querySelectorAll<HTMLElement>("[data-db-open]").forEach(button => button.addEventListener("click", () => void this.hooks.openDatabase(button.dataset.dbOpen)));
       const list = this.host.querySelector<HTMLElement>(".database-list")!;
       const catalog = document.createElement("div"); catalog.hidden = true; list.after(catalog);
@@ -488,11 +493,16 @@ export class DatabaseWorkspace {
     const sourcesButton = document.createElement("button"); sourcesButton.type = "button"; sourcesButton.className = "database-icon-button";
     sourcesButton.dataset.dbSources = ""; sourcesButton.setAttribute("aria-label", "Data sources"); sourcesButton.title = "Data sources"; sourcesButton.innerHTML = glyph(DatabaseIcon);
     sourcesButton.addEventListener("click", () => { void this.manageSources().catch(error => this.message(error.message)); });
-    this.host.querySelector(".database-more-menu")!.before(sourcesButton);
-    if (typeof snapshot.database.homePageId === "string") {
+    if (!isWikiDatabase(snapshot.database)) this.host.querySelector(".database-more-menu")!.before(sourcesButton);
+    if (isWikiDatabase(snapshot.database) && this.hooks.undoWiki) {
+      const undo = document.createElement("button"); undo.textContent = "Undo wiki"; undo.type = "button";
+      undo.onclick = () => { void (async () => { if (await this.flush()) await this.hooks.undoWiki!(this.snapshot!); })().catch(error => this.message(error.message)); };
+      this.host.querySelector(".database-more-menu .database-menu")!.append(undo);
+    }
+    if (typeof snapshot.database.homePageId === "string" || isWikiDatabase(snapshot.database)) {
       const home = document.createElement("button");
       home.type = "button"; home.textContent = "Home"; home.setAttribute("aria-label", "Open database Home");
-      home.addEventListener("click", () => { void (async () => { if (await this.flush()) await this.hooks.openPage(snapshot.database.homePageId as string); })().catch(error => this.message(error.message)); });
+      home.addEventListener("click", () => { void (async () => { if (await this.flush()) await this.hooks.openPage(typeof snapshot.database.homePageId === "string" ? snapshot.database.homePageId : snapshot.database.pageId ?? snapshot.database.id); })().catch(error => this.message(error.message)); });
       this.host.querySelector(".database-view-tabs")!.prepend(home);
     }
     if (Array.isArray(view?.importWarnings) && view.importWarnings.length) {
@@ -515,7 +525,10 @@ export class DatabaseWorkspace {
       void (async () => { if (!(await this.closePeek())) return; await this.load(snapshot.database.id); })().catch(error => this.message(error.message));
     });
     const act = (action: () => void) => void this.flush().then(async ok => { if (ok && await this.closePeek()) action(); });
-    this.host.querySelectorAll<HTMLElement>("[data-db-tab]").forEach(button => button.addEventListener("click", () => act(() => { this.rememberView(button.dataset.dbTab!); this.render(); })));
+    this.host.querySelectorAll<HTMLElement>("[data-db-tab]").forEach(button => button.addEventListener("click", () => {
+      const id = button.dataset.dbTab!;
+      if (id !== this.view?.id) act(() => { this.rememberView(id); this.render(); });
+    }));
     this.host.querySelectorAll("[data-db-row]").forEach(button => button.addEventListener("click", () => act(() => this.addRow())));
     this.host.querySelector("[data-db-view]")!.addEventListener("click", () => act(() => this.editView()));
     this.host.querySelector("[data-db-filter]")!.addEventListener("click", () => act(() => this.editView("Filter")));
@@ -689,7 +702,7 @@ export class DatabaseWorkspace {
     if (property && section === "Sort") view.sorts = [...view.sorts ?? [], { propertyId: property.id, direction: "ascending" }];
     if (property && section === "Group") view.layout = { ...view.layout, groupBy: property.id };
     this.menu = openViewMenu(this.host.querySelector<HTMLElement>(section === "Filter" ? "[data-db-filter]" : section === "Sort" ? "[data-db-sort]" : "[data-db-view]")!, {
-      sources: this.snapshot!.dataSources, view, manageSources: () => { void this.manageSources().catch(error => this.message(error.message)); },
+      sources: this.snapshot!.dataSources, view, wiki: isWikiDatabase(this.snapshot!.database), manageSources: isWikiDatabase(this.snapshot!.database) ? undefined : () => { void this.manageSources().catch(error => this.message(error.message)); },
       save: async draft => {
         const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout, filterMode: draft.filterMode, propertyIds: draft.propertyIds, filters: draft.filters, sorts: draft.sorts }) });
         this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.visibleLimit = undefined; this.render();
@@ -700,6 +713,7 @@ export class DatabaseWorkspace {
     if (property) this.menu.dirty = true;
   }
   private async manageSources() {
+    if (isWikiDatabase(this.snapshot?.database)) return;
     if (!await this.flush() || !await this.closePeek() || !this.alive) return;
     this.menu?.destroy();
     const snapshot = this.snapshot!;
@@ -725,7 +739,7 @@ export class DatabaseWorkspace {
     const snapshot = this.snapshot!;
     const view: DatabaseView = { id: crypto.randomUUID(), databaseId: snapshot.database.id, dataSourceId: this.source.id, name: "", type: "table", layout: {}, revision: "" };
     this.menu = openViewMenu(this.host.querySelector<HTMLElement>("[data-db-new-view]")!, {
-      sources: snapshot.dataSources, view, create: true,
+      sources: snapshot.dataSources, view, create: true, wiki: isWikiDatabase(snapshot.database),
       save: async draft => {
         const layout = draft.layout!;
         let source = snapshot.dataSources.find(item => item.id === draft.dataSourceId)!;

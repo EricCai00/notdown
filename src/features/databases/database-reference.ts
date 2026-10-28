@@ -21,7 +21,7 @@ export function databaseHostId(url: unknown): string | undefined {
   return target && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(target) ? target : undefined;
 }
 /** The Markdown contains only a reference; records and schema remain vault resources. */
-export function databaseReference(hostId: string, title: string, inline = true): string {
+export function databaseReference(hostId: string, title: string, inline = true, wiki = false): string {
   if (!databaseHostId(`#page/${encodeURIComponent(hostId)}`)) throw new Error("Invalid database host page ID");
-  return `<database url="#page/${encodeURIComponent(hostId)}" inline="${inline}">${escapeXml(title.replace(/[\r\n]+/g, " "))}</database>`;
+  return `<database url="#page/${encodeURIComponent(hostId)}" inline="${inline}"${wiki ? ' wiki="true"' : ""}>${escapeXml(title.replace(/[\r\n]+/g, " "))}</database>`;
 }

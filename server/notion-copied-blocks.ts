@@ -23,8 +23,30 @@ export function parseCopiedNotionBlocks(input: unknown): Snapshot | undefined {
   } catch { throw new VaultError(400, "Copied Notion blocks are invalid or too large. Copy the source buttons again."); }
 }
 
+/** A session may hold explicit copies from several source pages and selections. */
+export function parseCopiedNotionSnapshots(input: unknown): Snapshot[] | undefined {
+  if (input === undefined) return;
+  try {
+    if (typeof input !== "string" || Buffer.byteLength(input) > 5 * 1024 * 1024) throw Error();
+    const value = JSON.parse(input);
+    const copies = value.version === 2 ? value.snapshots : [value];
+    if (!Array.isArray(copies) || !copies.length || copies.length > 1000) throw Error();
+    return copies.map(copy => parseCopiedNotionBlocks(JSON.stringify(copy))!);
+  } catch { throw new VaultError(400, "Copied Notion snapshots are invalid or too large. Copy the source pages again."); }
+}
+
+export function recoverCopiedNotionButton(api: Json, pageId: string, input?: Snapshot | Snapshot[]) {
+  const snapshots = input ? Array.isArray(input) ? input : [input] : [];
+  for (let index = snapshots.length - 1; index >= 0; index--) {
+    const snapshot = snapshots[index];
+    if (snapshot.source.id === pageId && snapshot.trees.some(tree => Object.hasOwn(tree.block, api.id)))
+      return recoverButtonFromSnapshot(api, pageId, snapshot);
+  }
+  return { warnings: [] as string[] };
+}
+
 /** Adopt only an entire verified, static insertion workflow; unknown steps stay opaque. */
-export function recoverCopiedNotionButton(api: Json, pageId: string, snapshot?: Snapshot) {
+function recoverButtonFromSnapshot(api: Json, pageId: string, snapshot: Snapshot) {
   const warnings: string[] = [];
   if (!snapshot || snapshot.source.id !== pageId || (api.type === "unsupported" ? api.unsupported?.block_type : api.type) !== "button") return { warnings };
   const candidates = snapshot.trees.filter(tree => Object.hasOwn(tree.block, api.id));

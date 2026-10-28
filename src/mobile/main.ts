@@ -5,6 +5,7 @@ import { commandEnabled, defaultSyntax, dialectGroups, resetExtensions, validSyn
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
 import type { Database, DatabaseDataSource } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
+import { isWikiDatabase } from "../features/databases/database-model";
 import { databaseReference } from "../features/databases/database-reference";
 import { documentMetadata } from "../features/metadata/document-metadata";
 import { createVault, type Page } from "../vault/vault";
@@ -58,8 +59,9 @@ const menu = app.querySelector<HTMLDialogElement>("#mobile-menu")!;
 const mount = app.querySelector<HTMLElement>("#mobile-workspace")!;
 const search = app.querySelector<HTMLInputElement>("#mobile-search")!;
 const databaseMount = document.createElement("div"); databaseMount.id = "mobile-databases"; databaseMount.hidden = true;
+const wikiNavigation = document.createElement("nav"); wikiNavigation.className = "database-view-tabs wiki-home-tabs"; wikiNavigation.hidden = true;
 const recordProperties = document.createElement("section"); recordProperties.id = "mobile-record-properties"; recordProperties.hidden = true;
-mount.before(recordProperties); mount.after(databaseMount);
+mount.before(wikiNavigation, recordProperties); mount.after(databaseMount);
 const databaseButtons = document.createElement("div"); databaseButtons.className = "mobile-database-buttons";
 databaseButtons.innerHTML = `<button type="button" data-action="databases">${icon("table-2")} Databases</button><button type="button" data-action="new-database">${icon("plus")} New database</button>`;
 app.querySelector(".mobile-new-page")!.after(databaseButtons);
@@ -212,11 +214,11 @@ function renderPages() {
   if (!target.childElementCount) target.textContent = search.value ? "No matching pages." : "Your notebook is empty.";
   refreshIcons();
 }
-async function openPage(id: string) {
+async function openPage(id: string): Promise<void> {
   const database = databases.find(item => (item.pageId ?? item.id) === id);
-  if (database) return openDatabases(database.id);
+  if (database && !isWikiDatabase(database)) return openDatabases(database.id);
   const page = await vault.get(id);
-  if (page.databaseId) return openDatabases(page.databaseId);
+  if (page.databaseId && !isWikiDatabase(database)) return openDatabases(page.databaseId);
   const selectedVault = vault;
   const source = page.dataSourceId ? await vault.databases.getSource(page.dataSourceId) : undefined;
   const nextSession = new MobileDraftSession(page, draftKey(page.id), localStorage,
@@ -239,6 +241,13 @@ async function openPage(id: string) {
     onCreatePage: async (name, parent) => vault.create({ title: name, parent, body: "", syntax: { ...defaultSyntax(), variant: "notdown" } }),
   });
   updateMode("document"); renderState();
+  const wiki = databases.find(item => isWikiDatabase(item) && (item.pageId === id || item.homePageId === id));
+  wikiNavigation.replaceChildren(); wikiNavigation.hidden = !wiki;
+  if (wiki) {
+    const home = document.createElement("button"); home.textContent = "Home"; home.setAttribute("aria-current", "page");
+    const all = document.createElement("button"); all.textContent = "All pages"; all.onclick = () => { void enqueue(async () => { if (await leavePage()) await openDatabases(wiki.id, true); }); };
+    wikiNavigation.append(home, all);
+  }
   localStorage.setItem(`notdown-mobile-last-page:${vaultId}`, id);
   rememberRoute(`#page/${encodeURIComponent(id)}`);
   app.querySelector<HTMLElement>("#mobile-content")!.scrollTop = 0;
@@ -271,12 +280,13 @@ function renderRecordProperties() {
     row.append(label, cell); recordProperties.append(row);
   }
 }
-async function openDatabases(id?: string) {
+async function openDatabases(id?: string, showPages = false): Promise<void> {
   // Resolve before destroying the current editor so a failed read keeps its draft visible.
-  if (id) await vault.databases.get(id);
+  if (id) { const snapshot = await vault.databases.get(id); if (isWikiDatabase(snapshot.database) && !showPages) return openPage(typeof snapshot.database.homePageId === "string" ? snapshot.database.homePageId : snapshot.database.pageId ?? id); }
   editingTools.reset(); workspace?.destroy(); workspace = undefined; session = undefined; recordSource = undefined;
   databaseWorkspace?.destroy(); databaseRoute = { id };
   mount.hidden = true; recordProperties.hidden = true; databaseMount.hidden = false;
+  wikiNavigation.hidden = true;
   for (const selector of [".mobile-page-meta", ".mobile-tools", "#mobile-recovery", ".mobile-empty"]) app.querySelector<HTMLElement>(selector)!.hidden = true;
   closeDialogs();
   databaseWorkspace = new DatabaseWorkspace(databaseMount, {
@@ -284,25 +294,30 @@ async function openDatabases(id?: string) {
     openPage: id => enqueue(async () => { if (await leavePage()) await openPage(id); }),
     openDatabase: id => enqueue(async () => { if (await leavePage()) await openDatabases(id); }),
     createDatabase: () => enqueue(() => createDatabase()),
+    createWiki: () => enqueue(() => createDatabase(undefined, "wiki")),
+    undoWiki: snapshot => enqueue(async () => {
+      await vault.databases.undoWiki(snapshot.database.id, { baseRevision: snapshot.database.revision, hostRevision: snapshot.hostPage!.revision });
+      await refreshPages(); await openPage(snapshot.hostPage!.id);
+    }),
   });
   await databaseWorkspace.load(id);
-  rememberRoute(id ? `#database/${encodeURIComponent(id)}` : "#databases");
+  rememberRoute(id ? `#database/${encodeURIComponent(id)}${showPages ? "#pages" : ""}` : "#databases");
   app.querySelector<HTMLElement>("#mobile-content")!.scrollTop = 0;
 }
-async function createDatabase(mode?: "full" | "inline") {
+async function createDatabase(mode?: "full" | "inline", kind: "database" | "wiki" = "database") {
   if (setupRequired || !await leavePage()) return;
   const owner = mode ? session?.draft : undefined;
   if (mode && (!owner || !workspace)) return;
   if (mode === "inline" && !commandEnabled(workspace!.session.snapshot.config, "database_inline")) return;
   app.inert = true;
   try {
-    const snapshot = await vault.databases.create({ title: "New database", parent: owner?.id ?? null, ...(owner ? { parentRevision: owner.revision } : {}) });
+    const snapshot = await vault.databases.create({ title: kind === "wiki" ? "New wiki" : "New database", kind, parent: owner?.id ?? null, ...(owner ? { parentRevision: owner.revision } : {}) });
     await refreshPages();
     if (owner && workspace) {
       collapsedPages.delete(owner.id);
       const reference = commandEnabled(workspace.session.snapshot.config, "database_inline")
-        ? databaseReference(snapshot.database.pageId ?? snapshot.database.id, "", mode === "inline")
-        : `[New database](#database/${snapshot.database.id})`;
+        ? databaseReference(snapshot.database.pageId ?? snapshot.database.id, "", mode === "inline", kind === "wiki")
+        : `[${snapshot.database.title}](#database/${snapshot.database.id})`;
       workspace.insert(`\n${reference}\n`);
       if (!await save()) { tell("Database created in Pages. Its reference remains in your unsaved draft."); return; }
     }
@@ -348,8 +363,8 @@ async function switchVault(id: string, supplied?: MobileVault) {
     await showSync(); return;
   }
   const last = localStorage.getItem(`notdown-mobile-last-page:${id}`);
-  const route = localStorage.getItem(`notdown-mobile-last-route:${id}`), databaseId = route?.match(/^#database\/(.+)$/)?.[1];
-  if (route === "#databases" || databaseId && databases.some(item => item.id === decodeURIComponent(databaseId))) await openDatabases(databaseId ? decodeURIComponent(databaseId) : undefined);
+  const route = localStorage.getItem(`notdown-mobile-last-route:${id}`), databaseId = route?.match(/^#database\/([^#]+)(?:#pages)?$/)?.[1];
+  if (route === "#databases" || databaseId && databases.some(item => item.id === decodeURIComponent(databaseId))) await openDatabases(databaseId ? decodeURIComponent(databaseId) : undefined, route?.endsWith("#pages"));
   else if (pages.length) await openPage(pages.find(page => page.id === last)?.id ?? pages[0].id);
   else {
     closeDialogs(); mount.hidden = true; mount.replaceChildren();
@@ -493,7 +508,7 @@ const editingTools = new MobileEditingToolbar(app.querySelector(".mobile-tools")
   workspace: () => workspace,
   hideKeyboard: () => { dismissKeyboard(); enqueue(save); },
   image: selectImage, more: showBlockActions, error: tell,
-  database: mode => { void enqueue(() => createDatabase(mode)); },
+  database: mode => { void enqueue(() => createDatabase(mode === "wiki" ? "full" : mode, mode === "wiki" ? "wiki" : "database")); },
 });
 mount.addEventListener("pointerdown", () => editingTools.closePanel(), { capture: true });
 for (const name of ["editor-selection-change", "input", "compositionstart", "compositionend", "focusin"])
@@ -521,6 +536,9 @@ const actions: Record<string, () => void | Promise<unknown>> = {
       { label: "New page", action: () => enqueue(newPage) },
       { label: "Databases", action: () => enqueue(async () => { if (await leavePage()) await openDatabases(); }) },
       { label: "New database", action: () => enqueue(() => createDatabase()) },
+      { label: "New wiki", action: () => enqueue(() => createDatabase(undefined, "wiki")) },
+      ...(session && !session.draft.databaseId && !session.draft.dataSourceId ? [{ label: "Turn into wiki", action: () => enqueue(async () => { if (!await leavePage() || !session) return; const page = session.base; await vault.databases.turnIntoWiki(page.id, page.revision); await refreshPages(); await openPage(page.id); }) }] : []),
+      ...(session?.draft.wiki ? [{ label: "Undo wiki", action: () => enqueue(async () => { if (!await leavePage() || !session) return; const page = session.base, snapshot = await vault.databases.get(page.databaseId!); await vault.databases.undoWiki(snapshot.database.id, { baseRevision: snapshot.database.revision, hostRevision: page.revision }); await refreshPages(); await openPage(page.id); }) }] : []),
       { label: "Import Markdown", action: () => actions.import() },
       { label: "Export notebook ZIP", action: () => enqueue(backup) },
       { label: "Cloud sync", action: () => enqueue(showSync) },
@@ -624,8 +642,8 @@ window.addEventListener("hashchange", () => {
     if (!await leavePage()) return;
     if (requested === "#databases") await openDatabases();
     else {
-      const route = requested.match(/^#(page|database)\/([^#]+)$/);
-      if (route?.[1] === "database") await openDatabases(decodeURIComponent(route[2]));
+      const route = requested.match(/^#(page|database)\/([^#]+)(?:#pages)?$/);
+      if (route?.[1] === "database") await openDatabases(decodeURIComponent(route[2]), requested.endsWith("#pages"));
       else if (route) await openPage(decodeURIComponent(route[2]));
     }
   });

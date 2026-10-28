@@ -67,6 +67,10 @@
 
 ## 审计与验证记录
 
+- [Windows 0.1.9 发布验证（2026-10-28）](verification/RELEASE-0.1.9-2026-10-28.md)
+
+- [Wiki 创建、转换与 Undo（2026-10-28）](verification/WIKI-2026-10-28.md)
+
 - [Windows 0.1.6 发布验证（2026-10-28）](verification/RELEASE-0.1.6-2026-10-28.md)
 
 - [Notion AI block 缓存恢复与 Button 调查（2026-10-28）](verification/NOTION-AI-BLOCK-RECOVERY-2026-10-28.md)

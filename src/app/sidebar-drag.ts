@@ -42,7 +42,7 @@ export function installSidebarDrag(options: {
     }
     try {
       const move = planPageMove(snapshot, sourceId!, targetId, position);
-      if (move?.parent && snapshot.some(page => page.id === move.parent && page.databaseId)) return null;
+      if (move?.parent && snapshot.some(page => page.id === move.parent && page.databaseId && !page.wiki)) return null;
       return move ? { element, position, move } : null;
     } catch { return null; }
   };

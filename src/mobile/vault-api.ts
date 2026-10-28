@@ -21,6 +21,7 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "POST" && operation === "resolve") { const { baseRevision, schemaRevision, ...patch } = input; return await vault.resolveConflict(id, patch, baseRevision, schemaRevision); }
       }
       if (resource === "pages") {
+        if (method === "POST" && operation === "wiki") return await vault.databases.turnIntoWiki(id, input.baseRevision);
         if (method === "POST" && operation === "insert-into-parent") return await vault.insertChildPage(id, input);
         if (method === "GET") return await (id ? vault.get(id) : vault.list({ includeTrashed: url.searchParams.get("includeTrashed") === "true" }));
         if (method === "POST" && !id) return await vault.create(input);
@@ -43,6 +44,7 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "PUT" && id === "binding") return await vault.externalEntities.bind(input.key, input.localId, input.baseRevision);
       }
       if (resource === "databases") {
+        if (method === "POST" && operation === "undo-wiki") return await vault.databases.undoWiki(id, input);
         if (method === "POST" && operation === "data-sources" && (!child || child === "link")) { const { baseRevision, ...patch } = input; return child === "link" ? await vault.databases.linkSource(id, patch, baseRevision) : await vault.databases.createSource(id, patch, baseRevision); }
         if (method === "GET") return await (id ? vault.databases.get(id) : vault.databases.list());
         if (method === "POST" && !id) return await vault.databases.create(input);

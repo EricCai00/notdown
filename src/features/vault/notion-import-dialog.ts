@@ -1,6 +1,7 @@
 import { api, escape as e } from "../../shared/types";
 import type { ImportProgress } from "../../shared/import-progress";
 import "./import-dialog.css";
+import { appendCopiedNotionBlocks } from "../../shared/notion-copied-snapshots";
 
 type Preview = {
   id: string;
@@ -28,7 +29,7 @@ export function openNotionImportDialog(options: {
     <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
     <label><input id="notion-assets" type="checkbox" checked /> Import files, media, covers and icons into Attachments</label>
     <label><input id="notion-cache" type="checkbox" checked /> Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache</label>
-    <div id="notion-copied" ${window.notdownDesktop?.notionImportClipboard ? "" : "hidden"}><p class="import-hint">To restore supported Button actions, select the buttons or their page in Notion and press Ctrl+C. Read the copied blocks here before previewing. This snapshot is kept only for this dialog.</p><button id="notion-read-copied" type="button">Read copied Notion blocks</button> <button id="notion-clear-copied" type="button" hidden>Clear copied blocks</button><p id="notion-copied-status" class="import-hint" role="status"></p></div>
+    <div id="notion-copied" ${window.notdownDesktop?.notionImportClipboard ? "" : "hidden"}><p class="import-hint">Select buttons or the whole page in Notion, press Ctrl+C, then read copied blocks here. Repeat for other pages; copies accumulate in this dialog. Preview a common parent with descendants included, or import those pages separately. Closing this dialog clears the copies.</p><button id="notion-read-copied" type="button">Read copied Notion blocks</button> <button id="notion-clear-copied" type="button" hidden>Clear copied blocks</button><p id="notion-copied-status" class="import-hint" role="status"></p></div>
     <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
     <p class="import-hint">Share the root page with your Notion connection and enable Read content. Up to 500 pages / 20 MB including archived responses.</p>
     <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and cloud automations remain in Notion.</p>
@@ -163,18 +164,17 @@ export function openNotionImportDialog(options: {
     input.addEventListener("input", invalidate);
   readCopied.addEventListener("click", async () => {
     if (state !== "idle" || !window.notdownDesktop?.notionImportClipboard) return;
-    copiedBlocks = undefined; clearCopied.hidden = true;
     invalidate(); state = "clipboard"; update();
     copiedStatus.textContent = "Reading copied Notion blocks…";
     try {
       const data = await window.notdownDesktop.notionImportClipboard.get();
       if (!dialog.isConnected) return;
-      const snapshot = JSON.parse(data);
-      if (!page.value.trim()) page.value = snapshot.source.id;
-      copiedBlocks = data; clearCopied.hidden = false;
-      copiedStatus.textContent = "Copied Notion snapshot loaded. Preview will verify matching Button identities and supported actions.";
+      const result = appendCopiedNotionBlocks(copiedBlocks, data);
+      if (!page.value.trim()) page.value = result.sourceId;
+      copiedBlocks = result.data; clearCopied.hidden = false;
+      copiedStatus.textContent = `${result.copies} copied snapshot${result.copies === 1 ? "" : "s"} loaded from ${result.pages} page${result.pages === 1 ? "" : "s"}. Preview will check matching Button actions.`;
     } catch {
-      if (dialog.isConnected) copiedStatus.textContent = "No readable Notion block copy was found. Select the buttons in Notion, press Ctrl+C, then try again.";
+      if (dialog.isConnected) copiedStatus.textContent = `Could not add the copy: select blocks in Notion, press Ctrl+C and keep the combined copies under 5 MiB.${copiedBlocks ? " Previously loaded copies are kept." : ""}`;
     } finally { state = "idle"; update(); }
   });
   clearCopied.addEventListener("click", () => {

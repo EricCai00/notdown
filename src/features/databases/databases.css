@@ -269,3 +269,6 @@
 .database-table tr:is(.database-table-group,.database-group-add):hover { background:transparent; }
 .database-workspace [hidden] { display:none!important; }
 @media (hover:none) { .database-workspace .database-group-more { opacity:1; } }
+.wiki-home-tabs { margin: 12px 0 24px; padding-bottom: 8px; border-bottom: 1px solid #e9e9e7; }
+.wiki-home-tabs button[aria-current="page"] { color: #37352f; font-weight: 600; border-bottom: 2px solid currentColor; }
+.wiki-home-tabs[hidden] { display: none; }

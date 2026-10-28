@@ -1,5 +1,6 @@
 import type { Page } from "../../shared/types";
 import type { Database } from "./database-model";
+import { isWikiDatabase } from "./database-model";
 
 /** Sidebar-only ownership projection. Legacy resources are never migrated by a read. */
 export function databaseTree(pages: readonly Page[], databases: readonly Database[]) {
@@ -26,6 +27,7 @@ export function databaseTree(pages: readonly Page[], databases: readonly Databas
     const candidates = owners.get(page.dataSourceId);
     const owner = candidates?.find(candidate => candidate.id === page.parent) ?? candidates?.[0];
     if (!owner || owner.id === page.id) continue;
+    if (isWikiDatabase(owner.database)) continue;
     // Corrupt/external metadata must not create a recursive sidebar tree.
     const ancestors = new Set([page.id]);
     let ancestor: Page | undefined = byId.get(owner.id), cyclic = false;

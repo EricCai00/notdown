@@ -8,7 +8,7 @@ const objectIcons: Record<string, string> = {
   button: "mouse-pointer-2", meeting_notes: "mic", ai_block: "sparkles", image_block: "image",
 };
 function insertGroup(id: string): string {
-  if (["database_full_page", "database_inline"].includes(id)) return "Databases";
+  if (["database_full_page", "database_inline", "wiki"].includes(id)) return "Databases";
   if (id === "r_inline" || id === "executable_inline") return "Markdown inline";
   if (["text", "child", "task", "heading1", "heading2", "heading3", "heading4", "list", "number", "quote", "divider", "link", "callout", "toggle", "table"].includes(id)) return "Notion basic";
   if (["columns", "toc", "equation", "toggle_heading", "synced_block", "button", "breadcrumb", "meeting_notes", "ai_block", "tabs"].includes(id)) return "Notion advanced";
@@ -30,6 +30,7 @@ export function insertMenuItems(config?: SyntaxConfig, inFootnote = false) {
   return [
     ["database_full_page", "table-2", "Database - Full page", "Create a database as a child page.", "database full page collection 数据库 整页"],
     ["database_inline", "table-2", "Database - Inline", "Create an editable database inside this page.", "database inline collection 数据库 内嵌"],
+    ["wiki", "book-open", "Wiki", "Create a wiki with a Home page and page views.", "wiki knowledge base 知识库 维基"],
     ["executable_chunk", "code", "Executable Chunk", "Choose a language for an executable code block.", "quarto r python julia ojs javascript knitr executable chunk 可执行代码块"],
     ["executable_inline", "code-xml", "Executable Expression", "Choose a language for an inline expression.", "quarto r python julia ojs javascript inline expression 行内表达式"],
     ["citation", "quote", "Citation", "Insert or reuse a source reference.", "citation 引文 文献"],

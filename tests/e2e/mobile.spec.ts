@@ -2,6 +2,25 @@ import { test, expect, type Page } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import { zipSync, unzipSync } from "fflate";
 
+test("mobile wiki conversion, page views, reload and Undo keep Home content", async ({ page }, info) => {
+  await start(page); await create(page, "Mobile wiki");
+  await page.locator(".pm-document").fill("Mobile Home content");
+  await page.getByRole("button", { name: "Notebook options", exact: true }).click();
+  await page.getByRole("button", { name: "Turn into wiki", exact: true }).click();
+  await expect(page.locator(".wiki-home-tabs")).toBeVisible();
+  await expect(page.locator(".pm-document")).toContainText("Mobile Home content");
+  await page.locator(".wiki-home-tabs").getByRole("button", { name: "All pages", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("Mobile wiki");
+  await expect(page.getByRole("button", { name: "Data sources", exact: true })).toHaveCount(0);
+  await page.reload(); await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
+  await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("Mobile wiki");
+  await page.screenshot({ path: info.outputPath("mobile-wiki-pages.png") });
+  await page.locator(".database-more-menu > summary").click();
+  await page.getByRole("button", { name: "Undo wiki", exact: true }).click();
+  await expect(page.locator(".wiki-home-tabs")).toBeHidden();
+  await expect(page.locator(".pm-document")).toContainText("Mobile Home content");
+});
+
 test("mobile external references use English inert labels and preserve original source after reload", async ({ page }, info) => {
   await start(page); await create(page, "External reference setup"); await saved(page);
   const target = "df111111-1111-4111-8111-111111111111", user = "df222222-2222-4222-8222-222222222222";

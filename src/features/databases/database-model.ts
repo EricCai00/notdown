@@ -10,7 +10,8 @@ export interface DatabaseProperty {
   readOnly?: boolean;
   [key: string]: unknown;
 }
-export interface Database { id: string; title: string; icon?: string; pageId?: string; parent?: string | null; trashed?: boolean; dataSourceIds: string[]; viewIds: string[]; revision: string; [key: string]: unknown }
+export interface Database { id: string; title: string; kind?: "database" | "wiki"; icon?: string; pageId?: string; parent?: string | null; trashed?: boolean; dataSourceIds: string[]; viewIds: string[]; revision: string; [key: string]: unknown }
+export function isWikiDatabase(database: Database | undefined): boolean { return database?.kind === "wiki" || database?.notionWiki === true; }
 export interface DatabaseDataSource { id: string; title: string; ownerDatabaseId?: string; properties: DatabaseProperty[]; revision: string; [key: string]: unknown }
 export const databaseViewTypes = ["table", "board", "gallery", "list", "calendar"] as const;
 export type DatabaseViewType = typeof databaseViewTypes[number];

@@ -38,7 +38,7 @@ export class MobileEditingToolbar {
     hideKeyboard: () => void;
     image: () => void;
     more: () => void;
-    database?: (mode: "full" | "inline") => void;
+    database?: (mode: "full" | "inline" | "wiki") => void;
     error: (error: unknown) => void;
   }) {
     root.dataset.level = "main";
@@ -235,10 +235,10 @@ export class MobileEditingToolbar {
       grid.append(choice);
     }
     if (!convert && this.options.database) {
-      for (const mode of ["full", "inline"] as const) {
+      for (const mode of ["full", "inline", "wiki"] as const) {
         if (mode === "inline" && !commandEnabled(owner.session.snapshot.config, "database_inline")) continue;
         const choice = document.createElement("button"); choice.type = "button";
-        choice.innerHTML = `${icon("table-2")}<span>Database - ${mode === "full" ? "Full page" : "Inline"}</span>`;
+        choice.innerHTML = mode === "wiki" ? `${icon("book-open")}<span>Wiki</span>` : `${icon("table-2")}<span>Database - ${mode === "full" ? "Full page" : "Inline"}</span>`;
         choice.onclick = () => {
           this.closePanel();
           if (owner !== this.options.workspace()) return;

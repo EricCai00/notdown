@@ -122,6 +122,7 @@ export function notionDatabaseImport(options: {
         full.push(view);
         if (view.data_source_id) {
           const sourceId = normalizeId(view.data_source_id);
+          if (wikiIds.has(id) && !localSources.has(sourceId)) { warn(`Wiki ${title}: a linked view uses a different source; its definition is archived. A local wiki keeps one page source.`); continue; }
           if (!await importSource(sourceId, id, undefined, true)) continue;
           // Referenced sources are shared resources, never copies of their rows.
           localSources.add(sourceId);
@@ -216,10 +217,10 @@ export function notionDatabaseImport(options: {
         const fields = notionTableProperties(resources.dataSources[sourceId].properties, viewsByDatabase.get(id), remoteSourceId);
         resources.views[viewId] = { id: viewId, databaseId: localId(id), dataSourceId: sourceId, name: sourceIds.length > 1 ? resources.dataSources[sourceId].title : "All records", type: "table", propertyIds: fields.map(field => field.id), rowOrder, revision: "" };
       }
-      resources.databases[localId(id)] = { id: localId(id), title: raw.localTitle, pageId: localId(id), dataSourceIds: sourceIds, viewIds, revision: "", notion: raw, notionViews: viewsByDatabase.get(id) ?? [], ...(wikiIds.has(id) ? { notionWiki: true } : {}), ...(homeIds.has(id) ? { homePageId: localId(`home-${id}`) } : {}), ...(nestedSources.has(id) ? { notionWikiParentSourceId: localId(nestedSources.get(id)!) } : {}) };
+      resources.databases[localId(id)] = { id: localId(id), title: raw.localTitle, pageId: localId(id), dataSourceIds: sourceIds, viewIds, revision: "", notion: raw, notionViews: viewsByDatabase.get(id) ?? [], ...(wikiIds.has(id) ? { kind: "wiki" as const, notionWiki: true } : {}), ...(homeIds.has(id) ? { homePageId: localId(`home-${id}`) } : {}), ...(nestedSources.has(id) ? { notionWikiParentSourceId: localId(nestedSources.get(id)!) } : {}) };
     }
     const metadata = (pageId: string): Record<string, unknown> => {
-      if (databases.has(pageId)) return { databaseId: localId(pageId) };
+      if (databases.has(pageId)) return { databaseId: localId(pageId), ...(wikiIds.has(pageId) ? { wiki: true } : {}) };
       const sourceId = sourceByPage.get(pageId);
       if (!sourceId) return {};
       const values: Record<string, unknown> = {};
@@ -230,7 +231,8 @@ export function notionDatabaseImport(options: {
         if (!property || property.type === "title") continue;
         values[field.key] = propertyValue(property, localId, importedPages, normalizeId);
       }
-      return { dataSourceId: localId(sourceId), properties: values, notionProperties: records.get(pageId)?.properties ?? {} };
+      const owner = sources.get(sourceId)?.parent?.database_id;
+      return { dataSourceId: localId(sourceId), ...(owner && wikiIds.has(normalizeId(owner)) ? { wikiMembership: localId(normalizeId(owner)) } : {}), properties: values, notionProperties: records.get(pageId)?.properties ?? {} };
     };
     return { resources, metadata };
   }

@@ -22,6 +22,22 @@
 
 YAML / Pandoc 覆盖仍优先于 JSON：表格和页面属性区显示有效值，并将受文档控制的属性标为只读。通过源码或 Metadata details 修改覆盖值，不会出现修改 JSON 默认值却误报有效值已改变的情况。
 
+## Wiki
+
+Wiki 是一种数据库容器，在 **Databases** 列表中显示为 **Wiki · Home and page views**。列表的 **New wiki** 创建根层 Wiki；正文 `/` 菜单搜索 **wiki**，选择 **Wiki**，会在当前页下新建 Wiki 并插入页面入口。手机的插入块菜单和数据库列表也提供 Wiki。
+
+普通页面的右上角／侧栏页面菜单提供 **Turn into wiki**。转换沿用页面 ID、Markdown 文件、正文、图标及父位置；原正文成为 Home。Wiki 只有一个页面数据源，初始 **All pages** 使用 List 布局；Home 使用正文编辑器，集合视图可新增 Table、List、Gallery、Board 和 Calendar。Home 不显示数据库筛选／分组工具；集合视图不提供新建／接入数据源、切换来源和显示数据源标题。普通数据库及数据库记录不提供页面转 Wiki。
+
+直接和嵌套子页面按原父关系加入页面集合；子数据库及其记录保持独立，不被压平或当作 Wiki 页面记录。新建子页面以及移动页面／子树进出 Wiki 会更新成员关系；页面属性与集合视图共用原页面数据。Wiki 页面源不能接入其他数据库，以保持可恢复的 Undo 边界。
+
+打开 Wiki 默认进入 **Home**；正文上方的 **All pages** 打开集合视图，集合工具栏的 **Home** 返回正文。Wiki 的页面菜单和集合的 **Database options** 提供 **Undo wiki**：解除该容器、数据源及视图，把 Home 恢复成普通页面，保留正文、页面身份、子页面／子数据库位置和每页已有属性值。字段定义、视图及转换前后 metadata 归档到 `.history/database-transactions/`，目前没有自动重新应用归档的界面。原有链接仍指向同一个页面，不批量改写正文。
+
+Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出的独立 **Home** 子页面继续保留，Undo 后仍在原位置，不合并、删除或覆盖原页面正文。如果旧 Wiki 的来源已被其他数据库共享，Undo 会提示并停止，保留现有资源。Notion 的当前用户 Owner 筛选、Verification 验证与通知尚未在本地模拟。
+
+转换前收取 pending 编辑；转换及 Undo 在知识库锁内校验页面／数据库版本，冲突归档双方，不强制重试。转换只更新 metadata；页面 Markdown 不会因转换而重新序列化。
+
+行为参考 [Notion Wiki 官方说明](https://www.notion.com/help/wikis-and-verified-pages)：Notion 提供页面转 Wiki 和 Undo Wiki，默认有 Home、All pages、Pages I own；官方未明确说明 Undo 后自定义属性和视图配置的完整去向。上述保留／归档规则是 Notdown 的明确契约，本地不伪造账户对应的 Pages I own。
+
 ## 数据源管理
 
 完整数据库和正文内嵌数据库的工具栏提供 **Data sources**；也可从 **View settings → Source → Manage data sources** 打开。数据库可以包含多个数据源，每个视图选择其中一个数据源。
@@ -94,6 +110,8 @@ YAML / Pandoc 覆盖仍优先于 JSON：表格和页面属性区显示有效值�
 | `views[viewId]` | 所属数据库及数据源、表格布局、可见字段、筛选、排序与 revision。 |
 
 标题字段直接绑定页面标题；普通属性仅保存在页面的 `properties` 中。数据源归属和页面父关系分别记录，一个页面至多有一个 `dataSourceId`；有宿主的数据库记录由该宿主页承载。不同视图引用同一组记录，不复制正文。
+
+Wiki 容器记录 `kind: "wiki"`；早期导入的 `notionWiki: true` 继续识别。宿主页记录 `wiki: true`；成员页面的 `wikiMembership` 标记可随页面树重新计算的数据源归属，`parent` 始终保留真实层级。字段和视图继续使用既有资源格式，正文入口复用官方 `<database wiki="true">`，其他方言使用普通链接。
 
 正文不保存数据库记录 JSON，也不增加自定义正文协议。现有 `<database>` 引用语法与资源定义分离；数据库宿主页从侧栏或页面引用打开时进入表格。备份必须同时包含 Markdown 和 `metadata.json`。
 

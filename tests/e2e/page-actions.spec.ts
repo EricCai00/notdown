@@ -22,6 +22,10 @@ async function topMenu(page: Page) {
   await page.locator("#page-options > summary").click();
   return page.locator("#page-options [role=menu]");
 }
+async function expandPage(page: Page, id: string) {
+  const toggle = page.locator(`#page-tree [data-toggle="${id}"]`);
+  if (await toggle.getAttribute("aria-expanded") !== "true") { await page.locator(`#page-tree [data-page-row="${id}"]`).hover(); await toggle.click(); }
+}
 
 test("top-right menu shares all page actions and trashes the current page with pending input", async ({ page, request, context }) => {
   const note = await create(request, "Top menu page");
@@ -29,7 +33,7 @@ test("top-right menu shares all page actions and trashes the current page with p
   await page.goto(`/#page/${note.id}`);
   await expect(page.locator("#page-title")).toHaveValue(note.title);
   let actions = await topMenu(page);
-  await expect(actions.locator("[data-current-page-action]")).toHaveCount(7);
+  await expect(actions.locator("[data-current-page-action]")).toHaveCount(8);
   await actions.getByRole("menuitem", { name: "Add to Favorites", exact: true }).click();
   await expect(page.locator(`#favorite-pages [data-open="${note.id}"]`)).toBeVisible();
   actions = await topMenu(page);
@@ -49,6 +53,7 @@ test("top-right menu shares all page actions and trashes the current page with p
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(`#page/${note.id}`);
   await (await topMenu(page)).getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.locator("#page-title")).toHaveValue("Top menu renamed (copy)");
+  await expandPage(page, parent.id);
   await page.locator(`#page-tree [data-open="${note.id}"]`).click();
   await expect(page.locator("#page-title")).toHaveValue("Top menu renamed");
   await page.locator(".pm-document").click();
@@ -124,7 +129,7 @@ test("sidebar menu targets the clicked page; favorites, rename, move and links p
   await page.goto(`/#page/${active.id}`);
   await expect(page.locator("#page-title")).toHaveValue(active.title);
   let actions = await menu(page, target.id);
-  await expect(actions.getByRole("menuitem")).toHaveCount(7);
+  await expect(actions.getByRole("menuitem")).toHaveCount(8);
   await actions.getByRole("menuitem", { name: "Add to Favorites", exact: true }).click();
   await expect(page.locator(`#favorite-pages [data-open="${target.id}"]`)).toBeVisible();
   await expect(page.locator("#page-title")).toHaveValue(active.title);
@@ -139,6 +144,7 @@ test("sidebar menu targets the clicked page; favorites, rename, move and links p
   await page.getByRole("dialog").locator("select").selectOption(destination.id);
   await page.getByRole("button", { name: "Move page", exact: true }).click();
   await expect.poll(async () => (await (await request.get(`/api/pages/${target.id}`)).json()).parent).toBe(destination.id);
+  await expandPage(page, destination.id);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   actions = await menu(page, target.id);
   await actions.getByRole("menuitem", { name: "Copy link", exact: true }).click();
@@ -167,6 +173,7 @@ test("duplicate collects pending editor input; trash and restore retain child pa
   const copy = all.find((entry: any) => entry.title === `${parent.title} (copy)`);
   expect(copy.properties.custom).toBe("keep");
   expect((await (await request.get(`/api/pages/${parent.id}`)).json()).body).toContain("pending edit");
+  await expandPage(page, parent.id);
   await page.locator(`#page-tree [data-open="${child.id}"]`).click();
   await (await menu(page, parent.id)).getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
   await expect(page.locator(`#page-tree [data-open="${parent.id}"]`)).toHaveCount(0);

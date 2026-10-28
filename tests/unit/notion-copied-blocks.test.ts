@@ -1,17 +1,54 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readNotionClipboard, notionClipboardMap } from "../../src/desktop/notion-clipboard.js";
-import { parseCopiedNotionBlocks, recoverCopiedNotionButton } from "../../server/notion-copied-blocks.js";
+import { parseCopiedNotionBlocks, parseCopiedNotionSnapshots, recoverCopiedNotionButton } from "../../server/notion-copied-blocks.js";
+import { appendCopiedNotionBlocks } from "../../src/shared/notion-copied-snapshots.js";
 import { prepareNotionImport } from "../../server/notion-import.js";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec.js";
 import { editorKind } from "../../src/document/node-identity.js";
 import { readButtonActions, buttonTransaction } from "../../src/blocks/button-actions.js";
 import { EditorState } from "prosemirror-state";
 import { privateRoot, privateButton, privateApi, privateFixture } from "./notion-private-blocks-fixture.js";
-import { copiedSnapshot, clipboardPickle, copiedAutomation, copiedAction, copiedHolder, copiedText } from "./notion-copied-blocks-fixture.js";
+import { copiedSnapshot, clipboardPickle, copiedAutomation, copiedAction, copiedHolder, copiedText, multipleCopiedPages, multipleButtonsFixture, multiRoot, multiLeaf, multiButtons, copiedSelection } from "./notion-copied-blocks-fixture.js";
 
 const syntax = { variant: "notdown", version: 1, notionVersion: "v2", extensions: {} } as const;
 const parse = (source: string) => parseNative(source, syntax);
+test("whole-page copies and repeated reads keep same-name buttons separate across parent, child and leaf pages", async () => {
+  let data: string | undefined;
+  for (const snapshot of multipleCopiedPages()) data = appendCopiedNotionBlocks(data, JSON.stringify(snapshot)).data;
+  const session = appendCopiedNotionBlocks(data, JSON.stringify(multipleCopiedPages()[0]));
+  assert.equal(session.copies, 3); assert.equal(session.pages, 3);
+  const plan = await prepareNotionImport({ token: "multi-button-test-token", pageId: multiRoot, variant: "notdown", includeChildren: true, useDesktopCache: false, downloadAssets: false, copiedBlocks: session.data }, { fetch: multipleButtonsFixture(), wait: async () => {} });
+  assert.equal(plan.pages.length, 3);
+  const contents = plan.pages.map(page => {
+    const buttons: any[] = []; parse(page.source).descendants(node => { if (editorKind(node) === "button") buttons.push(node); });
+    assert.ok(buttons.every(node => node.attrs.label === "Insert block"));
+    return buttons.map(node => readButtonActions(node.attrs)[0].content);
+  });
+  assert.deepEqual(contents, [["<p>Root template A</p>", "<p>Root template B</p>"], ["<p>Child template</p>"], ["<p>Leaf template</p>"]]);
+  assert.equal(plan.originals.filter(item => item.path.startsWith("copied-blocks/")).length, 4);
+  assert.equal(plan.pages[1].metadata.parent, plan.pages[0].id);
+  assert.equal(plan.pages[2].metadata.parent, plan.pages[1].id);
+  const single = await prepareNotionImport({ token: "multi-button-test-token", pageId: multiRoot, variant: "notdown", includeChildren: false, downloadAssets: false, copiedBlocks: session.data }, { fetch: multipleButtonsFixture(), wait: async () => {} });
+  assert.equal(single.pages.length, 1); assert.ok(single.warnings.some(w => w.includes("2 page(s) are outside")));
+});
+
+test("new copies supersede matching selections without losing other pages or reviving older stale buttons", () => {
+  const first = multipleCopiedPages();
+  let data: string | undefined; for (const copy of first) data = appendCopiedNotionBlocks(data, JSON.stringify(copy)).data;
+  const updated = copiedSelection(multiRoot, multiButtons[0], 100, "Updated template");
+  const result = appendCopiedNotionBlocks(data, JSON.stringify(updated));
+  assert.equal(result.pages, 3); assert.equal(result.copies, 4);
+  const api = { ...privateApi(multiButtons[0]), parent: { type: "page_id", page_id: multiRoot } };
+  const recovered = recoverCopiedNotionButton(api, multiRoot, parseCopiedNotionSnapshots(result.data));
+  assert.ok(recovered.source?.includes("Updated template"));
+  const stale = structuredClone(updated); Object.assign(stale.data.blocks[0].blockSubtree.block[multiButtons[0]].value, { last_edited_time: 0 });
+  const newest = appendCopiedNotionBlocks(result.data, JSON.stringify(stale));
+  assert.equal(newest.copies, 4); assert.equal(recoverCopiedNotionButton(api, multiRoot, parseCopiedNotionSnapshots(newest.data)).source, undefined);
+  assert.ok(recoverCopiedNotionButton({ ...privateApi(multiButtons[3]), parent: { type: "page_id", page_id: multiLeaf } }, multiLeaf, parseCopiedNotionSnapshots(newest.data)).source?.includes("Leaf template"));
+  assert.throws(() => appendCopiedNotionBlocks(result.data, "{}"));
+  assert.throws(() => parseCopiedNotionSnapshots('{"version":2,"snapshots":[]}'));
+});
 test("the explicit clipboard reader consumes only Notion custom data with bounded Chromium framing", async () => {
   const bytes = clipboardPickle();
   const read = (data: Uint8Array) => readNotionClipboard([{ types: ['text/plain', 'text/html', 'electron application/osclipboard;format="Chromium Web Custom MIME Data Format"'], getType: async type => {

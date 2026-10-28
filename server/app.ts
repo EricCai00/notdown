@@ -109,6 +109,8 @@ export function createApp(options: {
   app.post("/api/sync/:action", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.sync.handle(String(req.params.action), "POST", req.body)); }));
   app.get("/api/databases", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.list()); }));
   app.post("/api/databases", route(async (req, res) => res.status(201).json(await vault.databases.create(req.body))));
+  app.post("/api/pages/:id/wiki", route(async (req, res) => res.json(await vault.databases.turnIntoWiki(String(req.params.id), req.body?.baseRevision))));
+  app.post("/api/databases/:id/undo-wiki", route(async (req, res) => res.json(await vault.databases.undoWiki(String(req.params.id), req.body))));
   app.get("/api/databases/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.get(String(req.params.id))); }));
   app.put("/api/databases/:id", route(async (req, res) => res.json(await vault.databases.updatePresentation(String(req.params.id), req.body))));
   app.put("/api/databases/:id/icon", route(async (req, res) => res.json(await vault.databases.updateIcon(String(req.params.id), req.body))));

@@ -1,7 +1,7 @@
 import { escape as e, type Page } from "../../shared/types";
 import { refreshIcons } from "../../shared/icons";
 
-export type PageAction = "favorite" | "link" | "open-tab" | "duplicate" | "rename" | "move" | "trash" | "insert-parent";
+export type PageAction = "favorite" | "link" | "open-tab" | "duplicate" | "rename" | "move" | "trash" | "insert-parent" | "turn-into-wiki" | "undo-wiki";
 let dismiss: (() => void) | undefined;
 
 export function closePageContextMenu() { dismiss?.(); }
@@ -15,9 +15,11 @@ export function pageActionsHTML(page: Page, attribute = "data-page-action") {
     ["rename", "pen-line", "Rename"],
     ["move", "folder-tree", "Move to"],
     ["insert-parent", "file-plus-2", "Insert into parent page"],
+    ["turn-into-wiki", "book-open", "Turn into wiki"],
+    ["undo-wiki", "file-text", "Undo wiki"],
     ["trash", "trash-2", "Move to Trash"],
   ];
-  return items.filter(([action]) => !(page.databaseId && action === "duplicate") && !(page.dataSourceId && action === "move") &&
+  return items.filter(([action]) => !(action === "turn-into-wiki" && (page.databaseId || page.dataSourceId || page.trashed)) && !(action === "undo-wiki" && !page.wiki) && !(page.databaseId && action === "duplicate") && !(page.dataSourceId && !page.wikiMember && action === "move") &&
     !(action === "insert-parent" && (!page.parent || page.dataSourceId || page.databaseId)))
     .map(([action, icon, label]) => `${action === "link" || action === "trash" ? "<hr>" : ""}<button type="button" role="menuitem" ${attribute}="${action}" class="${action === "trash" ? "danger" : ""}"><i data-lucide="${icon}"></i><span>${label}</span></button>`).join("");
 }
