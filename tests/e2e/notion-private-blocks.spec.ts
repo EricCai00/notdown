@@ -1,15 +1,29 @@
 import { test, expect } from "@playwright/test";
 import { privateRoot } from "../unit/notion-private-blocks-fixture.js";
 
-test("cached Notion AI prompt and output import as an editable block without generating", async ({ page, request }) => {
+test("cached Notion AI prompt and output import as an editable block without generating", async ({ page, request }, info) => {
   let generationRequests = 0;
   await page.route("**/api/services/generate", route => { generationRequests++; return route.abort(); });
-  const previewResponse = await request.post("/api/notion/import/preview", { data: { token: "private-block-test-token", pageId: privateRoot, useDesktopCache: true, variant: "notdown", includeChildren: false, downloadAssets: false } });
+  const previewResponse = await request.post("/api/notion/import/preview", { data: { token: "private-block-test-token", pageId: privateRoot, useDesktopCache: true, variant: "notdown", includeChildren: true, downloadAssets: false } });
   expect(previewResponse.ok()).toBeTruthy();
   const preview = await previewResponse.json();
+  expect(preview.warnings.join(" ")).toContain("Notion does not expose ai_block children");
   expect(preview.documents[0].source).toContain('<ai-block prompt="hi"');
-  expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
-  await page.goto(`/#page/${preview.documents[0].id}`);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
+  await page.getByLabel("Integration token", { exact: true }).fill("private-block-test-token");
+  await page.getByLabel("Page URL or ID", { exact: true }).fill(privateRoot);
+  await page.getByLabel("Import files, media, covers and icons into Attachments", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#notion-status")).toContainText("Ready");
+  await expect(page.locator("#notion-markdown-source")).toContainText('<ai-block prompt="hi"');
+  await page.getByText("Import notes and limitations", { exact: true }).click();
+  await expect(page.locator("#notion-preview")).toContainText("Notion does not expose ai_block children");
+  await expect(page.getByRole("button", { name: "Import copies", exact: true })).toBeEnabled();
+  await page.screenshot({ path: info.outputPath("ai-child-refusal-preview.png"), fullPage: true });
+  await page.getByRole("button", { name: "Import copies", exact: true }).click();
+  await expect(page.locator(".notion-import-dialog")).toHaveCount(0);
   const ai = page.locator(".pm-object-ai_block");
   await expect(ai.locator(".pm-object-content")).toHaveText("Hi!");
   await ai.getByRole("button", { name: "Settings", exact: true }).click();
@@ -17,7 +31,7 @@ test("cached Notion AI prompt and output import as an editable block without gen
   await page.reload();
   await expect(ai.locator(".pm-object-content")).toHaveText("Hi!");
   expect(generationRequests).toBe(0);
-  const official = await (await request.post("/api/notion/import/preview", { data: { token: "private-block-test-token", pageId: privateRoot, useDesktopCache: true, variant: "notion-markdown", includeChildren: false, downloadAssets: false } })).json();
+  const official = await (await request.post("/api/notion/import/preview", { data: { token: "private-block-test-token", pageId: privateRoot, useDesktopCache: true, variant: "notion-markdown", includeChildren: true, downloadAssets: false } })).json();
   expect(official.documents[0].source).not.toContain("<ai-block");
   expect(official.documents[0].source).toContain("<unknown");
 });

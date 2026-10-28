@@ -13,6 +13,52 @@ import { editorKind } from "../../src/document/node-identity.js";
 import { privateRoot, privateAi, privateOutput, privateButton, privateApi, privateSnapshot, privateFixture, privateSource } from "./notion-private-blocks-fixture.js";
 
 const syntax = { variant: "notdown", version: 1, notionVersion: "v2", extensions: {} } as const;
+test("unsupported AI child reads keep traversal and cache recovery available in both dialects", async () => {
+  for (const variant of ["notdown", "notion-markdown"]) for (const useDesktopCache of [true, false]) {
+    const calls: string[] = [], fixture = privateFixture();
+    const plan = await prepareNotionImport({ token: "test-private-token", pageId: privateRoot, variant, useDesktopCache, includeChildren: true, downloadAssets: false }, {
+      wait: async () => {}, readCache: async () => privateSnapshot(),
+      fetch: async (input, init) => { calls.push(new URL(String(input)).pathname); return fixture(input, init); },
+    });
+    assert.equal(plan.pages.length, 1);
+    assert.equal(calls.filter(path => path === `/v1/blocks/${privateAi}/children`).length, 1);
+    assert.ok(plan.warnings.some(w => w.includes("Notion does not expose ai_block children")));
+    assert.equal(plan.pages[0].source.includes('<ai-block prompt="hi"'), variant === "notdown" && useDesktopCache);
+    assert.ok(plan.pages[0].source.includes(privateButton));
+    assert.equal(plan.originals.find(item => item.path === `pages/${privateRoot}.md`)!.data.toString(), privateSource);
+  }
+});
+
+test("unrelated child validation errors, oversized error bodies and failed pagination still reject without leaking upstream text", async () => {
+  const token = "test-private-token", fixture = privateFixture();
+  for (const message of [
+    `Invalid request ${token} https://private.example/secret`,
+    "Block type ai_block is not supported via the API for your bot type." + "x".repeat(17000),
+    "not JSON",
+  ]) {
+    await assert.rejects(prepareNotionImport({ token, pageId: privateRoot, includeChildren: true }, {
+      wait: async () => {},
+      fetch: async (input, init) => new URL(String(input)).pathname === `/v1/blocks/${privateAi}/children`
+        ? message === "not JSON" ? new Response(message, { status: 400 }) : Response.json({ code: "validation_error", message }, { status: 400 }) : fixture(input, init),
+    }), (error: any) => {
+      assert.match(error.message, /HTTP 400/);
+      assert.ok(error.message.includes(`/blocks/${privateAi}/children`));
+      assert.ok(!error.message.includes(token) && !error.message.includes("private.example") && !error.message.includes("Block type"));
+      return true;
+    });
+  }
+  await assert.rejects(prepareNotionImport({ token, pageId: privateRoot, includeChildren: true }, {
+    wait: async () => {},
+    fetch: async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === `/v1/blocks/${privateRoot}/children`) return url.searchParams.has("start_cursor")
+        ? Response.json({ code: "validation_error", message: "Block type ai_block is not supported via the API for your bot type." }, { status: 400 })
+        : Response.json({ results: [], has_more: true, next_cursor: "next-page" });
+      return fixture(input, init);
+    },
+  }), /HTTP 400 \(validation_error\)/);
+});
+
 test("real custom AI configuration restores prompt and owned output, preserving source boundaries", () => {
   const result = recoverCachedNotionBlock(privateApi(), privateSnapshot());
   assert.match(result.source!, /prompt="hi"/);

@@ -29,6 +29,30 @@ const digest = (value: string | Buffer) =>
 type Json = Record<string, any>;
 type ResolvePage = (id: string) => string | undefined;
 
+/** Inspect a bounded error body without exposing its message, URLs or credentials. */
+async function notionReadError(response: Response): Promise<{ code?: string; unsupportedChildren?: string }> {
+  const reader = response.body?.getReader();
+  if (!reader) return {};
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 16 * 1024) return {};
+      chunks.push(value);
+    }
+    const error = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const codes = ["invalid_json", "invalid_request_url", "invalid_request", "validation_error", "missing_version", "invalid_beta", "unauthorized", "restricted_resource", "object_not_found", "conflict_error", "rate_limited", "internal_server_error", "bad_gateway", "service_unavailable", "database_connection_unavailable", "gateway_timeout"];
+    const code = codes.includes(error?.code) ? error.code : undefined;
+    const unsupportedChildren = response.status === 400 && code === "validation_error" && typeof error.message === "string"
+      ? /^Block type ([a-z][a-z0-9_]{0,63}) is not supported via the API for your bot type\.$/.exec(error.message)?.[1] : undefined;
+    return { code, unsupportedChildren };
+  } catch { return {}; }
+  finally { await reader.cancel().catch(() => {}); }
+}
+
 function notionReferenceUrl(value: string): string {
   return /^\/p\/(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:[?#]|$)/i.test(value)
     ? `https://www.notion.so${value}` : value;
@@ -343,14 +367,19 @@ export async function prepareNotionImport(
         continue;
       }
       if (!response.ok) {
-        await response.body?.cancel();
-        if (allowMissing && ([403, 404].includes(response.status) || (allowMissing === "probe" || allowMissing === "optional") && [400, 405].includes(response.status))) return { object: "unavailable" };
+        const detail = await notionReadError(response);
+        // Notion advertises has_children on AI blocks while refusing this read.
+        // Keep their placeholders/cache recovery available, but never swallow a
+        // different validation error or a failed continuation of a partial list.
+        if (allowMissing && detail.unsupportedChildren && /^\/blocks\/[^/]+\/children$/.test(pathname) && !endpoint.includes("start_cursor="))
+          return { object: "unavailable", unsupportedChildren: detail.unsupportedChildren };
+        if (allowMissing && ([403, 404].includes(response.status) || (allowMissing === "probe" || allowMissing === "optional") && [400, 405].includes(response.status) && !(pathname.endsWith("/children") && endpoint.includes("start_cursor=")))) return { object: "unavailable" };
         const reason =
           response.status === 401
             ? "Invalid Notion integration token."
             : response.status === 403 || response.status === 404
               ? "Notion content is unavailable. Share the page and its children with the connection and enable Read content."
-              : `Notion returned HTTP ${response.status}. Retry the preview later.`;
+              : `Notion returned HTTP ${response.status}${detail.code ? ` (${detail.code})` : ""} at ${pathname}. ${response.status === 400 ? "The request was rejected; preview could not be prepared." : "Retry the preview later."}`;
         // Never echo upstream error bodies (which may contain credentials or private URLs).
         throw new VaultError(response.status === 429 ? 429 : 502, reason);
       }
@@ -444,7 +473,12 @@ export async function prepareNotionImport(
     const children: Json[] = [], cursors = new Set<string>(); let cursor = "";
     do {
       const result = await get(`/blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ""}`, optional ? "optional" : true);
-      if (result.object === "unavailable") { unavailableChildren.add(id); if (!optional || cursor) warnings.add(`Block ${id}: children unavailable; references remain incomplete.`); break; }
+      if (result.object === "unavailable") {
+        unavailableChildren.add(id);
+        if (result.unsupportedChildren) warnings.add(`Block ${id}: Notion does not expose ${result.unsupportedChildren} children through this connection. Available Markdown and verified cache recovery are still used; unrecovered child content remains incomplete.`);
+        else if (!optional || cursor) warnings.add(`Block ${id}: children unavailable; references remain incomplete.`);
+        break;
+      }
       if (!Array.isArray(result.results) || typeof result.has_more !== "boolean") throw new VaultError(502, "Invalid Notion child block response.");
       for (const block of result.results) {
         if (!block || typeof block.id !== "string" || !uuid.test(block.id)) throw new VaultError(502, "Invalid Notion block ID.");
