@@ -50,7 +50,9 @@ test("page/wiki/page conversion preserves Markdown bytes, identities, nested pag
   assert.deepEqual((await vault.databases.list()).map(item => item.id), [database.database.id]);
   const transactions = await fs.readdir(path.join(root, ".history/database-transactions"));
   const undo = (await Promise.all(transactions.map(file => fs.readFile(path.join(root, ".history/database-transactions", file), "utf8")))).map(text => JSON.parse(text)).find(item => item.operation === "undo-wiki");
-  assert.ok(JSON.parse(undo.before).dataSources[source.id]); assert.ok(JSON.parse(undo.before).views[latest.views[0].id]);
+  const archived = JSON.parse(undo.files.find((file: any) => file.path === `databases/${home.id}.json`).before);
+  assert.ok(archived.dataSources.some((item: any) => item.id === source.id));
+  assert.ok(archived.views.some((item: any) => item.id === latest.views[0].id));
 });
 
 test("wiki source membership follows moved subtrees and ordinary database ownership stays separate", async t => {

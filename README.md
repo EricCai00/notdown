@@ -70,7 +70,7 @@ Open **Import** in the sidebar and choose **Import Markdown folder** or **Import
 
 ## Your files
 
-Each vault has its own folder, containing `pages/*.md`, `assets/`, and `metadata.json` for shared page properties. Document YAML or Pandoc title blocks override those shared defaults. Source view shows the complete Markdown file.
+Each vault has its own folder: `pages/*.md` for page bodies, `databases/*.json` for individual databases, `assets/` for attachments, and `metadata.json` for shared page properties. Document YAML or Pandoc title blocks override page defaults. Source view shows the complete Markdown file.
 
 Use one running service per vault. Back up the whole vault folder to include attachments and metadata. For storage, conflict recovery and explicit migrations, see [vault metadata](docs/features/VAULT-METADATA.md).
 

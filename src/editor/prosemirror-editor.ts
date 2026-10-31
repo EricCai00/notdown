@@ -1736,6 +1736,8 @@ export class BlockEditor {
         y >= rect.top &&
         y <= rect.bottom &&
         x >= rect.left - 52 &&
+        // A deeper row in a neighboring column cannot own this pointer.
+        x <= rect.right + 4 &&
         candidate.depth >= best.depth
       )
         best = candidate;
@@ -1744,13 +1746,9 @@ export class BlockEditor {
   }
 
   private hover(event: PointerEvent) {
-    // Column gutters also host block controls. Give the resize strip priority,
-    // including when a previously positioned block handle covers the pointer.
-    if (this.view.dom.querySelector(".pm-columns-resizing") ||
-      Array.from(this.view.dom.querySelectorAll<HTMLElement>(".pm-column-resizer:not([hidden])")).some(handle => {
-        const rect = handle.getBoundingClientRect();
-        return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-      })) {
+    // A live resize owns the gutter. Merely crossing its strip on the way
+    // to an already visible block control must not hide that control.
+    if (this.view.dom.querySelector(".pm-columns-resizing")) {
       this.handle.classList.remove("visible");
       this.addButton.classList.remove("visible");
       return;
@@ -1785,6 +1783,14 @@ export class BlockEditor {
         event.clientX >= add.left && event.clientX <= (isEditorKind(this.hovered.node, "fenced_div") ? grip.right : row.left) &&
         event.clientY >= Math.min(row.top, grip.top) &&
         event.clientY <= Math.max(row.bottom, grip.bottom)) return;
+    }
+    // Entering the resize strip directly should still resize, rather than
+    // summoning a block control under the pointer. The existing gutter path
+    // above keeps a control reachable when approached from its own row.
+    if ((event.target as Element).closest?.(".pm-column-resizer")) {
+      this.handle.classList.remove("visible");
+      this.addButton.classList.remove("visible");
+      return;
     }
     const block = this.candidate(event.clientX, event.clientY);
     const rect = block && this.rowRect(block);

@@ -1,3 +1,4 @@
+import { selectWikiView } from "./wiki-ui-helper";
 import { test, expect } from "@playwright/test";
 import { wiki } from "../unit/notion-wiki-fixture.js";
 
@@ -11,13 +12,13 @@ test("Wiki Home, child databases and imported view settings survive reload", asy
   const parent = databases.find((db: any) => db.title === "Team wiki"), child = databases.find((db: any) => db.title === "Projects database");
   await page.goto(`/#database/${parent.id}`);
   await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
-  await expect(page.locator("#page-title")).toHaveValue("Home");
-  await page.getByRole("navigation", { name: "Wiki views" }).getByRole("button", { name: "All pages", exact: true }).click();
-  await expect(page.getByRole("tab", { name: "All pages", exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Pages I own", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Team wiki");
+  await selectWikiView(page, "All pages");
+  await expect(page.locator(".wiki-view-trigger")).toHaveText(/All pages/);
+  await selectWikiView(page, "Pages I own");
   await expect(page.locator(".database-import-note")).toContainText("filters could not be applied");
-  await page.getByRole("button", { name: "Open database Home", exact: true }).click();
-  await expect(page.locator("#page-title")).toHaveValue("Home");
+  await selectWikiView(page, "Home");
+  await expect(page.locator("#page-title")).toHaveValue("Team wiki");
   await expect(page.locator(".ProseMirror").first()).toContainText("Knowledge home");
   const home = await (await request.get(`/api/pages/${parent.homePageId}`)).json();
   expect(home.body).toContain("<columns>");
@@ -34,7 +35,7 @@ test("Wiki Home, child databases and imported view settings survive reload", asy
   await expect.poll(async () => (await (await request.get(`/api/pages/${parent.homePageId}`)).json()).body).toContain("# Knowledge home revised");
   await page.reload();
   await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
-  await expect(page.locator("#page-title")).toHaveValue("Home");
+  await expect(page.locator("#page-title")).toHaveValue("Team wiki");
   await expect(heading).toHaveText("Knowledge home revised");
   await expect(inline.getByRole("tab", { name: "Tasks", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: info.outputPath("notion-wiki-home.png"), fullPage: true });
@@ -51,4 +52,35 @@ test("Wiki Home, child databases and imported view settings survive reload", asy
   await expect(page.getByRole("button", { name: "Choose a grouping property", exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("notion-wiki-views.png"), fullPage: true });
   expect(errors).toEqual([]);
+});
+
+test("trashed imported Home falls back to a collection without a Markdown surrogate, and the container can be trashed", async ({ page, request }) => {
+  const preview = await (await request.post("/api/notion/import/preview", { data: { token: "wiki-test-fixture-token", pageId: wiki } })).json();
+  expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
+  const databases = await (await request.get("/api/databases")).json();
+  const parent = databases.find((db: any) => db.title === "Team wiki");
+  const home = await (await request.get(`/api/pages/${parent.homePageId}`)).json();
+  expect((await request.put(`/api/pages/${home.id}`, { data: { baseRevision: home.revision, trashed: true } })).ok()).toBeTruthy();
+  await page.goto(`/#database/${parent.id}`);
+  await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("Team wiki");
+  await expect(page.locator("#page-title")).toHaveCount(0);
+  await selectWikiView(page, "All pages");
+  await expect(page.locator(".wiki-view-trigger")).toBeVisible();
+  await page.locator(".wiki-view-trigger").click();
+  await page.getByRole("menuitemradio", { name: "Home", exact: true }).click();
+  await expect(page.locator(".wiki-view-trigger")).toHaveText("All pages");
+  await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("Team wiki");
+  await expect(page.locator("#page-title")).toHaveCount(0);
+  expect((await (await request.get(`/api/pages/${home.id}`)).json()).trashed).toBe(true);
+  await selectWikiView(page, "All pages");
+  await expect(page.locator(".wiki-view-trigger")).toBeVisible();
+  await expect(page.locator("#app")).not.toHaveAttribute("inert", "");
+  await page.locator(`#page-tree .tree-page[data-open="${parent.pageId}"]`).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move to Trash", exact: true }).click();
+  await expect(page.locator(`[data-page-row="${parent.pageId}"]`)).toHaveCount(0);
+  await expect(page.locator('.database-heading')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(`[data-page-row="${parent.pageId}"]`)).toHaveCount(0);
+  const trashed = await (await request.get(`/api/pages/${parent.pageId}`)).json();
+  expect(trashed.trashed).toBe(true);
 });

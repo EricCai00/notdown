@@ -4,6 +4,7 @@ import { apiUrl } from "./vault-url";
 export interface Page {
   dataSourceId?: string;
   databaseId?: string;
+  databaseProxy?: boolean;
   wiki?: boolean;
   wikiMember?: boolean;
   legacyIds?: string[];
@@ -17,6 +18,7 @@ export interface Page {
   syntax?: import("../markdown-engine/config").SyntaxConfig;
   revision: string;
   updated: string;
+  fullWidth?: boolean;
   favorite?: boolean;
   trashed?: boolean;
   sidebarOrder?: string;

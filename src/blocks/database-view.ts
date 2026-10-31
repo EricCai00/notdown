@@ -122,6 +122,7 @@ export class DatabaseBlockView implements NodeView {
       const [{ DatabaseWorkspace }, vaultPath] = await Promise.all([import("../features/databases/database-workspace"), vaultPaths.get(this.view)!]);
       if (this.disposed || epoch !== this.epoch) return;
       const workspace = new DatabaseWorkspace(this.mount, {
+        inline: true,
         interactionMode: this.interactionMode,
         vaultKey: this.draftScope(vaultPath, hostId),
         initialSourceUrl: typeof this.node.attrs.dataSourceUrl === "string" ? this.node.attrs.dataSourceUrl : undefined,

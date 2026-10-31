@@ -48,7 +48,7 @@ export function createExternalEntities(host: Host) {
   }
   async function snapshot() {
     const before = await host.readOptional(filename), metadata = await host.readMetadata();
-    if (before !== null && JSON.stringify(JSON.parse(before)) !== JSON.stringify(metadata)) throw new VaultError(409, "Metadata changed while reading external references; refresh before saving.");
+    if (before !== await host.readOptional(filename)) throw new VaultError(409, "Metadata changed while reading external references; refresh before saving.");
     return { before, metadata };
   }
   async function library(metadata: Record<string, unknown>): Promise<ExternalLibrary> {

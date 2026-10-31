@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createVault, VaultError } from "../../server/vault.js";
 import { mobileVaultApi } from "../../src/mobile/vault-api.js";
+import { createLegacyDatabase } from "./database-legacy-fixture.js";
 
 async function fixture(t: test.TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-sources-"));
@@ -64,22 +65,24 @@ test("source management rejects stale revisions and trashed owners without parti
   assert.equal(await fs.readFile(metadata, "utf8"), before);
   const updated = await vault.databases.updateSource(source.id, { title: "Renamed" }, source.revision);
   await assert.rejects(vault.databases.linkSource(target.database.id, { dataSourceId: source.id, sourceRevision: source.revision }, changed.database.revision), status(409));
-  await vault.update(owner.hostPage!.id, { trashed: true }, owner.hostPage!.revision);
+  await vault.update(owner.hostPage!.id, { trashed: true }, (await vault.get(owner.hostPage!.id)).revision);
   assert.ok(!(await vault.databases.listSources()).some(item => item.id === source.id));
   await assert.rejects(vault.databases.linkSource(target.database.id, { dataSourceId: source.id, sourceRevision: updated.revision }, changed.database.revision), status(422));
-  await vault.update(target.hostPage!.id, { trashed: true }, target.hostPage!.revision);
-  await assert.rejects(vault.databases.createSource(target.database.id, { title: "Trash" }, changed.database.revision), status(422));
+  await vault.update(target.hostPage!.id, { trashed: true }, (await vault.get(target.hostPage!.id)).revision);
+  await assert.rejects(vault.databases.createSource(target.database.id, { title: "Trash" }, (await vault.databases.get(target.database.id)).database.revision), status(422));
   assert.equal((await vault.databases.get(target.database.id)).dataSources.length, 2);
 });
 
 test("legacy source ownership stays stable through linking and the mobile transport uses the same core", async t => {
-  const { root, vault, target, owner } = await fixture(t), source = owner.dataSources[0];
+  const { root, vault } = await fixture(t);
+  const target = await createLegacyDatabase(root, vault, { title: "Legacy dashboard" });
+  const owner = await createLegacyDatabase(root, vault, { title: "Legacy projects" }), source = owner.dataSources[0];
   const file = path.join(root, "metadata.json"), metadata = JSON.parse(await fs.readFile(file, "utf8"));
   delete metadata.dataSources[source.id].ownerDatabaseId;
   metadata.dataSources[source.id].future = { retain: true }; metadata.future = "keep";
   await fs.writeFile(file, JSON.stringify(metadata));
   const api = mobileVaultApi(() => vault), current = await vault.databases.getSource(source.id);
-  assert.equal((await api("/data-sources", { method: "GET" }) as any[]).length, 2);
+  assert.equal((await api("/data-sources", { method: "GET" }) as any[]).length, 4);
   const linked = await api("/databases/" + target.database.id + "/data-sources/link", { method: "POST", body: JSON.stringify({ dataSourceId: source.id, sourceRevision: current.revision, baseRevision: target.database.revision }) }) as any;
   assert.equal(linked.dataSources[1].ownerDatabaseId, owner.database.id);
   const row = await vault.databases.createRecord(source.id, { title: "Owned record" }, linked.dataSources[1].revision);
@@ -93,7 +96,7 @@ test("source catalog exposes original ownership and per-database views without r
   const { root, vault, target, owner } = await fixture(t), source = owner.dataSources[0];
   await vault.databases.createSource(owner.database.id, { title: "Another collection" }, owner.database.revision);
   const linked = await vault.databases.linkSource(target.database.id, { dataSourceId: source.id, sourceRevision: source.revision }, target.database.revision);
-  await vault.update(owner.hostPage!.id, { title: "Renamed projects" }, owner.hostPage!.revision);
+  await vault.update(owner.hostPage!.id, { title: "Renamed projects" }, (await vault.get(owner.hostPage!.id)).revision);
   const file = path.join(root, "metadata.json"), before = await fs.readFile(file, "utf8");
   const summary = (await vault.databases.listSources()).find(item => item.id === source.id)!;
   assert.equal(summary.ownerTitle, "Renamed projects");
@@ -102,6 +105,6 @@ test("source catalog exposes original ownership and per-database views without r
     { id: target.database.id, title: "Dashboard", isOwner: false, views: [{ id: linked.views[1].id, name: source.title, type: "table" }] },
   ]);
   assert.equal(await fs.readFile(file, "utf8"), before);
-  await vault.update(target.hostPage!.id, { trashed: true }, target.hostPage!.revision);
+  await vault.update(target.hostPage!.id, { trashed: true }, (await vault.get(target.hostPage!.id)).revision);
   assert.deepEqual((await vault.databases.listSources()).find(item => item.id === source.id)!.databases.map(item => item.id), [owner.database.id]);
 });

@@ -105,7 +105,7 @@ export function createGitHistory(vault: Vault, executable = "git") {
         const captured = await vault.captureHistory();
         const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-git-history-"));
         try {
-          await fs.mkdir(path.join(scratch, "pages")); await fs.mkdir(path.join(scratch, "page-metadata")); await fs.mkdir(path.join(scratch, "people"));
+          await fs.mkdir(path.join(scratch, "databases")); await fs.mkdir(path.join(scratch, "pages")); await fs.mkdir(path.join(scratch, "page-metadata")); await fs.mkdir(path.join(scratch, "people"));
           let bytes = 0;
           const writeText = async (file: string, source: string) => {
             bytes += Buffer.byteLength(source);
@@ -119,6 +119,7 @@ export function createGitHistory(vault: Vault, executable = "git") {
             await writeText(path.join(scratch, "page-metadata", `${name}.json`), JSON.stringify(page.metadata, null, 2));
           }
           await writeText(path.join(scratch, "vault-metadata.json"), JSON.stringify(captured.metadata, null, 2));
+          for (const database of captured.databases) await writeText(path.join(scratch, "databases", database.name), database.source);
           for (const person of captured.people) await writeText(path.join(scratch, "people", person.name), person.source);
           const previous = await git(["rev-parse", "--verify", "HEAD"], undefined, [128]);
           await git(["add", "--all", "--", "."], scratch);

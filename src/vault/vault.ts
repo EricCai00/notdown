@@ -1,3 +1,4 @@
+import { createDatabaseFiles, type DatabaseFileChange } from "./database-files";
 import { Buffer } from "buffer";
 import { archivePath, archiveLimits, validateArchive, type VaultArchiveFile } from "./archive.js";
 import { hashBytes, randomUUID } from "./crypto.js";
@@ -17,7 +18,7 @@ import { createDatabases } from "./databases.js";
 import { reconcileWikiMembership } from "./wiki.js";
 import { isWikiDatabase, type Database } from "../features/databases/database-model.js";
 import { createVaultSyncStore, isSyncLocalFile } from "./sync-store.js";
-import type { SyncConflict, SyncItem } from "../sync/protocol.js";
+import { canonical, type SyncConflict, type SyncItem } from "../sync/protocol.js";
 import { createSyncService } from "../sync/service.js";
 import { createAssets } from "./assets.js";
 import type { DatabaseResources } from "../features/databases/database-model.js";
@@ -34,6 +35,7 @@ import {
 export type Page = {
   dataSourceId?: string;
   databaseId?: string;
+  databaseProxy?: boolean;
   wiki?: boolean;
   wikiMember?: boolean;
   legacyIds?: string[];
@@ -47,12 +49,13 @@ export type Page = {
   syntax?: SyntaxConfig;
   revision: string;
   updated: string;
+  fullWidth?: boolean;
   favorite?: boolean;
   trashed?: boolean;
   sidebarOrder?: string;
 };
 export type PageInput = Partial<
-  Pick<Page, "title" | "parent" | "icon" | "properties" | "body" | "bodyFormat" | "favorite" | "trashed" | "sidebarOrder">
+  Pick<Page, "title" | "parent" | "icon" | "properties" | "body" | "bodyFormat" | "fullWidth" | "favorite" | "trashed" | "sidebarOrder">
 > & { syntax?: SyntaxConfig | null };
 export type PageMutation = Page & { relatedPages?: Page[] };
 export type Conflict = {
@@ -99,7 +102,7 @@ export function assertId(id: unknown): asserts id is string {
 function checkInput(input: PageInput) {
   if (!input || typeof input !== "object" || Array.isArray(input))
     throw new VaultError(400, "A page object is required");
-  for (const key of ["favorite", "trashed"] as const) {
+  for (const key of ["fullWidth", "favorite", "trashed"] as const) {
     if (own(input, key) && typeof input[key] !== "boolean")
       throw new VaultError(400, `${key} must be a boolean`);
   }
@@ -177,14 +180,15 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       : defaults.id === undefined && overlay.id === undefined && !isPageUuid(stem)
         ? [validId.test(stem) ? stem : `page-${hash(stem).slice(0, 32)}`] : [];
     const metadata: Record<string, unknown> = { title: stem, parent: null, icon: "\u{1F4C4}", properties: {}, bodyFormat: "markdown", updated: "", ...defaults, ...overlay, id };
-    const known = new Set(["id", "title", "parent", "icon", "properties", "bodyFormat", "syntax", "updated", "favorite", "trashed", "sidebarOrder", "dataSourceId", "databaseId"]);
+    const known = new Set(["id", "title", "parent", "icon", "properties", "bodyFormat", "syntax", "updated", "fullWidth", "favorite", "trashed", "sidebarOrder", "dataSourceId", "databaseId"]);
     const extra = Object.fromEntries(Object.entries(overlay).filter(([key]) => !known.has(key)));
     const properties = { ...(defaults.properties as object ?? {}), ...extra, ...(overlay.properties as object ?? {}) };
-    const { title, parent, icon, updated, bodyFormat, syntax, favorite, trashed, sidebarOrder } = metadata;
+    const { title, parent, icon, updated, bodyFormat, syntax, fullWidth, favorite, trashed, sidebarOrder } = metadata;
     try {
       checkInput(defaults as PageInput);
       assertId(id);
       checkInput({ title, parent, icon, properties, bodyFormat,
+        ...(fullWidth === undefined ? {} : { fullWidth }),
         ...(favorite === undefined ? {} : { favorite }), ...(trashed === undefined ? {} : { trashed }),
         ...(sidebarOrder === undefined ? {} : { sidebarOrder }), ...(syntax === undefined ? {} : { syntax }),
       } as PageInput);
@@ -203,7 +207,8 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         icon: icon as string, properties, updated: updated as string, body: source,
         bodyFormat: bodyFormat as BodyFormat,
         ...(syntax === undefined ? {} : { syntax: syntax as SyntaxConfig }),
-        revision: hash(JSON.stringify([source, defaults])),
+        revision: hash(canonical([source, defaults])),
+        ...(fullWidth === undefined ? {} : { fullWidth: fullWidth as boolean }),
         ...(favorite === undefined ? {} : { favorite: favorite as boolean }),
         ...(trashed === undefined ? {} : { trashed: trashed as boolean }),
         ...(sidebarOrder === undefined ? {} : { sidebarOrder: sidebarOrder as string }),
@@ -234,7 +239,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     try { overlay = documentMetadata(input.body ?? previous?.source ?? "").values; }
     catch { throw new VaultError(422, "Invalid YAML metadata; the original file was preserved"); }
     const overlayProperties = { ...Object.fromEntries(Object.entries(overlay).filter(([key]) =>
-      !["id", "title", "parent", "icon", "properties", "bodyFormat", "syntax", "updated", "favorite", "trashed", "sidebarOrder"].includes(key))),
+      !["id", "title", "parent", "icon", "properties", "bodyFormat", "syntax", "updated", "fullWidth", "favorite", "trashed", "sidebarOrder"].includes(key))),
       ...(overlay.properties as object ?? {}) } as Record<string, unknown>;
     const unchangedOverride = (key: string, value: unknown) => own(overlay, key) && JSON.stringify(overlay[key]) === JSON.stringify(value);
     if (
@@ -280,7 +285,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     }
     set("updated", new Date().toISOString());
     if (own(input, "sidebarOrder") && !unchangedOverride("sidebarOrder", input.sidebarOrder) && input.sidebarOrder !== previous?.page.sidebarOrder) set("sidebarOrder", input.sidebarOrder);
-    for (const key of ["favorite", "trashed"] as const) {
+    for (const key of ["fullWidth", "favorite", "trashed"] as const) {
       if (own(input, key) && (!previous || (!unchangedOverride(key, input[key]) && JSON.stringify(input[key]) !== JSON.stringify(previous.page[key])))) set(key, input[key]);
     }
     // Crossing format families must keep JSON defaults coherent even when the
@@ -328,7 +333,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     const locked = async () => {
       await init();
       await safeDirectory(historyPath);
-      return platform.withLock(root, operation);
+      return platform.withLock(root, async () => { databaseFiles.begin(); return operation(); });
     };
     const queueKey = platform.id + ":" + root;
     const next = (vaultQueues.get(queueKey) ?? Promise.resolve()).then(locked, locked);
@@ -337,7 +342,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     void tail.then(() => { if (vaultQueues.get(queueKey) === tail) vaultQueues.delete(queueKey); });
     return next;
   }
-  async function readMetadata(): Promise<MetadataFile> {
+  async function readRawMetadata(): Promise<MetadataFile> {
     try {
       const stat = await fs.lstat(metadataPath);
       if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("file");
@@ -350,6 +355,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       throw new VaultError(422, "Invalid vault metadata.json; original file was preserved");
     }
   }
+  async function readMetadata(): Promise<MetadataFile> { return databaseFiles.read(await readRawMetadata()); }
   function entryMetadata(entry: Record<string, unknown>) {
     const { file: _file, sourceHash: _hash, ...metadata } = entry;
     return metadata;
@@ -413,12 +419,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     if (!index.pages[id].wikiMembership) delete encoded.metadata.wikiMembership;
     Object.assign(encoded.metadata, entryMetadata(index.pages[id]));
     const after = JSON.stringify(index, null, 2) + "\n";
-    // Preserve both halves before touching either canonical file.
-    const recovery = path.join(historyPath, `pending-${id}.json`);
-    await atomicWrite(recovery, JSON.stringify({ file: path.basename(filePath), previousSource, before, after, ...encoded }, null, 2));
-    if (previousSource !== encoded.source) await atomicWrite(filePath, encoded.source, previousSource);
-    await atomicWrite(metadataPath, after, before);
-    await fs.rm(recovery);
+    await commitVaultBatch([{ path: 'pages/' + path.basename(filePath), before: previousSource, after: encoded.source }, { path: 'metadata.json', before, after }]);
     historyChanged(id);
   }
   async function prepareRead() {
@@ -477,10 +478,13 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         if (candidates.length === 1) metadataEntry = candidates[0];
       }
       const stored = decode(source, filePath, metadataEntry ? { ...entryMetadata(metadataEntry[1]), id: metadataEntry[0] } : {});
+      const database = databaseFiles.document(stored.page.id);
+      if (database && (database.kind !== "wiki" || database.homePageId !== stored.page.id)) throw new VaultError(422, "Database identity collides with a Markdown file; both originals were preserved");
       if (result.has(stored.page.id))
         throw new VaultError(422, `Duplicate page ID: ${stored.page.id}`);
       result.set(stored.page.id, stored);
     }
+    for (const stored of databaseFiles.proxies(index, new Set(result.keys()))) result.set(stored.page.id, stored);
     return result;
   }
   async function indexedPage(id: string): Promise<StoredPage | undefined> {
@@ -603,7 +607,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     if (settings) index.childPageSettings = { ...(index.childPageSettings as object ?? {}), ...settings };
     await reconcileWikiIndex(index, [...changes.values()].map(change => change.proposed.page));
     files.push({ path: "metadata.json", before, after: JSON.stringify(index, null, 2) + "\n" });
-    await pageBatch.commit(files);
+    await commitVaultBatch(files);
     for (const [id, change] of changes) change.proposed = decode(change.proposed.source, change.proposed.filePath, entryMetadata(index.pages[id]));
     for (const id of changes.keys()) historyChanged(id);
     return index;
@@ -698,7 +702,14 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       (timer as { unref?: () => void }).unref?.();
     }).catch(error => console.warn("History settings could not be read", error));
   }
-  async function snapshot(stored: StoredPage) { await history.snapshot(stored, true, "Recovery checkpoint"); }
+  async function snapshot(stored: StoredPage) {
+    const document = stored.page.databaseId && databaseFiles.document(stored.page.databaseId);
+    if (document) {
+      const directory = path.join(historyPath, "database-transactions"); await safeDirectory(directory);
+      await atomicWrite(path.join(directory, randomUUID() + ".json"), JSON.stringify({ operation: "checkpoint", document }, null, 2));
+    }
+    if (!stored.page.databaseProxy) await history.snapshot(stored, true, "Recovery checkpoint");
+  }
   async function registerConflict(
     current: StoredPage,
     input: PageInput,
@@ -753,6 +764,19 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     id = current.page.id;
     if (current.page.revision !== baseRevision)
       return registerConflict(current, input, baseRevision);
+    if (current.page.databaseProxy) {
+      if (input.body !== undefined && input.body !== "") throw new VaultError(422, "A database is stored as JSON. Edit its Wiki Home to add Markdown content.");
+      const before = await readOptional(metadataPath), index = await readMetadata();
+      if (!current.page.trashed || input.trashed === false || own(input, "parent")) checkParent(id, own(input, "parent") ? input.parent : current.page.parent, pages);
+      const parentDatabase = input.parent && pages.get(input.parent)?.page.databaseId;
+      if (parentDatabase && !await wikiParent(parentDatabase)) throw new VaultError(422, "Create or move databases inside a page or Wiki, not an ordinary database");
+      const entry = index.pages[id];
+      for (const key of ["title", "parent", "icon", "properties", "fullWidth", "favorite", "trashed", "sidebarOrder"] as const) if (own(input, key)) entry[key] = input[key];
+      entry.updated = new Date().toISOString();
+      await writeVaultFile(metadataPath, JSON.stringify(index, null, 2) + "\n", before);
+      options.onChange?.();
+      return (await scan()).get(id)!.page;
+    }
     if (own(input, "parent") && input.parent !== current.page.parent) {
       if (current.page.dataSourceId && !current.page.wikiMember) throw new VaultError(422, "Database records stay inside their database; remove the record from the collection first");
       const parentDatabase = input.parent && findStoredPage(pages, input.parent)?.page.databaseId;
@@ -845,16 +869,89 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   function findStoredPage(pages: Map<string, StoredPage>, id: string) {
     return pages.get(id) ?? [...pages.values()].find(stored => stored.page.legacyIds?.includes(id));
   }
-  const pageIdMigration = createPageIdMigration({ platform, root, scan, serialize, readMetadata, readOptional, atomicWrite, safeDirectory, snapshot });
+  const pageIdMigration = createPageIdMigration({ platform, root, scan, serialize, readMetadata, readOptional, atomicWrite, safeDirectory, snapshot, expandMetadata });
+  const databaseFiles = createDatabaseFiles({ root, platform, readOptional });
+  async function expandMetadata(files: DatabaseFileChange[], pageIds?: Map<string, string>) {
+    if (pageIds) databaseFiles.remapPageIds(pageIds);
+    const expanded: DatabaseFileChange[] = [];
+    for (const item of files) {
+      if (item.path !== "metadata.json" || item.after === null) expanded.push(item);
+      else expanded.push(...await databaseFiles.plan(JSON.parse(item.after), item.before));
+    }
+    const unique = new Map<string, DatabaseFileChange>();
+    for (const item of expanded) { const previous = unique.get(item.path); if (previous && (previous.before !== item.before || previous.after !== item.after)) throw new VaultError(409, "A transaction proposes competing resource contents; the original files were preserved"); unique.set(item.path, item); }
+    return [...unique.values()];
+  }
+  async function commitVaultBatch(files: DatabaseFileChange[]) { const expanded = await expandMetadata(files); if (expanded.length) await pageBatch.commit(expanded); await databaseFiles.accept(); }
+  async function writeVaultFile(file: string, data: string | Buffer, expected?: string | null) {
+    if (file !== metadataPath) return atomicWrite(file, data, expected);
+    await commitVaultBatch([{ path: "metadata.json", before: expected === undefined ? await readOptional(metadataPath) : expected, after: typeof data === "string" ? data : data.toString("utf8") }]);
+  }
   const syncStore = createVaultSyncStore({ platform, root, scan, serialize, readMetadata, atomicWrite, safeDirectory, decode, encode,
+    databaseDocuments: databaseFiles.listDocuments, portableMetadata: databaseFiles.portableMetadata,
+    projectPageMetadata: async (id, entry) => { const index = await databaseFiles.read({ ...await readRawMetadata(), pages: { [id]: entry } }); return index.pages[id]; },
+    expandMetadata,
     snapshot: async stored => { await history.snapshot(stored, false, "Before sync"); },
     pageConflict: async (current, item, conflict) => {
       try { await registerConflict(current, {}, current.page.revision, { conflict, item }); }
       catch (error) { if (!(error instanceof VaultError) || error.status !== 409 || error.details.conflictId !== conflict.id) throw error; }
     },
   });
+  async function databaseMigrationPlan() {
+    const all = await scan(), raw = await readRawMetadata(), before = await readOptional(metadataPath);
+    const entries = Object.values((raw.databases ?? {}) as Record<string, Database>);
+    const blocked: string[] = [];
+    for (const database of entries) {
+      const stored = all.get(database.pageId ?? database.id);
+      if (database.pageId && database.pageId !== database.id) blocked.push(database.id + ": a distinct legacy host identity requires a reviewed mapping");
+      if (!isWikiDatabase(database) && stored && stored.source !== "") blocked.push(database.id + ": host contains Markdown; a reviewed Home/page mapping is required");
+    }
+    const definitions = (await readMetadata()).databases as Record<string, Database>;
+    for (const source of Object.values((raw.dataSources ?? {}) as Record<string, { id: string; ownerDatabaseId?: string }>)) {
+      const candidates = Object.values(definitions).filter(database => database.dataSourceIds.includes(source.id));
+      if (source.ownerDatabaseId) {
+        if (!candidates.some(database => database.id === source.ownerDatabaseId)) blocked.push(source.id + ": owning database is missing or does not own this source");
+      } else {
+        const matching = candidates.filter(database => [...all.values()].some(page => page.page.dataSourceId === source.id && page.page.parent === (database.pageId ?? database.id)));
+        if (candidates.length !== 1 && matching.length !== 1) blocked.push(source.id + ": source ownership is ambiguous or missing");
+      }
+    }
+    const baseRevision = hash(JSON.stringify({ metadata: before, pages: [...all.values()].filter(page => !page.page.databaseProxy).map(page => [page.page.id, page.page.revision]), databases: await databaseFiles.listDocuments() }));
+    return { version: 1, baseRevision, databases: entries.map(database => ({ id: database.id, title: database.title, path: "databases/" + database.id + ".json" })), blocked };
+  }
+  const databaseStorage = {
+    plan: () => serialize(databaseMigrationPlan),
+    migrate: (baseRevision: string) => serialize(async () => {
+      const plan = await databaseMigrationPlan();
+      if (baseRevision !== plan.baseRevision) throw new VaultError(409, "The migration preview is stale. Original files were preserved; preview again.");
+      if (plan.blocked.length) throw new VaultError(422, "Database migration has unresolved hosts or source ownership; no files were changed", { blocked: plan.blocked });
+      if (!plan.databases.length) return { migrated: 0 };
+      const before = await readOptional(metadataPath), index = await readMetadata(), all = await scan();
+      const definitions = index.databases as Record<string, Database>, sources = index.dataSources as Record<string, Record<string, unknown>>;
+      for (const item of plan.databases) {
+        const database = definitions[item.id], stored = all.get(database.pageId ?? database.id), entry = index.pages[database.pageId ?? database.id];
+        if (stored) Object.assign(database, { title: stored.page.title, icon: stored.page.icon, parent: stored.page.parent, properties: stored.page.properties, ...(stored.page.trashed === undefined ? {} : { trashed: stored.page.trashed }) });
+        else if (database.pageId || entry?.databaseId === database.id) database.trashed = true;
+        if (entry) database.legacyPageMetadata = structuredClone(entry);
+        if (isWikiDatabase(database)) database.homePageId ??= database.pageId ?? database.id;
+      }
+      for (const source of Object.values(sources)) if (!source.ownerDatabaseId) {
+        const candidates = Object.values(definitions).filter(database => database.dataSourceIds.includes(source.id as string));
+        const matching = candidates.filter(database => [...all.values()].some(page => page.page.dataSourceId === source.id && page.page.parent === (database.pageId ?? database.id)));
+        if (candidates.length !== 1 && matching.length !== 1) throw new VaultError(422, "A legacy data source has ambiguous ownership; original metadata preserved", { sourceId: source.id });
+        source.ownerDatabaseId = (matching[0] ?? candidates[0]).id;
+      }
+      databaseFiles.force(plan.databases.map(database => database.id));
+      const recoveryPath = path.join(historyPath, "database-migration-" + randomUUID() + ".json");
+      const files = await expandMetadata([{ path: "metadata.json", before, after: JSON.stringify(index, null, 2) + "\n" }]);
+      await atomicWrite(recoveryPath, JSON.stringify({ operation: "database-files-migration", baseRevision, files }, null, 2), null);
+      await pageBatch.commit(files); await databaseFiles.accept(); options.onChange?.();
+      return { migrated: plan.databases.length, recoveryPath };
+    }),
+  };
   const databases = createDatabases({
-    platform, root, serialize, readMetadata, readOptional, atomicWrite, safeDirectory,
+    platform, root, serialize, readMetadata, readOptional, atomicWrite: writeVaultFile, safeDirectory,
+    resourceFiles: databaseFiles.snapshots,
     scanPages: async () => [...(await scan()).values()].map(stored => stored.page),
     createRecord: async (input, sourceId) => {
       checkInput(input);
@@ -880,7 +977,16 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       const encoded = encode(undefined, id, input), filePath = path.join(pagesPath, `${id}.md`);
       encoded.metadata.databaseId = id;
       if (isWikiDatabase(resources.databases[id])) encoded.metadata.wiki = true;
-      await persist(filePath, encoded, undefined, { resources, expectedMetadata });
+      if (isWikiDatabase(resources.databases[id])) {
+        resources.databases[id].homePageId = id;
+        await persist(filePath, encoded, undefined, { resources, expectedMetadata });
+      } else {
+        const before = await readOptional(metadataPath); if (before !== expectedMetadata) throw new VaultError(409, "The vault changed while creating the database; reopen before retrying");
+        const index = await readMetadata(); Object.assign(index, resources);
+        index.pages[id] = { ...encoded.metadata, __databaseFile: id };
+        await writeVaultFile(metadataPath, JSON.stringify(index, null, 2) + "\n", before);
+        return (await scan()).get(id)!.page;
+      }
       return decode(encoded.source, filePath, encoded.metadata).page;
     },
     convertWikiPage: async (id, revision, resources, expectedMetadata, wiki) => {
@@ -894,32 +1000,34 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         await atomicWrite(recoveryPath, JSON.stringify({ current: index, proposed: resources, pageId: id, wiki, baseRevision: revision, expectedMetadata }, null, 2));
         throw new VaultError(409, "The vault changed while preparing the wiki conversion. Both versions were preserved; reopen the page before retrying.", { recoveryPath });
       }
-      await history.snapshot(current, false, wiki ? "Before turning into wiki" : "Before undoing wiki");
+      if (current.page.databaseProxy) await snapshot(current); else await history.snapshot(current, false, wiki ? "Before turning into wiki" : "Before undoing wiki");
       // Archive resources and every page's metadata before the single CAS write. Markdown is unchanged.
       const directory = path.join(historyPath, "database-transactions"); await safeDirectory(directory);
       if (!wiki) {
         const previous = (index.databases as Record<string, Database>)[id];
-        for (const page of all.values()) if (page.page.dataSourceId && previous.dataSourceIds.includes(page.page.dataSourceId) && index.pages[page.page.id]) index.pages[page.page.id].wikiMembership = id;
+        const owned = previous.dataSourceIds.filter(sourceId => (index.dataSources as Record<string, { ownerDatabaseId?: string }>)[sourceId]?.ownerDatabaseId === id);
+        for (const page of all.values()) if (page.page.dataSourceId && owned.includes(page.page.dataSourceId) && index.pages[page.page.id]) index.pages[page.page.id].wikiMembership = id;
       }
       Object.assign(index, { databases: resources.databases, dataSources: resources.dataSources, views: resources.views });
       const entry = index.pages[id] ?? { ...current.metadata, file: path.basename(current.filePath), sourceHash: hash(current.source) };
       index.pages[id] = entry;
-      if (wiki) { entry.databaseId = id; entry.wiki = true; }
-      else { delete entry.databaseId; delete entry.wiki; }
+      if (wiki) { entry.databaseId = id; entry.wiki = true; resources.databases[id].homePageId ??= id; }
+      else { delete entry.databaseId; delete entry.wiki; if (current.page.databaseProxy) { entry.file = id + ".md"; entry.sourceHash = hash(""); delete entry.__databaseFile; } }
       const unindexed = [...all.values()].filter(item => !index.pages[item.page.id]);
       for (const item of unindexed) index.pages[item.page.id] = { ...item.metadata, file: path.basename(item.filePath), sourceHash: hash(item.source) };
       reconcileWikiMembership(index, [...all.values()].map(item => item.page));
       for (const item of unindexed) if (!index.pages[item.page.id].wikiMembership) delete index.pages[item.page.id];
       const after = JSON.stringify(index, null, 2) + "\n", recoveryPath = path.join(directory, `${randomUUID()}.json`);
-      await atomicWrite(recoveryPath, JSON.stringify({ operation: wiki ? "turn-into-wiki" : "undo-wiki", before, after }, null, 2));
+      const files = await expandMetadata([...(current.page.databaseProxy && !wiki ? [{ path: "pages/" + id + ".md", before: null, after: "" }] : []), { path: "metadata.json", before, after }]);
+      await atomicWrite(recoveryPath, JSON.stringify({ operation: wiki ? "turn-into-wiki" : "undo-wiki", before, after, files }, null, 2));
       // External text edits do not take our process lock; verify all affected files before changing membership.
       const previousPages = JSON.parse(before ?? '{"pages":{}}').pages;
       for (const stored of all.values()) if (JSON.stringify(index.pages[stored.page.id]) !== JSON.stringify(previousPages[stored.page.id])) {
-        if (await readOptional(stored.filePath) !== stored.source) throw new VaultError(409, "A page changed during wiki conversion; the proposal was preserved.", { recoveryPath });
+        if (!stored.page.databaseProxy && await readOptional(stored.filePath) !== stored.source) throw new VaultError(409, "A page changed during wiki conversion; the proposal was preserved.", { recoveryPath });
       }
-      try { await atomicWrite(metadataPath, after, before); }
+      try { await pageBatch.commit(files); await databaseFiles.accept(); }
       catch (error) { throw new VaultError(409, "Metadata changed during wiki conversion; both versions were preserved.", { recoveryPath, cause: String(error) }); }
-      return decode(current.source, current.filePath, entryMetadata(entry)).page;
+      return (await scan()).get(id)!.page;
     },
     updateRecord: updateLocked,
     conflictRecord: async (id, input, revision) => {
@@ -940,7 +1048,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     },
   });
 
-  const assets = createAssets({ platform, root, serialize, readMetadata, readOptional, safeDirectory, atomicWrite,
+  const assets = createAssets({ platform, root, serialize, readMetadata, readOptional, safeDirectory, atomicWrite: writeVaultFile,
     pages: async () => [...(await scan()).values()].map(stored => stored.page),
     recycleFile: file => (options.recycleFile ?? platform.recycleFile)(file),
     protectedPages: async () => {
@@ -952,7 +1060,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       return pages;
     } });
   const people = createPeople({ platform, root, init, safeDirectory, atomicWrite, serialize });
-  const externalEntities = createExternalEntities({ platform, root, serialize, readMetadata, readOptional, safeDirectory, atomicWrite, scan,
+  const externalEntities = createExternalEntities({ platform, root, serialize, readMetadata, readOptional, safeDirectory, atomicWrite: writeVaultFile, scan,
     people: () => people.list(true) });
   return {
     externalEntities,
@@ -962,8 +1070,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     closeHistory() { historyClosed = true; for (const timer of historyTimers.values()) clearTimeout(timer); historyTimers.clear(); },
     captureHistory() {
       return serialize(async () => {
-        const pages = [...(await scan()).values()].map(stored => ({ id: stored.page.id, source: stored.source, metadata: stored.metadata }));
-        const { pages: _pages, ...metadata } = await readMetadata();
+        const pages = [...(await scan()).values()].filter(stored => !stored.page.databaseProxy).map(stored => ({ id: stored.page.id, source: stored.source, metadata: databaseFiles.portableMetadata(stored.page.id, stored.metadata) }));
+        const { pages: _pages, ...metadata } = await readRawMetadata();
+        const databaseDocuments = await databaseFiles.listDocuments();
         const people: { name: string; source: string }[] = [];
         const folder = path.join(root, "people");
         const stat = await fs.lstat(folder).catch((error: StorageError) => { if (error.code === "ENOENT") return null; throw error; });
@@ -975,7 +1084,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
             if (source !== null) people.push({ name: entry.name, source });
           }
         }
-        return { pages, metadata, people };
+        return { pages, metadata, people, databases: databaseDocuments.map(document => ({ name: document.id + ".json", source: JSON.stringify(document, null, 2) + "\n" })) };
       });
     },
     restoreHistory(id: string, record: HistoryRecord, baseRevision: string): Promise<Page> {
@@ -984,6 +1093,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         if (!/^[a-f0-9]{64}$/.test(baseRevision ?? "")) throw new VaultError(400, "Restoring requires baseRevision");
         const pages = await scan(), current = findStoredPage(pages, id);
         if (!current) throw new VaultError(404, "Page not found");
+        if (current.page.databaseProxy) throw new VaultError(422, "A database JSON cannot be restored from Markdown page history");
         const metadata: Record<string, unknown> = { ...current.metadata, ...record.metadata, id: current.page.id, updated: new Date().toISOString() };
         // Collection membership belongs to the current database; its schema is checked below.
         for (const key of ["dataSourceId", "databaseId"] as const) {
@@ -1073,6 +1183,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     },
     assetsPath,
     databases,
+    databaseStorage,
     people,
     runtimeSettings: createRuntimeSettings({ platform, root, atomicWrite, serialize }),
     childPageSettings: {
@@ -1200,6 +1311,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         onProgress?.({ phase: "importing", completed: 0, total: plan.pages.length, step: "Validating page identities, content and parents" });
         const pages = await scan();
         const importMetadata = await readMetadata();
+        const existingDatabaseHosts = new Set<string>();
         for (const item of plan.pages) {
           assertId(item.id);
           if (!isPageUuid(item.id)) throw new VaultError(400, "New imported page IDs must be UUIDs");
@@ -1207,8 +1319,13 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           if (decoded.page.id !== item.id) throw new VaultError(400, "Import identity mismatch");
           const existing = pages.get(item.id);
           if (existing && existing.source !== item.source) throw new VaultError(409, "An imported page has changed. It will not be overwritten.");
-          if (existing && importMetadata.pages[item.id] && existing.page.revision !== decoded.page.revision)
-            throw new VaultError(409, "Imported page metadata has changed. It will not be overwritten.");
+          if (existing && importMetadata.pages[item.id]) {
+            const portable = (metadata: Record<string, unknown>) => databaseFiles.portableMetadata(item.id, metadata);
+            const actual = portable(existing.metadata), expected = portable(item.metadata);
+            if (canonical(actual) !== canonical(expected))
+              throw new VaultError(409, "Imported page metadata has changed. It will not be overwritten.", { pageId: item.id, fields: [...new Set([...Object.keys(actual), ...Object.keys(expected)])].filter(key => canonical(actual[key]) !== canonical(expected[key])) });
+            if (existing.page.databaseProxy) existingDatabaseHosts.add(item.id);
+          }
           checkParent(item.id, decoded.page.parent, pages);
           pages.set(item.id, decoded);
         }
@@ -1245,8 +1362,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           let completed = 0;
           for (const item of plan.pages) {
             onProgress?.({ phase: "importing", completed, total: plan.pages.length, step: "Writing page Markdown and metadata", currentTitle: String(item.metadata.title ?? "Untitled") });
-            await writeNew(path.join(pagesPath, `${item.id}.md`), item.source);
-            await persist(path.join(pagesPath, `${item.id}.md`), { source: item.source, metadata: item.metadata }, undefined, undefined, false);
+            if (!existingDatabaseHosts.has(item.id)) {
+              await writeNew(path.join(pagesPath, `${item.id}.md`), item.source);
+              await persist(path.join(pagesPath, `${item.id}.md`), { source: item.source, metadata: item.metadata }, undefined, undefined, false);
+            }
             onProgress?.({ phase: "importing", completed: ++completed, total: plan.pages.length, step: "Page imported", currentTitle: String(item.metadata.title ?? "Untitled") });
           }
           onProgress?.({ phase: "finalizing", completed, total: plan.pages.length, step: "Saving database resources and the import manifest" });
@@ -1255,7 +1374,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
           await repairRequiredChildEntries();
           await atomicWrite(manifestPath, JSON.stringify({ ...manifest, completed: true }, null, 2));
         } catch (error) {
-          throw new VaultError(500, "Import stopped. Original files are preserved. Retry the same folder selection to resume; existing content will not be overwritten.", { importId: plan.id });
+          throw new VaultError(500, "Import stopped. Original files are preserved. Retry the same folder selection to resume; existing content will not be overwritten.", { importId: plan.id, cause: error instanceof Error ? error.message : String(error) });
         }
         return { id: plan.id, pageIds: manifest.pageIds, alreadyImported: false };
       });
@@ -1293,7 +1412,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       assertId(id);
       const result = findStoredPage(await scan(), id);
       if (!result) throw new VaultError(404, "Page not found");
-      return { path: result.filePath, source: result.source };
+      return { path: result.filePath, source: result.page.databaseProxy ? (await readOptional(result.filePath))! : result.source };
       });
     },
     create(input: PageInput, options: { id?: string } = {}): Promise<PageMutation> {
@@ -1422,15 +1541,24 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         // Children first: if Windows refuses one file, its parent remains recoverable in Trash.
         for (const item of [...selected.values()].reverse()) {
           await safeDirectory(pagesPath);
-          if (path.dirname(path.resolve(item.filePath)) !== pagesPath) throw new VaultError(400, "Invalid page file path");
+          if (path.dirname(path.resolve(item.filePath)) !== (item.page.databaseProxy ? databaseFiles.folder : pagesPath)) throw new VaultError(400, "Invalid page file path");
           const stat = await fs.lstat(item.filePath);
           if (!stat.isFile() || stat.isSymbolicLink()) throw new VaultError(422, "Cannot recycle symbolic links");
           const fresh = (await scan()).get(item.page.id)!;
           if (fresh.page.revision !== item.page.revision) return registerConflict(fresh, {}, item.page.revision);
-          try { await (options.recycleFile ?? platform.recycleFile)(item.filePath); }
+          const databaseFile = !item.page.databaseProxy && item.page.databaseId && databaseFiles.document(item.page.databaseId) ? databaseFiles.file(item.page.databaseId) : undefined;
+          const files = [item.filePath, ...(databaseFile ? [databaseFile] : [])];
+          const originals = await Promise.all(files.map(file => readOptional(file)));
+          try {
+            for (const [i, file] of files.entries()) {
+              if (originals[i] === null || await readOptional(file) !== originals[i]) throw new VaultError(409, "A database or page changed during recycling; the recovery snapshots were preserved");
+              await (options.recycleFile ?? platform.recycleFile)(file);
+            }
+          }
           catch {
             throw new VaultError(503, "Windows could not recycle every page. Reopen Trash to see remaining pages; completed files are in the system Recycle Bin and history snapshots are preserved.", { recycled });
           }
+          if (item.page.databaseProxy || databaseFile) await databaseFiles.accept();
           recycled.push(item.page.id);
         }
         const cleanup = await assets.recycleOrphansLocked([...selected.values()].map(item => item.page));

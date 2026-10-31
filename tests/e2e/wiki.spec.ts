@@ -1,3 +1,4 @@
+import { selectWikiView } from "./wiki-ui-helper";
 import { test, expect } from "@playwright/test";
 
 test("page conversion keeps Home editable, lists the wiki, and Undo preserves the tree", async ({ page, request }, info) => {
@@ -13,14 +14,15 @@ test("page conversion keeps Home editable, lists the wiki, and Undo preserves th
   await expect(page.locator("#page-title")).toHaveValue(home.title);
   await expect(page.getByRole("navigation", { name: "Wiki views" })).toBeVisible();
   await expect(page.locator(".pm-document")).toContainText("Pending home before conversion");
-  await page.getByRole("navigation", { name: "Wiki views" }).getByRole("button", { name: "All pages", exact: true }).click();
+  await selectWikiView(page, "All pages");
   await expect(page.getByRole("button", { name: `Open ${child.title}`, exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open Nested wiki E2E", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Data sources", exact: true })).toHaveCount(0);
+  await page.locator(".wiki-view-trigger").click();
   await page.getByRole("button", { name: "New view", exact: true }).click();
   await expect(page.getByRole("button", { name: "Source", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Open database Home", exact: true }).click();
+  await selectWikiView(page, "Home");
   await expect(page.locator("#page-title")).toHaveValue(home.title);
   await page.locator(".pm-document").fill("Edited wiki Home");
   await page.getByRole("button", { name: "Databases", exact: true }).first().click();
@@ -53,7 +55,7 @@ test("slash Wiki creates one child wiki and a persistent official database refer
   const source = await (await request.get(`/api/pages/${parent.id}`)).json();
   expect(source.body).toContain('wiki="true"'); expect(source.body).toContain(`#page/${wiki.pageId}`); expect(source.body).not.toContain("/wiki");
   await page.reload(); await expect(page.locator("#page-title")).toHaveValue("New wiki");
-  await page.getByRole("navigation", { name: "Wiki views" }).getByRole("button", { name: "All pages", exact: true }).click();
+  await selectWikiView(page, "All pages");
   await page.screenshot({ path: info.outputPath("wiki-all-pages.png"), fullPage: true });
   await page.locator(".database-more-menu > summary").click();
   await page.getByRole("button", { name: "Undo wiki", exact: true }).click();

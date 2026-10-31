@@ -23,6 +23,7 @@ type Context = {
   atomicWrite: (file: string, data: string | Buffer, expected?: string | null) => Promise<void>;
   safeDirectory: (file: string) => Promise<void>;
   snapshot: (page: Stored) => Promise<void>;
+  expandMetadata: (files: { path: string; before: string | null; after: string | null }[], pageIds?: Map<string, string>) => Promise<{ path: string; before: string | null; after: string | null }[]>;
 };
 const hash = (value: string) => hashBytes(value);
 const legacyNotion = /^notion-([a-f0-9]{24})-([a-f0-9-]{36})$/;
@@ -32,7 +33,7 @@ export function createPageIdMigration(ctx: Context) {
   const { fs, path } = ctx.platform;
   const journalPath = path.join(ctx.root, ".history/page-id-migration.json");
   const resolve = (file: string) => {
-    if (!/^(?:metadata\.json|pages\/[^/\\]+\.md|\.history\/imports\/[a-f0-9]{64}\/manifest\.json|\.history\/conflicts\/[a-zA-Z0-9_-]+\.(?:json|md))$/.test(file) || file.includes(".."))
+    if (!/^(?:metadata\.json|pages\/[^/\\]+\.md|databases\/[a-zA-Z0-9_-]+\.json|\.history\/imports\/[a-f0-9]{64}\/manifest\.json|\.history\/conflicts\/[a-zA-Z0-9_-]+\.(?:json|md))$/.test(file) || file.includes(".."))
       throw new VaultError(422, "Invalid page ID migration path");
     const target = path.resolve(ctx.root, file);
     if (!target.startsWith(ctx.root + path.sep)) throw new VaultError(422, "Invalid migration target");
@@ -59,7 +60,7 @@ export function createPageIdMigration(ctx: Context) {
   async function state() {
     const pages = await ctx.scan(), extra = await auxiliary();
     const metadata = await ctx.readOptional(path.join(ctx.root, "metadata.json"));
-    const rows = [...pages.values()].map(p => ({ id: p.page.id, nextId: isPageUuid(p.page.id) ? p.page.id : stablePageUuid(p.page.id),
+    const rows = [...pages.values()].filter(p => !p.page.databaseProxy).map(p => ({ id: p.page.id, nextId: isPageUuid(p.page.id) ? p.page.id : stablePageUuid(p.page.id),
       file: path.basename(p.filePath), baseRevision: p.page.revision }));
     return { pages, extra, metadata, plan: { pages: rows,
       fingerprint: hash(JSON.stringify([rows, metadata, extra.map(e => [e.file, e.before])])) } };
@@ -102,7 +103,7 @@ export function createPageIdMigration(ctx: Context) {
       const ids = new Map<string, string>();
       for (const row of plan.pages) if (row.id !== row.nextId) ids.set(row.id, row.nextId);
       // Plain Markdown files formerly took their ID from their filename.
-      for (const stored of current.pages.values()) if (!stored.metadata.id && !documentMetadata(stored.source).values.id) {
+      for (const stored of current.pages.values()) if (!stored.page.databaseProxy && !stored.metadata.id && !documentMetadata(stored.source).values.id) {
         const stem = path.basename(stored.filePath, ".md");
         const old = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(stem) ? stem : `page-${hash(stem).slice(0, 32)}`;
         if (old !== stored.page.id) ids.set(old, stored.page.id);
@@ -115,6 +116,7 @@ export function createPageIdMigration(ctx: Context) {
       let migrated = 0, updatedReferences = 0;
       const remap = (value: unknown) => typeof value === "string" ? ids.get(value) ?? value : value;
       for (const stored of current.pages.values()) {
+        if (stored.page.databaseProxy) { if (index.pages[stored.page.id]) index.pages[stored.page.id].parent = remap(stored.page.parent); continue; }
         const id = String(remap(stored.page.id));
         const aliases = [...ids].filter(([, target]) => target === id).map(([old]) => old);
         const source = migratePageReferences(stored.page, ids);
@@ -161,7 +163,14 @@ export function createPageIdMigration(ctx: Context) {
         const after = JSON.stringify(record, null, 2);
         if (JSON.stringify(JSON.parse(file.before!)) !== JSON.stringify(record)) changes.push({ ...file, after });
       }
+      for (const database of Object.values(index.databases as Record<string, Record<string, unknown>> ?? {})) {
+        if (database.storage === "file" && ids.has(database.id as string)) throw new VaultError(422, "A file-backed wiki identity cannot be renamed by the legacy page migration; original files were preserved");
+        for (const key of ["pageId", "homePageId", "parent"]) if (database[key] !== undefined) database[key] = remap(database[key]);
+      }
+      for (const view of Object.values(index.views as Record<string, Record<string, unknown>> ?? {})) if (Array.isArray(view.rowOrder)) view.rowOrder = view.rowOrder.map(remap);
       changes.push({ file: "metadata.json", before: current.metadata, after: JSON.stringify(index, null, 2) + "\n" }, ...removals);
+      const expanded = await ctx.expandMetadata(changes.map(({ file, ...change }) => ({ path: file, ...change })), ids);
+      changes.splice(0, changes.length, ...expanded.map(({ path: file, ...change }) => ({ file, ...change })));
       const backup = `.history/migrations/page-ids-${randomUUID()}`;
       const backupPath = path.join(ctx.root, backup);
       await ctx.safeDirectory(path.join(ctx.root, ".history/migrations"));

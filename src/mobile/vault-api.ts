@@ -11,6 +11,10 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
     const vault = current();
     try {
       if (resource === "status" && method === "GET") return { vaultPath: vault.vaultPath };
+      if (resource === "database-storage" && id === "migration") {
+        if (method === "GET") return await vault.databaseStorage.plan();
+        if (method === "POST") return await vault.databaseStorage.migrate(input.baseRevision);
+      }
       if (resource === "sync" && id) {
         if (method === "POST" && id === "connect" && !input.vaultId)
           throw new ApiError(400, { error: "Choose an existing cloud notebook created on your computer." });

@@ -107,6 +107,8 @@ export function createApp(options: {
   }
   app.get("/api/sync/:action", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.sync.handle(String(req.params.action), "GET")); }));
   app.post("/api/sync/:action", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.sync.handle(String(req.params.action), "POST", req.body)); }));
+  app.get("/api/database-storage/migration", route(async (_req, res) => res.json(await vault.databaseStorage.plan())));
+  app.post("/api/database-storage/migration", route(async (req, res) => res.json(await vault.databaseStorage.migrate(req.body?.baseRevision))));
   app.get("/api/databases", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.list()); }));
   app.post("/api/databases", route(async (req, res) => res.status(201).json(await vault.databases.create(req.body))));
   app.post("/api/pages/:id/wiki", route(async (req, res) => res.json(await vault.databases.turnIntoWiki(String(req.params.id), req.body?.baseRevision))));
@@ -352,7 +354,7 @@ export function createApp(options: {
       throw new VaultError(400, "This action accepts only a page ID, not a file path.");
     const file = await vault.sourceFile(String(req.params.id));
     try { await (options.openFile ?? openFile)(file.path); }
-    catch { throw new VaultError(503, "Could not open the source file. Check the default Markdown app, or copy the file path and open it manually."); }
+    catch { throw new VaultError(503, "Could not open the source file. Check the default editor, or copy the file path and open it manually."); }
     return res.json({ opened: true });
   }));
   app.post(

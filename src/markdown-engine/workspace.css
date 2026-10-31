@@ -499,3 +499,5 @@
     display: none;
   }
 }
+
+.document-wrap.full-width:has(.markdown-workspace) { max-width: none; }

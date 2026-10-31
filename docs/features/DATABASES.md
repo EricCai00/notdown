@@ -6,7 +6,7 @@
 
 如果前端已更新而运行中的旧后端尚无数据库接口，普通页面仍可打开和保存；侧栏及数据库入口提示重启后端，更新服务后可用 **Check connection** 重新检查。此兼容只针对数据库列表接口的 404；元数据损坏、权限及其他服务错误仍会报告。
 
-1. 侧栏 **New database**，或在 **Databases** 列表中选择 **New database**，立即创建根层数据库，默认名称为 **New database**，没有确认弹窗。应用同时创建宿主页、数据源、**Name** 字段和 **Table** 视图；随后直接点击数据库标题修改名称，按 Enter 或离开输入框保存。
+1. 侧栏 **New database**，或在 **Databases** 列表中选择 **New database**，立即创建根层数据库，默认名称为 **New database**，没有确认弹窗。应用创建数据库 JSON、自有数据源、**Name** 字段和 **Table** 视图；随后直接点击数据库标题修改名称，按 Enter 或离开输入框保存。
 2. 表头 **Add property** 或记录面板的 **Add a property** 添加文本、数字、勾选、日期、单选、多选、状态、URL、邮件或电话字段。新字段的选项可逐行填写；点击已有表头打开属性浮层，通过 **Edit property** 逐项改名、调色、拖动或用上下按钮排序，也可追加或删除未被记录使用的选项。选项身份保持稳定。记录面板按属性名称显示字段，表格保留视图列顺序。
 3. 蓝色 **New** 或表格底部的新增行入口创建记录。标题旁的打开按钮默认展开右侧记录面板，表格继续留在左边；面板中可编辑标题、属性和正文。**Open as full page** 再进入普通页面，正文继续使用现有 Page / Source / Split 视图。
 4. 单元格离开编辑状态或按 Enter 时保存，也可使用 **Database options → Save changes**。切换页面或数据库前先保存 pending 输入；保存失败时保留草稿并阻止切换。
@@ -14,7 +14,7 @@
 
 数字 `0` 和布尔值 `false` 保持其类型。日期保存开始、可选结束和已有时区信息。单选、状态和多选保存选项 ID，以有色标签显示名称，并通过选项面板编辑。关联、联系人和文件等导入值显示为只读；可解析的关联可打开本批导入的本地页面。
 
-点击完整数据库标题左侧图标使用与普通页面相同的 Emoji／Lucide 选择器，可以搜索、输入自定义符号或选择 **Remove**。修改后同步更新页面树及指向该数据库的块入口；Remove 保存空图标值，并显示与普通页面一致的默认文档图标。当前没有图片上传图标入口。数据库标题和图标只更新元数据，不改写宿主页 Markdown；文档 YAML／Pandoc 控制的值仍须在源文档中修改。
+点击完整数据库标题左侧图标使用与普通页面相同的 Emoji／Lucide 选择器，可以搜索、输入自定义符号或选择 **Remove**。修改后同步更新页面树及指向该数据库的块入口；Remove 保存空图标值，并显示与普通页面一致的默认文档图标。当前没有图片上传图标入口。数据库标题和图标写入所属 JSON，不改写 Markdown；旧宿主页或 Wiki Home 的文档 YAML／Pandoc 控制值仍须在源文档中修改。
 
 正文中的子数据库、Child page 和 Link to page 使用相同的单行入口样式、16 px 图标和带下划线的名称，不再给子数据库单独套卡片。它们仍分别保持原本的引用类型和导航目标，调整显示不会改写引用源码或父关系。
 
@@ -30,13 +30,17 @@ Wiki 是一种数据库容器，在 **Databases** 列表中显示为 **Wiki · H
 
 直接和嵌套子页面按原父关系加入页面集合；子数据库及其记录保持独立，不被压平或当作 Wiki 页面记录。新建子页面以及移动页面／子树进出 Wiki 会更新成员关系；页面属性与集合视图共用原页面数据。Wiki 页面源不能接入其他数据库，以保持可恢复的 Undo 边界。
 
-打开 Wiki 默认进入 **Home**；正文上方的 **All pages** 打开集合视图，集合工具栏的 **Home** 返回正文。Wiki 的页面菜单和集合的 **Database options** 提供 **Undo wiki**：解除该容器、数据源及视图，把 Home 恢复成普通页面，保留正文、页面身份、子页面／子数据库位置和每页已有属性值。字段定义、视图及转换前后 metadata 归档到 `.history/database-transactions/`，目前没有自动重新应用归档的界面。原有链接仍指向同一个页面，不批量改写正文。
+Wiki Home 默认采用 **Full width** 布局，标题、导航与正文共同使用可用内容宽度；Home 和集合视图共用封面、横排图标／标题、面包屑、内容边距与胶囊下拉视图入口；切换时只更换内容区及右侧工具。Wiki Home 不提供单独的宽度开关，Undo 后恢复普通页面原先的宽度设置。
 
-Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出的独立 **Home** 子页面继续保留，Undo 后仍在原位置，不合并、删除或覆盖原页面正文。如果旧 Wiki 的来源已被其他数据库共享，Undo 会提示并停止，保留现有资源。Notion 的当前用户 Owner 筛选、Verification 验证与通知尚未在本地模拟。
+打开 Wiki 默认进入 **Home**。标题下的视图下拉菜单在 Home 和集合视图中相同，列出 Home、所有已有视图及 New view，并标记当前视图；New view 在 Home 即可创建集合视图，提交前会收取正文输入，取消时保留 Home。Home 右侧 Search 搜索 Wiki 页面；集合视图显示筛选、排序、视图设置及 New 等工具。Home 的源码／分栏等编辑模式和页面属性从右上角页面菜单打开。导入时保留的独立 Home 子页继续承载原正文，外层显示 Wiki 容器的封面、图标与标题；可在集合视图中编辑该容器名称和图标，不合并或改写原子页。Wiki 的页面菜单和集合的 **Database options** 提供 **Undo wiki**：解除该容器、数据源及视图，把 Home 恢复成普通页面，保留正文、页面身份、子页面／子数据库位置和每页已有属性值。字段定义、视图及转换前后 metadata 归档到 `.history/database-transactions/`，目前没有自动重新应用归档的界面。原有链接仍指向同一个页面，不批量改写正文。
 
-转换前收取 pending 编辑；转换及 Undo 在知识库锁内校验页面／数据库版本，冲突归档双方，不强制重试。转换只更新 metadata；页面 Markdown 不会因转换而重新序列化。
+Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出的独立 **Home** 子页面继续保留，Undo 后仍在原位置，不合并、删除或覆盖原页面正文。若独立 Home 已删除或移入回收站，独立文件格式的 Wiki 进入有效集合视图，不创建空 Markdown 替身，也不恢复已删除内容；旧格式仍可使用原有真实宿主页。将当前打开的 Wiki／数据库移入回收站后，离开该集合视图并更新侧栏，可从 Trash 恢复。如果旧 Wiki 的来源已被其他数据库共享，Undo 会提示并停止，保留现有资源。Notion 的当前用户 Owner 筛选、Verification 验证与通知尚未在本地模拟。
+
+转换前收取 pending 编辑；转换及 Undo 在知识库锁内校验页面／数据库版本，冲突归档双方，不强制重试。转换更新数据库 JSON 与页面元数据；已有页面 Markdown 不会因转换而重新序列化。独立 Home 的导入 Wiki 在 Undo 时恢复一个普通容器页面，其原 Home 子页保持原文和位置。
 
 行为参考 [Notion Wiki 官方说明](https://www.notion.com/help/wikis-and-verified-pages)：Notion 提供页面转 Wiki 和 Undo Wiki，默认有 Home、All pages、Pages I own；官方未明确说明 Undo 后自定义属性和视图配置的完整去向。上述保留／归档规则是 Notdown 的明确契约，本地不伪造账户对应的 Pages I own。
+
+数据库从应用 Trash 再次删除后，数据库 JSON、Wiki 的真实 Home 及所选子页面进入系统回收站，历史中保留恢复材料。已删除容器不再生成侧栏入口或出现在数据库和数据源列表中；引用它的数据源视图保持 Link，并显示来源不可用，不接管其记录。旧格式保留的宿主页元数据只用于恢复，不会把缺失宿主误当成从未有宿主的数据库。
 
 ## 数据源管理
 
@@ -92,13 +96,45 @@ Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出�
 
 正文输入 `/database` 可选择 **Database - Full page**，在支持并启用 `notion_databases` 的方言中还可选择 **Database - Inline**。两种方式都直接在当前页面下创建名为 **New database** 的数据库，不显示命名或确认弹窗，创建前先保存待处理的正文。Full page 创建后打开数据库；支持官方数据库语法时保存 `<database inline="false">` 引用，否则保存普通 Markdown 链接。Inline 留在当前页面，以已有官方 `<database inline="true">` 引用嵌入同一个数据库工作区，包含表格、属性、新建记录和右侧记录面板。完整数据库可直接编辑标题；内嵌数据库点击上方引用入口打开完整数据库后修改名称或图标。引用只保存入口，记录正文与属性仍由资源层管理，重新打开不会再创建一份数据库；已有引用的显式显示文字保持原文。
 
-新建数据库拥有空 Markdown 宿主页，宿主页 ID 与数据库 ID 相同，页面的 `databaseId` 和数据库的 `pageId` 双向关联。数据库名称及父位置从宿主页读取；新记录的 `parent` 指向所属数据源的数据库宿主页。普通页面创建／移动不能绕过数据源登记直接塞入数据库，数据库记录也不能通过普通页面移动接口改成其他父级。
+新建数据库拥有独立 JSON，不创建空 Markdown。数据库与页面共同进入侧栏树，名称及父位置保存在数据库文件；新记录的 `parent` 指向所属数据源的数据库 ID。页面 API 为现有导航提供同 ID 的兼容条目，并以 `databaseProxy: true` 标明没有 Markdown 正文。普通页面创建／移动不能绕过数据源登记直接塞入数据库，数据库记录也不能通过普通页面移动接口改成其他父级。
 
 宿主页沿用页面移动与回收站规则；回收宿主页时，它的记录随层级隐藏，恢复后重新显示。记录的侧栏移动入口和拖动被禁用；数据库宿主页不提供会产生不完整资源副本的普通页面复制入口。
 
-已有导入数据库沿用原宿主页。早期没有宿主页的本地数据库在侧栏以虚拟条目呈现，记录按数据源归属显示在它下面；读取与展开不会生成 Markdown 文件或改写旧 metadata。此类旧库新增记录继续保存原有 `parent: null` 形式，树中仍显示为数据库的子项，不批量迁移已有内容。
+旧格式数据库继续沿用原宿主页或虚拟条目，读取和展开不会改写磁盘。早期没有宿主页的旧库新增记录仍保存原有 `parent: null`，树中按数据源归属显示；只有显式迁移才改用独立 JSON。新导入数据库直接采用独立文件。
 
-## 存储契约
+## 独立数据库文件
+
+数据库存储升级为 `databases/<database-id>.json`，Database 与 Markdown Page 是同级资源。文件保存数据库展示信息、自有数据源（字段及 `pageIds`）和视图；视图的 `dataSource` 同时指定 `databaseId` 与 `dataSourceId`，跨库时显示 Link，仅引用所属库，不复制定义或页面。普通数据库不创建空 Markdown；Wiki 的 `homePageId` 指向真实正文页。页面属性仍保存在 `metadata.json`，页面 API 的数据库宿主／成员字段为兼容投影。
+
+旧数据库格式保持可读；迁移必须显式执行并校验预览版本，保留 ID、未知字段和恢复记录。迁移后的旧定义退出活跃读取，删除 JSON 不会从旧定义重建数据库。成员、页面及数据库文件的联合写入仍走知识库锁、CAS 和可恢复事务。
+
+```json
+{
+  "version": 1,
+  "id": "projects",
+  "kind": "database",
+  "title": "Projects",
+  "parent": null,
+  "dataSources": [
+    { "id": "tasks", "title": "Tasks", "properties": [{ "id": "name", "key": "title", "name": "Name", "type": "title" }], "pageIds": [] }
+  ],
+  "views": [
+    { "id": "table", "name": "Table", "type": "table", "dataSource": { "databaseId": "projects", "dataSourceId": "tasks" } },
+    { "id": "linked", "name": "External", "type": "list", "dataSource": { "databaseId": "another-database", "dataSourceId": "external-source" } }
+  ]
+}
+```
+
+示例省略真实 UUID。自有来源只定义在所属库；外部来源仅以视图引用出现。`pageIds` 是成员关系的唯一持久真相，页面 API 的 `dataSourceId`／`wikiMember` 是读取时投影，不在 `metadata.json` 再缓存一份关系。`revision`、`linked`、`ownedDataSourceIds` 等 API 字段也不写回文件。导入宿主的来源信息和未知字段保留在可选 `pageMetadata`；迁移另保留完整 `legacyPageMetadata`。普通页面未知属性仍在原 JSON 页面记录中。
+
+```powershell
+node --import tsx scripts/migrate-database-files.ts <vault-path>
+node --import tsx scripts/migrate-database-files.ts <vault-path> --apply
+```
+
+第一条预览，第二条以刚取得的预览版本执行，HTTP 也提供同等的两步接口。迁移前后文件完整记录在 `.history/database-migration-<uuid>.json`；空宿主原文归档后移出 `pages/`。非空的普通数据库宿主、不同 ID 的旧宿主、歧义／缺失来源所有权和版本变化会中止并保留原文件，需先明确映射，不能依靠重试强制覆盖。旧知识库不会在打开时自动迁移。同步中的设备需使用支持独立数据库文件的同一版本。
+
+## 旧格式存储契约
 
 `metadata.json` 的既有 `pages` 之外增加以下顶层记录，未知顶层和对象字段继续保留：
 
@@ -113,13 +149,13 @@ Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出�
 
 Wiki 容器记录 `kind: "wiki"`；早期导入的 `notionWiki: true` 继续识别。宿主页记录 `wiki: true`；成员页面的 `wikiMembership` 标记可随页面树重新计算的数据源归属，`parent` 始终保留真实层级。字段和视图继续使用既有资源格式，正文入口复用官方 `<database wiki="true">`，其他方言使用普通链接。
 
-正文不保存数据库记录 JSON，也不增加自定义正文协议。现有 `<database>` 引用语法与资源定义分离；数据库宿主页从侧栏或页面引用打开时进入表格。备份必须同时包含 Markdown 和 `metadata.json`。
+正文不保存数据库记录 JSON，也不增加自定义正文协议。现有 `<database>` 引用语法与资源定义分离；数据库从侧栏或页面引用打开时进入集合视图。备份应复制整个知识库，包括 `databases/`、Markdown 和 `metadata.json`。
 
 ## 保存与冲突
 
 所有变更通过 `createVault` 的本地锁和版本校验。字段定义、数据库和视图有独立 revision；单元格同时提交页面 `baseRevision` 和字段定义 `schemaRevision`。旧窗口不能将依据旧字段类型编辑的值直接写入新 schema，也不能覆盖较新的正文。
 
-页面内容仍沿用成对的 Markdown / JSON 历史和冲突记录。数据库资源冲突在 `.history/database-conflicts/` 保存当前和拟写入版本；资源更新在 `.history/database-transactions/` 保存 metadata 的前后内容，再原子替换。这里提供可恢复证据，不是跨设备事务协议，也没有数据库历史回滚界面。
+页面内容仍沿用成对的 Markdown / JSON 历史和冲突记录。数据库资源冲突在 `.history/database-conflicts/` 保存当前和拟写入版本；资源更新在 `.history/database-transactions/` 保存原数据库文件和拟写入资源，联合写入使用可恢复的文件批次。ZIP 与 Git 检查点包含独立数据库文件。这里提供可恢复证据，目前没有数据库历史回滚界面。
 
 表格草稿按知识库和数据库存于当前标签页的会话存储，保留最初的页面及字段版本；恢复草稿不会自动换成新 revision 强制重试。**Discard edits and reload** 明确丢弃本标签页草稿后重新读取磁盘数据。
 
@@ -140,7 +176,7 @@ Wiki 容器记录 `kind: "wiki"`；早期导入的 `notionWiki: true` 继续识�
 ## 当前边界
 
 - 提供 Table、List、Gallery、Board、Calendar。Timeline、Chart、Feed、Dashboard、Form、Map 和公式／汇总计算尚未实现。
-- 界面暂不提供数据库资源的永久删除、字段删除／复制、已填值字段的类型转换、现有页面加入或移出集合，以及数据库之间移动记录；宿主页可通过页面回收站恢复。
+- 数据库可经 Trash 恢复或送入系统回收站；界面暂不提供字段删除／复制、已填值字段的类型转换、现有页面加入或移出集合，以及数据库之间移动记录。
 - 视图设置支持多个排序及平面的 All / Any 筛选组合，提供包含、等于、空值和数字／日期比较。暂不支持嵌套条件组、列宽和手动卡片排序。
 - 关联、联系人和文件没有可编辑选择器；公式快照不会随本地编辑重算，界面始终标注导入结果。
 - 不恢复 Notion 权限、评论、自动化和工作区账号；附件 URL 可能过期，导入不能视为完整离线附件备份。

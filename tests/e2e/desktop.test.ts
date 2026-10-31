@@ -81,6 +81,41 @@ test("desktop settings has grouped navigation and the Markdown display preferenc
   await expect(dialog).toHaveCount(0);
 });
 
+test("packaged databases own JSON files, link shared sources, and keep Wiki Home as Markdown", async () => {
+  const vaultPath = path.join(root, "Database files"); await fs.mkdir(vaultPath);
+  const page = await chooseFolder(vaultPath, "create");
+  const post = (url: string, body: unknown) => page.evaluate(async ({ url, body }) => {
+    const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }, { url, body });
+  const owner = await post("/api/databases", { title: "Packaged owner" });
+  const linked = await post("/api/databases", { title: "Packaged links" });
+  const source = owner.dataSources[0];
+  const record = await post(`/api/data-sources/${source.id}/records`, { title: "Shared packaged record", baseRevision: source.revision });
+  await post(`/api/databases/${linked.database.id}/data-sources/link`, { baseRevision: linked.database.revision, dataSourceId: source.id, sourceRevision: source.revision });
+  const read = async (id: string) => JSON.parse(await fs.readFile(path.join(vaultPath, "databases", id + ".json"), "utf8"));
+  expect((await read(owner.database.id)).dataSources[0].pageIds).toEqual([record.id]);
+  const target = await read(linked.database.id);
+  expect(target.dataSources).toHaveLength(1);
+  expect(target.views[1].dataSource).toEqual({ databaseId: owner.database.id, dataSourceId: source.id });
+  expect(await fs.readdir(path.join(vaultPath, "pages"))).toEqual([record.id + ".md"]);
+  const origin = new URL(page.url()).origin;
+  await page.goto(`${origin}/#database/${linked.database.id}`);
+  await expect(page.locator(".database-view-link")).toHaveText("Link");
+  const wiki = await post("/api/databases", { title: "Packaged wiki", kind: "wiki" });
+  expect((await read(wiki.database.id)).homePageId).toBe(wiki.hostPage.id);
+  await page.goto(`${origin}/#page/${wiki.hostPage.id}`);
+  await expect(page.getByRole("button", { name: "Wiki view: Home", exact: true })).toBeVisible();
+  await page.locator(".pm-document").fill("Real packaged Wiki Home");
+  await page.locator(".wiki-view-trigger").click();
+  await page.getByRole("menuitemradio", { name: "All pages", exact: true }).click();
+  await expect(page.locator(".wiki-view-trigger")).toHaveText("All pages");
+  expect(await fs.readFile(path.join(vaultPath, "pages", wiki.hostPage.id + ".md"), "utf8")).toBe("Real packaged Wiki Home");
+  const metadata = JSON.parse(await fs.readFile(path.join(vaultPath, "metadata.json"), "utf8"));
+  expect(metadata.pages[owner.database.id]).toBeUndefined(); expect(metadata.pages[record.id].dataSourceId).toBeUndefined();
+});
+
 test("Notion token is encrypted outside the vault and autofills after a desktop restart", async () => {
   const vaultPath = path.join(root, "Notion token"); await fs.mkdir(vaultPath);
   let page = await chooseFolder(vaultPath, "create");

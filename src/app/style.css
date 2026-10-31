@@ -3547,3 +3547,7 @@ dialog .muted,
 }
 .insert-close:hover { background: var(--hover); }
 .insert-close kbd { font: inherit; font-size: 12px; }
+
+/* Full width is a page layout; source, split and rendered content share it. */
+.document-wrap.full-width { max-width: none; }
+.document-wrap.full-width > .document { max-width: none; width: 100%; min-width: 0; }

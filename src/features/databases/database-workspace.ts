@@ -1,3 +1,7 @@
+import { mountWikiViewPicker } from "./wiki-view-picker";
+import { createDatabaseView } from "./database-create-view";
+import { isPageCoverPath } from "../pages/page-cover-picker";
+import { vaultAssetUrl } from "../../shared/vault-url";
 import { api, escape as e, type Page } from "../../shared/types";
 import { documentMetadata } from "../metadata/document-metadata";
 import { databaseViewProperties } from "./database-columns";
@@ -23,7 +27,7 @@ import { requestPeople } from "../people/people-client";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
 type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
-type Hooks = { vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown>; undoWiki?: (snapshot: DatabaseSnapshot) => Promise<unknown> };
+type Hooks = { inline?: boolean; vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown>; undoWiki?: (snapshot: DatabaseSnapshot) => Promise<unknown> };
 const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"];
 const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone" };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -189,6 +193,7 @@ export class DatabaseWorkspace {
   private presentation?: PresentationDraft;
   private presentationSaving?: Promise<boolean>;
   private presentationFailed = false;
+  private wikiPickerCleanup?: () => void;
   private iconCleanup?: () => void;
   private peek?: DatabasePeek;
   private search = "";
@@ -219,8 +224,8 @@ export class DatabaseWorkspace {
   };
   private pointerUp = () => { this.pointerDown = false; if (this.rowsNeedRefresh) this.scheduleRows(); };
   get dirty() { return this.sourceSaving || !!(this.menu?.saveOnDismiss && this.menu.dirty) || this.layoutSaving || this.pending.size > 0 || !!this.saving || !!this.peek?.dirty || !!this.presentation || !!this.presentationSaving; }
-  destroy() { this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
-  private message(text: string) { if (this.alive) { const element = this.host.querySelector(".database-message"); if (element) { element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } } }
+  destroy() { this.wikiPickerCleanup?.(); this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
+  private message(text: string) { if (this.alive) { const element = this.host.querySelector<HTMLElement>(".database-message"); if (element) { element.dataset.state = text === "Saved locally" ? "saved" : "active"; element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } } }
   private draftKey() { return `notdown-database-draft:${this.hooks.vaultKey}:${this.snapshot!.database.id}`; }
   private viewKey() { return `${this.draftKey()}:view${this.hooks.initialSourceUrl ? `:${this.hooks.initialSourceUrl.toLowerCase().replace(/-/g, "")}` : ""}`; }
   private persist() {
@@ -231,6 +236,7 @@ export class DatabaseWorkspace {
     if (id) {
       const snapshot = await api<DatabaseSnapshot>(`/databases/${encodeURIComponent(id)}`);
       if (!this.alive) return;
+      if (snapshot.database.trashed) throw new Error("This database is in Trash or its host page no longer exists.");
       this.snapshot = snapshot;
       this.activeView ||= databaseSourceView(snapshot, this.hooks.initialSourceUrl)?.id ?? "";
       try { const draft = sessionStorage.getItem(`${this.draftKey()}:presentation`); if (draft) this.presentation = JSON.parse(draft); } catch { /* Optional tab draft. */ }
@@ -482,13 +488,29 @@ export class DatabaseWorkspace {
     });
   }
   private render() {
+    this.wikiPickerCleanup?.(); this.wikiPickerCleanup = undefined;
     this.menu?.destroy(); this.menu = undefined;
     ++this.opening;
     const scrollTop = this.host.querySelector<HTMLElement>(".database-table-pane")?.scrollTop ?? 0;
     const scrollLeft = this.host.querySelector<HTMLElement>(".database-table-scroll")?.scrollLeft ?? 0;
     const snapshot = this.snapshot!, source = this.source, view = this.view;
     this.peek?.destroy(); this.peek = undefined;
-    this.host.innerHTML = `<div class="database-layout"><section class="database-workspace database-table-pane"><button class="database-back" data-db-back aria-label="All databases">${glyph(ArrowLeft)}Databases</button><header class="database-heading"><div class="database-heading-title"><button type="button" class="database-title-icon" data-db-icon aria-label="Change database icon" title="Change database icon"></button><h1 aria-label="${e(snapshot.database.title)}"><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}" maxlength="500" /></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views">${snapshot.views.map(item => `<button role="tab" aria-selected="${view?.id === item.id}" data-db-tab="${e(item.id)}">${glyph(viewIcons[item.type] ?? Table2)}${e(item.name)}</button>`).join("")}<button class="database-icon-button" data-db-new-view aria-label="New view" title="New view">${glyph(Plus)}</button></div><div class="database-toolbar-actions"><button class="database-icon-button ${view?.filters?.length ? "is-active" : ""}" data-db-filter aria-label="Filter" title="Filter">${glyph(ListFilter)}</button><button class="database-icon-button ${view?.sorts?.length ? "is-active" : ""}" data-db-sort aria-label="Sort" title="Sort">${glyph(ArrowDownUp)}</button><button class="database-icon-button" data-db-search aria-label="Search database" title="Search database" aria-expanded="${this.showSearch}">${glyph(Search)}</button><button class="database-icon-button" data-db-view aria-label="View settings" title="View settings">${glyph(SlidersHorizontal)}</button><div class="database-new-control"><button class="database-new-button" data-db-row aria-label="Add row">New</button><details class="database-new-menu"><summary class="database-new-menu-button" aria-label="New options">${glyph(ChevronDown)}</summary><div class="database-menu"><button data-db-row>New page</button><button data-action="import-notion">Import from Notion</button></div></details></div><details class="database-more-menu"><summary class="database-icon-button" aria-label="Database options">${glyph(Ellipsis)}</summary><div class="database-menu"><button data-db-save>Save changes</button><button data-db-refresh>Discard edits and reload</button></div></details></div></div><div class="database-search" ${this.showSearch ? "" : "hidden"}>${glyph(Search)}<input type="search" aria-label="Search database records" placeholder="Search this database…" value="${e(this.search)}"/><button aria-label="Close database search" class="database-icon-button">${glyph(X)}</button></div><p class="database-message" role="status">Saved locally</p><div class="database-table-scroll"><table class="database-table"><thead><tr></tr></thead><tbody></tbody></table><button class="database-add-row" data-db-row>${glyph(Plus)}New page</button></div><p class="database-row-count"></p></section><aside class="database-peek-mount" hidden></aside></div>`;
+    this.host.innerHTML = `<div class="database-layout"><section class="database-workspace database-table-pane"><button class="database-back" data-db-back aria-label="All databases">${glyph(ArrowLeft)}Databases</button><header class="database-heading"><div class="database-heading-title"><button type="button" class="database-title-icon" data-db-icon aria-label="Change database icon" title="Change database icon"></button><h1 aria-label="${e(snapshot.database.title)}"><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}" maxlength="500" /></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views">${snapshot.views.map(item => `<button role="tab" aria-selected="${view?.id === item.id}" data-db-tab="${e(item.id)}">${glyph(viewIcons[item.type] ?? Table2)}${e(item.name)}${item.linked ? '<small class="database-view-link" aria-hidden="true">Link</small>' : ""}</button>`).join("")}<button class="database-icon-button" data-db-new-view aria-label="New view" title="New view">${glyph(Plus)}</button></div><div class="database-toolbar-actions"><button class="database-icon-button ${view?.filters?.length ? "is-active" : ""}" data-db-filter aria-label="Filter" title="Filter">${glyph(ListFilter)}</button><button class="database-icon-button ${view?.sorts?.length ? "is-active" : ""}" data-db-sort aria-label="Sort" title="Sort">${glyph(ArrowDownUp)}</button><button class="database-icon-button" data-db-search aria-label="Search database" title="Search database" aria-expanded="${this.showSearch}">${glyph(Search)}</button><button class="database-icon-button" data-db-view aria-label="View settings" title="View settings">${glyph(SlidersHorizontal)}</button><div class="database-new-control"><button class="database-new-button" data-db-row aria-label="Add row">New</button><details class="database-new-menu"><summary class="database-new-menu-button" aria-label="New options">${glyph(ChevronDown)}</summary><div class="database-menu"><button data-db-row>New page</button><button data-action="import-notion">Import from Notion</button></div></details></div><details class="database-more-menu"><summary class="database-icon-button" aria-label="Database options">${glyph(Ellipsis)}</summary><div class="database-menu"><button data-db-save>Save changes</button><button data-db-refresh>Discard edits and reload</button></div></details></div></div><div class="database-search" ${this.showSearch ? "" : "hidden"}>${glyph(Search)}<input type="search" aria-label="Search database records" placeholder="Search this database…" value="${e(this.search)}"/><button aria-label="Close database search" class="database-icon-button">${glyph(X)}</button></div><p class="database-message" role="status" data-state="saved">Saved locally</p><div class="database-table-scroll"><table class="database-table"><thead><tr></tr></thead><tbody></tbody></table><button class="database-add-row" data-db-row>${glyph(Plus)}New page</button></div><p class="database-row-count"></p></section><aside class="database-peek-mount" hidden></aside></div>`;
+    if (isWikiDatabase(snapshot.database) && !this.hooks.inline) {
+      const section = this.host.querySelector<HTMLElement>(".database-workspace")!; section.classList.add("wiki-collection", "wiki-shell");
+      const cover = snapshot.hostPage?.properties?.cover, position = snapshot.hostPage?.properties?.coverPosition;
+      if (typeof cover === "string" && isPageCoverPath(cover)) {
+        const image = document.createElement("img"); image.className = "wiki-cover"; image.src = vaultAssetUrl(cover); image.alt = "Wiki cover";
+        image.style.objectPosition = '50% ' + (typeof position === 'number' ? Math.max(0, Math.min(100, position)) : 50) + '%'; section.prepend(image);
+      }
+      const mount = document.createElement("div"); mount.className = "wiki-picker-mount"; this.host.querySelector(".database-toolbar")!.prepend(mount);
+      this.wikiPickerCleanup = mountWikiViewPicker(mount, snapshot, view.id, {
+        select: async id => { if (!await this.flush()) return; if (id === "home") await this.hooks.openDatabase(snapshot.database.id); else { this.rememberView(id); this.render(); } },
+        create: async anchor => { if (await this.flush()) this.newView(anchor); },
+        edit: async (id, anchor) => { if (!await this.flush()) return; if (id === "home") { await this.hooks.openDatabase(snapshot.database.id); document.querySelector<HTMLDetailsElement>("#page-options")?.setAttribute("open", ""); } else { this.rememberView(id); this.render(); this.editView(undefined, undefined, this.host.querySelector<HTMLElement>(".wiki-view-trigger")!); } },
+        report: error => this.message(error instanceof Error ? error.message : String(error)),
+      });
+    }
     this.host.querySelector("[data-db-back]")!.addEventListener("click", () => void this.hooks.openDatabase());
     const sourcesButton = document.createElement("button"); sourcesButton.type = "button"; sourcesButton.className = "database-icon-button";
     sourcesButton.dataset.dbSources = ""; sourcesButton.setAttribute("aria-label", "Data sources"); sourcesButton.title = "Data sources"; sourcesButton.innerHTML = glyph(DatabaseIcon);
@@ -502,7 +524,7 @@ export class DatabaseWorkspace {
     if (typeof snapshot.database.homePageId === "string" || isWikiDatabase(snapshot.database)) {
       const home = document.createElement("button");
       home.type = "button"; home.textContent = "Home"; home.setAttribute("aria-label", "Open database Home");
-      home.addEventListener("click", () => { void (async () => { if (await this.flush()) await this.hooks.openPage(typeof snapshot.database.homePageId === "string" ? snapshot.database.homePageId : snapshot.database.pageId ?? snapshot.database.id); })().catch(error => this.message(error.message)); });
+      home.addEventListener("click", () => { void (async () => { if (await this.flush()) await this.hooks.openDatabase(snapshot.database.id); })().catch(error => this.message(error.message)); });
       this.host.querySelector(".database-view-tabs")!.prepend(home);
     }
     if (Array.isArray(view?.importWarnings) && view.importWarnings.length) {
@@ -555,6 +577,7 @@ export class DatabaseWorkspace {
       tab.title = `${item.name} · ${title}`; tab.setAttribute("aria-description", `Data source: ${title}`);
     });
     if (!source) { this.message("This database has no available data source."); this.host.querySelectorAll<HTMLButtonElement>("[data-db-row],[data-db-new-view],[data-db-view],[data-db-filter],[data-db-sort]").forEach(button => button.disabled = true); return; }
+    if (source.unavailable) { this.message("This linked data source is unavailable. Restore its owning database to use these records."); this.host.querySelectorAll<HTMLButtonElement>("[data-db-row],[data-db-filter],[data-db-sort]").forEach(button => button.disabled = true); }
     if (view.type !== "table") {
       const mount = document.createElement("div"); mount.className = "database-alternate-layout";
       this.host.querySelector(".database-table-scroll")!.replaceWith(mount);
@@ -695,13 +718,14 @@ export class DatabaseWorkspace {
       this.render(); if (reopenPageId) await this.openPeek(reopenPageId);
     });
   }
-  private editView(section?: "Filter" | "Sort" | "Group", property?: DatabaseProperty) {
+  showViewOptions() { this.editView(undefined, undefined, this.host.querySelector<HTMLElement>(".wiki-view-trigger") ?? undefined); }
+  private editView(section?: "Filter" | "Sort" | "Group", property?: DatabaseProperty, anchor?: HTMLElement) {
     this.menu?.destroy();
     const view = structuredClone(this.view); if (!view) return;
     if (property && section === "Filter") view.filters = [...view.filters ?? [], { propertyId: property.id, operator: "is_not_empty" }];
     if (property && section === "Sort") view.sorts = [...view.sorts ?? [], { propertyId: property.id, direction: "ascending" }];
     if (property && section === "Group") view.layout = { ...view.layout, groupBy: property.id };
-    this.menu = openViewMenu(this.host.querySelector<HTMLElement>(section === "Filter" ? "[data-db-filter]" : section === "Sort" ? "[data-db-sort]" : "[data-db-view]")!, {
+    this.menu = openViewMenu(anchor ?? this.host.querySelector<HTMLElement>(section === "Filter" ? "[data-db-filter]" : section === "Sort" ? "[data-db-sort]" : "[data-db-view]")!, {
       sources: this.snapshot!.dataSources, view, wiki: isWikiDatabase(this.snapshot!.database), manageSources: isWikiDatabase(this.snapshot!.database) ? undefined : () => { void this.manageSources().catch(error => this.message(error.message)); },
       save: async draft => {
         const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout, filterMode: draft.filterMode, propertyIds: draft.propertyIds, filters: draft.filters, sorts: draft.sorts }) });
@@ -734,28 +758,14 @@ export class DatabaseWorkspace {
       select: sourceId => { this.rememberView(snapshot.views.find(view => view.dataSourceId === sourceId)?.id ?? ""); this.render(); },
     });
   }
-  private newView() {
+  private newView(anchor?: HTMLElement) {
     this.menu?.destroy();
     const snapshot = this.snapshot!;
     const view: DatabaseView = { id: crypto.randomUUID(), databaseId: snapshot.database.id, dataSourceId: this.source.id, name: "", type: "table", layout: {}, revision: "" };
-    this.menu = openViewMenu(this.host.querySelector<HTMLElement>("[data-db-new-view]")!, {
+    this.menu = openViewMenu(anchor ?? this.host.querySelector<HTMLElement>("[data-db-new-view]")!, {
       sources: snapshot.dataSources, view, create: true, wiki: isWikiDatabase(snapshot.database),
       save: async draft => {
-        const layout = draft.layout!;
-        let source = snapshot.dataSources.find(item => item.id === draft.dataSourceId)!;
-        if (draft.type === "board" && !layout.groupBy || draft.type === "calendar" && !layout.datePropertyId) {
-          const board = draft.type === "board", id = crypto.randomUUID();
-          const existing = source.properties.find(board ? groupable : field => field.type === "date");
-          const field: DatabaseProperty = existing ?? { id, key: id, name: board ? "Status" : "Date", type: board ? "status" : "date", ...(board ? { options: [{ id: crypto.randomUUID(), name: "Not started", color: "gray" }, { id: crypto.randomUUID(), name: "In progress", color: "blue" }, { id: crypto.randomUUID(), name: "Done", color: "green" }] } : {}) };
-          if (!existing) {
-            source = await api<DatabaseDataSource>(`/data-sources/${source.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: source.revision, properties: [...source.properties, field] }) });
-            snapshot.dataSources = snapshot.dataSources.map(item => item.id === source.id ? source : item);
-          }
-          if (board) layout.groupBy = field.id; else layout.datePropertyId = field.id;
-        }
-        const propertyIds = draft.type === "table" ? undefined : source.properties.filter(field => field.type === "title" || field.id === layout.groupBy || field.id === layout.datePropertyId).map(field => field.id);
-        const rowOrder = queryDatabase(snapshot.pages, source, { ...this.view, filters: [] }).map(page => page.id);
-        const next = await api<DatabaseSnapshot>(`/databases/${snapshot.database.id}/views`, { method: "POST", body: JSON.stringify({ baseRevision: snapshot.database.revision, name: draft.name, dataSourceId: source.id, type: draft.type, layout, propertyIds, rowOrder }) });
+        const next = await createDatabaseView(snapshot, draft, this.view);
         this.snapshot = next; this.rememberView(next.database.viewIds.find(id => !snapshot.database.viewIds.includes(id)) ?? ""); this.render();
         document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: next }));
       }, editProperty: () => {}, addProperty: () => {},

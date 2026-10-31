@@ -9,15 +9,19 @@ export function databaseTree(pages: readonly Page[], databases: readonly Databas
   const virtualIds = new Set<string>();
   const owners = new Map<string, { id: string; database: Database }[]>();
   for (const database of databases) {
+    if (database.trashed) continue;
     const id = typeof database.pageId === "string" ? database.pageId : database.id;
     let host = byId.get(id);
     if (!host) {
+      // Only genuinely unhosted legacy resources receive a virtual row.
+      if (typeof database.pageId === "string") continue;
       // An unrelated page with the same identity must never become a database entry.
       if (pages.some(page => page.id === database.id && page.databaseId !== database.id)) continue;
       host = { id, title: database.title, parent: typeof database.parent === "string" && byId.has(database.parent) ? database.parent : null, icon: database.icon ?? "table-2", properties: {}, body: "", revision: database.revision, updated: "", databaseId: database.id };
       byId.set(id, host); entries.push(host); virtualIds.add(id);
     } else if (host.databaseId !== database.id) continue;
     for (const sourceId of database.dataSourceIds) {
+      if (Array.isArray(database.ownedDataSourceIds) && !database.ownedDataSourceIds.includes(sourceId)) continue;
       const candidates = owners.get(sourceId) ?? [];
       candidates.push({ id, database }); owners.set(sourceId, candidates);
     }

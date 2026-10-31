@@ -5,11 +5,12 @@ import os from "node:os";
 import path from "node:path";
 import { createVault, VaultError } from "../../server/vault.js";
 import { prepareMarkdownImport } from "../../server/markdown-import.js";
+import { createLegacyDatabase } from "./database-legacy-fixture.js";
 
 async function fixture(t: test.TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-database-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const vault = createVault(root), snapshot = await vault.databases.create({ title: "Tasks" });
+  const vault = createVault(root), snapshot = await createLegacyDatabase(root, vault, { title: "Tasks" });
   const source = await vault.databases.updateSource(snapshot.dataSources[0].id, { properties: [
     ...snapshot.dataSources[0].properties,
     { id: "status", key: "status", name: "Status", type: "select", options: [{ id: "todo", name: "Todo" }, { id: "done", name: "Done" }] },
@@ -64,7 +65,7 @@ test("database host transaction recovery includes resources and unknown metadata
   const index = JSON.parse(await fs.readFile(metadataPath, "utf8")); index.future = { untouched: [1, 2] };
   await fs.writeFile(metadataPath, JSON.stringify(index));
   const before = await fs.readFile(metadataPath, "utf8");
-  const created = await vault.databases.create({ title: "Interrupted database" });
+  const created = await createLegacyDatabase(root, vault, { title: "Interrupted database" });
   const after = await fs.readFile(metadataPath, "utf8"), id = created.hostPage!.id;
   // Simulate stopping after publishing the empty Markdown but before metadata.
   await fs.writeFile(metadataPath, before);
@@ -345,4 +346,43 @@ test("incomplete import retry preserves local metadata edits and can resume unre
   await fs.writeFile(path.join(root, "pages", `${orphan.id}.md`), orphan.source);
   await vault.importBatch(orphanPlan);
   assert.equal((await vault.get(orphan.id)).body, "Untouched source");
+});
+
+test("recycled database hosts never reappear as legacy collections and restore keeps resources", async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-recycled-database-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const recycle = path.join(root, "test-recycle"); await fs.mkdir(recycle);
+  const vault = createVault(root, { recycleFile: file => fs.rename(file, path.join(recycle, path.basename(file))) });
+  for (const kind of ["database", "wiki"] as const) {
+    const created = await createLegacyDatabase(root, vault, { title: "Same deleted collection", kind });
+    const host = created.hostPage!, source = created.dataSources[0];
+    const row = await vault.databases.createRecord(source.id, { title: "Retained row" }, source.revision);
+    const trashed = await vault.update(host.id, { trashed: true }, host.revision);
+    const before = await fs.readFile(path.join(root, "metadata.json"), "utf8");
+    await vault.recycle(host.id, trashed.revision, { [host.id]: trashed.revision, [row.id]: row.revision });
+    const reopened = createVault(root);
+    assert.ok(!(await reopened.databases.list()).some(db => db.id === created.database.id));
+    assert.ok(!(await reopened.databases.listSources()).some(item => item.id === source.id));
+    assert.equal((await reopened.databases.get(created.database.id)).database.trashed, true);
+    await assert.rejects(reopened.databases.createRecord(source.id, { title: "Must not orphan" }, source.revision), status(422));
+    assert.equal(await fs.readFile(path.join(root, "metadata.json"), "utf8"), before);
+    // System Recycle Bin restoration plus the normal Trash restore reactivates the same resource identities.
+    for (const id of [host.id, row.id]) await fs.rename(path.join(recycle, `${id}.md`), path.join(root, "pages", `${id}.md`));
+    const restored = await reopened.get(host.id);
+    await reopened.update(host.id, { trashed: false }, restored.revision);
+    assert.ok((await reopened.databases.list()).some(db => db.id === created.database.id));
+    assert.equal((await reopened.databases.get(created.database.id)).pages[0].id, row.id);
+  }
+});
+
+test("a missing implicit host with retained page metadata is not a genuinely unhosted legacy database", async t => {
+  const { root, vault, snapshot } = await fixture(t);
+  const metadata = path.join(root, "metadata.json"), index = JSON.parse(await fs.readFile(metadata, "utf8"));
+  delete index.databases[snapshot.database.id].pageId;
+  await fs.writeFile(metadata, JSON.stringify(index));
+  await fs.rename(path.join(root, "pages", `${snapshot.hostPage!.id}.md`), path.join(root, "retained-host.md"));
+  const before = await fs.readFile(metadata, "utf8");
+  assert.ok(!(await vault.databases.list()).some(db => db.id === snapshot.database.id));
+  assert.equal((await vault.databases.get(snapshot.database.id)).database.trashed, true);
+  assert.equal(await fs.readFile(metadata, "utf8"), before);
 });

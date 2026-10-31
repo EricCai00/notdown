@@ -7,6 +7,7 @@ import { trashedPageIds } from "../features/pages/page-hierarchy.js";
 import { databasePropertyReadOnly, databasePropertyTypes, databaseViewTypes, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabaseResources, type DatabaseSnapshot, type DatabaseView } from "../features/databases/database-model.js";
 import { validFilter, groupable } from "../features/databases/database-query.js";
 import { isWikiDatabase } from "../features/databases/database-model.js";
+import { canonical } from "../sync/protocol.js";
 
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
 type PresentationInput = { title?: string; icon?: string; baseRevision: string; hostRevision?: string };
@@ -16,6 +17,7 @@ type Host = {
   serialize<T>(operation: () => Promise<T>): Promise<T>;
   scanPages(): Promise<Page[]>;
   readMetadata(): Promise<Index>;
+  resourceFiles(): { path: string; source: string }[];
   readOptional(filename: string): Promise<string | null>;
   atomicWrite(filename: string, data: string, expected?: string | null): Promise<void>;
   safeDirectory(directory: string): Promise<void>;
@@ -82,7 +84,7 @@ export function validateDatabaseValue(field: DatabaseProperty, value: unknown) {
   }
 }
 
-/** Invoked only through the vault lock; canonical resources live in metadata.json. */
+/** Invoked only through the vault lock; the host persists file resources or the legacy metadata format. */
 export function createDatabases(host: Host) {
   const { fs, path } = host.platform;
   const metadataPath = path.join(host.root, "metadata.json");
@@ -112,15 +114,17 @@ export function createDatabases(host: Host) {
   }
   async function save(ctx: Context) {
     const after = JSON.stringify({ ...ctx.index, databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, null, 2) + "\n";
-    const recoveryPath = await archive("database-transactions", { before: ctx.before, after });
+    const recoveryPath = await archive("database-transactions", { before: ctx.before, after, beforeFiles: host.resourceFiles() });
     try { await host.atomicWrite(metadataPath, after, ctx.before); }
     catch (error) { throw new VaultError(409, "Metadata changed during save; both versions remain recoverable.", { recoveryPath, cause: String(error) }); }
   }
-  function source(ctx: Context, id: string) {
+  function source(ctx: Context, id: string, allowUnavailable = false) {
     assertId(id); const found = ctx.dataSources[id];
     if (!found) throw new VaultError(404, "Data source not found");
+    const unavailable = found.unavailable || !!found.ownerDatabaseId && !ctx.databases[found.ownerDatabaseId];
+    if (unavailable && !allowUnavailable) throw new VaultError(422, "The linked data source is unavailable; restore its owning database");
     properties(found.properties);
-    return found;
+    return unavailable ? { ...found, unavailable: true } : found;
   }
   function databaseHost(ctx: Context, database: Database): Page | undefined {
     return ctx.pages.find(page => page.id === database.pageId && page.databaseId === database.id)
@@ -128,10 +132,16 @@ export function createDatabases(host: Host) {
   }
   function presentedDatabase(ctx: Context, database: Database, hidden = trashedPageIds(ctx.pages)): Database {
     const page = databaseHost(ctx, database);
-    return page ? { ...database, title: page.title, icon: page.icon, pageId: page.id, parent: page.parent, trashed: hidden.has(page.id) } : { ...database, parent: null };
+    if (page) return { ...database, title: page.title, icon: page.icon, pageId: page.id, parent: page.parent, trashed: hidden.has(page.id) };
+    // Recycle keeps metadata for recovery. A previously hosted collection whose
+    // Markdown is gone is not a legacy collection that never had a host.
+    const wasHosted = typeof database.pageId === "string" ||
+      Object.values(ctx.index.pages).some(entry => entry.databaseId === database.id);
+    return { ...database, parent: null, ...(wasHosted ? { trashed: true } : {}) };
   }
   function owningDatabase(ctx: Context, dataSource: DatabaseDataSource): Database | undefined {
     const candidates = Object.values(ctx.databases).filter(database => database.dataSourceIds.includes(dataSource.id));
+    if (dataSource.ownerDatabaseId) return ctx.databases[dataSource.ownerDatabaseId];
     return candidates.find(database => database.id === dataSource.ownerDatabaseId)
       ?? candidates.find(database => {
         const page = databaseHost(ctx, database);
@@ -153,10 +163,10 @@ export function createDatabases(host: Host) {
     assertId(id); const database = ctx.databases[id];
     if (!database) throw new VaultError(404, "Database not found");
     if (!Array.isArray(database.dataSourceIds) || !Array.isArray(database.viewIds)) throw new VaultError(422, "Invalid database references");
-    if (isWikiDatabase(database) && database.dataSourceIds.length !== 1) throw new VaultError(422, "A wiki has exactly one data source; original metadata was preserved");
+    if (isWikiDatabase(database) && database.dataSourceIds.filter(id => owningDatabase(ctx, source(ctx, id, true))?.id === database.id).length !== 1) throw new VaultError(422, "A wiki has exactly one owned data source; original metadata was preserved");
     const hidden = trashedPageIds(ctx.pages);
     const hostPage = databaseHost(ctx, database);
-    return { database: presentedDatabase(ctx, database, hidden), ...(hostPage ? { hostPage } : {}), dataSources: database.dataSourceIds.map(id => source(ctx, id)), views: database.viewIds.map(id => ctx.views[id]).filter(Boolean), pages: ctx.pages.filter(page => page.dataSourceId && database.dataSourceIds.includes(page.dataSourceId) && !hidden.has(page.id)) };
+    return { database: presentedDatabase(ctx, database, hidden), ...(hostPage ? { hostPage } : {}), dataSources: database.dataSourceIds.map(id => source(ctx, id, true)), views: database.viewIds.map(id => ctx.views[id]).filter(Boolean), pages: ctx.pages.filter(page => page.dataSourceId && database.dataSourceIds.includes(page.dataSourceId) && !hidden.has(page.id)) };
   }
   function sourceOwner(ctx: Context, item: DatabaseDataSource) {
     const owner = owningDatabase(ctx, item);
@@ -168,7 +178,7 @@ export function createDatabases(host: Host) {
     ctx.views[id] = stamped({ id, databaseId: database.id, dataSourceId: item.id, name: item.title, type: "table", rowOrder: ctx.pages.filter(page => page.dataSourceId === item.id && !hidden.has(page.id)).map(page => page.id), revision: "" });
     validateView(ctx.views[id], ctx);
     ctx.databases[database.id] = stamped({ ...ctx.databases[database.id], dataSourceIds: [...database.dataSourceIds, item.id], viewIds: [...database.viewIds, id] });
-    await save(ctx); return snapshot(ctx, database.id);
+    await save(ctx); return snapshot(await context(), database.id);
   }
   function validateView(view: DatabaseView, ctx: Context, previous?: DatabaseView) {
     label(view.name);
@@ -216,10 +226,14 @@ export function createDatabases(host: Host) {
       }
       const ctx = await context(), database = ctx.databases[id];
       if (!database) throw new VaultError(404, "Database not found");
-      if (database.revision !== input.baseRevision) return conflict(presentedDatabase(ctx, database), { ...presentedDatabase(ctx, database), ...patch }, input.baseRevision);
+      if (presentedDatabase(ctx, database).trashed) throw new VaultError(422, "Restore this database before editing it");
       const page = databaseHost(ctx, database);
+      if (page) base(input.hostRevision);
+      if (database.revision !== input.baseRevision) {
+        if (page && page.revision !== input.hostRevision) return host.conflictRecord(page.id, patch, input.hostRevision!);
+        return conflict(presentedDatabase(ctx, database), { ...presentedDatabase(ctx, database), ...patch }, input.baseRevision);
+      }
       if (page) {
-        base(input.hostRevision);
         if (page.revision !== input.hostRevision) return host.conflictRecord(page.id, patch, input.hostRevision!);
         const metadata = documentMetadata(page.body);
         if (metadata.form === "pandoc" && typeof metadata.values.title === "string" && !metadata.values.title.trim()) delete metadata.values.title;
@@ -230,7 +244,7 @@ export function createDatabases(host: Host) {
         return snapshot(await context(), id);
       }
       ctx.databases[id] = stamped({ ...database, ...patch });
-      await save(ctx); return snapshot(ctx, id);
+      await save(ctx); return snapshot(await context(), id);
   }
   return {
     turnIntoWiki: (pageId: string, baseRevision: string) => host.serialize(async () => {
@@ -250,9 +264,10 @@ export function createDatabases(host: Host) {
       const ctx = await context(), current = snapshot(ctx, id), database = current.database;
       if (database.revision !== input.baseRevision) return conflict(database, input, input.baseRevision);
       if (!isWikiDatabase(database) || !current.hostPage) throw new VaultError(422, "Only a wiki can be undone");
-      if (Object.values(ctx.databases).some(other => other.id !== id && other.dataSourceIds.some(sourceId => database.dataSourceIds.includes(sourceId)))) throw new VaultError(422, "This wiki source is used by another database; preserve those linked views before undoing the wiki");
+      const owned = database.dataSourceIds.filter(sourceId => owningDatabase(ctx, source(ctx, sourceId, true))?.id === id);
+      if (Object.values(ctx.databases).some(other => other.id !== id && other.dataSourceIds.some(sourceId => owned.includes(sourceId)))) throw new VaultError(422, "This wiki source is used by another database; preserve those linked views before undoing the wiki");
       delete ctx.databases[id];
-      for (const sourceId of database.dataSourceIds) delete ctx.dataSources[sourceId];
+      for (const sourceId of owned) delete ctx.dataSources[sourceId];
       for (const viewId of database.viewIds) delete ctx.views[viewId];
       return host.convertWikiPage(current.hostPage.id, input.hostRevision, ctx, ctx.before, false);
     }),
@@ -314,7 +329,7 @@ export function createDatabases(host: Host) {
       ctx.views[viewId] = stamped({ id: viewId, databaseId: id, dataSourceId: sourceId, name: wiki ? "All pages" : "Table", type: wiki ? "list" : "table", rowOrder: [], revision: "" });
       ctx.databases[id] = stamped({ id, pageId: id, ...(wiki ? { kind: "wiki" as const } : {}), title: input.title, dataSourceIds: [sourceId], viewIds: [viewId], revision: "" });
       const page = await host.createDatabasePage({ title: input.title, icon: wiki ? "book-open" : "table-2", parent, body: "" }, id, { databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, ctx.before, input.parentRevision);
-      ctx.pages.push(page); return snapshot(ctx, id);
+      ctx.pages.push(page); return snapshot(await context(), id);
     }),
     updateSource: (id: string, input: Partial<DatabaseDataSource>, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); const ctx = await context(), current = source(ctx, id);
@@ -339,23 +354,24 @@ export function createDatabases(host: Host) {
       if (removed.length && Object.values(ctx.views).some(view => view.dataSourceId === id && [view.layout?.groupBy, view.layout?.datePropertyId, view.layout?.frozenPropertyId, ...(view.layout?.wrapPropertyIds ?? []), ...(view.propertyIds ?? []), ...(view.filters ?? []).map(item => object(item) ? item.propertyId : null), ...(view.sorts ?? []).map(item => object(item) ? item.propertyId : null)].some(fieldId => removed.includes(fieldId!)))) throw new VaultError(422, "Remove references from views before deleting a field");
       ctx.dataSources[id] = stamped(proposed);
       for (const view of Object.values(ctx.views)) if (view.dataSourceId === id) validateView(view, ctx, view);
-      await save(ctx); return ctx.dataSources[id];
+      await save(ctx); return (await context()).dataSources[id];
     }),
     updateView: (id: string, input: Partial<DatabaseView>, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); assertId(id); const ctx = await context(), current = ctx.views[id];
       if (!current) throw new VaultError(404, "View not found");
       const proposed = { ...current, ...input, id, databaseId: current.databaseId, dataSourceId: current.dataSourceId };
       if (current.revision !== baseRevision) return conflict(current, proposed, baseRevision);
-      validateView(proposed, ctx, current); ctx.views[id] = stamped(proposed); await save(ctx); return ctx.views[id];
+      validateView(proposed, ctx, current); ctx.views[id] = stamped(proposed); await save(ctx); return (await context()).views[id];
     }),
     createView: (databaseId: string, input: Partial<DatabaseView>, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); const ctx = await context(), database = snapshot(ctx, databaseId).database;
+      if (database.trashed) throw new VaultError(422, "Restore this database before adding views");
       if (database.revision !== baseRevision) return conflict(database, input, baseRevision);
       const id = randomUUID(), dataSourceId = input.dataSourceId ?? database.dataSourceIds[0];
       if (!database.dataSourceIds.includes(dataSourceId)) throw new VaultError(400, "The view data source must belong to this database");
       const view = stamped({ rowOrder: [], ...input, id, databaseId, dataSourceId, name: input.name ?? "Table", type: input.type ?? "table", revision: "" } as DatabaseView);
       validateView(view, ctx); ctx.views[id] = view; ctx.databases[databaseId] = stamped({ ...ctx.databases[databaseId], viewIds: [...database.viewIds, id] });
-      await save(ctx); return snapshot(ctx, databaseId);
+      await save(ctx); return snapshot(await context(), databaseId);
     }),
     createRecord: (sourceId: string, input: { title?: string; properties?: Record<string, unknown> }, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); const ctx = await context(), current = source(ctx, sourceId);
@@ -369,7 +385,7 @@ export function createDatabases(host: Host) {
       }
       const title = input.title ?? "Untitled"; label(title);
       const owner = owningDatabase(ctx, current), parent = owner ? databaseHost(ctx, owner) : undefined;
-      if (parent && trashedPageIds(ctx.pages).has(parent.id)) throw new VaultError(422, "Restore this database before adding records");
+      if (owner && presentedDatabase(ctx, owner).trashed) throw new VaultError(422, "Restore this database before adding records");
       return host.createRecord({ title, properties: values, body: "", parent: parent?.id ?? null }, sourceId);
     }),
     updateCell: (sourceId: string, pageId: string, input: { baseRevision: string; schemaRevision: string; propertyId: string; value: unknown }) => host.serialize(async () => {
@@ -428,7 +444,17 @@ export function createDatabases(host: Host) {
           assertId(id);
           if (!object(value) || value.id !== id) throw new VaultError(400, "Imported database identity mismatch");
           const proposed = stamped({ ...value, revision: "" });
-          if (ctx[key][id] && ctx[key][id].revision !== proposed.revision) return conflict(ctx[key][id], proposed, "import");
+          const existing = ctx[key][id];
+          if (existing) {
+            const comparable = (item: Record<string, unknown>) => {
+              const ignored = ["revision", ...(key === "views" ? ["sourceDatabaseId", "linked"] : []), ...(key === "databases" ? ["storage", "ownedDataSourceIds", "pageMetadata", "legacyPageMetadata", "icon", "parent", "properties", "updated", "trashed", "favorite", "fullWidth", "sidebarOrder"] : [])];
+              const result = Object.fromEntries(Object.entries(item).filter(([field]) => !ignored.includes(field)));
+              if (key === "databases") { result.kind ??= "database"; if (result.kind === "wiki" || result.notionWiki === true) result.homePageId ??= result.pageId ?? result.id; }
+              return result;
+            };
+            if (canonical(comparable(existing)) !== canonical(comparable(proposed))) return conflict(existing, proposed, "import");
+            continue;
+          }
           (ctx[key] as Record<string, unknown>)[id] = proposed;
         }
       }

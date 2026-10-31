@@ -4,8 +4,9 @@ import { isWikiDatabase, type Database } from "../features/databases/database-mo
 /** Membership follows the page tree; database contents and a recovered Home stay independent. */
 export function reconcileWikiMembership(index: { pages: Record<string, Record<string, unknown>>; [key: string]: unknown }, pages: readonly Page[]) {
   const databases = Object.values((index.databases ?? {}) as Record<string, Database>);
+  const ownedSources = (database: Database) => Array.isArray(database.ownedDataSourceIds) ? database.ownedDataSourceIds as string[] : database.dataSourceIds;
   const hosts = new Map(databases.map(database => [database.pageId ?? database.id, database]));
-  const wikiSources = new Set(databases.filter(isWikiDatabase).flatMap(database => database.dataSourceIds));
+  const wikiSources = new Set(databases.filter(isWikiDatabase).flatMap(ownedSources));
   const byId = new Map(pages.map(page => [page.id, page]));
   const managedIds = new Set(Object.entries(index.pages).filter(([, entry]) => typeof entry.wikiMembership === "string").map(([id]) => id));
   for (const page of pages) {
@@ -25,8 +26,8 @@ export function reconcileWikiMembership(index: { pages: Record<string, Record<st
         parent = ancestor.parent;
       }
     }
-    if (owner && owner.dataSourceIds.length === 1) {
-      entry.dataSourceId = owner.dataSourceIds[0]; entry.wikiMembership = owner.id;
+    if (owner && ownedSources(owner).length === 1) {
+      entry.dataSourceId = ownedSources(owner)[0]; entry.wikiMembership = owner.id;
     } else if (managed) { delete entry.dataSourceId; delete entry.wikiMembership; }
   }
 }

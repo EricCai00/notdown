@@ -1,3 +1,6 @@
+import { mountWikiViewPicker } from "../features/databases/wiki-view-picker";
+import { createDatabaseView } from "../features/databases/database-create-view";
+import { openViewMenu } from "../features/databases/database-menus";
 import { commentDialog } from "../editor/comment-dialog";
 import { lastExecutableLanguage, rememberExecutableLanguage } from "../editor/executable-language";
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
@@ -101,6 +104,9 @@ let view: View = "document";
 let libraryView: LibraryView = "gallery";
 let library = false;
 let databaseWorkspace: DatabaseWorkspace | undefined;
+let wikiHomeSnapshot: DatabaseSnapshot | undefined;
+let wikiPickerCleanup: (() => void) | undefined;
+let wikiHomeMenu: import("../features/databases/database-popover").DatabasePopover | undefined;
 let databaseRoute: { kind: "database"; id?: string; viewId?: string } | undefined;
 let databaseSchemaRevision: string | undefined;
 let databases: Database[] = [];
@@ -336,6 +342,7 @@ async function save(): Promise<boolean> {
           current.title === draft.title &&
           current.parent === draft.parent &&
           current.icon === draft.icon &&
+          current.fullWidth === draft.fullWidth &&
           current.favorite === draft.favorite &&
           current.trashed === draft.trashed &&
           current.sidebarOrder === draft.sidebarOrder &&
@@ -351,7 +358,7 @@ async function save(): Promise<boolean> {
             else { destroyEditor(); renderDocument(); }
           }
           const title = document.querySelector<HTMLTextAreaElement>("#page-title");
-          if (title) title.value = saved.title;
+          if (title) title.value = wikiForPage(current) && wikiHomeSnapshot?.hostPage && wikiHomeSnapshot.hostPage.id !== current.id ? wikiHomeSnapshot.hostPage.title : saved.title;
           renderPageDecoration();
         }
         dirty = !unchanged;
@@ -543,6 +550,7 @@ function captureEditor() {
   }
 }
 function destroyEditor() {
+  wikiPickerCleanup?.(); wikiPickerCleanup = undefined; wikiHomeMenu?.destroy(); wikiHomeMenu = undefined;
   databaseWorkspace?.destroy();
   databaseWorkspace = undefined;
   databaseRoute = undefined;
@@ -604,13 +612,18 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   // The list already contains full, fresh disk snapshots. A second GET would
   // scan the whole vault again. Clone so edits cannot mutate the sidebar snapshot.
   const page = activePage ? structuredClone(activePage) : await api<Page>(`/pages/${encodeURIComponent(id)}`);
+  if (page.databaseProxy && page.databaseId && isWikiDatabase(databases.find(database => database.id === page.databaseId))) return loadDatabases(page.databaseId, isCurrent, databases.find(database => database.id === page.databaseId)?.viewIds[0]);
   if (page.databaseId && !allowTrashed && !isWikiDatabase(databases.find(database => database.id === page.databaseId))) return loadDatabases(page.databaseId, isCurrent);
+  if (!isCurrent() || !(await save()) || !isCurrent()) return false;
+  const wikiContainer = databases.find(database => isWikiDatabase(database) && (database.pageId === page.id || database.homePageId === page.id));
+  const homeSnapshot = wikiContainer ? await api<DatabaseSnapshot>(`/databases/${wikiContainer.id}`) : undefined;
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   // Input may have arrived while fetching the destination. Save it before
   // destroying the outgoing DOM; never pair it with the destination revision.
   pages = activePages;
   destroyEditor();
   current = page;
+  wikiHomeSnapshot = homeSnapshot;
   library = false;
   search = "";
   const draftId = [id, requestedId, ...(page.legacyIds ?? [])].find(candidate => readDraft(candidate));
@@ -626,6 +639,7 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
           recovered.title !== page.title ||
           recovered.parent !== page.parent ||
           recovered.icon !== page.icon ||
+          recovered.fullWidth !== page.fullWidth ||
           recovered.favorite !== page.favorite ||
           recovered.trashed !== page.trashed ||
           recovered.sidebarOrder !== page.sidebarOrder ||
@@ -670,16 +684,34 @@ function refreshBreadcrumbs() {
   }
   const header = document.querySelector("#breadcrumb");
   if (!header) return;
-  if (databaseRoute) { header.innerHTML = `${icon("table-2")}<strong>Databases</strong>`; return; }
+  if (databaseRoute) {
+    const database = databases.find(item => item.id === databaseRoute?.id && isWikiDatabase(item));
+    const host = database && pages.find(page => page.id === database.pageId);
+    if (host) header.replaceChildren(renderBreadcrumb(pages, host));
+    else header.innerHTML = `${icon("table-2")}<strong>Databases</strong>`;
+    return;
+  }
   if (!current || library) {
     header.innerHTML = `${icon("library")}<strong>Vault</strong>`;
     return;
   }
-  header.replaceChildren(renderBreadcrumb(pages, current));
+  const container = wikiPresentationPage(current);
+  header.replaceChildren(renderBreadcrumb(pages, container));
   // Refresh only non-editable navigation DOM; leave editor input and undo history intact.
   document.querySelectorAll("#document-content .pm-object-breadcrumb .pm-breadcrumb").forEach(nav => {
     nav.replaceChildren(...renderBreadcrumb(pages, current!).childNodes);
   });
+}
+function wikiForPage(page: Page) {
+  return databases.find(database => isWikiDatabase(database) && (database.pageId === page.id || database.homePageId === page.id));
+}
+function wikiPresentationPage(page: Page): Page {
+  const wiki = wikiForPage(page), host = wiki && wikiHomeSnapshot?.database.id === wiki.id ? wikiHomeSnapshot.hostPage : undefined;
+  return host && host.id !== page.id ? host : page;
+}
+function applyPageWidth() {
+  if (!current) return;
+  document.querySelector(".document-wrap")?.classList.toggle("full-width", !!wikiForPage(current) || current.fullWidth === true);
 }
 function renderDocument() {
   if (!current) return;
@@ -694,13 +726,14 @@ function renderDocument() {
     pages = pages.map(page => page.id === current!.id ? { ...current! } : page);
     markDirty();
   }
-  const p = current;
+  const p = current, wiki = wikiForPage(p);
+  const presentation = wikiPresentationPage(p);
   refreshBreadcrumbs();
   renderPageOptions();
   document.querySelector("#main")!.innerHTML =
-    `<div class="document-wrap ${view === "mindmap" ? "wide" : ""}">
+    `<div class="document-wrap ${wiki ? "wiki-page wiki-shell" : ""} ${view === "mindmap" ? "wide" : ""}">
     <div id="page-cover-region" class="page-cover-region"></div>
-    <article class="document"><header class="page-header"><div id="page-decoration"></div><textarea id="page-title" class="page-title" rows="1" aria-label="Page title" placeholder="New page">${e(p.title)}</textarea></header>
+    <article class="document"><header class="page-header"><div id="page-decoration"></div><textarea id="page-title" class="page-title" rows="1" aria-label="Page title" placeholder="New page" ${presentation.id !== p.id ? 'readonly title="Rename this wiki from its collection view"' : ""}>${e(presentation.title)}</textarea></header>
     <details class="page-properties"><summary>Properties${icon("chevron-down")}</summary><div class="properties"><div class="property-row"><span>${icon("folder-tree")}Parent page</span><select id="parent-select" aria-label="Parent page"><option value="">Vault root</option>${pages
       .filter((x) => x.id !== p.id)
       .map(
@@ -718,12 +751,32 @@ function renderDocument() {
         .join("") || `<span class="muted">Add page properties</span>`
     }</button></div><div id="page-metadata"></div></div></details>
     <div id="database-page-properties"></div><div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents"></aside></div>`;
-  const wiki = databases.find(database => isWikiDatabase(database) && (database.pageId === p.id || database.homePageId === p.id));
-  if (wiki) {
-    const nav = document.createElement("nav"); nav.className = "database-view-tabs wiki-home-tabs"; nav.setAttribute("aria-label", "Wiki views");
-    nav.innerHTML = `<button type="button" aria-current="page">${icon("house")}Home</button><button type="button" data-open-database="${e(wiki.id)}" data-database-view="${e(wiki.viewIds[0])}">${icon("list")}All pages</button>`;
-    document.querySelector(".page-header")!.after(nav);
+  if (wiki && wikiHomeSnapshot?.database.id === wiki.id) {
+    const snapshot = wikiHomeSnapshot;
+    const nav = document.createElement("nav"); nav.className = "wiki-home-toolbar"; nav.setAttribute("aria-label", "Wiki views");
+    const picker = document.createElement("div"); picker.className = "wiki-picker-mount"; nav.append(picker);
+    wikiPickerCleanup = mountWikiViewPicker(picker, snapshot, "home", {
+      select: async id => { if (id !== "home") await navigation?.navigate({ kind: "database", id: wiki.id, viewId: id }); },
+      create: async anchor => {
+        if (!await save()) return;
+        const view: DatabaseView = { id: crypto.randomUUID(), databaseId: wiki.id, dataSourceId: snapshot.dataSources[0].id, name: "", type: "table", layout: {}, revision: "" };
+        wikiHomeMenu = openViewMenu(anchor, { sources: snapshot.dataSources, view, create: true, wiki: true,
+          save: async draft => { if (!await save()) throw new Error("Save the Home draft before creating a view."); const next = await createDatabaseView(snapshot, draft, snapshot.views[0]); document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: next })); if (current?.id === p.id && wikiForPage(current)?.id === wiki.id) await navigation?.navigate({ kind: "database", id: wiki.id, viewId: next.database.viewIds.find(id => !snapshot.database.viewIds.includes(id)) }); }, editProperty: () => {}, addProperty: () => {},
+        });
+      },
+      edit: async id => { if (id === "home") document.querySelector<HTMLDetailsElement>("#page-options")!.open = true; else if (await navigation?.navigate({ kind: "database", id: wiki.id, viewId: id })) databaseWorkspace?.showViewOptions(); },
+      report,
+    });
+    const search = document.createElement("button"); search.type = "button"; search.className = "wiki-home-search-button"; search.innerHTML = icon("search") + "Search"; search.setAttribute("aria-label", "Search wiki"); search.setAttribute("aria-expanded", "false"); nav.append(search);
+    const results = document.createElement("div"); results.className = "wiki-home-search"; results.hidden = true;
+    const input = document.createElement("input"); input.type = "search"; input.placeholder = "Search wiki pages…"; input.setAttribute("aria-label", "Search wiki pages");
+    const list = document.createElement("div"); results.append(input, list);
+    input.oninput = () => { const query = input.value.trim().toLocaleLowerCase(); list.replaceChildren(); if (!query) return; for (const page of snapshot.pages.filter(page => (page.title + " " + page.body).toLocaleLowerCase().includes(query))) { const button = document.createElement("button"); button.textContent = page.title; button.onclick = () => void openPage(page.id); list.append(button); } if (!list.childNodes.length) list.textContent = "No matching pages."; };
+    search.onclick = () => { results.hidden = !results.hidden; search.setAttribute("aria-expanded", String(!results.hidden)); if (!results.hidden) input.focus(); };
+    input.onkeydown = event => { if (event.key === "Escape") { results.hidden = true; search.setAttribute("aria-expanded", "false"); search.focus(); } };
+    document.querySelector(".page-header")!.after(nav, results);
   }
+  applyPageWidth();
   renderContent();
   renderPageDecoration();
   void renderDatabasePageProperties(p);
@@ -738,9 +791,11 @@ function renderPageDecoration() {
   if (!current) return;
   coverRepositionCleanup?.();
   coverRepositionCleanup = undefined;
-  const p = current, host = document.querySelector("#page-decoration"), coverHost = document.querySelector("#page-cover-region");
+  const wiki = wikiForPage(current);
+  const p = wikiPresentationPage(current);
+  const host = document.querySelector("#page-decoration"), coverHost = document.querySelector("#page-cover-region");
   if (!host || !coverHost) return;
-  const hasIcon = !!p.icon && p.icon !== "file-text";
+  const hasIcon = !!wiki || (!!p.icon && p.icon !== "file-text");
   const cover = typeof p.properties?.cover === "string" ? p.properties.cover : "";
   const hasCover = !!cover && isPageCoverPath(cover);
   const rawPosition = p.properties?.coverPosition;
@@ -749,6 +804,7 @@ function renderPageDecoration() {
   coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(vaultAssetUrl(cover))}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition">Reposition</button><a href="${e(vaultAssetUrl(cover))}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover">${icon("download")}</a></div>` : "";
   const actions = `${hasIcon ? "" : `<button data-action="page-icon">${icon("smile")}Add icon</button>`}${hasCover ? "" : `<button data-action="page-cover">${icon("image")}Add cover</button>`}`;
   host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon">${pageIcon(p)}</button>` : ""}${actions ? `<div class="page-decoration-actions">${actions}</div>` : ""}`;
+  if (p.id !== current.id) { host.querySelectorAll("button").forEach(button => { button.disabled = true; }); coverHost.querySelector(".page-cover-toolbar")?.remove(); }
   refreshIcons();
 }
 function pageOptions() {
@@ -761,7 +817,7 @@ function pageOptions() {
     ["source", "code-xml", "Markdown source"],
     ["split", "columns-2", "Source and page"],
   ];
-  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(current, "data-current-page-action")}<hr>` : ""}<small>View</small>${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}Page history</button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(wikiForPage(current) ? { ...wikiPresentationPage(current), wiki: true } : current, "data-current-page-action")}<hr>` : ""}<small>View</small>${current && !wikiForPage(current) ? `<button type="button" role="menuitemcheckbox" aria-checked="${current.fullWidth === true}" data-action="page-full-width">${icon("columns-2")}<span>Full width</span>${current.fullWidth ? icon("check") : ""}</button>` : ""}${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}Page history</button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
 }
 function renderPageOptions() {
   document.querySelector("#page-options")!.innerHTML = pageOptions();
@@ -1224,7 +1280,7 @@ async function addDatabaseRecord(id: string) {
   if (!(await navigation?.navigate({ kind: "database", id }))) return;
   document.querySelector<HTMLButtonElement>("#main [data-db-row]")?.click();
 }
-type PageMetadataPatch = Partial<Pick<Page, "title" | "parent" | "favorite" | "trashed" | "sidebarOrder">>;
+type PageMetadataPatch = Partial<Pick<Page, "title" | "parent" | "fullWidth" | "favorite" | "trashed" | "sidebarOrder">>;
 
 async function deleteChildPages(ids: string[], isCurrent: () => boolean): Promise<boolean> {
   if (pageActionBusy || !isCurrent()) return false;
@@ -1283,8 +1339,18 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
   if (!(await save()) || !isCurrent()) return false;
   const loadedPages = await refreshWorkspacePages();
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
+  if (id && databaseApiAvailable && !databases.some(database => database.id === id)) {
+    toast("This database is in Trash or no longer exists.");
+    id = undefined; viewId = undefined;
+  }
   const wiki = databases.find(database => database.id === id && isWikiDatabase(database));
-  if (wiki && !viewId) return loadPage(typeof wiki.homePageId === "string" ? wiki.homePageId : wiki.pageId ?? wiki.id, false, isCurrent);
+  if (wiki && !viewId && loadedPages.find(page => page.id === (wiki.homePageId ?? wiki.pageId ?? wiki.id))?.databaseProxy) viewId = wiki.viewIds[0];
+  if (wiki && !viewId) {
+    // Older imports kept Home as an independent child. A trashed/missing Home
+    // must not make the still-active wiki host impossible to open or manage.
+    const home = loadedPages.find(page => page.id === wiki.homePageId);
+    return loadPage(home?.id ?? wiki.pageId ?? wiki.id, false, isCurrent);
+  }
   if (!databaseApiAvailable) {
     closeModal(); closePageContextMenu(); destroyEditor();
     current = null; library = false; dirty = false; pages = loadedPages;
@@ -1399,11 +1465,18 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
         renderDocument();
       }
       // The editor still owns its body and undo history; only metadata changed.
-      Object.assign(current, { title: saved.title, parent: saved.parent, favorite: saved.favorite, trashed: saved.trashed, sidebarOrder: saved.sidebarOrder, revision: saved.revision, updated: saved.updated });
+      Object.assign(current, { title: saved.title, parent: saved.parent, fullWidth: saved.fullWidth, favorite: saved.favorite, trashed: saved.trashed, sidebarOrder: saved.sidebarOrder, revision: saved.revision, updated: saved.updated });
       const title = document.querySelector<HTMLTextAreaElement>("#page-title");
       if (title && patch.title !== undefined) title.value = saved.title;
       const parent = document.querySelector<HTMLSelectElement>("#parent-select");
       if (parent) parent.value = saved.parent ?? "";
+    }
+    if (wikiHomeSnapshot?.hostPage?.id === saved.id) {
+      wikiHomeSnapshot.hostPage = saved;
+      if (current && current.id !== saved.id && wikiForPage(current)?.id === wikiHomeSnapshot.database.id) {
+        const title = document.querySelector<HTMLTextAreaElement>("#page-title"); if (title) title.value = saved.title;
+        renderPageDecoration();
+      }
     }
     pages = await refreshWorkspacePages();
     const related = saved.relatedPages?.find(page => page.id === current?.id);
@@ -1413,7 +1486,8 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
       else { destroyEditor(); renderDocument(); }
     }
     closeModal();
-    if (current && !pages.some((item) => item.id === current!.id)) {
+    if ((current && !pages.some((item) => item.id === current!.id)) ||
+        (databaseRoute?.id && !databases.some(database => database.id === databaseRoute!.id))) {
       destroyEditor();
       current = null;
       dirty = false;
@@ -1422,6 +1496,7 @@ async function mutateSidebarPage(page: Page, patch: PageMetadataPatch | "duplica
       await openPage(saved.id);
     } else if (library) renderLibrary();
     else if (current) renderRelations();
+    applyPageWidth();
     renderSidebar();
     renderPageOptions();
     refreshIcons();
@@ -1578,7 +1653,8 @@ async function recycleTrashPage(page: Page, all: Page[]) {
     });
     pages = await refreshWorkspacePages();
     renderSidebar();
-    if (current && selected.has(current.id)) {
+    if ((current && selected.has(current.id)) ||
+        (databaseRoute?.id && !databases.some(database => database.id === databaseRoute!.id))) {
       destroyEditor();
       current = null;
       dirty = false;
@@ -1911,6 +1987,7 @@ async function resolveConflict() {
         parent: draft.parent,
         properties: draft.properties,
         icon: draft.icon,
+        fullWidth: draft.fullWidth,
         favorite: draft.favorite,
         trashed: draft.trashed,
         sidebarOrder: draft.sidebarOrder,
@@ -2736,9 +2813,13 @@ document.addEventListener("click", (event) => {
       });
       return;
     }
+    if (actionEl.dataset.action === "page-full-width" && current && !library) {
+      if (!wikiForPage(current)) await mutateSidebarPage(current, { fullWidth: !current.fullWidth });
+      return;
+    }
     if (actionEl.dataset.currentPageAction && current && !library) {
       captureEditor();
-      await handlePageAction(structuredClone(current), actionEl.dataset.currentPageAction as PageAction);
+      await handlePageAction(structuredClone(wikiForPage(current) ? { ...wikiPresentationPage(current), wiki: true } : current), actionEl.dataset.currentPageAction as PageAction);
       return;
     }
     if (actionEl.dataset.pageMenu) {

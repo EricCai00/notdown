@@ -41,3 +41,12 @@ test("removing a database icon keeps the empty stored value for the common page 
   assert.equal(tree.pages.find(item => item.id === "host")!.icon, "");
   assert.equal(tree.pages.find(item => item.id === "legacy")!.icon, "");
 });
+
+test("missing declared hosts and trashed resources never become virtual sidebar databases", () => {
+  const legacy = db("legacy");
+  const deleted = db("deleted", { pageId: "deleted" });
+  const trashed = db("trashed", { trashed: true });
+  const tree = databaseTree([], [deleted, trashed, legacy]);
+  assert.deepEqual(tree.pages.map(page => page.id), ["legacy"]);
+  assert.deepEqual([...tree.virtualIds], ["legacy"]);
+});

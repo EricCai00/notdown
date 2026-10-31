@@ -2,7 +2,7 @@ import { randomUUID } from "./crypto";
 import type { VaultPlatform } from "./platform";
 import { VaultError } from "./vault";
 
-type FileChange = { path: string; before: string | null; after: string };
+type FileChange = { path: string; before: string | null; after: string | null };
 type Storage = {
   platform: VaultPlatform;
   root: string;
@@ -15,14 +15,13 @@ export function createPageBatch(storage: Storage) {
   const { fs, path } = storage.platform;
   const directory = path.join(storage.root, ".history");
   function target(relative: string) {
-    if (typeof relative !== "string" || relative !== "metadata.json" &&
-        (!relative.startsWith("pages/") || !relative.endsWith(".md") || /[\\/\0]/.test(relative.slice(6))))
-      throw new VaultError(422, "Invalid page batch path; recovery file preserved");
+    if (typeof relative !== "string" || relative !== "metadata.json" && !/^(?:pages\/[^/\\\0]+\.md|databases\/[a-zA-Z0-9_-]+\.json)$/.test(relative))
+      throw new VaultError(422, "Invalid vault batch path; recovery file preserved");
     return path.join(storage.root, ...relative.split("/"));
   }
   async function apply(filename: string, files: FileChange[]) {
     if (!files.length || new Set(files.map(file => file.path)).size !== files.length || files.some(file =>
-      typeof file.path !== "string" || !(file.before === null || typeof file.before === "string") || typeof file.after !== "string"))
+      typeof file.path !== "string" || !(file.before === null || typeof file.before === "string") || !(file.after === null || typeof file.after === "string")))
       throw new VaultError(422, "Invalid page batch; recovery file preserved");
     // Check every participant before writing any of them. Never retry over an external edit.
     for (const file of files) {
@@ -32,7 +31,17 @@ export function createPageBatch(storage: Storage) {
     }
     for (const file of files) {
       const destination = target(file.path), source = await storage.readOptional(destination);
-      if (source !== file.after) await storage.atomicWrite(destination, file.after, file.before);
+      if (source !== file.after) {
+        if (file.after !== null) await storage.atomicWrite(destination, file.after, file.before);
+        else {
+          const saved = path.join(directory, "deleted-" + randomUUID() + "-" + path.basename(destination));
+          await fs.rename(destination, saved);
+          if (await storage.readOptional(saved) !== file.before) {
+            try { await storage.platform.replaceFile(saved, destination, null); } catch { /* Both copies remain recoverable. */ }
+            throw new VaultError(503, "A file changed during archival; the recovery journal and both versions were preserved");
+          }
+        }
+      }
     }
     await fs.rm(filename);
   }

@@ -70,7 +70,7 @@ Android 初版连接电脑已有的云端知识库，首次打开需要配置同
 
 ## 你的文件
 
-每个知识库使用独立目录，正文保存在 `pages/*.md`，附件在 `assets/`，通用页面属性在 `metadata.json`。文档内的 YAML 或 Pandoc title block 可覆盖这些默认属性；Source 视图显示完整 Markdown 文件。
+每个知识库使用独立目录，正文保存在 `pages/*.md`，每个数据库保存在单独的 `databases/*.json`，附件在 `assets/`，通用页面属性在 `metadata.json`。文档内的 YAML 或 Pandoc title block 可覆盖页面默认属性；Source 视图显示完整 Markdown 文件。
 
 同一知识库只使用一个运行中的服务。备份时复制整个知识库文件夹，以包含附件和元数据。存储、冲突恢复及显式迁移见[知识库元数据说明](docs/features/VAULT-METADATA.md)。
 

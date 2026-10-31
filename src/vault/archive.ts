@@ -31,6 +31,6 @@ export function validateArchive(files: VaultArchiveFile[]) {
     const parts = name.split("/");
     for (let i = 1; i < parts.length; i++) if (seen.has(parts.slice(0, i).join("/"))) throw new VaultError(400, "Backup file conflicts with a directory");
   }
-  if (!seen.has("metadata.json") && ![...seen].some(name => name.startsWith("pages/") && name.endsWith(".md")))
-    throw new VaultError(400, "Choose a Notdown vault ZIP containing pages/ or metadata.json");
+  if (!seen.has("metadata.json") && ![...seen].some(name => (name.startsWith("pages/") && name.endsWith(".md") || name.startsWith("databases/") && name.endsWith(".json"))))
+    throw new VaultError(400, "Choose a Notdown vault ZIP containing pages/, databases/, or metadata.json");
 }

@@ -26,7 +26,7 @@
 
 1. 安装并启动 Notdown。首次欢迎页选择 **Create new vault**，在系统目录选择器中选择或新建空文件夹。
 2. 已有 Notdown 知识库使用 **Open existing vault**；目录必须包含 `pages/`。欢迎页记录最近十个目录，失效目录会报错，不会自动新建替代库。
-3. 点击 **Private pages** 旁的 **+** 或 Vault 页面的 **New page** 开始写作。正文写入 `pages/*.md`，通用页面属性写入 `metadata.json`；文档内 YAML／Pandoc title block 可覆盖默认属性，详见[知识库元数据](VAULT-METADATA.md)。新建桌面知识库不自动填充演示内容。
+3. 点击 **Private pages** 旁的 **+** 或 Vault 页面的 **New page** 开始写作。正文写入 `pages/*.md`，通用页面属性写入 `metadata.json`；数据库各自保存在 `databases/*.json`，Wiki Home 保留真实 Markdown。文档内 YAML／Pandoc title block 可覆盖页面默认属性，详见[知识库元数据](VAULT-METADATA.md)。新建桌面知识库不自动填充演示内容；旧数据库不会因安装升级而自动迁移。
 4. 要带入已有笔记，点击侧栏 **Import → Import Markdown folder**，选择 GFM、Obsidian 或 Notdown 作为缺省方言，再选择源目录。同一 **Import** 入口也提供 **Import from Notion API**。
 5. 预览页面、附件、无效文件及链接提示。存在无效文件时必须明确选择跳过，才能提交可读文件。点击 **Import copies** 前会保存当前页，冲突会阻止导入。
 

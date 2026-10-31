@@ -50,6 +50,7 @@ test("source relationships are searchable and link to their exact database views
   const source = await (await request.put(`/api/data-sources/${original.id}`, { data: { baseRevision: original.revision, title: "Roadmap" } })).json();
   const linked = await (await request.post(`/api/databases/${target.database.id}/data-sources/link`, { data: { baseRevision: target.database.revision, dataSourceId: source.id, sourceRevision: source.revision } })).json();
   await page.goto(`/#database/${target.database.id}`);
+  await expect(page.locator(".database-view-link")).toHaveText("Link");
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Manage data sources", exact: true }).click();
   const manager = dialog(page, "Data sources");

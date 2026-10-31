@@ -282,7 +282,7 @@ function renderRecordProperties() {
 }
 async function openDatabases(id?: string, showPages = false): Promise<void> {
   // Resolve before destroying the current editor so a failed read keeps its draft visible.
-  if (id) { const snapshot = await vault.databases.get(id); if (isWikiDatabase(snapshot.database) && !showPages) return openPage(typeof snapshot.database.homePageId === "string" ? snapshot.database.homePageId : snapshot.database.pageId ?? id); }
+  if (id) { const snapshot = await vault.databases.get(id); if (isWikiDatabase(snapshot.database) && !showPages && !snapshot.hostPage?.databaseProxy) return openPage(typeof snapshot.database.homePageId === "string" ? snapshot.database.homePageId : snapshot.database.pageId ?? id); }
   editingTools.reset(); workspace?.destroy(); workspace = undefined; session = undefined; recordSource = undefined;
   databaseWorkspace?.destroy(); databaseRoute = { id };
   mount.hidden = true; recordProperties.hidden = true; databaseMount.hidden = false;

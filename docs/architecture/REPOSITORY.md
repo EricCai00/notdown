@@ -58,6 +58,8 @@ Android 与桌面共用本仓库和 npm 依赖，通过同一 Vite 配置的 `mo
 
 `vault/` 是用户数据，不参与源码整理、测试或清理。未知字段、原文与 CAS 冲突保留规则仍按 [AGENTS.md](../../AGENTS.md) 和 [格式契约](../FORMAT.md) 执行。
 
+`src/vault/database-files.ts` 管理 `databases/*.json` 的文件契约、归属与兼容投影；`databases.ts` 管理数据库操作与资源版本。`page-batch.ts` 负责 Markdown、数据库和 metadata 的联合 CAS／恢复，不在 UI 或 HTTP 路由直接拼写规范文件。旧格式迁移入口为 `scripts/migrate-database-files.ts`，规则见[数据库存储](../features/DATABASES.md#独立数据库文件)。
+
 ## 文档
 
 根目录 `README.md` 为英文主入口，`README.zh-CN.md` 为对应中文版；两者面向新用户，只保留简短的产品介绍、主要功能、上手步骤、关键边界和文档链接。维护规则见 [AGENTS.md](../../AGENTS.md#readme-维护规则)。普通修复不追加到首页，详细操作、实现和验收内容进入对应专题，运行配置与测试命令集中在[开发指南](DEVELOPMENT.md)。当前正文契约保留在 `docs/FORMAT.md`。设计放 `architecture/`，格式和接口参考放 `reference/`，功能说明放 `features/`，审计放 `audits/`，历史验收放 `verification/`，已被替代的文档快照放 `archive/`。新增文档同时更新[文档导航](../README.md)，历史结果注明日期与范围。

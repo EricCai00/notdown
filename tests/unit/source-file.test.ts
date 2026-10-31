@@ -56,6 +56,6 @@ test("source-file API resolves renamed files, preserves raw YAML and restricts n
   failOpen = true;
   const failure = await post({});
   assert.equal(failure.status, 503);
-  assert.match((await failure.json()).error, /default Markdown app/);
+  assert.match((await failure.json()).error, /default editor/);
   assert.equal(await fs.readFile(renamed, "utf8"), raw);
 });

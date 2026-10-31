@@ -168,3 +168,26 @@ test("folder import adds no application YAML and preserves the original metadata
   assert.equal((await vault.sourceFile(a.id)).source, raw);
   assert.equal((await vault.sourceFile(b.id)).source, "Plain");
 });
+
+test("full width is metadata-only, survives reopen, respects YAML and preserves stale drafts", async t => {
+  const { root, vault, metadata, file } = await fixture(t);
+  const body = "# Exact source\r\n\r\nKeep spacing.\r\n";
+  const page = await vault.create({ title: "Width", body });
+  const wide = await vault.update(page.id, { fullWidth: true }, page.revision);
+  assert.equal(wide.fullWidth, true);
+  assert.equal(await fs.readFile(file(page.id), "utf8"), body);
+  assert.equal((await createVault(root).get(page.id)).fullWidth, true);
+  assert.equal(JSON.parse(await fs.readFile(metadata, "utf8")).pages[page.id].fullWidth, true);
+  assert.equal(wide.properties.fullWidth, undefined);
+  await assert.rejects(vault.update(page.id, { fullWidth: false, body: "Stale draft" }, page.revision), (error: any) => error instanceof VaultError && error.status === 409);
+  const narrow = await vault.update(page.id, { fullWidth: false }, wide.revision);
+  assert.equal(narrow.fullWidth, false);
+  const source = "---\nfullWidth: true\n---\n\nYAML width";
+  const yaml = await vault.create({ title: "YAML width", body: source, fullWidth: false });
+  assert.equal(yaml.fullWidth, true);
+  const saved = await vault.update(yaml.id, { fullWidth: false }, yaml.revision);
+  assert.equal(saved.fullWidth, true);
+  assert.equal(saved.body, source);
+  assert.equal(saved.properties.fullWidth, undefined);
+  await assert.rejects(vault.update(narrow.id, { fullWidth: "yes" } as any, narrow.revision), (error: any) => error instanceof VaultError && error.status === 400);
+});

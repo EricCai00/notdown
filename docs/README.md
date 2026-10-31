@@ -67,6 +67,10 @@
 
 ## 审计与验证记录
 
+- [Windows 0.1.10 发布验证（2026-10-31）](verification/RELEASE-0.1.10-2026-10-31.md)
+
+- [独立数据库 JSON、迁移与恢复（2026-10-31）](verification/DATABASE-FILES-2026-10-31.md)
+
 - [Windows 0.1.9 发布验证（2026-10-28）](verification/RELEASE-0.1.9-2026-10-28.md)
 
 - [Wiki 创建、转换与 Undo（2026-10-28）](verification/WIKI-2026-10-28.md)

@@ -11,11 +11,12 @@ test("database icons reuse Emoji and Lucide, persist across reload and update th
   page.on("pageerror", error => errors.push(error.message));
   const created = await createDatabase(request, "Database icon catalog");
   const body = "# Preserve this host source\r\n\r\n```text\r\nicon: untouched\r\n```\r\n";
-  const saved = await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, body, properties: { future: { keep: true } } } });
+  const saved = await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, properties: { future: { keep: true } } } });
   expect(saved.ok()).toBeTruthy();
   const recordResponse = await request.post(`/api/data-sources/${created.dataSources[0].id}/records`, { data: { title: "Pending icon row", baseRevision: created.dataSources[0].revision } });
   expect(recordResponse.status()).toBe(201);
   const record = await recordResponse.json();
+  expect((await request.put(`/api/pages/${record.id}`, { data: { baseRevision: record.revision, body } })).ok()).toBeTruthy();
   await page.goto(`/#database/${created.database.id}`);
   const emblem = page.getByRole("button", { name: "Change database icon", exact: true });
   const sidebar = page.locator(`#page-tree [data-open-database="${created.database.id}"]`);
@@ -48,29 +49,31 @@ test("database icons reuse Emoji and Lucide, persist across reload and update th
   await expect(emblem.locator('svg[data-page-icon="file-text"]')).toBeVisible();
   await expect(sidebar.locator('svg[data-page-icon="file-text"]')).toBeVisible();
   const current = await (await request.get(`/api/pages/${created.hostPage.id}`)).json();
-  expect(current.body).toBe(body);
+  expect(current.body).toBe("");
+  expect((await (await request.get(`/api/pages/${record.id}`)).json()).body).toBe(body);
   expect(current.properties.future).toEqual({ keep: true });
   expect(errors).toEqual([]);
 });
 
-test("a stale database icon choice creates a recoverable conflict without replacing newer host content", async ({ page, request }) => {
+test("a stale database icon choice creates a recoverable conflict without replacing newer metadata", async ({ page, request }) => {
   const created = await createDatabase(request, "Conflicting database icon");
   await page.goto(`/#database/${created.database.id}`);
   await page.getByRole("button", { name: "Change database icon", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose database icon", exact: true });
   await picker.getByRole("button", { name: "Emoji", exact: true }).click();
-  const external = await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, body: "Newer external host body\n", icon: "🌿" } });
+  const external = await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, properties: { note: "Newer external metadata" }, icon: "🌿" } });
   expect(external.ok()).toBeTruthy();
   await picker.getByLabel("Custom icon", { exact: true }).fill("🧭");
   await picker.getByRole("button", { name: "Use icon", exact: true }).click();
   await expect(page.locator(".database-message")).toContainText(/modified|conflict|preserved/i);
   const current = await (await request.get(`/api/pages/${created.hostPage.id}`)).json();
-  expect(current.body).toBe("Newer external host body\n");
+  expect(current.properties.note).toBe("Newer external metadata");
+  expect(current.body).toBe("");
   expect(current.icon).toBe("🌿");
   await expect.poll(async () => (await (await request.get("/api/conflicts")).json()).find((conflict: any) => conflict.pageId === current.id)?.proposed.icon).toBe("🧭");
   const conflict = (await (await request.get("/api/conflicts")).json()).find((item: any) => item.pageId === current.id);
   expect(conflict.current.icon).toBe("🌿");
-  expect(conflict.current.body).toBe("Newer external host body\n");
+  expect(conflict.current.properties.note).toBe("Newer external metadata");
 });
 
 test("changing a database icon updates inline and sibling references without rewriting the parent", async ({ page, request }) => {
@@ -92,6 +95,11 @@ test("changing a database icon updates inline and sibling references without rew
   await expect(page.getByRole("button", { name: "Change database icon", exact: true }).locator(".emoji")).toHaveText("🚀");
   await page.goBack();
   await expect(references.locator(".emoji")).toHaveText(["🚀", "🚀"]);
+  const parentToggle = page.locator(`#page-tree [data-toggle="${parent.id}"]`);
+  if (await parentToggle.getAttribute("aria-expanded") === "false") {
+    await page.locator(`#page-tree [data-page-row="${parent.id}"]`).hover();
+    await parentToggle.click();
+  }
   await expect(page.locator(`#page-tree [data-open-database="${database.database.id}"] .emoji`)).toHaveText("🚀");
   await expect(references.last()).toContainText("Linked database");
   expect((await (await request.get(`/api/pages/${parent.id}`)).json()).body).toBe(body);

@@ -4,6 +4,8 @@
 
 `pages/*.md` 保存完整 Markdown；API `body`、源码模式和源文件端点对应同一份内容。新建和普通属性保存不生成应用 YAML。旧应用头部使用下面的显式迁移流程移入统一 JSON；文档自己的 YAML / Pandoc title block 保留为覆盖值。联系人 `people/*.yaml` 不受本次页面存储调整影响。
 
+数据库是独立资源，逐个保存为 `databases/<database-id>.json`，其中包含自有数据源、成员页面 ID 和视图；普通数据库没有空 Markdown 宿主。Wiki 的 `homePageId` 指向真实 Markdown。数据库的展示信息与成员关系由所属文件管理，页面 API 的宿主／成员字段为兼容投影，通用页面属性仍在 `metadata.json`。旧数据库格式保持可读，迁移须显式执行；结构与命令见[独立数据库文件](DATABASES.md#独立数据库文件)。备份需包含整个知识库。
+
 ## 迁移旧应用 YAML
 
 ```powershell
@@ -27,6 +29,8 @@ node --import tsx scripts/migrate-page-ids.ts ./vault --apply
 预览记录全库页面的 `baseRevision`、文件名及 metadata／导入清单／冲突记录指纹；应用前及备份后都校验，发生变更即停止，不强制重试。执行经 `createVault` 与现有进程锁，更新页面文件名、JSON 身份与父关系、文首 YAML 的 id/parent、可识别的 Markdown／Wiki／页面标签引用及导入清单。只替换引用目标的源码片段；代码、标签中的未知语法、未知 metadata 字段及未改动的正文保持原样。来源记录存于 metadata，不从 UUID 推断来源。
 
 `.history/migrations/page-ids-<uuid>/manifest.json` 保存所有被触及文件的完整前后内容和旧／新 ID 映射。原有历史目录与原始 API 归档不改写；可通过映射查回。`.history/page-id-migration.json` 为中断恢复日志，服务下次读取时仅在每个文件仍精确匹配迁移前或迁移后内容时继续，否则保留磁盘版本与备份并停止。旧地址通过 `pageIdMigration.previousIds` 兼容读取，返回的页面 ID 始终为迁移后的 UUID；旧窗口提交仍执行版本校验，过期草稿保留为冲突副本，不覆盖新页面。复制页面不会继承旧地址别名。
+
+页面的可选布尔字段 `fullWidth` 保存普通页面的宽度偏好，缺省为窄版；它不是数据库属性。宽度修改同样经 `createVault` 和 `baseRevision` 校验，不改写正文，文档 YAML 中同名布尔值优先于 JSON 默认值。Wiki Home 的默认全宽由容器布局决定，转换及 Undo 不改动原页面的宽度偏好。
 
 ## JSON 结构
 
@@ -67,7 +71,7 @@ YAML 中已知页面字段覆盖对应 JSON 字段；`properties` 按属性键�
 
 ## 版本、冲突与恢复
 
-`baseRevision` 同时包含完整 Markdown 与该页 JSON metadata；修改其他页不会让本页版本失效。历史快照成对保存 `.md` 和 `.json`，冲突也保留各自的正文与属性。过期版本不强制重试。
+页面的 `baseRevision` 同时包含完整 Markdown 与该页有效 JSON metadata，JSON 对象键顺序不影响版本；修改其他页不会让本页版本失效。所属数据源改变会影响成员页面版本。历史快照成对保存 `.md` 和 `.json`，冲突也保留各自的正文与属性。数据库 JSON 通过独立资源版本和文件原值校验保存。过期版本不强制重试。
 
 ### 自动历史与版本恢复
 

@@ -1,3 +1,4 @@
+import { validateDatabaseDocument, type DatabaseDocument, type DatabaseFileChange } from "./database-files";
 import { Buffer } from "buffer";
 import { parseDocument, isMap } from "yaml";
 import { archivePath } from "./archive";
@@ -10,6 +11,10 @@ import { absent, itemRevision, stateRevision, validateItem, type SyncItem, type 
 type StoredPage = { page: Page; source: string; filePath: string; metadata: Record<string, unknown> };
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
 type Host = {
+  databaseDocuments(): Promise<DatabaseDocument[]>;
+  portableMetadata(id: string, value: Record<string, unknown>): Record<string, unknown>;
+  projectPageMetadata(id: string, value: Record<string, unknown>): Promise<Record<string, unknown>>;
+  expandMetadata(files: DatabaseFileChange[]): Promise<DatabaseFileChange[]>;
   root: string; platform: VaultPlatform;
   serialize<T>(operation: () => Promise<T>): Promise<T>;
   scan(): Promise<Map<string, StoredPage>>;
@@ -27,7 +32,7 @@ type Change = { path: string; bytes: Buffer | null; expected: Buffer | null };
 type WriteBatch = { pages: Map<string, StoredPage>; index: Index; changes: Change[]; snapshots: Snapshot[]; previous: StoredPage[]; metadataChanged: boolean };
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 const own = (v: object, key: string) => Object.prototype.hasOwnProperty.call(v, key);
-const resourceGroups = ["databases", "dataSources", "views", "assets", "externalEntities"];
+const resourceGroups = ["databases", "dataSources", "views", "databaseFiles", "assets", "externalEntities"];
 const resourceData = (group: string, record: unknown) => ["databases", "dataSources", "views"].includes(group) && object(record)
   ? Object.fromEntries(Object.entries(record).filter(([field]) => field !== "revision")) : record;
 export const syncLocalPath = ".notdown/sync";
@@ -61,7 +66,7 @@ export function createVaultSyncStore(host: Host) {
   }
   function allowedFile(relative: string) {
     archivePath(relative);
-    if (!(relative === "metadata.json" || /^pages\/[^/]+\.md$/.test(relative) || /^people\/[^/]+\.ya?ml$/.test(relative) || relative.startsWith("assets/")))
+    if (!(relative === "metadata.json" || /^pages\/[^/]+\.md$/.test(relative) || /^databases\/[a-zA-Z0-9_-]+\.json$/.test(relative) || /^people\/[^/]+\.ya?ml$/.test(relative) || relative.startsWith("assets/")))
       throw new VaultError(422, "Sync transaction contains an unsupported file");
     return path.join(root, ...relative.split("/"));
   }
@@ -127,6 +132,11 @@ export function createVaultSyncStore(host: Host) {
   }
   async function commit(changes: Change[], snapshot: Snapshot | Snapshot[]) {
     await ready(); await recover();
+    const expanded = await host.expandMetadata(changes.map(change => ({ path: change.path, before: change.expected?.toString("utf8") ?? null, after: change.bytes?.toString("utf8") ?? null })).filter(change => change.path === "metadata.json"));
+    changes = [...changes.filter(change => change.path !== "metadata.json"), ...expanded.map(change => ({ path: change.path, expected: change.before === null ? null : Buffer.from(change.before), bytes: change.after === null ? null : Buffer.from(change.after) }))];
+    const deduplicated = new Map<string, Change>();
+    for (const change of changes) { const previous = deduplicated.get(change.path); if (previous && (previous.bytes?.toString("base64") ?? null) !== (change.bytes?.toString("base64") ?? null)) throw new VaultError(409, "Competing database changes in one sync batch; original files preserved"); deduplicated.set(change.path, change); }
+    changes = [...deduplicated.values()];
     const files: FileChange[] = [];
     for (const change of changes) {
       const before = await readBytes(allowedFile(change.path));
@@ -143,15 +153,17 @@ export function createVaultSyncStore(host: Host) {
     await recover();
   }
   const pageItem = (stored: StoredPage): SyncItem => ({ kind: "page", key: `page:${stored.page.id}`,
-    value: { file: path.basename(stored.filePath), source: stored.source, metadata: { ...stored.metadata, id: stored.page.id } } });
+    value: { file: path.basename(stored.filePath), source: stored.source, metadata: { ...host.portableMetadata(stored.page.id, stored.metadata), id: stored.page.id } } });
 
   async function listLocked(): Promise<SyncItem[]> {
     const pages = await host.scan(), index = await host.readMetadata();
-    const items = [...pages.values()].map(pageItem);
+    const items = [...pages.values()].filter(page => !page.page.databaseProxy).map(pageItem);
+    for (const document of await host.databaseDocuments()) items.push({ kind: "metadata", key: "metadata:databaseFiles/" + encodeURIComponent(document.id), value: { data: document } });
     for (const [key, value] of Object.entries(index)) {
       if (key === "version" || key === "pages") continue;
       if (resourceGroups.includes(key) && object(value)) {
         for (const [id, record] of Object.entries(value)) {
+          if (key === "databases" && object(record) && record.storage === "file" || key === "dataSources" && object(record) && (record.unavailable || object(index.databases) && index.databases[record.ownerDatabaseId]?.storage === "file") || key === "views" && object(record) && object(index.databases) && index.databases[record.databaseId]?.storage === "file") continue;
           // Database API revisions are derived locally from JSON bytes, whose order JSONB may change.
           // Their semantic resource data is the portable input; each device computes its own CAS token.
           const data = resourceData(key, record);
@@ -195,7 +207,8 @@ export function createVaultSyncStore(host: Host) {
       if (slash < 0 || !["extra", ...resourceGroups].includes(group) || !key ||
           ["__proto__", "prototype", "constructor"].includes(key) || group === "extra" && ["pages", "version", ...resourceGroups].includes(key) ||
           value && !own(value, "data")) throw new VaultError(422, "Invalid synced metadata key");
-      if (group === "assets") {
+      if (group === "databaseFiles") { assertId(key); if (value) validateDatabaseDocument(value.data, key);
+      } else if (group === "assets") {
         if (!archivePath(key).startsWith("assets/") || value && !object(value.data)) throw new VaultError(422, "Invalid attachment metadata");
       } else if (group === "externalEntities") {
         if (!/^notion:(page|user|database|data-source|block):[^\s]{1,250}$/.test(key) || value && (!object(value.data) || externalKey(value.data as ExternalObservation) !== key)) throw new VaultError(422, "Invalid external entity identity");
@@ -217,10 +230,11 @@ export function createVaultSyncStore(host: Host) {
   async function readItemLocked(item: SyncItem, scanned?: Map<string, StoredPage>, metadata?: Index): Promise<SyncItem> {
     validate(item);
     const name = item.key.slice(item.kind.length + 1);
-    if (item.kind === "page") { const page = (scanned ?? await host.scan()).get(name); return page ? pageItem(page) : absent(item); }
+    if (item.kind === "page") { const page = (scanned ?? await host.scan()).get(name); return page && !page.page.databaseProxy ? pageItem(page) : absent(item); }
     if (!scanned) await host.scan(); // Also recover an interrupted ordinary Markdown/metadata save before reading a resource.
     if (item.kind === "metadata") {
       const index = metadata ?? await host.readMetadata(), slash = name.indexOf("/"), group = name.slice(0, slash), key = decodeURIComponent(name.slice(slash + 1));
+      if (group === "databaseFiles") { const document = (await host.databaseDocuments()).find(document => document.id === key); return { ...item, value: document ? { data: document } : null }; }
       const target = group === "extra" ? index : index[group];
       if (target !== undefined && !object(target)) throw new VaultError(422, "Invalid local metadata group");
       return { ...item, value: target && own(target, key) ? { data: resourceData(group, (target as Record<string, unknown>)[key]) } : null };
@@ -260,7 +274,7 @@ export function createVaultSyncStore(host: Host) {
           throw new VaultError(409, "A case-only filename change needs review on this device");
         const samePath = current && path.basename(current.filePath) === file;
         if (!samePath && await readBytes(allowedFile(`pages/${file}`))) throw new VaultError(409, "The incoming filename already exists");
-        index.pages[name] = { ...value.metadata, file, sourceHash: hashBytes(value.source) };
+        index.pages[name] = { ...await host.projectPageMetadata(name, value.metadata), file, sourceHash: hashBytes(value.source) };
         changes.push({ path: `pages/${file}`, bytes: Buffer.from(value.source), expected: samePath ? Buffer.from(current.source) : null });
         if (current && !samePath) changes.push({ path: `pages/${path.basename(current.filePath)}`, bytes: null, expected: Buffer.from(current.source) });
       } else {
@@ -274,6 +288,13 @@ export function createVaultSyncStore(host: Host) {
       if (!batch) changes.push({ path: "metadata.json", bytes: Buffer.from(JSON.stringify(index, null, 2) + "\n"), expected: metadataBefore });
     } else if (item.kind === "metadata") {
       const slash = name.indexOf("/"), group = name.slice(0, slash), key = decodeURIComponent(name.slice(slash + 1));
+      if (group === "databaseFiles") {
+        const relative = "databases/" + key + ".json", previous = await readBytes(allowedFile(relative));
+        changes.push({ path: relative, bytes: value ? Buffer.from(JSON.stringify(value.data, null, 2) + "\n") : null, expected: previous });
+        if (batch) { batch.changes.push(...changes); batch.snapshots.push({ before: existing, after: item }); }
+        else await commit(changes, { before: existing, after: item });
+        return true;
+      }
       const target = group === "extra" ? index : (index[group] ??= {}) as Record<string, unknown>;
       if (!object(target)) throw new VaultError(422, "Local metadata group has an unsupported format");
       const current: SyncItem = { ...item, value: own(target, key) ? { data: resourceData(group, target[key]) } : null };

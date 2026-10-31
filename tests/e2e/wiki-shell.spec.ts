@@ -1,0 +1,66 @@
+import { test, expect } from "@playwright/test";
+import { selectWikiView } from "./wiki-ui-helper";
+
+for (const width of [1920, 1440]) test(`Home and collection preserve the same covered wiki shell at ${width}px`, async ({ page, request }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  const created = await (await request.post('/api/databases', { data: { title: 'Covered wiki', kind: 'wiki' } })).json();
+  const host = created.hostPage;
+  const body = 'Original home content';
+  expect((await request.put(`/api/pages/${host.id}`, { data: { baseRevision: host.revision, body, icon: '📺', properties: { cover: '/page-covers/woodcuts_9.jpg', coverPosition: 35 } } })).ok()).toBeTruthy();
+  await request.post('/api/pages', { data: { title: 'Find this guide', parent: host.id, body: 'Guide words' } });
+  await page.goto(`/#page/${host.id}`);
+  await expect(page.getByRole('button', { name: 'Wiki view: Home' })).toBeVisible();
+  const positions = async () => page.evaluate(() => {
+    const rect = (selector: string) => { const r = document.querySelector(selector)!.getBoundingClientRect(); return { x: r.x, y: r.y, height: r.height, width: r.width }; };
+    return { cover: rect('.page-cover, .wiki-cover'), title: rect('#page-title, .database-title-input'), picker: rect('.wiki-view-trigger'), icon: rect('.page-emblem .page-link-icon, .database-title-icon .page-link-icon') };
+  });
+  await page.locator('.wiki-view-trigger').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.wiki-view-trigger')).toBeFocused();
+  await page.locator('#page-title').fill('Covered wiki revised');
+  const home = await positions();
+  await page.getByRole('button', { name: 'Search wiki', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search wiki pages' }).fill('Find this');
+  await expect(page.locator('.wiki-home-search').getByRole('button', { name: 'Find this guide', exact: true })).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Search wiki pages' }).press('Escape');
+  await page.locator('.pm-document').fill('Pending Home changes');
+  await page.locator('.wiki-view-trigger').click();
+  await page.screenshot({ path: info.outputPath(`home-picker-${width}.png`), fullPage: true });
+  await page.getByRole('menuitemradio', { name: 'All pages', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Database title', exact: true })).toHaveValue('Covered wiki revised');
+  const collection = await positions();
+  for (const key of ['cover', 'title', 'picker', 'icon'] as const) for (const coordinate of ['x', 'y', 'height'] as const) expect(Math.abs(home[key][coordinate] - collection[key][coordinate]), `${key}.${coordinate}`).toBeLessThan(2);
+  expect(await page.locator('.wiki-cover').evaluate(el => (el as HTMLImageElement).style.objectPosition)).toBe('50% 35%');
+  await page.locator('.wiki-view-trigger').click();
+  await page.screenshot({ path: info.outputPath(`collection-picker-${width}.png`), fullPage: true });
+  await page.getByRole('menuitemradio', { name: 'Home', exact: true }).click();
+  await expect(page.locator('.pm-document')).toHaveText('Pending Home changes');
+  await page.locator('.wiki-view-trigger').click();
+  await page.getByRole('button', { name: 'New view', exact: true }).click();
+  const picker = page.getByRole('dialog', { name: 'New view', exact: true });
+  await expect(picker).toBeVisible();
+  await expect(page.locator('.pm-document')).toHaveText('Pending Home changes');
+  await picker.getByRole('button', { name: 'Gallery', exact: true }).click();
+  await page.getByRole('button', { name: 'Create view', exact: true }).click();
+  await expect(page.locator('.wiki-view-trigger')).toHaveText('Gallery');
+  await selectWikiView(page, 'Home');
+  expect((await (await request.get(`/api/pages/${host.id}`)).json()).body).toContain('Pending Home changes');
+});
+
+test('a removed icon and source editing preserve the same Wiki shell', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const snapshot = await (await request.post('/api/databases', { data: { title: 'Wiki without an icon', kind: 'wiki' } })).json();
+  expect((await request.put(`/api/pages/${snapshot.hostPage.id}`, { data: { baseRevision: snapshot.hostPage.revision, icon: '', body: 'Keep this source', properties: { cover: '/page-covers/woodcuts_9.jpg' } } })).ok()).toBeTruthy();
+  await page.goto(`/#page/${snapshot.hostPage.id}`);
+  await expect(page.locator('.wiki-view-trigger')).toBeVisible();
+  const title = (await page.locator('#page-title').boundingBox())!;
+  const cover = (await page.locator('.page-cover').boundingBox())!;
+  await page.locator('#page-options > summary').click();
+  await page.getByRole('menuitemradio', { name: /^Markdown source/ }).click();
+  await expect(page.locator('.markdown-workspace')).toHaveAttribute('data-mode', 'source');
+  expect((await page.locator('#page-title').boundingBox())!.x).toBeCloseTo(title.x, 0);
+  expect((await page.locator('.page-cover').boundingBox())!.x).toBeCloseTo(cover.x, 0);
+  await selectWikiView(page, 'All pages');
+  expect((await page.locator('.database-title-input').boundingBox())!.x).toBeCloseTo(title.x, 0);
+  expect((await (await request.get(`/api/pages/${snapshot.hostPage.id}`)).json()).body).toBe('Keep this source');
+});
