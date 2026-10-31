@@ -129,11 +129,13 @@ export function createDatabaseFiles(host: { root: string; platform: VaultPlatfor
     }
     return result;
   }
-  async function plan(index: DatabaseIndex, before: string | null): Promise<DatabaseFileChange[]> {
+  async function plan(index: DatabaseIndex, before: string | null, preserveNewLegacy = false): Promise<DatabaseFileChange[]> {
     const raw: DatabaseIndex = before === null ? { version: 1, pages: {} } : JSON.parse(before) as DatabaseIndex;
     const databases = (index.databases ?? {}) as Record<string, Database>, sources = (index.dataSources ?? {}) as Record<string, DatabaseDataSource>, views = (index.views ?? {}) as Record<string, DatabaseView>;
     const legacy = (raw.databases ?? {}) as Record<string, Database>;
-    const managed = new Set([...baseline.keys(), ...forced, ...Object.keys(databases).filter(id => !legacy[id])]);
+    // Incoming legacy sync resources may arrive separately from their Markdown hosts,
+    // sources and views. Keep that representation until an explicit migration.
+    const managed = new Set([...baseline.keys(), ...forced, ...Object.keys(databases).filter(id => !preserveNewLegacy && !legacy[id])]);
     const sourceIds = new Set([...baseline.values()].flatMap(value => value.document.dataSources.map(source => source.id)));
     const viewIds = new Set([...baseline.values()].flatMap(value => value.document.views.map(view => view.id)));
     const files: DatabaseFileChange[] = [];

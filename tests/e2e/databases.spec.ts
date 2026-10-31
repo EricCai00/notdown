@@ -276,7 +276,7 @@ test("a realistic database has colored properties and an editable responsive rec
   await peek.getByRole("button", { name: "Save record", exact: true }).click();
   await expect.poll(async () => (await (await request.get(`/api/pages/${fixture.callout.id}`)).json()).properties.inMarkdown).toBe("no");
   expect((await (await request.get(`/api/pages/${fixture.callout.id}`)).json()).properties.affine).toBe(false);
-  await expect(page.locator("#breadcrumb")).toHaveText("Databases");
+  await expect(page.locator("#breadcrumb .pm-breadcrumb-title")).toHaveText("Notion Blocks");
   await page.setViewportSize({ width: 900, height: 975 });
   await expect(peek).toBeVisible();
   const bounds = await peek.boundingBox();

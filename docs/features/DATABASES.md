@@ -28,7 +28,7 @@ Wiki 是一种数据库容器，在 **Databases** 列表中显示为 **Wiki · H
 
 普通页面的右上角／侧栏页面菜单提供 **Turn into wiki**。转换沿用页面 ID、Markdown 文件、正文、图标及父位置；原正文成为 Home。Wiki 只有一个页面数据源，初始 **All pages** 使用 List 布局；Home 使用正文编辑器，集合视图可新增 Table、List、Gallery、Board 和 Calendar。Home 不显示数据库筛选／分组工具；集合视图不提供新建／接入数据源、切换来源和显示数据源标题。普通数据库及数据库记录不提供页面转 Wiki。
 
-直接和嵌套子页面按原父关系加入页面集合；子数据库及其记录保持独立，不被压平或当作 Wiki 页面记录。新建子页面以及移动页面／子树进出 Wiki 会更新成员关系；页面属性与集合视图共用原页面数据。Wiki 页面源不能接入其他数据库，以保持可恢复的 Undo 边界。
+直接和嵌套子页面按原父关系加入页面集合；子数据库及其记录保持独立，不被压平或当作 Wiki 页面记录。新建子页面以及移动页面／子树进出 Wiki 会更新成员关系；页面属性与集合视图共用原页面数据。普通数据库可以链接 Wiki 的页面源；存在外部引用时，Undo 会阻止移除共享来源，保留已有数据库和引用。
 
 Wiki Home 默认采用 **Full width** 布局，标题、导航与正文共同使用可用内容宽度；Home 和集合视图共用封面、横排图标／标题、面包屑、内容边距与胶囊下拉视图入口；切换时只更换内容区及右侧工具。Wiki Home 不提供单独的宽度开关，Undo 后恢复普通页面原先的宽度设置。
 
@@ -84,7 +84,7 @@ Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出�
 
 ## 手机使用
 
-手机 **Pages → Databases** 打开数据库列表，**New database** 新建根层数据库；页面树中的数据库打开完整表格，展开后可进入记录。普通页面底部 **Insert block** 提供 **Database - Full page** 和 **Database - Inline**，后者仅在当前方言支持并启用数据库引用语法时出现。两者都在当前页下创建数据库，inline 保留在正文里，点击上方名称可打开完整表格。
+手机 **Pages → Databases** 打开数据库列表，**New database** 新建根层数据库；页面树中的数据库打开完整表格，展开后可进入记录。普通页面底部 **Insert block → Database** 选择 Inline／Full page，以及新建或链接已有数据源。当前方言不支持数据库引用语法时只能选 Full page。Inline 保留在正文里，右侧 **Open as page** 打开完整表格，**Database options → Turn into page** 转为页面入口。
 
 手机表格支持编辑标题、字段、基本属性值、新增记录、新建视图、筛选、排序和搜索；宽表格在自己的区域横向滑动。点击记录的 **OPEN** 进入完整页面，编辑属性和正文后用 **Back to database** 返回；手机使用完整记录页。切换页面、视图或进入数据库前先保存待处理输入，冲突时保留原版本草稿并阻止导航。电脑导入后经云同步到手机的 full-page 和 inline 数据库使用相同入口；Notion 导入向导仍在电脑端使用。
 
@@ -94,7 +94,13 @@ Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出�
 
 数据库可以位于知识库根层，也可以作为普通页面的子项。侧栏用同一棵页面树展示数据库和记录：点击数据库打开表格，展开后默认显示它的记录；点击记录打开普通页面。记录不会同时作为根层页面重复显示。在 **Workspace settings → Appearance → Sidebar → Database children** 中可改为 **Views**，展开后显示保存的视图，点击打开对应视图；记录仍保留在数据库中。目录树默认折叠，可在同处设置 **Default expanded levels**（0–10 层或全部）。
 
-正文输入 `/database` 可选择 **Database - Full page**，在支持并启用 `notion_databases` 的方言中还可选择 **Database - Inline**。两种方式都直接在当前页面下创建名为 **New database** 的数据库，不显示命名或确认弹窗，创建前先保存待处理的正文。Full page 创建后打开数据库；支持官方数据库语法时保存 `<database inline="false">` 引用，否则保存普通 Markdown 链接。Inline 留在当前页面，以已有官方 `<database inline="true">` 引用嵌入同一个数据库工作区，包含表格、属性、新建记录和右侧记录面板。完整数据库可直接编辑标题；内嵌数据库点击上方引用入口打开完整数据库后修改名称或图标。引用只保存入口，记录正文与属性仍由资源层管理，重新打开不会再创建一份数据库；已有引用的显式显示文字保持原文。
+正文 `/database`、`/inline` 或 `/link` 都可找到同一个 **Database** 入口。创建面板选择名称、Inline／Full page，以及 **New data source** 或 **Link existing data source**；提交前不会创建资源，取消不写入数据库。创建前先保存待处理的正文，链接已有来源时同时校验其版本，失败保留创建草稿。
+
+两种展示都在当前页下创建同样的 `databases/<id>.json`。Full page 创建后打开数据库，父页保存官方 `<database inline="false">` 引用；不支持该语法的方言使用普通 Markdown 链接。Inline 使用 `<database inline="true">` 嵌入同一个数据库工作区：紧凑可编辑标题、视图标签、右侧工具及表格，右侧 **Open as page** 打开完整页面。外部来源的当前视图显示箭头与 Link 标记；记录仍属于原来源，不复制定义或记录。Linked-only 数据库允许 `dataSources: []`，只有引用外部来源的视图，之后也可增加自有来源。
+
+编辑器只有一种 `block.database` 节点；inline／full page 是入口的展示属性，链接关系属于 JSON 中视图的数据源引用。块手柄或页面入口的 **··· → Turn into inline database** 将入口展开为内嵌视图；内嵌工具栏 **Database options → Turn into page** 将其收为页面入口。完整数据库的 **Database options → Turn into inline database** 可返回父页并展开入口。转换先保存待处理正文和单元格，保留数据库 ID、来源、视图和记录，不重建 JSON。根层数据库没有父页时无法转成 inline；父页方言不支持、版本冲突或存在多个同库入口时会说明原因，多个入口需从目标块的菜单转换。
+
+数据库的顶部面包屑按实际父页面层级导航；记录的面包屑可返回所属数据库，根层数据库仍可用 **All databases** 返回列表。标题和图标写入所属 JSON；已有引用的显式显示文字继续保留原文。
 
 新建数据库拥有独立 JSON，不创建空 Markdown。数据库与页面共同进入侧栏树，名称及父位置保存在数据库文件；新记录的 `parent` 指向所属数据源的数据库 ID。页面 API 为现有导航提供同 ID 的兼容条目，并以 `databaseProxy: true` 标明没有 Markdown 正文。普通页面创建／移动不能绕过数据源登记直接塞入数据库，数据库记录也不能通过普通页面移动接口改成其他父级。
 
@@ -106,7 +112,7 @@ Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出�
 
 数据库存储升级为 `databases/<database-id>.json`，Database 与 Markdown Page 是同级资源。文件保存数据库展示信息、自有数据源（字段及 `pageIds`）和视图；视图的 `dataSource` 同时指定 `databaseId` 与 `dataSourceId`，跨库时显示 Link，仅引用所属库，不复制定义或页面。普通数据库不创建空 Markdown；Wiki 的 `homePageId` 指向真实正文页。页面属性仍保存在 `metadata.json`，页面 API 的数据库宿主／成员字段为兼容投影。
 
-旧数据库格式保持可读；迁移必须显式执行并校验预览版本，保留 ID、未知字段和恢复记录。迁移后的旧定义退出活跃读取，删除 JSON 不会从旧定义重建数据库。成员、页面及数据库文件的联合写入仍走知识库锁、CAS 和可恢复事务。
+旧数据库格式保持可读；同步收到旧格式资源也保留其宿主页和资源格式，不因下载顺序隐式迁移。迁移必须显式执行并校验预览版本，保留 ID、未知字段和恢复记录。迁移后的旧定义退出活跃读取，删除 JSON 不会从旧定义重建数据库。成员、页面及数据库文件的联合写入仍走知识库锁、CAS 和可恢复事务。
 
 ```json
 {

@@ -1,0 +1,102 @@
+import { test, expect, type APIRequestContext } from "@playwright/test";
+const syntax = { version: 1, variant: "notdown", extensions: {} };
+async function post(request: APIRequestContext, url: string, data: unknown) { const response = await request.post(url, { data }); expect(response.ok(), await response.text()).toBeTruthy(); return response.json(); }
+
+test("database breadcrumbs navigate the complete parent hierarchy and database records", async ({ page, request }) => {
+  const grand = await post(request, "/api/pages", { title: "Breadcrumb ancestor", syntax });
+  const parent = await post(request, "/api/pages", { title: "Breadcrumb parent", parent: grand.id, syntax });
+  const db = await post(request, "/api/databases", { title: "Breadcrumb database", parent: parent.id, parentRevision: parent.revision });
+  const row = await post(request, `/api/data-sources/${db.dataSources[0].id}/records`, { title: "Breadcrumb record", baseRevision: db.dataSources[0].revision });
+  await page.goto(`/#database/${db.database.id}`);
+  await expect(page.locator("#breadcrumb .pm-breadcrumb-title")).toHaveText(["Breadcrumb ancestor", "Breadcrumb parent", "Breadcrumb database"]);
+  await page.locator("#breadcrumb").getByRole("link", { name: "Breadcrumb parent", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Breadcrumb parent");
+  await page.goto(`/#page/${row.id}`);
+  const database = page.locator("#breadcrumb").getByRole("link", { name: "Breadcrumb database", exact: true });
+  await expect(database).toHaveAttribute("href", `#database/${db.database.id}`); await database.click();
+  await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("Breadcrumb database");
+  await page.goto("/#databases"); await expect(page.locator('#breadcrumb a[href="#databases"]')).toBeVisible();
+});
+
+test("a single database entry converts both ways while saving pending cells and keeping its JSON", async ({ page, request }, info) => {
+  const parent = await post(request, "/api/pages", { title: "Display parent", syntax, body: "Before database\n" });
+  const db = await post(request, "/api/databases", { title: "Display database", parent: parent.id, parentRevision: parent.revision });
+  const row = await post(request, `/api/data-sources/${db.dataSources[0].id}/records`, { title: "Display record", baseRevision: db.dataSources[0].revision });
+  const body = `Before database\n\n<database future="keep" url="#page/${db.database.id}" inline="false"></database>\n\nAfter database\n`;
+  expect((await request.put(`/api/pages/${parent.id}`, { data: { baseRevision: parent.revision, body } })).ok()).toBeTruthy();
+  const json = await (await request.get(`/api/pages/${db.database.id}/source`)).text();
+  await page.goto(`/#page/${parent.id}`);
+  const full = page.getByRole("region", { name: "Database reference", exact: true });
+  await full.getByLabel("Database block options", { exact: true }).click();
+  await full.getByRole("button", { name: "Turn into inline database", exact: true }).click();
+  const inline = page.getByRole("region", { name: "Inline database", exact: true });
+  await expect(inline.getByLabel("Database title", { exact: true })).toHaveValue("Display database");
+  await expect(inline.locator(":scope > .pm-database-reference")).toBeHidden();
+  await inline.getByLabel("Name: Display record", { exact: true }).fill("Pending inline title");
+  await inline.getByLabel("Database options", { exact: true }).click();
+  await inline.getByRole("button", { name: "Turn into page", exact: true }).click();
+  await expect(full).toBeVisible();
+  expect((await (await request.get(`/api/pages/${row.id}`)).json()).title).toBe("Pending inline title");
+  await full.locator(".pm-database-reference").click();
+  await page.getByLabel("Database options", { exact: true }).click();
+  await page.getByRole("button", { name: "Turn into inline database", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`#page/${parent.id}$`));
+  await expect(inline.getByRole("button", { name: "Open Pending inline title", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("inline-database.png"), fullPage: true });
+  await page.reload(); await expect(inline).toBeVisible();
+  const saved = await (await request.get(`/api/pages/${parent.id}`)).json();
+  expect(saved.body).toContain('future="keep"'); expect(saved.body).toContain('inline="true"'); expect(saved.body).toContain("After database");
+  await inline.hover({ position: { x: 10, y: 12 } }); await page.locator(".pm-block-handle").click();
+  await page.getByRole("menuitem", { name: "Turn into page", exact: true }).click();
+  await expect(full).toBeVisible();
+  await full.hover(); await page.locator(".pm-block-handle").click();
+  await page.getByRole("menuitem", { name: "Turn into inline database", exact: true }).click();
+  await expect(inline).toBeVisible();
+  expect(await (await request.get(`/api/pages/${db.database.id}/source`)).text()).toBe(json);
+});
+
+test("one slash database command creates a linked-only inline database and records stay with their source owner", async ({ page, request }, info) => {
+  const owner = await post(request, "/api/databases", { title: "Source for slash links" }), source = owner.dataSources[0];
+  const parent = await post(request, "/api/pages", { title: "Slash links parent", syntax, body: "Keep this text" });
+  await page.goto(`/#page/${parent.id}`); await page.locator(".pm-document").click(); await page.keyboard.press("End"); await page.keyboard.press("Enter"); await page.keyboard.type("/link");
+  await expect(page.locator('.inline-slash [data-insert="database"]')).toHaveCount(1);
+  await expect(page.locator('.inline-slash [data-insert="database_inline"], .inline-slash [data-insert="database_full_page"]')).toHaveCount(0);
+  await page.locator('.inline-slash [data-insert="database"]').click();
+  const dialog = page.getByRole("dialog", { name: "Create database", exact: true });
+  await dialog.getByLabel("Link existing data source", { exact: true }).check();
+  await dialog.locator(`[data-source="${source.id}"]`).click();
+  await dialog.getByLabel("Database name", { exact: true }).fill("Linked slash database");
+  const created = page.waitForResponse(response => new URL(response.url()).pathname === "/api/databases" && response.request().method() === "POST");
+  await dialog.getByRole("button", { name: "Create database", exact: true }).click();
+  const db = await (await created).json(), inline = page.getByRole("region", { name: "Inline database", exact: true });
+  await expect(inline.getByLabel("Database title", { exact: true })).toHaveValue("Linked slash database");
+  await expect(inline.locator(".database-linked-heading")).toBeVisible();
+  const document = JSON.parse(await (await request.get(`/api/pages/${db.database.id}/source`)).text());
+  expect(document.dataSources).toEqual([]); expect(document.views[0].dataSource).toEqual({ databaseId: owner.database.id, dataSourceId: source.id });
+  await inline.getByRole("button", { name: "Add row", exact: true }).click(); await page.getByLabel("Row title", { exact: true }).fill("Linked-created record"); await page.getByRole("button", { name: "Create row", exact: true }).click();
+  await expect(inline.getByRole("button", { name: "Open Linked-created record", exact: true })).toBeVisible();
+  const record = (await (await request.get(`/api/databases/${owner.database.id}`)).json()).pages.find((item: any) => item.title === "Linked-created record");
+  expect(record.parent).toBe(owner.database.id);
+  await page.screenshot({ path: info.outputPath("linked-inline-database.png"), fullPage: true });
+});
+
+test("a stale linked source keeps the creation draft and cancellation creates no database", async ({ page, request }) => {
+  const owner = await post(request, "/api/databases", { title: "Changing source owner" }), source = owner.dataSources[0];
+  const parent = await post(request, "/api/pages", { title: "Cancelled links parent", syntax, body: "Keep the parent" });
+  const before = (await (await request.get("/api/databases")).json()).map((item: any) => item.id);
+  await page.goto(`/#page/${parent.id}`); await page.locator(".pm-document").click(); await page.keyboard.press("End"); await page.keyboard.press("Enter"); await page.keyboard.type("/database");
+  await page.locator('.inline-slash [data-insert="database"]').click();
+  const dialog = page.getByRole("dialog", { name: "Create database", exact: true });
+  await dialog.getByLabel("Link existing data source", { exact: true }).check();
+  await dialog.locator(`[data-source="${source.id}"]`).click();
+  await dialog.getByLabel("Database name", { exact: true }).fill("Keep this creation draft");
+  const update = await request.put(`/api/data-sources/${source.id}`, { data: { baseRevision: source.revision, title: "Changed in another window" } }); expect(update.ok()).toBeTruthy();
+  await dialog.getByRole("button", { name: "Create database", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText(/changed|conflict|preserved/i);
+  await expect(dialog.getByLabel("Database name", { exact: true })).toHaveValue("Keep this creation draft");
+  await expect(dialog.getByRole("listbox").getByRole("option", { selected: true })).toHaveAttribute("data-source", source.id);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+  expect((await (await request.get("/api/databases")).json()).map((item: any) => item.id)).toEqual(before);
+  expect((await (await request.get(`/api/pages/${parent.id}`)).json()).body).toContain("Keep the parent");
+});

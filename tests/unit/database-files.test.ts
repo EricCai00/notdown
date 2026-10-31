@@ -318,6 +318,37 @@ test("a distinct legacy host identity blocks migration instead of leaving duplic
   assert.equal(await fs.readFile(file, "utf8"), original); await assert.rejects(fs.access(json(legacy.database.id)));
 });
 
+test("legacy sync downloads retain hosts and resources without an implicit file migration", async t => {
+  const { root, vault, json } = await fixture(t);
+  const legacy = await createLegacyDatabase(root, vault, { title: "Legacy shared database" });
+  const source = legacy.dataSources[0];
+  const row = await vault.databases.createRecord(source.id, { title: "Legacy record" }, source.revision);
+  await vault.update(row.id, { body: "Original legacy record\r\n" }, row.revision);
+  const file = path.join(root, "metadata.json"), index = JSON.parse(await fs.readFile(file, "utf8"));
+  index.databases[legacy.database.id].futureDatabase = { keep: true };
+  await fs.writeFile(file, JSON.stringify(index));
+  for (const batching of [true, false]) {
+    const remote = new TestSyncRemote(), peerRoot = path.join(root, `peer-${batching}`), peer = createVault(peerRoot);
+    t.after(() => peer.closeHistory());
+    const account = `legacy-sync-${batching}`;
+    await remote.push({ id: randomUUID(), mutations: (await vault.syncStore.list()).map(item => ({ item, expectedVersion: 0 })) });
+    const store = batching ? peer.syncStore : { ...peer.syncStore, applyBatch: undefined, readItems: undefined };
+    await synchronize(store, remote, account);
+    const received = await peer.databases.get(legacy.database.id);
+    assert.equal(received.pages[0].id, row.id);
+    assert.equal(received.pages[0].body, "Original legacy record\r\n");
+    assert.equal(await fs.readFile(path.join(peerRoot, "pages", legacy.database.id + ".md"), "utf8"), "");
+    await assert.rejects(fs.access(path.join(peerRoot, "databases", legacy.database.id + ".json")));
+    const metadata = JSON.parse(await fs.readFile(path.join(peerRoot, "metadata.json"), "utf8"));
+    assert.deepEqual(metadata.databases[legacy.database.id].futureDatabase, { keep: true });
+    const record = await peer.get(row.id);
+    await peer.update(row.id, { body: "Edited after download" }, record.revision);
+    assert.equal((await peer.databases.get(legacy.database.id)).pages[0].body, "Edited after download");
+    assert.equal((await synchronize(store, remote, account)).conflicts, 0);
+  }
+  await assert.rejects(fs.access(json(legacy.database.id)));
+});
+
 test("file-level sync carries owned membership and linked views without resource or page duplicates", async t => {
   const { root, vault } = await fixture(t), owner = await vault.databases.create({ title: "Owner" }), target = await vault.databases.create({ title: "Linked" });
   const source = owner.dataSources[0], row = await vault.databases.createRecord(source.id, { title: "Synced row" }, source.revision);

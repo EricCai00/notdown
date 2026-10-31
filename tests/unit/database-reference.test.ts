@@ -42,15 +42,16 @@ for (const variant of ["notdown", "notion-markdown"] as const) {
     assert.equal(parseNative(saved, config).firstChild!.attrs.label, "New");
   });
 }
-test("database insertion has two explicit commands and inline respects dialect boundaries", () => {
+test("database insertion has one command with legacy command aliases respecting dialect boundaries", () => {
   for (const variant of ["notdown", "notion-markdown", "commonmark", "gfm"] as const) {
     const config: SyntaxConfig = { version: 1, variant, extensions: { notion_databases: true } };
     const available = variant === "notdown" || variant === "notion-markdown";
     assert.equal(commandEnabled(config, "database_full_page"), true);
     assert.equal(commandEnabled(config, "database_inline"), available);
     const menu = insertMenuItems(config);
-    assert.deepEqual(menu.find(item => item[0] === "database_full_page")?.slice(2, 3), ["Database - Full page"]);
-    assert.equal(menu.find(item => item[0] === "database_full_page")?.[5], "Databases");
-    assert.equal(menu.some(item => item[0] === "database_inline"), available);
+    assert.equal(commandEnabled(config, "database"), true);
+    assert.deepEqual(menu.find(item => item[0] === "database")?.slice(2, 3), ["Database"]);
+    assert.equal(menu.find(item => item[0] === "database")?.[5], "Databases");
+    assert.ok(!menu.some(item => ["database_full_page", "database_inline"].includes(item[0])));
   }
 });

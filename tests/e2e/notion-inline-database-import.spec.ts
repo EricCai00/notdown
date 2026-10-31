@@ -62,7 +62,7 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await expect(page.locator("#page-title")).toHaveValue("Anytype");
   await page.goto(`/#page/${rootId}`);
   await expect(used.locator(":scope > .pm-database-reference")).toHaveAttribute("href", `#database/${hostIds[0]}`);
-  await used.locator(":scope > .pm-database-reference").click();
+  await used.getByRole("button", { name: "Open as page", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#database/${hostIds[0]}$`));
   await expect(page.getByRole("button", { name: "Open Xiaomi Notes", exact: true })).toBeVisible();
   expect((await (await request.get(`/api/pages/${rootId}`)).json()).body).toBe(original);
@@ -85,7 +85,7 @@ test("existing imported default columns are repaired on read without rewriting t
   await page.goto(`/#page/${local(inlineRoot)}`);
   const inline = page.getByRole("region", { name: "Inline database", exact: true }).first();
   await expect(inline.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);
-  await inline.locator(":scope > .pm-database-reference").click();
+  await inline.getByRole("button", { name: "Open as page", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#database/${databaseId}$`));
   await expect(page.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);
   const newButton = (await page.getByRole("button", { name: "Add row", exact: true }).boundingBox())!;
@@ -100,5 +100,6 @@ test("existing imported default columns are repaired on read without rewriting t
   await expect(page.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);
   const saved = await (await request.get(`/api/databases/${databaseId}`)).json();
   expect(saved.dataSources).toEqual(original.dataSources);
-  expect(saved.views[0].propertyIds).toEqual(["Name", "Since", "Markdown", "Comments"].map(name => schema.properties.find((field: any) => field.name === name).id));
+  // Opening and saving an unchanged menu must retain the stored legacy column order.
+  expect(saved.views).toEqual(original.views);
 });

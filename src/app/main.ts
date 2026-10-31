@@ -1,5 +1,7 @@
 import { mountWikiViewPicker } from "../features/databases/wiki-view-picker";
 import { createDatabaseView } from "../features/databases/database-create-view";
+import { chooseDatabase } from "../features/databases/database-create";
+import type { DatabaseSourceSummary } from "../features/databases/database-model";
 import { openViewMenu } from "../features/databases/database-menus";
 import { commentDialog } from "../editor/comment-dialog";
 import { lastExecutableLanguage, rememberExecutableLanguage } from "../editor/executable-language";
@@ -685,10 +687,10 @@ function refreshBreadcrumbs() {
   const header = document.querySelector("#breadcrumb");
   if (!header) return;
   if (databaseRoute) {
-    const database = databases.find(item => item.id === databaseRoute?.id && isWikiDatabase(item));
-    const host = database && pages.find(page => page.id === database.pageId);
+    const database = databases.find(item => item.id === databaseRoute?.id);
+    const host = database && (pages.find(page => page.id === (database.pageId ?? database.id)) ?? { id: database.id, title: database.title, icon: database.icon, parent: database.parent, databaseId: database.id });
     if (host) header.replaceChildren(renderBreadcrumb(pages, host));
-    else header.innerHTML = `${icon("table-2")}<strong>Databases</strong>`;
+    else header.innerHTML = `<a href="#databases" class="pm-breadcrumb-page">${icon("table-2")}<strong>Databases</strong></a>`;
     return;
   }
   if (!current || library) {
@@ -1232,7 +1234,12 @@ async function newPage(parent: string | null = null, embed = false) {
 }
 
 let databaseCreationBusy = false;
-async function createDatabase(parent: string | null, mode?: "inline" | "full", kind: "database" | "wiki" = "database") {
+async function createDatabase(parent: string | null, mode?: "inline" | "full" | "choose", kind: "database" | "wiki" = "database", creation?: { title: string; source?: DatabaseSourceSummary }) {
+  if (mode === "choose") {
+    if (!(await save())) return;
+    await chooseDatabase({ inlineAllowed: !!parent && !!workspace && usesNotionSyntax(workspace.session.snapshot.config) && enabled(workspace.session.snapshot.config, "notion_databases"), create: draft => createDatabase(parent, draft.mode, "database", draft) });
+    return;
+  }
   if (databaseCreationBusy) return;
   databaseCreationBusy = true;
   app.inert = true;
@@ -1243,10 +1250,11 @@ async function createDatabase(parent: string | null, mode?: "inline" | "full", k
     if (!databaseApiAvailable) { toast(databaseRestartMessage); return; }
     if (!(await save())) return;
     const parentPage = current?.id === parent ? current : pages.find(page => page.id === parent);
+    if (mode && parent !== current?.id) throw new Error("Return to the parent page before inserting this database.");
     if (parent && !parentPage) throw new Error("The parent page is no longer available.");
     const snapshot = await api<DatabaseSnapshot>("/databases", {
       method: "POST",
-      body: JSON.stringify({ title: kind === "wiki" ? "New wiki" : "New database", kind, parent, ...(parentPage ? { parentRevision: parentPage.revision } : {}) }),
+      body: JSON.stringify({ title: creation?.title ?? (kind === "wiki" ? "New wiki" : "New database"), kind, parent, ...(parentPage ? { parentRevision: parentPage.revision } : {}), ...(creation?.source ? { dataSourceId: creation.source.id, sourceRevision: creation.source.revision } : {}) }),
     });
     pages = await refreshWorkspacePages();
     if (parent) treeExpansion.set(parent, true);
@@ -1263,7 +1271,7 @@ async function createDatabase(parent: string | null, mode?: "inline" | "full", k
     }
     closeModal();
     if (mode !== "inline") await navigation?.navigate({ kind: "database", id: snapshot.database.id });
-  } catch (error) { report(error); }
+  } catch (error) { if (creation) throw error; report(error); }
   finally {
     databaseCreationBusy = false;
     app.inert = false;
@@ -1378,6 +1386,12 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
     changed: saved => { const index = pages.findIndex(page => page.id === saved.id); if (index < 0) pages.push(saved); else pages[index] = saved; renderSidebar(); },
     createDatabase: () => createDatabase(null),
     createWiki: () => createDatabase(null, undefined, "wiki"),
+    turnIntoInline: async snapshot => {
+      const parent = pages.find(page => page.id === snapshot.hostPage?.parent);
+      if (!parent) throw new Error("The parent page is unavailable.");
+      await api<Page>(`/databases/${snapshot.database.id}/display`, { method: "POST", body: JSON.stringify({ inline: true, baseRevision: snapshot.database.revision, parentRevision: parent.revision }) });
+      pages = await refreshWorkspacePages(); await openPage(parent.id);
+    },
     undoWiki: async snapshot => {
       await api<Page>(`/databases/${snapshot.database.id}/undo-wiki`, { method: "POST", body: JSON.stringify({ baseRevision: snapshot.database.revision, hostRevision: snapshot.hostPage!.revision }) });
       pages = await refreshWorkspacePages(); await openPage(snapshot.hostPage!.id);
@@ -1391,7 +1405,6 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
   pages = loadedPages;
   databaseWorkspace = controller; databaseRoute = { kind: "database", ...(id ? { id } : {}), ...(viewId ? { viewId } : {}) };
   document.querySelector("#main")!.replaceChildren(host);
-  document.querySelector("#breadcrumb")!.textContent = "Databases";
   const sourceMenu = document.querySelector<HTMLElement>("#source-file-options"); if (sourceMenu) sourceMenu.hidden = true;
   renderPageOptions();
   status("Local database"); renderSidebar(); updateCounts(); refreshIcons();
@@ -2449,12 +2462,12 @@ async function handleInsert(id: string) {
     editor.captureSelection();
   }
   if (id === "attachments") { await showAttachments(); return; }
-  if (id === "database_full_page" || id === "database_inline" || id === "wiki") {
+  if (id === "database" || id === "database_full_page" || id === "database_inline" || id === "wiki") {
     if (!current) return;
     if (id === "database_inline" && (!workspace || !usesNotionSyntax(workspace.session.snapshot.config) || !enabled(workspace.session.snapshot.config, "notion_databases"))) return;
     const parent = current.id;
     closeModal();
-    await createDatabase(parent, id === "database_inline" ? "inline" : "full", id === "wiki" ? "wiki" : "database");
+    await createDatabase(parent, id === "database" ? "choose" : id === "database_inline" ? "inline" : "full", id === "wiki" ? "wiki" : "database");
     return;
   }
   if (id === "html_embed") {

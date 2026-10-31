@@ -1,4 +1,5 @@
 import { createDatabaseFiles, type DatabaseFileChange } from "./database-files";
+import { databaseDisplaySource } from "../features/databases/database-display";
 import { Buffer } from "buffer";
 import { archivePath, archiveLimits, validateArchive, type VaultArchiveFile } from "./archive.js";
 import { hashBytes, randomUUID } from "./crypto.js";
@@ -871,12 +872,12 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   }
   const pageIdMigration = createPageIdMigration({ platform, root, scan, serialize, readMetadata, readOptional, atomicWrite, safeDirectory, snapshot, expandMetadata });
   const databaseFiles = createDatabaseFiles({ root, platform, readOptional });
-  async function expandMetadata(files: DatabaseFileChange[], pageIds?: Map<string, string>) {
+  async function expandMetadata(files: DatabaseFileChange[], pageIds?: Map<string, string>, preserveNewLegacy = false) {
     if (pageIds) databaseFiles.remapPageIds(pageIds);
     const expanded: DatabaseFileChange[] = [];
     for (const item of files) {
       if (item.path !== "metadata.json" || item.after === null) expanded.push(item);
-      else expanded.push(...await databaseFiles.plan(JSON.parse(item.after), item.before));
+      else expanded.push(...await databaseFiles.plan(JSON.parse(item.after), item.before, preserveNewLegacy));
     }
     const unique = new Map<string, DatabaseFileChange>();
     for (const item of expanded) { const previous = unique.get(item.path); if (previous && (previous.before !== item.before || previous.after !== item.after)) throw new VaultError(409, "A transaction proposes competing resource contents; the original files were preserved"); unique.set(item.path, item); }
@@ -890,7 +891,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   const syncStore = createVaultSyncStore({ platform, root, scan, serialize, readMetadata, atomicWrite, safeDirectory, decode, encode,
     databaseDocuments: databaseFiles.listDocuments, portableMetadata: databaseFiles.portableMetadata,
     projectPageMetadata: async (id, entry) => { const index = await databaseFiles.read({ ...await readRawMetadata(), pages: { [id]: entry } }); return index.pages[id]; },
-    expandMetadata,
+    expandMetadata: files => expandMetadata(files, undefined, true),
     snapshot: async stored => { await history.snapshot(stored, false, "Before sync"); },
     pageConflict: async (current, item, conflict) => {
       try { await registerConflict(current, {}, current.page.revision, { conflict, item }); }
@@ -952,6 +953,12 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   const databases = createDatabases({
     platform, root, serialize, readMetadata, readOptional, atomicWrite: writeVaultFile, safeDirectory,
     resourceFiles: databaseFiles.snapshots,
+    convertDisplay: async (parent, id, inline, revision) => {
+      let body: string;
+      try { body = databaseDisplaySource(parent, id, inline); }
+      catch (error) { throw new VaultError(422, error instanceof Error ? error.message : String(error)); }
+      return updateLocked(parent.id, { body }, revision);
+    },
     scanPages: async () => [...(await scan()).values()].map(stored => stored.page),
     createRecord: async (input, sourceId) => {
       checkInput(input);

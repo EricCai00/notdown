@@ -48,6 +48,7 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "PUT" && id === "binding") return await vault.externalEntities.bind(input.key, input.localId, input.baseRevision);
       }
       if (resource === "databases") {
+        if (method === "POST" && operation === "display") return await vault.databases.display(id, input);
         if (method === "POST" && operation === "undo-wiki") return await vault.databases.undoWiki(id, input);
         if (method === "POST" && operation === "data-sources" && (!child || child === "link")) { const { baseRevision, ...patch } = input; return child === "link" ? await vault.databases.linkSource(id, patch, baseRevision) : await vault.databases.createSource(id, patch, baseRevision); }
         if (method === "GET") return await (id ? vault.databases.get(id) : vault.databases.list());

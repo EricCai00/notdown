@@ -114,6 +114,21 @@ test("packaged databases own JSON files, link shared sources, and keep Wiki Home
   expect(await fs.readFile(path.join(vaultPath, "pages", wiki.hostPage.id + ".md"), "utf8")).toBe("Real packaged Wiki Home");
   const metadata = JSON.parse(await fs.readFile(path.join(vaultPath, "metadata.json"), "utf8"));
   expect(metadata.pages[owner.database.id]).toBeUndefined(); expect(metadata.pages[record.id].dataSourceId).toBeUndefined();
+  const parent = await post("/api/pages", { title: "Packaged inline parent", syntax: { version: 1, variant: "notdown", extensions: {} }, body: "Parent source remains" });
+  const embedded = await post("/api/databases", { title: "Packaged linked-only", parent: parent.id, parentRevision: parent.revision, dataSourceId: source.id, sourceRevision: source.revision });
+  const file = path.join(vaultPath, "databases", embedded.database.id + ".json"), original = await fs.readFile(file, "utf8");
+  expect(JSON.parse(original).dataSources).toEqual([]);
+  await post(`/api/databases/${embedded.database.id}/display`, { inline: true, baseRevision: embedded.database.revision, parentRevision: parent.revision });
+  await page.goto(`${origin}/#page/${parent.id}`);
+  const inline = page.getByRole("region", { name: "Inline database", exact: true });
+  await expect(inline.getByRole("button", { name: "Open Shared packaged record", exact: true })).toBeVisible();
+  await expect(inline.locator(".database-linked-heading")).toBeVisible();
+  await inline.getByLabel("Database options", { exact: true }).click();
+  await inline.getByRole("button", { name: "Turn into page", exact: true }).click();
+  await page.getByRole("region", { name: "Database reference", exact: true }).locator(".pm-database-reference").click();
+  await page.locator("#breadcrumb").getByRole("link", { name: "Packaged inline parent", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Packaged inline parent");
+  expect(await fs.readFile(file, "utf8")).toBe(original);
 });
 
 test("Notion token is encrypted outside the vault and autofills after a desktop restart", async () => {

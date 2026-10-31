@@ -1,7 +1,7 @@
 import type { LinkedPage } from "../editor/editor-links";
 import { pageIconElement } from "../shared/page-icons";
 
-export interface BreadcrumbPage extends LinkedPage { parent?: string | null; trashed?: boolean }
+export interface BreadcrumbPage extends LinkedPage { parent?: string | null; trashed?: boolean; databaseId?: string }
 /** Navigation always follows the containing page, never legacy saved path IDs. */
 export function breadcrumbItems(pages: readonly BreadcrumbPage[], current?: BreadcrumbPage): BreadcrumbPage[] {
   const available = new Map(pages.filter(page => !page.trashed).map(page => [page.id, page]));
@@ -31,7 +31,7 @@ export function renderBreadcrumb(pages: readonly BreadcrumbPage[], current?: Bre
     }
     const link = document.createElement("a"); link.className = "pm-breadcrumb-page";
     link.title = page.title || "Untitled";
-    link.href = "#page/" + encodeURIComponent(page.id); link.draggable = false;
+    link.href = page.databaseId ? "#database/" + encodeURIComponent(page.databaseId) : "#page/" + encodeURIComponent(page.id); link.draggable = false;
     if (page.id === current?.id) link.setAttribute("aria-current", "page");
     const label = document.createElement("span"); label.className = "pm-breadcrumb-title"; label.textContent = page.title || "Untitled";
     link.append(pageIconElement(page.icon), label); item.append(link); list.append(item);

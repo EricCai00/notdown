@@ -9,7 +9,7 @@ import { databaseSourceView } from "./database-reference";
 import { openSourceMenu } from "./database-source-menu";
 import { renderSourceCatalog } from "./database-source-catalog";
 import type { DatabaseSourceSummary } from "./database-model";
-import { Database as DatabaseIcon } from "lucide";
+import { Database as DatabaseIcon, Maximize2, ArrowUpRight } from "lucide";
 import { databasePropertyReadOnly, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabasePropertyType, type DatabaseSnapshot, type DatabaseView } from "./database-model";
 import { isWikiDatabase } from "./database-model";
 import { createElement, Columns3, LayoutGrid, List, Table2, Plus, ChevronDown, Type, CircleChevronDown, AlignLeft, SquareCheck, Hash, Calendar, Link, Users, FileText, PanelRight, ListFilter, ArrowDownUp, Search, SlidersHorizontal, Ellipsis, ArrowLeft, X, Check, type IconNode } from "lucide";
@@ -27,7 +27,7 @@ import { requestPeople } from "../people/people-client";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
 type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
-type Hooks = { inline?: boolean; vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown>; undoWiki?: (snapshot: DatabaseSnapshot) => Promise<unknown> };
+type Hooks = { inline?: boolean; toggleDisplay?: () => Promise<unknown>; turnIntoInline?: (snapshot: DatabaseSnapshot) => Promise<unknown>; vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown>; undoWiki?: (snapshot: DatabaseSnapshot) => Promise<unknown> };
 const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"];
 const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone" };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -224,6 +224,11 @@ export class DatabaseWorkspace {
   };
   private pointerUp = () => { this.pointerDown = false; if (this.rowsNeedRefresh) this.scheduleRows(); };
   get dirty() { return this.sourceSaving || !!(this.menu?.saveOnDismiss && this.menu.dirty) || this.layoutSaving || this.pending.size > 0 || !!this.saving || !!this.peek?.dirty || !!this.presentation || !!this.presentationSaving; }
+  presentHost(page: Page) {
+    if (!this.snapshot || page.id !== this.snapshot.hostPage?.id || this.presentation) return;
+    this.snapshot.hostPage = page; this.snapshot.database = { ...this.snapshot.database, title: page.title, icon: page.icon, parent: page.parent };
+    this.refreshPresentation();
+  }
   destroy() { this.wikiPickerCleanup?.(); this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
   private message(text: string) { if (this.alive) { const element = this.host.querySelector<HTMLElement>(".database-message"); if (element) { element.dataset.state = text === "Saved locally" ? "saved" : "active"; element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } } }
   private draftKey() { return `notdown-database-draft:${this.hooks.vaultKey}:${this.snapshot!.database.id}`; }
@@ -516,6 +521,20 @@ export class DatabaseWorkspace {
     sourcesButton.dataset.dbSources = ""; sourcesButton.setAttribute("aria-label", "Data sources"); sourcesButton.title = "Data sources"; sourcesButton.innerHTML = glyph(DatabaseIcon);
     sourcesButton.addEventListener("click", () => { void this.manageSources().catch(error => this.message(error.message)); });
     if (!isWikiDatabase(snapshot.database)) this.host.querySelector(".database-more-menu")!.before(sourcesButton);
+    if (!isWikiDatabase(snapshot.database) && (this.hooks.toggleDisplay || this.hooks.turnIntoInline)) {
+      const convert = document.createElement("button"); convert.type = "button"; convert.textContent = this.hooks.inline ? "Turn into page" : "Turn into inline database";
+      convert.disabled = !this.hooks.inline && !snapshot.hostPage?.parent;
+      if (convert.disabled) convert.title = "Move this database inside a page first";
+      convert.onclick = () => { void (async () => { if (!await this.flush() || !await this.closePeek()) return; if (this.hooks.inline) await this.hooks.toggleDisplay?.(); else await this.hooks.turnIntoInline?.(this.snapshot!); })().catch(error => this.message(error.message)); };
+      this.host.querySelector(".database-more-menu .database-menu")!.prepend(convert);
+    }
+    if (this.hooks.inline) {
+      this.host.querySelector(".database-workspace")!.classList.add("database-inline-workspace");
+      if (view.linked) { const heading = this.host.querySelector(".database-heading-title")!; const arrow = createElement(ArrowUpRight, { width: 20, height: 20, "aria-label": "Linked data source" }); arrow.classList.add("database-linked-heading"); heading.prepend(arrow); }
+      const open = document.createElement("button"); open.type = "button"; open.className = "database-icon-button"; open.setAttribute("aria-label", "Open as page"); open.title = "Open as page"; open.innerHTML = glyph(Maximize2);
+      open.onclick = () => { void (async () => { if (await this.flush() && await this.closePeek()) await this.hooks.openDatabase(snapshot.database.id); })().catch(error => this.message(error.message)); };
+      this.host.querySelector("[data-db-view]")!.before(open);
+    }
     if (isWikiDatabase(snapshot.database) && this.hooks.undoWiki) {
       const undo = document.createElement("button"); undo.textContent = "Undo wiki"; undo.type = "button";
       undo.onclick = () => { void (async () => { if (await this.flush()) await this.hooks.undoWiki!(this.snapshot!); })().catch(error => this.message(error.message)); };
@@ -564,7 +583,7 @@ export class DatabaseWorkspace {
     workspace.dataset.verticalLines = String(view.layout?.showVerticalLines !== false);
     workspace.classList.toggle("database-hide-page-icons", view.layout?.showPageIcon === false);
     workspace.classList.toggle("database-wrap-content", !!view.layout?.wrapContent);
-    if ((view.layout?.showDataSourceTitle ?? snapshot.dataSources.length > 1) && source) {
+    if ((view.layout?.showDataSourceTitle ?? (snapshot.dataSources.length > 1 && (!this.hooks.inline || source?.title !== snapshot.database.title))) && source) {
       const title = document.createElement("h2"); title.className = "database-source-title"; title.dataset.sourceId = source.id;
       const button = document.createElement("button"); button.type = "button"; button.setAttribute("aria-label", `Current data source: ${source.title}`);
       button.append(document.createTextNode(source.title), createElement(ChevronDown, { width: 16, height: 16, "aria-hidden": "true" }));

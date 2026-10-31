@@ -143,7 +143,8 @@ System recycling requires a revision map covering the exact current subtree, a t
 | Request | Body | Response |
 | --- | --- | --- |
 | `GET /api/databases` | — | `Database[]` |
-| `POST /api/databases` | `{title,parent?:string|null,parentRevision?:string,kind?:"database"\|"wiki"}` | 201 `DatabaseSnapshot`; creates one database JSON and owned source; Wiki also creates a real Home and an All pages list |
+| `POST /api/databases` | `{title,parent?:string|null,parentRevision?:string,kind?:"database"\|"wiki",dataSourceId?:string,sourceRevision?:string}` | 201 `DatabaseSnapshot`; creates one database JSON. Without `dataSourceId`, creates an owned source; with it, validates `sourceRevision` and creates only an external-source view. Wiki requires its own source and also creates a real Home and an All pages list |
+| `POST /api/databases/:id/display` | `{inline:boolean,baseRevision,parentRevision}` | `Page`; returns the updated parent, validates database and parent revisions and changes the parent's entry, preserving the database JSON. Requires an active non-Wiki database, a parent supporting database syntax, and at most one matching entry; ambiguous entries must be converted from the block menu |
 | `POST /api/pages/:id/wiki` | `{baseRevision}` | `DatabaseSnapshot`; converts an active standalone page without rewriting Markdown or page identities |
 | `POST /api/databases/:id/undo-wiki` | `{baseRevision,hostRevision}` | `Page`; restores the host to an ordinary page, preserves the tree and property values, archives removed Wiki resources |
 | `GET /api/databases/:id` | — | `DatabaseSnapshot` |

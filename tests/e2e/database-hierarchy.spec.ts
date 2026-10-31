@@ -21,6 +21,12 @@ async function addRecord(page: Page, title: string, container = page.locator("#m
   await page.getByRole("button", { name: "Create row", exact: true }).click();
   await expect(container.getByRole("button", { name: `Open ${title}`, exact: true })).toBeVisible();
 }
+async function insertDatabase(page: Page, mode: "full" | "inline") {
+  await page.locator('.inline-slash [data-insert="database"]').click();
+  const dialog = page.getByRole("dialog", { name: "Create database", exact: true });
+  await dialog.getByLabel("Database display", { exact: true }).selectOption(mode);
+  await dialog.getByRole("button", { name: "Create database", exact: true }).click();
+}
 
 async function expand(page: Page, id: string) {
   const toggle = page.locator(`#page-tree [data-toggle="${id}"]`);
@@ -76,7 +82,7 @@ test("a database created under a page preserves pending text and keeps records t
   await page.keyboard.press("End");
   await page.keyboard.press("Enter");
   await page.keyboard.type("/database");
-  await page.locator('.inline-slash [data-insert="database_full_page"]').click();
+  await insertDatabase(page, "full");
   await renameDatabaseTitle(page, "Nested collection E2E");
   await expect.poll(async () => (await (await request.get(`/api/pages/${parent.id}`)).json()).body).toContain("Pending parent text before creating a collection");
   const snapshot = await databaseNamed(request, "Nested collection E2E");
@@ -103,9 +109,9 @@ test("the full-page database slash command creates a child database after collec
   await page.keyboard.type("Keep text before the database.");
   await page.keyboard.press("Enter");
   await page.keyboard.type("/database");
-  await expect(page.locator('.inline-slash [data-insert="database_inline"]')).toBeVisible();
+  await expect(page.locator('.inline-slash [data-insert="database"]')).toBeVisible();
   await page.locator(".inline-slash").screenshot({ path: "test-results/database-creation-menu.png" });
-  await page.locator('.inline-slash [data-insert="database_full_page"]').click();
+  await insertDatabase(page, "full");
   await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("New database");
   await expect(page.getByRole("dialog", { name: "New database", exact: true })).toHaveCount(0);
   await renameDatabaseTitle(page, "Slash full-page collection");
@@ -129,7 +135,7 @@ test("an inline database reuses the official reference and the same nested recor
   await page.keyboard.press("Enter");
   await page.keyboard.type("/database");
   const creation = page.waitForResponse(response => new URL(response.url()).pathname === "/api/databases" && response.request().method() === "POST");
-  await page.locator('.inline-slash [data-insert="database_inline"]').click();
+  await insertDatabase(page, "inline");
   const snapshot = await (await creation).json();
   expect(snapshot.hostPage.parent).toBe(parent.id);
   await expect(page).toHaveURL(new RegExp(`#page/${parent.id}$`));
@@ -137,7 +143,7 @@ test("an inline database reuses the official reference and the same nested recor
   await expect(inline).toBeVisible();
   await expect(inline.locator(".pm-database-reference")).toHaveText("New database");
   await expect(page.getByRole("dialog", { name: "New database", exact: true })).toHaveCount(0);
-  await inline.locator(".pm-database-reference").click();
+  await inline.getByRole("button", { name: "Open as page", exact: true }).click();
   await renameDatabaseTitle(page, "Inline collection E2E", snapshot.database.id);
   await page.goBack();
   await expect(inline).toBeVisible();

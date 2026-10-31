@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import { chooseDatabase, type DatabaseCreation } from "../features/databases/database-create";
 import { Buffer } from "buffer";
 import { MarkdownWorkspace, type EditMode } from "../markdown-engine/workspace";
 import { commandEnabled, defaultSyntax, dialectGroups, resetExtensions, validSyntax, syntaxFormat, type SyntaxConfig } from "../markdown-engine/config";
@@ -295,6 +296,12 @@ async function openDatabases(id?: string, showPages = false): Promise<void> {
     openDatabase: id => enqueue(async () => { if (await leavePage()) await openDatabases(id); }),
     createDatabase: () => enqueue(() => createDatabase()),
     createWiki: () => enqueue(() => createDatabase(undefined, "wiki")),
+    turnIntoInline: snapshot => enqueue(async () => {
+      const parent = pages.find(page => page.id === snapshot.hostPage?.parent);
+      if (!parent) throw new Error("The parent page is unavailable.");
+      await vault.databases.display(snapshot.database.id, { inline: true, baseRevision: snapshot.database.revision, parentRevision: parent.revision });
+      await refreshPages(); await openPage(parent.id);
+    }),
     undoWiki: snapshot => enqueue(async () => {
       await vault.databases.undoWiki(snapshot.database.id, { baseRevision: snapshot.database.revision, hostRevision: snapshot.hostPage!.revision });
       await refreshPages(); await openPage(snapshot.hostPage!.id);
@@ -304,14 +311,19 @@ async function openDatabases(id?: string, showPages = false): Promise<void> {
   rememberRoute(id ? `#database/${encodeURIComponent(id)}${showPages ? "#pages" : ""}` : "#databases");
   app.querySelector<HTMLElement>("#mobile-content")!.scrollTop = 0;
 }
-async function createDatabase(mode?: "full" | "inline", kind: "database" | "wiki" = "database") {
+async function createDatabase(mode?: "full" | "inline" | "choose", kind: "database" | "wiki" = "database", creation?: DatabaseCreation) {
+  if (mode === "choose") {
+    if (setupRequired || !await leavePage()) return;
+    await chooseDatabase({ inlineAllowed: !!workspace && commandEnabled(workspace.session.snapshot.config, "database_inline"), create: draft => createDatabase(draft.mode, "database", draft) });
+    return;
+  }
   if (setupRequired || !await leavePage()) return;
   const owner = mode ? session?.draft : undefined;
   if (mode && (!owner || !workspace)) return;
   if (mode === "inline" && !commandEnabled(workspace!.session.snapshot.config, "database_inline")) return;
   app.inert = true;
   try {
-    const snapshot = await vault.databases.create({ title: kind === "wiki" ? "New wiki" : "New database", kind, parent: owner?.id ?? null, ...(owner ? { parentRevision: owner.revision } : {}) });
+    const snapshot = await vault.databases.create({ title: creation?.title ?? (kind === "wiki" ? "New wiki" : "New database"), kind, parent: owner?.id ?? null, ...(owner ? { parentRevision: owner.revision } : {}), ...(creation?.source ? { dataSourceId: creation.source.id, sourceRevision: creation.source.revision } : {}) });
     await refreshPages();
     if (owner && workspace) {
       collapsedPages.delete(owner.id);

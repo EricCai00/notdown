@@ -27,6 +27,7 @@ type Host = {
   detachRecord(id: string, revision: string): Promise<Page>;
   conflictRecord(id: string, input: PageInput, revision: string): Promise<never>;
   convertWikiPage(id: string, revision: string, resources: DatabaseResources, expectedMetadata: string | null, wiki: boolean): Promise<Page>;
+  convertDisplay(parent: Page, databaseId: string, inline: boolean, baseRevision: string): Promise<Page>;
 };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -308,7 +309,6 @@ export function createDatabases(host: Host) {
       if (database.trashed) throw new VaultError(422, "Restore this database before linking a data source");
       if (isWikiDatabase(database)) throw new VaultError(422, "A wiki has exactly one data source");
       const owner = sourceOwner(ctx, current);
-      if (isWikiDatabase(owner)) throw new VaultError(422, "Wiki page sources cannot be linked to another database");
       if (database.dataSourceIds.includes(current.id)) return snapshot(ctx, databaseId);
       // Pin an older source's existing effective owner before adding another container.
       if (!current.ownerDatabaseId) ctx.dataSources[current.id] = stamped({ ...current, ownerDatabaseId: owner.id });
@@ -319,15 +319,32 @@ export function createDatabases(host: Host) {
       if (typeof input?.icon !== "string") throw new VaultError(400, "An icon string is required");
       return updatePresentationLocked(id, input);
     }),
-    create: (input: { title: string; parent?: string | null; parentRevision?: string; kind?: "database" | "wiki" }) => host.serialize(async () => {
+    display: (id: string, input: { inline: boolean; baseRevision: string; parentRevision: string }) => host.serialize(async () => {
+      base(input?.baseRevision); base(input?.parentRevision);
+      if (typeof input.inline !== "boolean") throw new VaultError(400, "Specify the database display mode");
+      const ctx = await context(), current = snapshot(ctx, id);
+      if (current.database.revision !== input.baseRevision) return conflict(current.database, input, input.baseRevision);
+      if (current.database.trashed || isWikiDatabase(current.database)) throw new VaultError(422, "Only active ordinary databases can change display mode");
+      const parent = ctx.pages.find(page => page.id === current.hostPage?.parent);
+      if (!parent || parent.databaseId && !isWikiDatabase(ctx.databases[parent.databaseId])) throw new VaultError(422, "Move this database inside a page before displaying it inline");
+      return host.convertDisplay(parent, id, input.inline, input.parentRevision);
+    }),
+    create: (input: { title: string; parent?: string | null; parentRevision?: string; kind?: "database" | "wiki"; dataSourceId?: string; sourceRevision?: string }) => host.serialize(async () => {
       label(input?.title);
       if (input.kind !== undefined && !["database", "wiki"].includes(input.kind)) throw new VaultError(400, "Unknown database kind");
       const wiki = input.kind === "wiki";
       const ctx = await context(), id = randomUUID(), sourceId = randomUUID(), viewId = randomUUID();
       const parent = await creationParent(ctx, input);
-      ctx.dataSources[sourceId] = stamped({ id: sourceId, ownerDatabaseId: id, title: input.title, properties: [{ id: randomUUID(), name: "Name", key: "title", type: "title" }], revision: "" });
-      ctx.views[viewId] = stamped({ id: viewId, databaseId: id, dataSourceId: sourceId, name: wiki ? "All pages" : "Table", type: wiki ? "list" : "table", rowOrder: [], revision: "" });
-      ctx.databases[id] = stamped({ id, pageId: id, ...(wiki ? { kind: "wiki" as const } : {}), title: input.title, dataSourceIds: [sourceId], viewIds: [viewId], revision: "" });
+      let selected = sourceId;
+      if (input.dataSourceId !== undefined) {
+        if (wiki) throw new VaultError(422, "A Wiki requires its own page source");
+        base(input.sourceRevision); const linked = source(ctx, input.dataSourceId);
+        if (linked.revision !== input.sourceRevision) return conflict(linked, input, input.sourceRevision);
+        const owner = sourceOwner(ctx, linked); selected = linked.id;
+        if (!linked.ownerDatabaseId) ctx.dataSources[linked.id] = stamped({ ...linked, ownerDatabaseId: owner.id });
+      } else ctx.dataSources[sourceId] = stamped({ id: sourceId, ownerDatabaseId: id, title: input.title, properties: [{ id: randomUUID(), name: "Name", key: "title", type: "title" }], revision: "" });
+      ctx.views[viewId] = stamped({ id: viewId, databaseId: id, dataSourceId: selected, name: wiki ? "All pages" : "Table", type: wiki ? "list" : "table", rowOrder: ctx.pages.filter(page => page.dataSourceId === selected).map(page => page.id), revision: "" });
+      ctx.databases[id] = stamped({ id, pageId: id, ...(wiki ? { kind: "wiki" as const } : {}), title: input.title, dataSourceIds: [selected], viewIds: [viewId], revision: "" });
       const page = await host.createDatabasePage({ title: input.title, icon: wiki ? "book-open" : "table-2", parent, body: "" }, id, { databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, ctx.before, input.parentRevision);
       ctx.pages.push(page); return snapshot(await context(), id);
     }),

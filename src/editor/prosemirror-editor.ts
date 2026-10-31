@@ -1999,6 +1999,9 @@ export class BlockEditor {
     currentType.className = "pm-block-type";
     currentType.textContent = blockTypeLabel(block.node, block.listNode);
     menu.append(currentType);
+    if (isEditorKind(block.node, "database") && !block.node.attrs.wiki) add(block.node.attrs.inline ? "Turn into page" : "Turn into inline database", () => {
+      this.view.nodeDOM(block.pos)?.dispatchEvent(new Event("notdown-toggle-database-display"));
+    }, "", true);
     add("View source", () => {
       try {
         // Collect pending DOM edits before reading the live block.

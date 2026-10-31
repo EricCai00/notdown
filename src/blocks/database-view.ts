@@ -26,6 +26,7 @@ export class DatabaseBlockView implements NodeView {
   private link = document.createElement("a");
   private mount = document.createElement("div");
   private status = document.createElement("p");
+  private menu = document.createElement("details");
   private workspace?: DatabaseWorkspace;
   private disposed = false;
   private epoch = 0;
@@ -41,6 +42,11 @@ export class DatabaseBlockView implements NodeView {
     this.mount.className = "pm-inline-database-mount";
     this.status.className = "pm-database-reference-status"; this.status.setAttribute("role", "status");
     this.dom.append(this.link, this.status, this.mount);
+    this.menu.className = "pm-database-entry-menu";
+    this.menu.innerHTML = '<summary aria-label="Database block options">···</summary><div><button type="button" data-convert>Turn into inline database</button></div>';
+    this.dom.append(this.menu);
+    this.menu.querySelector<HTMLButtonElement>("[data-convert]")!.onclick = () => { this.menu.open = false; void this.toggleDisplay(); };
+    this.dom.addEventListener("notdown-toggle-database-display", () => { void this.toggleDisplay(); }, { signal: this.events.signal });
     this.link.addEventListener("click", event => {
       if (!this.databaseId || !this.link.hasAttribute("href")) return;
       event.preventDefault(); event.stopPropagation(); void this.openDatabase(this.databaseId);
@@ -54,6 +60,7 @@ export class DatabaseBlockView implements NodeView {
       this.presentationVersion++; this.hostPage = host; this.databaseId = host.databaseId ?? this.databaseId;
       // Update only the reference row, keeping pending inline/peek DOM intact.
       this.renderReference();
+      this.workspace?.presentHost(host);
     };
     document.addEventListener("notdown-database-updated", refresh, { signal: this.events.signal });
     document.addEventListener("notdown-database-record-saved", refresh, { signal: this.events.signal });
@@ -97,6 +104,7 @@ export class DatabaseBlockView implements NodeView {
     else { this.link.removeAttribute("target"); this.link.removeAttribute("rel"); }
     this.link.title = inline ? "Open database as a full page" : "Open database";
     this.mount.hidden = !inline;
+    this.menu.hidden = inline || !known || !!this.hostPage?.wiki || !!this.node.attrs.wiki;
   }
   private draftScope(vaultPath: string, hostId: string) {
     // Occurrence, not source offset: prose edits must not change the draft key.
@@ -127,6 +135,7 @@ export class DatabaseBlockView implements NodeView {
         vaultKey: this.draftScope(vaultPath, hostId),
         initialSourceUrl: typeof this.node.attrs.dataSourceUrl === "string" ? this.node.attrs.dataSourceUrl : undefined,
         openPage: id => this.openPage(id), openDatabase: id => this.openDatabase(id),
+        toggleDisplay: () => this.toggleDisplay(),
         changed: saved => {
           // The supplied page list can contain the outer editor's live draft.
           // Let the app update its separate list cache without touching that draft.
@@ -144,6 +153,15 @@ export class DatabaseBlockView implements NodeView {
   private async beforeNavigation() {
     if (!(await this.flush())) return false;
     return this.savePage ? this.savePage() : true;
+  }
+  private async toggleDisplay() {
+    try {
+      if (!this.view.editable || !await this.beforeNavigation()) return;
+      const pos = this.getPos(), node = pos === undefined ? undefined : this.view.state.doc.nodeAt(pos);
+      if (pos === undefined || !node || editorKind(node) !== "database" || node.attrs.url !== this.node.attrs.url) throw new Error("This database entry changed. Reopen its menu.");
+      this.view.dispatch(this.view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, inline: !node.attrs.inline }).scrollIntoView());
+      if (this.savePage) await this.savePage();
+    } catch (error) { this.status.textContent = error instanceof Error ? error.message : String(error); }
   }
   private async openPage(id: string) {
     if (!(await this.beforeNavigation())) return false;

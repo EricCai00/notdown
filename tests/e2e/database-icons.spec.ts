@@ -86,7 +86,7 @@ test("changing a database icon updates inline and sibling references without rew
   await page.goto(`/#page/${parent.id}`);
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
   const references = page.locator(".pm-database-reference");
-  await inline.locator(".pm-database-reference").click();
+  await inline.getByRole("button", { name: "Open as page", exact: true }).click();
   await page.getByRole("button", { name: "Change database icon", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose database icon", exact: true });
   await picker.getByRole("button", { name: "Emoji", exact: true }).click();

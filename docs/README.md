@@ -67,6 +67,8 @@
 
 ## 审计与验证记录
 
+- [Windows 0.1.11：统一数据库入口与双向转换（2026-10-31）](verification/RELEASE-0.1.11-2026-10-31.md)
+
 - [Windows 0.1.10 发布验证（2026-10-31）](verification/RELEASE-0.1.10-2026-10-31.md)
 
 - [独立数据库 JSON、迁移与恢复（2026-10-31）](verification/DATABASE-FILES-2026-10-31.md)

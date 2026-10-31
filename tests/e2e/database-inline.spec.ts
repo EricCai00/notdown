@@ -35,7 +35,7 @@ test("inline database edits save before switching source or opening the full dat
   await page.locator("#editing-workspace > .editing-toolbar").getByRole("button", { name: "Page", exact: true }).click();
   await expect(note).toHaveValue("Saved before source");
   await note.fill("Saved before open");
-  await inline.locator(":scope > .pm-database-reference").click();
+  await inline.getByRole("button", { name: "Open as page", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#database/${data.database.id}$`));
   await expect.poll(async () => (await (await request.get(`/api/pages/${data.row.id}`)).json()).properties[data.fieldId]).toBe("Saved before open");
   expect((await (await request.get(`/api/pages/${data.page.id}`)).json()).body).toBe(data.body);
@@ -55,7 +55,7 @@ test("inline database conflicts retain the draft and block source switching and 
   await expect(inline.locator(".database-message")).toContainText(/preserved/i);
   await expect(page.locator("#editing-workspace")).toHaveAttribute("data-mode", "document");
   await expect(note).toHaveValue("Unsaved conflicting cell");
-  await inline.locator(":scope > .pm-database-reference").click();
+  await inline.getByRole("button", { name: "Open as page", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#page/${data.page.id}$`));
   expect((await (await request.get(`/api/pages/${data.row.id}`)).json()).body).toBe("External newer body");
   expect((await (await request.get(`/api/pages/${data.row.id}`)).json()).properties[data.fieldId]).toBe("Original");
