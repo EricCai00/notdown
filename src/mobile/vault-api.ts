@@ -57,7 +57,9 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "PUT" && id) return await (operation === "icon" ? vault.databases.updateIcon(id, input) : vault.databases.updatePresentation(id, input));
       }
       if (resource === "data-sources") {
-        if (method === "GET" && !id) return await vault.databases.listSources();
+        if (method === "GET" && !id) return await vault.databases.listSources(url.searchParams.get("includeTrashed") === "true");
+        if (method === "POST" && operation === "trash") return await vault.databases.trashSource(id, input);
+        if (method === "POST" && operation === "move") return await vault.databases.moveSource(id, input);
         if (method === "GET" && id) return await vault.databases.getSource(id);
         if (method === "PUT" && id && !operation) { const { baseRevision, ...patch } = input; return await vault.databases.updateSource(id, patch, baseRevision); }
         if (method === "PUT" && operation === "records" && child) return await vault.databases.updateCell(id, child, input);

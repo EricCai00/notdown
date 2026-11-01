@@ -6,10 +6,10 @@ import { viewLabel } from "./database-view-settings";
 
 const icons = { table: Table2, board: Columns3, gallery: LayoutGrid, list: List, calendar: Calendar };
 export function openTabMenu(anchor: HTMLElement, hooks: {
-  view: DatabaseView; source: DatabaseDataSource; wiki: boolean; showSourceTitle: boolean; canDelete: boolean;
+  view: DatabaseView; source: DatabaseDataSource; wiki: boolean; showSourceTitle: boolean; lastSourceView: boolean; ownsSource: boolean;
   save(view: DatabaseView): Promise<void>;
   edit(section?: "Source"): void;
-  duplicate(): Promise<void>; remove(): Promise<void>;
+  duplicate(): Promise<void>; remove(trashSource?: boolean): Promise<void>;
 }) {
   const pop = new DatabasePopover(anchor, "View options", { replace: true });
   const draft = structuredClone(hooks.view), panel = pop.panel("View options", anchor, 0, 240);
@@ -36,8 +36,18 @@ export function openTabMenu(anchor: HTMLElement, hooks: {
   }));
   const actions = menuSection(panel);
   actions.append(menuButton("Duplicate view", Copy, () => { void pop.perform(hooks.duplicate); }));
-  const remove = menuButton("Delete view", Trash2, () => { void pop.perform(hooks.remove); });
-  remove.classList.add("database-popover-danger"); remove.disabled = !hooks.canDelete;
-  if (!hooks.canDelete) remove.title = "Keep at least one view in this database";
+  const remove = menuButton("Delete view", Trash2, () => {
+    if (!hooks.lastSourceView) { void pop.perform(() => hooks.remove()); return; }
+    const dialog = document.createElement("dialog"); dialog.className = "database-delete-view-dialog"; dialog.setAttribute("aria-label", "Delete last view");
+    const title = document.createElement("h3"); title.textContent = `Delete the last view for ${hooks.source.title}?`; dialog.append(title);
+    dialog.insertAdjacentHTML("beforeend", '<form><label><input type="radio" name="delete" value="view" checked><strong>Delete view only</strong><small>The data source and all of its pages will be kept in this database.</small></label><label><input type="radio" name="delete" value="source"><strong>Delete view and data source</strong><small>The data source and all of its pages will move to Trash.</small></label><p role="status"></p><footer><button type="submit" class="danger">Delete view</button><button type="button" data-cancel>Cancel</button></footer></form>');
+    const form = dialog.querySelector("form")!, choice = form.querySelector<HTMLInputElement>('[value="source"]')!;
+    choice.disabled = !hooks.ownsSource || hooks.wiki; if (choice.disabled) choice.closest("label")!.title = "This source belongs to another database or is a Wiki page source";
+    let busy = false; const close = () => { if (!busy) { dialog.close(); dialog.remove(); } };
+    form.querySelector<HTMLButtonElement>("[data-cancel]")!.onclick = close; dialog.oncancel = event => { event.preventDefault(); close(); };
+    form.onsubmit = event => { event.preventDefault(); if (busy) return; busy = true; form.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.disabled = true); void hooks.remove(choice.checked).then(() => { busy = false; pop.destroy(); close(); }).catch(error => { form.querySelector("[role=status]")!.textContent = error instanceof Error ? error.message : String(error); }).finally(() => { busy = false; form.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.disabled = false); }); };
+    document.body.append(dialog); dialog.showModal();
+  });
+  remove.classList.add("database-popover-danger");
   actions.append(remove); return pop;
 }

@@ -54,7 +54,8 @@ test("Notion-style view picker, shared records, board movement, settings and cal
   await page.reload();
   await expect(page.getByRole("tab", { name: "Calendar", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("tab", { name: "Gallery", exact: true }).click();
+  await page.getByRole("button", { name: "More database views", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Gallery", exact: true }).click();
   await expect(page.locator(".database-layout-gallery .database-record-card")).toHaveCount(15);
   await page.screenshot({ path: info.outputPath("gallery-narrow.png"), fullPage: true });
 });

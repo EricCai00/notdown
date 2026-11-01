@@ -33,13 +33,15 @@ test("a single database entry converts both ways while saving pending cells and 
   await expect(inline.getByLabel("Database title", { exact: true })).toHaveValue("Display database");
   await expect(inline.locator(":scope > .pm-database-reference")).toBeHidden();
   await inline.getByLabel("Name: Display record", { exact: true }).fill("Pending inline title");
-  await inline.getByLabel("Database options", { exact: true }).click();
+  await inline.getByLabel("Database block options", { exact: true }).click();
   await inline.getByRole("button", { name: "Turn into page", exact: true }).click();
   await expect(full).toBeVisible();
   expect((await (await request.get(`/api/pages/${row.id}`)).json()).title).toBe("Pending inline title");
   await full.locator(".pm-database-reference").click();
-  await page.getByLabel("Database options", { exact: true }).click();
-  await page.getByRole("button", { name: "Turn into inline database", exact: true }).click();
+  await expect(page.getByLabel("Database options", { exact: true })).toHaveCount(0);
+  await page.locator("#breadcrumb").getByRole("link", { name: "Display parent", exact: true }).click();
+  await full.getByLabel("Database block options", { exact: true }).click();
+  await full.getByRole("button", { name: "Turn into inline database", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#page/${parent.id}$`));
   await expect(inline.getByRole("button", { name: "Open Pending inline title", exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("inline-database.png"), fullPage: true });

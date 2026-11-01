@@ -2,6 +2,7 @@ import type { ImportProgress } from "./import-progress";
 import { apiUrl } from "./vault-url";
 
 export interface Page {
+  dataSourceTrashed?: boolean;
   dataSourceId?: string;
   databaseId?: string;
   databaseProxy?: boolean;

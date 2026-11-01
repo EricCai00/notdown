@@ -123,7 +123,7 @@ test("packaged databases own JSON files, link shared sources, and keep Wiki Home
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
   await expect(inline.getByRole("button", { name: "Open Shared packaged record", exact: true })).toBeVisible();
   await expect(inline.locator(".database-linked-heading")).toBeVisible();
-  await inline.getByLabel("Database options", { exact: true }).click();
+  await inline.getByLabel("Database block options", { exact: true }).click();
   await inline.getByRole("button", { name: "Turn into page", exact: true }).click();
   await page.getByRole("region", { name: "Database reference", exact: true }).locator(".pm-database-reference").click();
   await page.locator("#breadcrumb").getByRole("link", { name: "Packaged inline parent", exact: true }).click();
@@ -140,6 +140,12 @@ test("packaged databases own JSON files, link shared sources, and keep Wiki Home
   const manager = page.getByRole("dialog", { name: "Manage data sources", exact: true });
   await expect(manager.locator(".database-source-menu-item")).toHaveCount(2);
   await expect(manager).toHaveCSS("box-shadow", "none");
+  await expect(page.getByLabel("Database options", { exact: true })).toHaveCount(0);
+  const ownerNow = await page.evaluate(async id => (await fetch(`/api/databases/${id}`)).json(), owner.database.id);
+  const trashed = await post(`/api/data-sources/${source.id}/trash`, { baseRevision: ownerNow.dataSources[0].revision, databaseRevision: ownerNow.database.revision, trashed: true });
+  expect(trashed.pages).toHaveLength(0);
+  const restored = await post(`/api/data-sources/${source.id}/trash`, { baseRevision: trashed.dataSources[0].revision, databaseRevision: trashed.database.revision, trashed: false });
+  expect(restored.pages.map((item: any) => item.id)).toEqual([record.id]);
 });
 
 test("Notion token is encrypted outside the vault and autofills after a desktop restart", async () => {

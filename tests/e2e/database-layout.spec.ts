@@ -48,7 +48,7 @@ test("view tabs open their own dropdown and rename, display, duplicate and delet
   await page.goto(`/#database/${db.database.id}`);
   const tab = page.getByRole("tab", { name: "Table", exact: true }); await tab.click();
   const menu = page.getByRole("dialog", { name: "View options", exact: true });
-  await expect(menu.getByRole("button", { name: "Delete view", exact: true })).toBeDisabled();
+  await expect(menu.getByRole("button", { name: "Delete view", exact: true })).toBeEnabled();
   await page.screenshot({ path: info.outputPath("view-dropdown.png") });
   await menu.getByRole("button", { name: "Rename", exact: true }).click();
   await page.getByLabel("View name", { exact: true }).fill("My records"); await page.getByLabel("View name", { exact: true }).press("Enter");

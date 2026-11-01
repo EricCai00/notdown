@@ -58,7 +58,8 @@ test("source relationships are searchable and link to their exact database views
   await expect(manager.getByText("Source", { exact: true })).toBeVisible();
   await expect(manager.getByText("Linked", { exact: true })).toBeVisible();
   await expect(manager.getByRole("button", { name: "Show data source Roadmap", exact: true })).toHaveAttribute("title", "From Product work · Views: Roadmap");
-  await button(page, "Details for Roadmap").click();
+  await button(page, "Data source options for Roadmap").click();
+  await button(page, "Source details").click();
   const details = dialog(page, "Data source details");
   await expect(details.getByRole("link", { name: "Open Table in Product work", exact: true })).toBeVisible();
   await expect(details.getByRole("link", { name: "Open Roadmap in Overview mapping", exact: true })).toBeVisible();

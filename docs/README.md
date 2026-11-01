@@ -67,6 +67,8 @@
 
 ## 审计与验证记录
 
+- [Windows 0.1.13：Inline 数据库、来源菜单与 Trash（2026-11-01）](verification/RELEASE-0.1.13-2026-11-01.md)
+
 - [Windows 0.1.12：数据库布局与视图菜单（2026-11-01）](verification/RELEASE-0.1.12-2026-11-01.md)
 
 - [Windows 0.1.11：统一数据库入口与双向转换（2026-10-31）](verification/RELEASE-0.1.11-2026-10-31.md)

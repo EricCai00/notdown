@@ -1,0 +1,53 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createVault } from "../../server/vault.js";
+
+test("source moves retain identity, external views and exact Markdown; source Trash is recoverable", async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-source-life-")), vault = createVault(root);
+  t.after(async () => { vault.closeHistory(); await fs.rm(root, { recursive: true, force: true }); });
+  const owner = await vault.databases.create({ title: "Owner" }), target = await vault.databases.create({ title: "Target" }), linked = await vault.databases.create({ title: "Linked", dataSourceId: owner.dataSources[0].id, sourceRevision: owner.dataSources[0].revision });
+  const row = await vault.databases.createRecord(owner.dataSources[0].id, { title: "Keep page" }, owner.dataSources[0].revision);
+  const note = await vault.update(row.id, { body: "Exact Markdown\r\n\r\n```unknown\r\nkeep\r\n```\r\n" }, row.revision);
+  const child = await vault.create({ title: "Nested child", parent: row.id, body: "Nested original" });
+  const alreadyTrashed = await vault.create({ title: "Separately trashed child", parent: row.id, body: "Keep this Trash state" });
+  await vault.update(alreadyTrashed.id, { trashed: true }, alreadyTrashed.revision);
+  const bytes = await fs.readFile(path.join(root, "pages", row.id + ".md"));
+  const before = await vault.databases.get(owner.database.id);
+  await vault.databases.moveSource(before.dataSources[0].id, { baseRevision: before.dataSources[0].revision, databaseRevision: before.database.revision, targetDatabaseId: target.database.id, targetRevision: target.database.revision });
+  const moved = await vault.databases.get(target.database.id), source = moved.dataSources.find(source => source.id === owner.dataSources[0].id)!;
+  assert.equal(source.ownerDatabaseId, target.database.id); assert.equal((await vault.get(row.id)).parent, target.database.id);
+  assert.deepEqual(await fs.readFile(path.join(root, "pages", row.id + ".md")), bytes);
+  assert.equal((await vault.databases.get(linked.database.id)).pages[0].id, row.id);
+  const trashed = await vault.databases.trashSource(source.id, { baseRevision: source.revision, databaseRevision: moved.database.revision, trashed: true });
+  assert.ok((await vault.list({ includeTrashed: true })).find(page => page.id === row.id)?.dataSourceTrashed);
+  assert.ok(!(await vault.list()).some(page => page.id === row.id));
+  assert.ok(!(await vault.list()).some(page => page.id === child.id));
+  assert.ok(!(await vault.databases.listSources()).some(source => source.id === owner.dataSources[0].id));
+  const saved = (await vault.databases.listSources(true)).find(item => item.id === source.id && item.trashed)!;
+  await vault.databases.trashSource(saved.id, { baseRevision: saved.revision, databaseRevision: trashed.database.revision, trashed: false });
+  assert.equal((await vault.get(note.id)).body, note.body); assert.ok((await vault.list()).some(page => page.id === row.id));
+  assert.equal((await vault.get(child.id)).body, "Nested original"); assert.ok((await vault.list()).some(page => page.id === child.id));
+  assert.ok(!(await vault.list()).some(page => page.id === alreadyTrashed.id));
+  assert.equal((await vault.get(alreadyTrashed.id)).trashed, true);
+  assert.equal((await vault.databases.get(linked.database.id)).pages[0].id, row.id);
+});
+
+test("deleting the last view either keeps the source or moves it and its pages to Trash", async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-last-view-")), vault = createVault(root);
+  t.after(async () => { vault.closeHistory(); await fs.rm(root, { recursive: true, force: true }); });
+  const db = await vault.databases.create({ title: "Last view" }), source = db.dataSources[0];
+  const row = await vault.databases.createRecord(source.id, { title: "Keep me" }, source.revision);
+  let current = await vault.databases.get(db.database.id);
+  current = await vault.databases.deleteView(current.views[0].id, { baseRevision: current.views[0].revision, databaseRevision: current.database.revision });
+  assert.equal(current.views.length, 0); assert.equal(current.dataSources.length, 1); assert.equal(current.pages[0].id, row.id);
+  current = await vault.databases.createView(db.database.id, { name: "Again", dataSourceId: source.id }, current.database.revision);
+  current = await vault.databases.deleteView(current.views[0].id, { baseRevision: current.views[0].revision, databaseRevision: current.database.revision, trashSource: true, sourceRevision: current.dataSources[0].revision });
+  assert.equal(current.views.length, 0); assert.equal(current.pages.length, 0);
+  const trashed = (await vault.databases.listSources(true)).find(item => item.id === source.id)!;
+  assert.equal(trashed.trashed, true);
+  const restored = await vault.databases.trashSource(source.id, { baseRevision: trashed.revision, databaseRevision: current.database.revision, trashed: false });
+  assert.equal(restored.views.length, 1); assert.equal(restored.pages[0].id, row.id);
+});

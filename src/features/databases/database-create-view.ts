@@ -2,7 +2,7 @@ import { api, type Page } from "../../shared/types";
 import type { DatabaseSnapshot, DatabaseView, DatabaseProperty, DatabaseDataSource } from "./database-model";
 import { groupable, queryDatabase } from "./database-query";
 /** Shared creation workflow for the Home picker and collection toolbar. */
-export async function createDatabaseView(snapshot: DatabaseSnapshot, draft: DatabaseView, current: DatabaseView): Promise<DatabaseSnapshot> {
+export async function createDatabaseView(snapshot: DatabaseSnapshot, draft: DatabaseView, current?: DatabaseView): Promise<DatabaseSnapshot> {
   const layout = draft.layout ?? {};
   let source = snapshot.dataSources.find(item => item.id === draft.dataSourceId)!;
   if (draft.type === "board" && !layout.groupBy || draft.type === "calendar" && !layout.datePropertyId) {
@@ -16,6 +16,6 @@ export async function createDatabaseView(snapshot: DatabaseSnapshot, draft: Data
     if (board) layout.groupBy = field.id; else layout.datePropertyId = field.id;
   }
   const propertyIds = draft.type === "table" ? undefined : source.properties.filter(field => field.type === "title" || field.id === layout.groupBy || field.id === layout.datePropertyId).map(field => field.id);
-  const rowOrder = queryDatabase(snapshot.pages, source, { ...current, filters: [] }).map((page: Page) => page.id);
+  const rowOrder = current ? queryDatabase(snapshot.pages, source, { ...current, filters: [] }).map((page: Page) => page.id) : snapshot.pages.filter(page => page.dataSourceId === source.id).map(page => page.id);
   return api<DatabaseSnapshot>(`/databases/${snapshot.database.id}/views`, { method: "POST", body: JSON.stringify({ baseRevision: snapshot.database.revision, name: draft.name, dataSourceId: source.id, type: draft.type, layout, propertyIds, rowOrder }) });
 }

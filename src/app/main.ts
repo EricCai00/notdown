@@ -1178,6 +1178,7 @@ function modal(title: string, body: string, wide = false) {
   closeModal();
   const dialog = document.createElement("dialog");
   dialog.id = "dialog";
+  dialog.setAttribute("aria-label", title);
   dialog.className = wide ? "wide-dialog" : "";
   dialog.innerHTML = `<div class="dialog-heading"><h2>${e(title)}</h2>${button("close-dialog", "x", "Close")}</div>${body}`;
   document.body.append(dialog);
@@ -1386,16 +1387,7 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
     changed: saved => { const index = pages.findIndex(page => page.id === saved.id); if (index < 0) pages.push(saved); else pages[index] = saved; renderSidebar(); },
     createDatabase: () => createDatabase(null),
     createWiki: () => createDatabase(null, undefined, "wiki"),
-    turnIntoInline: async snapshot => {
-      const parent = pages.find(page => page.id === snapshot.hostPage?.parent);
-      if (!parent) throw new Error("The parent page is unavailable.");
-      await api<Page>(`/databases/${snapshot.database.id}/display`, { method: "POST", body: JSON.stringify({ inline: true, baseRevision: snapshot.database.revision, parentRevision: parent.revision }) });
-      pages = await refreshWorkspacePages(); await openPage(parent.id);
-    },
-    undoWiki: async snapshot => {
-      await api<Page>(`/databases/${snapshot.database.id}/undo-wiki`, { method: "POST", body: JSON.stringify({ baseRevision: snapshot.database.revision, hostRevision: snapshot.hostPage!.revision }) });
-      pages = await refreshWorkspacePages(); await openPage(snapshot.hostPage!.id);
-    },
+
   });
   try { await controller.load(id); }
   catch (error) { controller.destroy(); throw error; }
@@ -1623,9 +1615,14 @@ async function handlePageAction(page: Page, action: PageAction) {
 async function showTrash() {
   const info = await requirePageActions();
   const all = await api<Page[]>("/pages?includeTrashed=true");
-  const entries = all.filter((page) => page.trashed);
+  const entries = all.filter((page) => page.trashed && !page.dataSourceTrashed);
+  const sources = (await api<DatabaseSourceSummary[]>("/data-sources?includeTrashed=true")).filter(source => source.trashed);
   const dialog = modal("Trash", `<p class="muted">Restore returns a page and its children to the vault. Delete moves their Markdown files and attachments that lose their last reference to the Windows Recycle Bin. Shared attachments are kept.</p>${!info.capabilities?.systemRecycleBin ? '<p class="muted">System Recycle Bin requires an up-to-date Windows server.</p>' : ""}<div class="trash-list">${entries.length ? entries.map((page) => `<div><span>${e(page.title)}</span><div class="trash-row-actions"><button class="secondary-button" data-restore="${e(page.id)}">${icon("undo-2")}Restore</button><button class="secondary-button danger" data-recycle="${e(page.id)}" title="Move to system Recycle Bin" ${info.capabilities?.systemRecycleBin ? "" : "disabled"}>${icon("trash-2")}Delete</button></div></div>`).join("") : '<p class="empty-small">Trash is empty.</p>'}</div>`);
+  const list = dialog.querySelector(".trash-list")!;
+  if (sources.length) { list.querySelector(".empty-small")?.remove(); for (const source of sources) { const row = document.createElement("div"); row.innerHTML = `<span>${e(source.title)} · Data source · ${source.recordCount} pages</span><button class="secondary-button" data-restore-source="${e(source.id)}">Restore</button>`; list.append(row); } }
   dialog.addEventListener("click", (event) => {
+    const sourceRestore = (event.target as Element).closest<HTMLButtonElement>("[data-restore-source]");
+    if (sourceRestore) { const source = sources.find(source => source.id === sourceRestore.dataset.restoreSource); if (!source) return; sourceRestore.disabled = true; void api(`/data-sources/${source.id}/trash`, { method: "POST", body: JSON.stringify({ baseRevision: source.revision, databaseRevision: source.ownerRevision, trashed: false }) }).then(async () => { document.dispatchEvent(new Event("notdown-database-structure-changed")); await showTrash(); }).catch(report).finally(() => sourceRestore.disabled = false); return; }
     const recycle = (event.target as Element).closest<HTMLButtonElement>("[data-recycle]");
     if (recycle) {
       const target = entries.find((entry) => entry.id === recycle.dataset.recycle);
@@ -3308,6 +3305,9 @@ document.addEventListener("notdown-database-record-saved", event => {
   const index = pages.findIndex(page => page.id === saved.id);
   if (index < 0) pages.push(saved); else pages[index] = saved;
   renderSidebar();
+});
+document.addEventListener("notdown-database-structure-changed", () => {
+  void refreshWorkspacePages().then(next => { pages = next; renderSidebar(); updateCounts(); }).catch(report);
 });
 document.addEventListener("notdown-database-updated", event => {
   const snapshot = (event as CustomEvent<DatabaseSnapshot>).detail;

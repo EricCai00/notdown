@@ -26,7 +26,7 @@ export function validateDatabaseDocument(value: unknown, id?: string): asserts v
   if (value.properties !== undefined && !object(value.properties) || value.pageMetadata !== undefined && !object(value.pageMetadata) || value.icon !== undefined && (typeof value.icon !== "string" || value.icon.length > 100) || value.updated !== undefined && typeof value.updated !== "string") throw new VaultError(422, "Invalid database display metadata; original file preserved");
   const sources = new Set<string>(), views = new Set<string>(), pages = new Set<string>();
   for (const source of value.dataSources) {
-    if (!object(source) || typeof source.title !== "string" || !Array.isArray(source.properties) || !Array.isArray(source.pageIds) || source.pageIds.length > 100_000) throw new VaultError(422, "Invalid owned data source");
+    if (!object(source) || typeof source.title !== "string" || source.trashed !== undefined && typeof source.trashed !== "boolean" || !Array.isArray(source.properties) || !Array.isArray(source.pageIds) || source.pageIds.length > 100_000) throw new VaultError(422, "Invalid owned data source");
     assertId(source.id); if (sources.has(source.id)) throw new VaultError(422, "Duplicate owned data source"); sources.add(source.id);
     for (const pageId of source.pageIds) { assertId(pageId); if (pageId === value.id || pageId === value.homePageId || pages.has(pageId)) throw new VaultError(422, "A Home or database cannot be its own record, and records must have one owner"); pages.add(pageId); }
   }

@@ -1,6 +1,8 @@
 import { mountWikiViewPicker } from "./wiki-view-picker";
 import { createDatabaseView } from "./database-create-view";
 import { openTabMenu } from "./database-tab-menu";
+import { installInlineDatabaseLayout } from "./database-inline-layout";
+import { installViewOverflow } from "./database-view-overflow";
 import { isPageCoverPath } from "../pages/page-cover-picker";
 import { vaultAssetUrl } from "../../shared/vault-url";
 import { api, escape as e, type Page } from "../../shared/types";
@@ -28,7 +30,7 @@ import { requestPeople } from "../people/people-client";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
 type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
-type Hooks = { inline?: boolean; toggleDisplay?: () => Promise<unknown>; turnIntoInline?: (snapshot: DatabaseSnapshot) => Promise<unknown>; vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown>; undoWiki?: (snapshot: DatabaseSnapshot) => Promise<unknown> };
+type Hooks = { inline?: boolean; vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown> };
 const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"];
 const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone" };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -209,7 +211,11 @@ export class DatabaseWorkspace {
   private pointerDown = false;
   private rowsNeedRefresh = false;
   private refreshTimer?: ReturnType<typeof setTimeout>;
+  private saveTimer?: ReturnType<typeof setTimeout>;
+  private inlineLayoutCleanup?: () => void;
+  private viewOverflowCleanup?: () => void;
   constructor(private host: HTMLElement, private hooks: Hooks) {
+    if (hooks.inline) this.inlineLayoutCleanup = installInlineDatabaseLayout(host);
     host.addEventListener("pointerdown", () => { this.pointerDown = true; });
     window.addEventListener("pointerup", this.pointerUp);
     window.addEventListener("pointercancel", this.pointerUp);
@@ -230,8 +236,12 @@ export class DatabaseWorkspace {
     this.snapshot.hostPage = page; this.snapshot.database = { ...this.snapshot.database, title: page.title, icon: page.icon, parent: page.parent };
     this.refreshPresentation();
   }
-  destroy() { this.wikiPickerCleanup?.(); this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
-  private message(text: string) { if (this.alive) { const element = this.host.querySelector<HTMLElement>(".database-message"); if (element) { element.dataset.state = text === "Saved locally" ? "saved" : "active"; element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } } }
+  destroy() { this.inlineLayoutCleanup?.(); this.viewOverflowCleanup?.(); this.wikiPickerCleanup?.(); this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); clearTimeout(this.saveTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
+  private message(text: string) { if (this.alive) { const element = this.host.querySelector<HTMLElement>(".database-message"); if (element) { element.dataset.state = text === "Saved locally" ? "saved" : "active"; element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } const recovery = this.host.querySelector<HTMLElement>(".database-save-recovery"); if (recovery) recovery.hidden = !this.failed && !this.presentationFailed; } }
+  private scheduleSave() {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => { if (this.alive) void this.flush(); }, 600);
+  }
   private draftKey() { return `notdown-database-draft:${this.hooks.vaultKey}:${this.snapshot!.database.id}`; }
   private viewKey() { return `${this.draftKey()}:view${this.hooks.initialSourceUrl ? `:${this.hooks.initialSourceUrl.toLowerCase().replace(/-/g, "")}` : ""}`; }
   private persist() {
@@ -250,7 +260,7 @@ export class DatabaseWorkspace {
       if (snapshot.views.some(view => view.id === this.hooks.initialViewId)) this.rememberView(this.hooks.initialViewId!);
       try { const draft = sessionStorage.getItem(this.draftKey()); if (draft) this.pending = new Map(JSON.parse(draft)); } catch { /* Disk remains authoritative. */ }
       this.render();
-      if (this.pending.size || this.presentation) this.message("Recovered unsaved edits. Save changes or discard and reload.");
+      if (this.pending.size || this.presentation) { this.message("Recovered unsaved edits. Saving…"); this.scheduleSave(); }
     } else {
       const databases = await api<Database[]>("/databases");
       if (!this.alive) return;
@@ -293,8 +303,10 @@ export class DatabaseWorkspace {
     const key = `${page.id}/${field.id}`, previous = this.pending.get(key);
     this.pending.set(key, { pageId: page.id, propertyId: field.id, value, baseRevision: previous?.baseRevision ?? page.revision, schemaRevision: previous?.schemaRevision ?? this.source.revision, sourceId: this.source.id });
     this.persist(); this.message(this.failed ? "Save failed. Your edits are kept; review the error before retrying." : "Unsaved changes");
+    this.scheduleSave();
   }
   async flush(): Promise<boolean> {
+    clearTimeout(this.saveTimer);
     if (this.sourceSaving) { this.message("Wait for data source changes to finish."); return false; }
     if (this.menu?.saveOnDismiss && !(await this.menu.save())) return false;
     if (this.peek && !(await this.peek.flush())) return false;
@@ -316,7 +328,7 @@ export class DatabaseWorkspace {
         }
         this.message("Saved locally"); this.scheduleRows(); return true;
       } catch (error) {
-        this.failed = true; this.message(`${error instanceof Error ? error.message : "Save failed"}. Edits remain in this tab. Use Discard edits and reload to load the disk version.`); return false;
+        this.failed = true; this.message(`${error instanceof Error ? error.message : "Save failed"}. Edits remain in this tab. Your draft is kept until you retry or discard it.`); return false;
       } finally {
         this.saving = undefined;
       }
@@ -331,6 +343,7 @@ export class DatabaseWorkspace {
     this.presentationFailed = false;
     this.presentation = { ...(this.presentation ?? { baseRevision: this.snapshot!.database.revision, ...(this.snapshot!.hostPage ? { hostRevision: this.snapshot!.hostPage.revision } : {}) }), ...patch };
     this.persistPresentation(); this.message("Unsaved changes");
+    this.scheduleSave();
   }
   private async flushPresentation(): Promise<boolean> {
     if (this.presentationSaving) return this.presentationSaving;
@@ -493,15 +506,33 @@ export class DatabaseWorkspace {
       } catch (error) { throw new Error(`${moved} of ${total} pages moved. ${error instanceof Error ? error.message : "Could not move remaining pages"}. Remaining pages were not overwritten.`); }
     });
   }
+  private wireSaveControls() {
+    this.host.querySelector("[data-db-retry]")!.addEventListener("click", () => { this.failed = false; this.presentationFailed = false; void this.flush(); });
+    this.refreshPresentation();
+    const titleInput = this.host.querySelector<HTMLInputElement>("[aria-label='Database title']")!;
+    titleInput.addEventListener("input", () => { this.queuePresentation({ title: titleInput.value }); titleInput.closest("h1")!.setAttribute("aria-label", titleInput.value); });
+    titleInput.addEventListener("change", () => void this.flush());
+    titleInput.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); void this.flush(); } });
+    this.host.querySelector<HTMLButtonElement>("[data-db-icon]")!.addEventListener("click", event => void this.chooseIcon(event.currentTarget as HTMLElement));
+    this.host.querySelector("[data-db-discard]")!.addEventListener("mousedown", event => event.preventDefault());
+    this.host.querySelector("[data-db-discard]")!.addEventListener("click", () => {
+      if (this.saving || this.presentationSaving) { this.message("Wait for the current save to finish before discarding edits."); return; }
+      this.pending.clear(); this.persist(); this.failed = false;
+      this.presentation = undefined; this.persistPresentation(); this.presentationFailed = false;
+      void (async () => { if (!(await this.closePeek())) return; await this.load(this.snapshot!.database.id); })().catch(error => this.message(error.message));
+    });
+  }
   private render(preserveMenu = false) {
+    this.viewOverflowCleanup?.(); this.viewOverflowCleanup = undefined;
     this.wikiPickerCleanup?.(); this.wikiPickerCleanup = undefined;
     if (!preserveMenu) { this.menu?.destroy(); this.menu = undefined; }
     ++this.opening;
     const scrollTop = this.host.querySelector<HTMLElement>(".database-table-pane")?.scrollTop ?? 0;
     const scrollLeft = this.host.querySelector<HTMLElement>(".database-table-scroll")?.scrollLeft ?? 0;
     const snapshot = this.snapshot!, source = this.source, view = this.view;
+    if (!view) { this.renderEmpty(snapshot); return; }
     this.peek?.destroy(); this.peek = undefined;
-    this.host.innerHTML = `<div class="database-layout"><section class="database-workspace database-table-pane"><button class="database-back" data-db-back aria-label="All databases">${glyph(ArrowLeft)}Databases</button><header class="database-heading"><div class="database-heading-title"><button type="button" class="database-title-icon" data-db-icon aria-label="Change database icon" title="Change database icon"></button><h1 aria-label="${e(snapshot.database.title)}"><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}" maxlength="500" /></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views">${snapshot.views.map(item => `<button role="tab" aria-selected="${view?.id === item.id}" data-db-tab="${e(item.id)}">${glyph(viewIcons[item.type] ?? Table2)}${e(item.name)}${item.linked ? '<small class="database-view-link" aria-hidden="true">Link</small>' : ""}</button>`).join("")}<button class="database-icon-button" data-db-new-view aria-label="New view" title="New view">${glyph(Plus)}</button></div><div class="database-toolbar-actions"><button class="database-icon-button ${view?.filters?.length ? "is-active" : ""}" data-db-filter aria-label="Filter" title="Filter">${glyph(ListFilter)}</button><button class="database-icon-button ${view?.sorts?.length ? "is-active" : ""}" data-db-sort aria-label="Sort" title="Sort">${glyph(ArrowDownUp)}</button><button class="database-icon-button" data-db-search aria-label="Search database" title="Search database" aria-expanded="${this.showSearch}">${glyph(Search)}</button><button class="database-icon-button" data-db-view aria-label="View settings" title="View settings">${glyph(SlidersHorizontal)}</button><div class="database-new-control"><button class="database-new-button" data-db-row aria-label="Add row">New</button><details class="database-new-menu"><summary class="database-new-menu-button" aria-label="New options">${glyph(ChevronDown)}</summary><div class="database-menu"><button data-db-row>New page</button><button data-action="import-notion">Import from Notion</button></div></details></div><details class="database-more-menu"><summary class="database-icon-button" aria-label="Database options">${glyph(Ellipsis)}</summary><div class="database-menu"><button data-db-save>Save changes</button><button data-db-refresh>Discard edits and reload</button></div></details></div></div><div class="database-search" ${this.showSearch ? "" : "hidden"}>${glyph(Search)}<input type="search" aria-label="Search database records" placeholder="Search this database…" value="${e(this.search)}"/><button aria-label="Close database search" class="database-icon-button">${glyph(X)}</button></div><p class="database-message" role="status" data-state="saved">Saved locally</p><div class="database-table-scroll"><table class="database-table"><thead><tr></tr></thead><tbody></tbody></table><button class="database-add-row" data-db-row>${glyph(Plus)}New page</button></div><p class="database-row-count"></p></section><aside class="database-peek-mount" hidden></aside></div>`;
+    this.host.innerHTML = `<div class="database-layout"><section class="database-workspace database-table-pane"><button class="database-back" data-db-back aria-label="All databases">${glyph(ArrowLeft)}Databases</button><header class="database-heading"><div class="database-heading-title"><button type="button" class="database-title-icon" data-db-icon aria-label="Change database icon" title="Change database icon"></button><h1 aria-label="${e(snapshot.database.title)}"><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}" maxlength="500" /></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views">${snapshot.views.map(item => `<button role="tab" aria-selected="${view?.id === item.id}" data-db-tab="${e(item.id)}">${glyph(viewIcons[item.type] ?? Table2)}${e(item.name)}${item.linked ? '<small class="database-view-link" aria-hidden="true">Link</small>' : ""}</button>`).join("")}<button class="database-icon-button" data-db-new-view aria-label="New view" title="New view">${glyph(Plus)}</button></div><div class="database-toolbar-actions"><button class="database-icon-button ${view?.filters?.length ? "is-active" : ""}" data-db-filter aria-label="Filter" title="Filter">${glyph(ListFilter)}</button><button class="database-icon-button ${view?.sorts?.length ? "is-active" : ""}" data-db-sort aria-label="Sort" title="Sort">${glyph(ArrowDownUp)}</button><div class="database-search-control"><button class="database-icon-button" data-db-search aria-label="Search database" title="Search database" aria-expanded="${this.showSearch}">${glyph(Search)}</button><div class="database-search" ${this.showSearch ? "" : "hidden"}><input type="search" aria-label="Search database records" placeholder="Type to search..." value="${e(this.search)}"/><button aria-label="Close database search" class="database-icon-button">${glyph(X)}</button></div></div><button class="database-icon-button" data-db-view aria-label="View settings" title="View settings">${glyph(SlidersHorizontal)}</button><div class="database-new-control"><button class="database-new-button" data-db-row aria-label="Add row">New</button><details class="database-new-menu"><summary class="database-new-menu-button" aria-label="New options">${glyph(ChevronDown)}</summary><div class="database-menu"><button data-db-row>New page</button><button data-action="import-notion">Import from Notion</button></div></details></div></div></div><p class="database-message" role="status" data-state="saved">Saved locally</p><div class="database-save-recovery" hidden><button data-db-retry>Retry save</button><button data-db-discard>Discard draft and reload</button></div><div class="database-table-scroll"><table class="database-table"><thead><tr></tr></thead><tbody></tbody></table><button class="database-add-row" data-db-row>${glyph(Plus)}New page</button></div><p class="database-row-count"></p></section><aside class="database-peek-mount" hidden></aside></div>`;
     if (isWikiDatabase(snapshot.database) && !this.hooks.inline) {
       const section = this.host.querySelector<HTMLElement>(".database-workspace")!; section.classList.add("wiki-collection", "wiki-shell");
       const cover = snapshot.hostPage?.properties?.cover, position = snapshot.hostPage?.properties?.coverPosition;
@@ -519,24 +550,11 @@ export class DatabaseWorkspace {
     }
     this.host.querySelector("[data-db-back]")!.addEventListener("click", () => void this.hooks.openDatabase());
     if (preserveMenu) this.menu?.reanchor(this.host.querySelector<HTMLElement>("[data-db-view]")!);
-    if (!isWikiDatabase(snapshot.database) && (this.hooks.toggleDisplay || this.hooks.turnIntoInline)) {
-      const convert = document.createElement("button"); convert.type = "button"; convert.textContent = this.hooks.inline ? "Turn into page" : "Turn into inline database";
-      convert.disabled = !this.hooks.inline && !snapshot.hostPage?.parent;
-      if (convert.disabled) convert.title = "Move this database inside a page first";
-      convert.onclick = () => { void (async () => { if (!await this.flush() || !await this.closePeek()) return; if (this.hooks.inline) await this.hooks.toggleDisplay?.(); else await this.hooks.turnIntoInline?.(this.snapshot!); })().catch(error => this.message(error.message)); };
-      this.host.querySelector(".database-more-menu .database-menu")!.prepend(convert);
-    }
     if (this.hooks.inline) {
       this.host.querySelector(".database-workspace")!.classList.add("database-inline-workspace");
-      if (view.linked) { const heading = this.host.querySelector(".database-heading-title")!; const arrow = createElement(ArrowUpRight, { width: 20, height: 20, "aria-label": "Linked data source" }); arrow.classList.add("database-linked-heading"); heading.prepend(arrow); }
       const open = document.createElement("button"); open.type = "button"; open.className = "database-icon-button"; open.setAttribute("aria-label", "Open as page"); open.title = "Open as page"; open.innerHTML = glyph(Maximize2);
       open.onclick = () => { void (async () => { if (await this.flush() && await this.closePeek()) await this.hooks.openDatabase(snapshot.database.id); })().catch(error => this.message(error.message)); };
       this.host.querySelector("[data-db-view]")!.before(open);
-    }
-    if (isWikiDatabase(snapshot.database) && this.hooks.undoWiki) {
-      const undo = document.createElement("button"); undo.textContent = "Undo wiki"; undo.type = "button";
-      undo.onclick = () => { void (async () => { if (await this.flush()) await this.hooks.undoWiki!(this.snapshot!); })().catch(error => this.message(error.message)); };
-      this.host.querySelector(".database-more-menu .database-menu")!.append(undo);
     }
     if (typeof snapshot.database.homePageId === "string" || isWikiDatabase(snapshot.database)) {
       const home = document.createElement("button");
@@ -549,20 +567,7 @@ export class DatabaseWorkspace {
       note.textContent = view.importWarnings.filter((value): value is string => typeof value === "string").join(" ");
       this.host.querySelector(".database-table-scroll")!.before(note);
     }
-    this.host.querySelector("[data-db-save]")!.addEventListener("click", () => { this.failed = false; this.presentationFailed = false; void this.flush(); });
-    this.refreshPresentation();
-    const titleInput = this.host.querySelector<HTMLInputElement>("[aria-label='Database title']")!;
-    titleInput.addEventListener("input", () => { this.queuePresentation({ title: titleInput.value }); titleInput.closest("h1")!.setAttribute("aria-label", titleInput.value); });
-    titleInput.addEventListener("change", () => void this.flush());
-    titleInput.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); void this.flush(); } });
-    this.host.querySelector<HTMLButtonElement>("[data-db-icon]")!.addEventListener("click", event => void this.chooseIcon(event.currentTarget as HTMLElement));
-    this.host.querySelector("[data-db-refresh]")!.addEventListener("mousedown", event => event.preventDefault());
-    this.host.querySelector("[data-db-refresh]")!.addEventListener("click", () => {
-      if (this.saving || this.presentationSaving) { this.message("Wait for the current save to finish before discarding edits."); return; }
-      this.pending.clear(); this.persist(); this.failed = false;
-      this.presentation = undefined; this.persistPresentation(); this.presentationFailed = false;
-      void (async () => { if (!(await this.closePeek())) return; await this.load(snapshot.database.id); })().catch(error => this.message(error.message));
-    });
+    this.wireSaveControls();
     const act = (action: () => void) => void this.flush().then(async ok => { if (ok && await this.closePeek()) action(); });
     this.host.querySelectorAll<HTMLElement>("[data-db-tab]").forEach(button => {
       button.setAttribute("aria-haspopup", "dialog");
@@ -578,17 +583,20 @@ export class DatabaseWorkspace {
     this.host.querySelector("[data-db-sort]")!.addEventListener("click", () => act(() => this.editView("Sort")));
     this.host.querySelector("[data-db-new-view]")!.addEventListener("click", () => act(() => this.newView()));
     const searchHost = this.host.querySelector<HTMLElement>(".database-search")!, searchInput = searchHost.querySelector<HTMLInputElement>("input")!;
-    this.host.querySelector("[data-db-search]")!.addEventListener("click", () => { this.showSearch = !this.showSearch; searchHost.hidden = !this.showSearch; if (this.showSearch) searchInput.focus(); });
+    this.host.querySelector("[data-db-search]")!.addEventListener("click", () => { this.showSearch = !this.showSearch; searchHost.hidden = !this.showSearch; this.host.querySelector("[data-db-search]")!.setAttribute("aria-expanded", String(this.showSearch)); if (this.showSearch) searchInput.focus(); });
     searchInput.addEventListener("input", () => { this.search = searchInput.value; this.visibleLimit = undefined; this.scheduleRows(); });
-    searchHost.querySelector("button")!.addEventListener("click", () => { this.showSearch = false; this.search = ""; searchInput.value = ""; searchHost.hidden = true; this.scheduleRows(); });
+    const closeSearch = () => { this.showSearch = false; this.search = ""; searchInput.value = ""; searchHost.hidden = true; this.host.querySelector("[data-db-search]")!.setAttribute("aria-expanded", "false"); this.scheduleRows(); };
+    searchHost.querySelector("button")!.addEventListener("click", closeSearch);
+    searchInput.addEventListener("keydown", event => { if (event.key === "Escape") { event.preventDefault(); closeSearch(); this.host.querySelector<HTMLButtonElement>("[data-db-search]")!.focus(); } });
     const workspace = this.host.querySelector<HTMLElement>(".database-workspace")!;
     workspace.dataset.verticalLines = String(view.layout?.showVerticalLines !== false);
     workspace.classList.toggle("database-hide-page-icons", view.layout?.showPageIcon === false);
     workspace.classList.toggle("database-wrap-content", !!view.layout?.wrapContent);
-    if ((view.layout?.showDataSourceTitle ?? (snapshot.dataSources.length > 1 && (!this.hooks.inline || source?.title !== snapshot.database.title))) && source) {
+    if ((view.layout?.showDataSourceTitle ?? (this.hooks.inline || snapshot.dataSources.length > 1)) && source) {
       const title = document.createElement("h2"); title.className = "database-source-title"; title.dataset.sourceId = source.id;
       const button = document.createElement("button"); button.type = "button"; button.setAttribute("aria-label", `Current data source: ${source.title}`);
       button.append(document.createTextNode(source.title), createElement(ChevronDown, { width: 16, height: 16, "aria-hidden": "true" }));
+      if (this.hooks.inline && view.linked) { const arrow = createElement(ArrowUpRight, { width: 18, height: 18, "aria-label": "Linked data source" }); arrow.classList.add("database-linked-heading"); button.prepend(arrow); }
       button.addEventListener("click", () => { void this.manageSources().catch(error => this.message(error.message)); });
       title.append(button); this.host.querySelector(".database-toolbar")!.before(title);
     }
@@ -597,8 +605,15 @@ export class DatabaseWorkspace {
       const title = snapshot.dataSources.find(source => source.id === item.dataSourceId)?.title ?? "Unavailable source";
       tab.title = `${item.name} · ${title}`; tab.setAttribute("aria-description", `Data source: ${title}`);
     });
+    this.viewOverflowCleanup = installViewOverflow(this.host, {
+      views: snapshot.views, selected: this.view?.id,
+      select: id => act(() => { this.rememberView(id); this.render(); }),
+      edit: (id, anchor) => act(() => this.tabMenu(id, anchor)),
+      create: () => act(() => this.newView()),
+      createSource: isWikiDatabase(snapshot.database) ? undefined : () => { void this.manageSources(undefined, undefined, 0, true).catch(error => this.message(error.message)); },
+    });
     if (!source) { this.message("This database has no available data source."); this.host.querySelectorAll<HTMLButtonElement>("[data-db-row],[data-db-new-view],[data-db-view],[data-db-filter],[data-db-sort]").forEach(button => button.disabled = true); return; }
-    if (source.unavailable) { this.message("This linked data source is unavailable. Restore its owning database to use these records."); this.host.querySelectorAll<HTMLButtonElement>("[data-db-row],[data-db-filter],[data-db-sort]").forEach(button => button.disabled = true); }
+    if (source.unavailable) { this.message(source.trashed ? "This data source is in Trash. Restore it from Manage data sources." : "This linked data source is unavailable. Restore its owning database to use these records."); this.host.querySelectorAll<HTMLButtonElement>("[data-db-row],[data-db-filter],[data-db-sort]").forEach(button => button.disabled = true); }
     if (view.type !== "table") {
       const mount = document.createElement("div"); mount.className = "database-alternate-layout";
       this.host.querySelector(".database-table-scroll")!.replaceWith(mount);
@@ -628,6 +643,14 @@ export class DatabaseWorkspace {
     this.host.querySelector<HTMLElement>(".database-table-pane")!.scrollTop = scrollTop;
     this.host.querySelector<HTMLElement>(".database-table-scroll")!.scrollLeft = scrollLeft;
     this.scheduleRows();
+  }
+  private renderEmpty(snapshot: DatabaseSnapshot) {
+    this.host.innerHTML = `<section class="database-workspace"><header class="database-heading"><div class="database-heading-title"><button data-db-icon class="database-title-icon" aria-label="Change database icon"></button><h1><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}"></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views"><button data-db-new-view>New view</button></div><button data-db-view>Manage data sources</button></div><p class="database-message" role="status">Saved locally</p><div class="database-save-recovery" hidden><button data-db-retry>Retry save</button><button data-db-discard>Discard draft and reload</button></div><p class="database-empty">No views. Your data sources and pages are kept.</p></section>`;
+    if (this.hooks.inline && this.source) { const title = document.createElement("h2"); title.className = "database-source-title"; title.textContent = this.source.title; this.host.querySelector(".database-heading")!.after(title); }
+    this.wireSaveControls();
+    const create = this.host.querySelector<HTMLButtonElement>("[data-db-new-view]")!; create.disabled = !snapshot.dataSources.some(source => !source.trashed && !source.unavailable);
+    create.onclick = () => { void this.flush().then(ok => { if (ok) this.newView(create); }); };
+    this.host.querySelector<HTMLButtonElement>("[data-db-view]")!.onclick = () => { void this.manageSources().catch(error => this.message(error.message)); };
   }
   private recordCell(page: Page, field: DatabaseProperty, value: unknown) {
     const cell = propertyInput(field, page, value, value => this.queue(page, field, value), !!this.view.layout?.wrapContent || !!this.view.layout?.wrapPropertyIds?.includes(field.id));
@@ -740,18 +763,18 @@ export class DatabaseWorkspace {
     });
   }
   showViewOptions() { this.editView(undefined, undefined, this.host.querySelector<HTMLElement>(".wiki-view-trigger") ?? undefined); }
-  private tabMenu(id: string) {
+  private tabMenu(id: string, providedAnchor?: HTMLElement) {
     this.menu?.destroy();
-    const snapshot = this.snapshot!, view = snapshot.views.find(item => item.id === id), anchor = this.host.querySelector<HTMLElement>(`[data-db-tab="${CSS.escape(id)}"]`);
+    const snapshot = this.snapshot!, view = snapshot.views.find(item => item.id === id), anchor = providedAnchor ?? this.host.querySelector<HTMLElement>(`[data-db-tab="${CSS.escape(id)}"]`);
     if (!view || !anchor) return;
     const source = snapshot.dataSources.find(source => source.id === view.dataSourceId); if (!source) return;
     const publish = (next: DatabaseSnapshot, selected = this.view?.id) => {
-      this.snapshot = next; this.rememberView(next.views.some(view => view.id === selected) ? selected! : next.views[0].id); this.render();
+      this.snapshot = next; this.rememberView(next.views.some(view => view.id === selected) ? selected! : next.views[0]?.id ?? ""); this.render();
       document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: next }));
     };
     this.menu = openTabMenu(anchor, {
-      view, source, wiki: isWikiDatabase(snapshot.database), canDelete: snapshot.views.length > 1,
-      showSourceTitle: view.layout?.showDataSourceTitle ?? (snapshot.dataSources.length > 1 && (!this.hooks.inline || source.title !== snapshot.database.title)),
+      view, source, wiki: isWikiDatabase(snapshot.database), lastSourceView: snapshot.views.filter(item => item.dataSourceId === source.id).length === 1, ownsSource: source.ownerDatabaseId === snapshot.database.id,
+      showSourceTitle: view.layout?.showDataSourceTitle ?? (this.hooks.inline || snapshot.dataSources.length > 1),
       save: async draft => {
         const saved = await api<DatabaseView>(`/database-views/${id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout }) });
         this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.render(); document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: this.snapshot }));
@@ -762,7 +785,7 @@ export class DatabaseWorkspace {
         const next = await api<DatabaseSnapshot>(`/databases/${snapshot.database.id}/views`, { method: "POST", body: JSON.stringify({ ...copy, name: `${view.name} (copy)`, baseRevision: snapshot.database.revision }) });
         publish(next, next.views.find(item => !snapshot.views.some(previous => previous.id === item.id))!.id);
       },
-      remove: async () => publish(await api<DatabaseSnapshot>(`/database-views/${id}/delete`, { method: "POST", body: JSON.stringify({ baseRevision: view.revision, databaseRevision: snapshot.database.revision }) })),
+      remove: async trashSource => { const next = await api<DatabaseSnapshot>(`/database-views/${id}/delete`, { method: "POST", body: JSON.stringify({ baseRevision: view.revision, databaseRevision: snapshot.database.revision, ...(trashSource ? { trashSource: true, sourceRevision: source.revision } : {}) }) }); publish(next); if (trashSource) document.dispatchEvent(new Event("notdown-database-structure-changed")); },
     });
   }
   private editView(section?: "Filter" | "Sort" | "Group" | "Layout" | "Source", property?: DatabaseProperty, anchor?: HTMLElement, target?: DatabaseView) {
@@ -783,7 +806,7 @@ export class DatabaseWorkspace {
     }, section);
     if (property) this.menu.dirty = true;
   }
-  private async manageSources(pop?: DatabasePopover, anchor?: HTMLElement, level = 0) {
+  private async manageSources(pop?: DatabasePopover, anchor?: HTMLElement, level = 0, initialCreate = false) {
     if (isWikiDatabase(this.snapshot?.database)) return;
     if (!await this.flush() || !await this.closePeek() || !this.alive) return;
     if (!pop) this.menu?.destroy();
@@ -799,7 +822,9 @@ export class DatabaseWorkspace {
       finally { this.sourceSaving = false; }
     };
     this.menu = openSourceMenu(anchor ?? this.host.querySelector<HTMLElement>("[data-db-view]")!, {
-      snapshot, surface: this.host, list: () => api<DatabaseSourceSummary[]>("/data-sources"),
+      snapshot, surface: this.host, initialCreate, list: () => api<DatabaseSourceSummary[]>("/data-sources?includeTrashed=true"),
+      move: async (source, target) => { const next = await api<DatabaseSnapshot>(`/data-sources/${source.id}/move`, { method: "POST", body: JSON.stringify({ baseRevision: source.revision, databaseRevision: snapshot.database.revision, targetDatabaseId: target.id, targetRevision: target.revision }) }); publish(next, source.id); document.dispatchEvent(new Event("notdown-database-structure-changed")); },
+      trash: async (source, trashed) => { const next = await api<DatabaseSnapshot>(`/data-sources/${source.id}/trash`, { method: "POST", body: JSON.stringify({ baseRevision: source.revision, databaseRevision: source.ownerRevision ?? snapshot.database.revision, trashed }) }); if (next.database.id === snapshot.database.id) publish(next, source.id); document.dispatchEvent(new Event("notdown-database-structure-changed")); },
       create: async title => { const next = await mutate("", { title }); publish(next, next.database.dataSourceIds.find(id => !snapshot.database.dataSourceIds.includes(id))!); },
       link: async source => { const next = await mutate("/link", { dataSourceId: source.id, sourceRevision: source.revision }); publish(next, source.id); },
       select: sourceId => { this.rememberView(snapshot.views.find(view => view.dataSourceId === sourceId)?.id ?? ""); this.render(); },

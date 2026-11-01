@@ -12,7 +12,7 @@ export interface DatabaseProperty {
 }
 export interface Database { id: string; title: string; kind?: "database" | "wiki"; icon?: string; pageId?: string; parent?: string | null; trashed?: boolean; dataSourceIds: string[]; viewIds: string[]; revision: string; [key: string]: unknown }
 export function isWikiDatabase(database: Database | undefined): boolean { return database?.kind === "wiki" || database?.notionWiki === true; }
-export interface DatabaseDataSource { id: string; title: string; ownerDatabaseId?: string; properties: DatabaseProperty[]; revision: string; [key: string]: unknown }
+export interface DatabaseDataSource { id: string; title: string; ownerDatabaseId?: string; trashed?: boolean; properties: DatabaseProperty[]; revision: string; [key: string]: unknown }
 export const databaseViewTypes = ["table", "board", "gallery", "list", "calendar"] as const;
 export type DatabaseViewType = typeof databaseViewTypes[number];
 export interface DatabaseView { id: string; databaseId: string; dataSourceId: string; name: string; type: DatabaseViewType; propertyIds?: string[]; rowOrder?: string[]; filters?: unknown[]; filterMode?: "and" | "or"; sorts?: unknown[]; layout?: DatabaseLayout; revision: string; [key: string]: unknown }
@@ -29,6 +29,7 @@ export interface DatabaseResources { databases: Record<string, Database>; dataSo
 export interface DatabaseSnapshot { database: Database; hostPage?: Page; dataSources: DatabaseDataSource[]; views: DatabaseView[]; pages: Page[] }
 export interface DatabaseSourceSummary {
   id: string; title: string; revision: string; ownerDatabaseId: string; ownerTitle: string; propertyCount: number; recordCount: number;
+  ownerRevision?: string; ownerKind?: string; trashed?: boolean;
   databases: { id: string; title: string; isOwner: boolean; views: Pick<DatabaseView, "id" | "name" | "type">[] }[];
 }
 

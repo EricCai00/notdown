@@ -99,9 +99,8 @@ test("a stale database cell cannot overwrite newer page content and retains a co
   await expect(cell).toHaveValue("Stale local draft");
   await page.reload();
   await expect(cell).toHaveValue("Stale local draft");
-  await expect(page.getByRole("status").filter({ hasText: "Recovered unsaved edits" })).toBeVisible();
-  await page.getByLabel("Database options", { exact: true }).click();
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: /modified this page.*preserved/i })).toBeVisible();
+  await page.getByRole("button", { name: "Retry save", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /modified this page.*preserved/i })).toBeVisible();
   expect((await (await request.get(`/api/pages/${record.id}`)).json()).properties[propertyKey]).toBe("External value");
 });

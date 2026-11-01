@@ -20,6 +20,7 @@ type Host = {
   resourceFiles(): { path: string; source: string }[];
   readOptional(filename: string): Promise<string | null>;
   atomicWrite(filename: string, data: string, expected?: string | null): Promise<void>;
+  commitResources(index: Index, expected: string | null, pages: Page[]): Promise<void>;
   safeDirectory(directory: string): Promise<void>;
   createRecord(input: PageInput, sourceId: string): Promise<Page>;
   createDatabasePage(input: PageInput, id: string, resources: DatabaseResources, expectedMetadata: string | null, parentRevision?: string): Promise<Page>;
@@ -113,16 +114,16 @@ export function createDatabases(host: Host) {
     const recoveryPath = await archive("database-conflicts", { createdAt: new Date().toISOString(), baseRevision, current, proposed });
     throw new VaultError(409, "Database changed. Both versions are preserved; review before retrying.", { current, proposed, recoveryPath });
   }
-  async function save(ctx: Context) {
+  async function save(ctx: Context, guardedPages?: Page[]) {
     const after = JSON.stringify({ ...ctx.index, databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, null, 2) + "\n";
     const recoveryPath = await archive("database-transactions", { before: ctx.before, after, beforeFiles: host.resourceFiles() });
-    try { await host.atomicWrite(metadataPath, after, ctx.before); }
+    try { if (guardedPages) await host.commitResources({ ...ctx.index, databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, ctx.before, guardedPages); else await host.atomicWrite(metadataPath, after, ctx.before); }
     catch (error) { throw new VaultError(409, "Metadata changed during save; both versions remain recoverable.", { recoveryPath, cause: String(error) }); }
   }
   function source(ctx: Context, id: string, allowUnavailable = false) {
     assertId(id); const found = ctx.dataSources[id];
     if (!found) throw new VaultError(404, "Data source not found");
-    const unavailable = found.unavailable || !!found.ownerDatabaseId && !ctx.databases[found.ownerDatabaseId];
+    const unavailable = found.trashed || found.unavailable || !!found.ownerDatabaseId && !ctx.databases[found.ownerDatabaseId];
     if (unavailable && !allowUnavailable) throw new VaultError(422, "The linked data source is unavailable; restore its owning database");
     properties(found.properties);
     return unavailable ? { ...found, unavailable: true } : found;
@@ -275,11 +276,11 @@ export function createDatabases(host: Host) {
     list: () => host.serialize(async () => { const ctx = await context(), hidden = trashedPageIds(ctx.pages); return Object.values(ctx.databases).map(database => presentedDatabase(ctx, database, hidden)).filter(database => !database.trashed); }),
     get: (id: string) => host.serialize(async () => snapshot(await context(), id)),
     getSource: (id: string) => host.serialize(async () => source(await context(), id)),
-    listSources: () => host.serialize(async () => {
+    listSources: (includeTrashed = false) => host.serialize(async () => {
       const ctx = await context(), hidden = trashedPageIds(ctx.pages);
       return Object.values(ctx.dataSources).flatMap(item => {
         const owner = owningDatabase(ctx, item);
-        if (!owner) return [];
+        if (!owner || item.unavailable || item.trashed && !includeTrashed) return [];
         const presented = presentedDatabase(ctx, owner, hidden);
         const databases = Object.values(ctx.databases).filter(database => database.dataSourceIds.includes(item.id))
           .map(database => presentedDatabase(ctx, database, hidden)).filter(database => !database.trashed)
@@ -287,8 +288,45 @@ export function createDatabases(host: Host) {
             views: database.viewIds.map(id => ctx.views[id]).filter(view => view?.databaseId === database.id && view.dataSourceId === item.id)
               .map(view => ({ id: view.id, name: view.name, type: view.type })) }))
           .sort((a, b) => Number(b.isOwner) - Number(a.isOwner) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
-        return presented.trashed ? [] : [{ id: item.id, title: item.title, revision: item.revision, ownerDatabaseId: owner.id, ownerTitle: presented.title, propertyCount: item.properties.length, recordCount: ctx.pages.filter(page => page.dataSourceId === item.id && !hidden.has(page.id)).length, databases }];
+        return presented.trashed ? [] : [{ id: item.id, title: item.title, revision: item.revision, ownerDatabaseId: owner.id, ownerTitle: presented.title, ownerRevision: owner.revision, ownerKind: owner.kind, ...(item.trashed ? { trashed: true } : {}), propertyCount: item.properties.length, recordCount: ctx.pages.filter(page => page.dataSourceId === item.id && (item.trashed || !hidden.has(page.id))).length, databases }];
       }).sort((a, b) => a.ownerTitle.localeCompare(b.ownerTitle) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+    }),
+    trashSource: (id: string, input: { baseRevision: string; databaseRevision: string; trashed: boolean }) => host.serialize(async () => {
+      base(input?.baseRevision); base(input?.databaseRevision); assertId(id);
+      if (typeof input.trashed !== "boolean") throw new VaultError(400, "Specify whether the source belongs in Trash");
+      const ctx = await context(), item = ctx.dataSources[id]; if (!item) throw new VaultError(404, "Data source not found");
+      const owner = sourceOwner(ctx, item);
+      if (item.revision !== input.baseRevision) return conflict(item, input, input.baseRevision);
+      if (owner.revision !== input.databaseRevision) return conflict(owner, input, input.databaseRevision);
+      if (isWikiDatabase(owner)) throw new VaultError(422, "Undo the Wiki before removing its page source");
+      ctx.dataSources[id] = stamped({ ...item, ownerDatabaseId: owner.id, trashed: input.trashed });
+      if (!input.trashed && !Object.values(ctx.views).some(view => view.databaseId === owner.id && view.dataSourceId === id)) {
+        const viewId = randomUUID(); ctx.views[viewId] = stamped({ id: viewId, databaseId: owner.id, dataSourceId: id, name: item.title, type: "table", revision: "" });
+        ctx.databases[owner.id] = stamped({ ...ctx.databases[owner.id], viewIds: [...owner.viewIds, viewId] });
+      }
+      await save(ctx); return snapshot(await context(), owner.id);
+    }),
+    moveSource: (id: string, input: { baseRevision: string; databaseRevision: string; targetDatabaseId: string; targetRevision: string }) => host.serialize(async () => {
+      base(input?.baseRevision); base(input?.databaseRevision); base(input?.targetRevision); assertId(input.targetDatabaseId);
+      const ctx = await context(), item = source(ctx, id), owner = sourceOwner(ctx, item), target = snapshot(ctx, input.targetDatabaseId).database;
+      if (item.revision !== input.baseRevision) return conflict(item, input, input.baseRevision);
+      if (owner.revision !== input.databaseRevision) return conflict(owner, input, input.databaseRevision);
+      if (target.revision !== input.targetRevision) return conflict(target, input, input.targetRevision);
+      if (owner.id === target.id) return snapshot(ctx, owner.id);
+      if (isWikiDatabase(owner) || isWikiDatabase(target) || target.trashed) throw new VaultError(422, "Move sources between active ordinary databases");
+      const members = ctx.pages.filter(page => page.dataSourceId === id), ids = new Set(members.map(page => page.id));
+      const ancestors = new Set<string>();
+      for (let parent: Page | undefined = databaseHost(ctx, target); parent; parent = ctx.pages.find(page => page.id === parent!.parent)) { if (ids.has(parent.id) || ancestors.has(parent.id)) throw new VaultError(422, "The destination has a cyclic parent or is inside one of this source's pages"); ancestors.add(parent.id); }
+      for (const page of members) {
+        if (own(documentMetadata(page.body).values, "parent")) throw new VaultError(422, "A record parent is defined in document metadata; review it before moving this source");
+        if (page.parent === databaseHost(ctx, owner)?.id || page.parent == null) ctx.index.pages[page.id] = { ...ctx.index.pages[page.id], parent: databaseHost(ctx, target)?.id ?? target.id };
+      }
+      ctx.dataSources[id] = stamped({ ...item, ownerDatabaseId: target.id });
+      for (const view of Object.values(ctx.views)) if (view.dataSourceId === id) ctx.views[view.id] = stamped({ ...view, sourceDatabaseId: target.id, linked: view.databaseId !== target.id });
+      const views = Object.values(ctx.views).filter(view => view.databaseId === target.id && view.dataSourceId === id);
+      if (!views.length) { const viewId = randomUUID(); ctx.views[viewId] = stamped({ id: viewId, databaseId: target.id, dataSourceId: id, sourceDatabaseId: target.id, name: item.title, type: "table", rowOrder: members.map(page => page.id), revision: "" }); ctx.databases[target.id] = stamped({ ...ctx.databases[target.id], viewIds: [...target.viewIds, viewId] }); }
+      ctx.databases[target.id] = stamped({ ...ctx.databases[target.id], dataSourceIds: [...new Set([...target.dataSourceIds, id])] });
+      await save(ctx, members); return snapshot(await context(), owner.id);
     }),
     createSource: (databaseId: string, input: { title: string }, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); label(input?.title);
@@ -380,7 +418,7 @@ export function createDatabases(host: Host) {
       if (current.revision !== baseRevision) return conflict(current, proposed, baseRevision);
       validateView(proposed, ctx, current); ctx.views[id] = stamped(proposed); await save(ctx); return (await context()).views[id];
     }),
-    deleteView: (id: string, input: { baseRevision: string; databaseRevision: string }) => host.serialize(async () => {
+    deleteView: (id: string, input: { baseRevision: string; databaseRevision: string; trashSource?: boolean; sourceRevision?: string }) => host.serialize(async () => {
       base(input?.baseRevision); base(input?.databaseRevision); assertId(id);
       const ctx = await context(), view = ctx.views[id];
       if (!view) throw new VaultError(404, "View not found");
@@ -388,7 +426,13 @@ export function createDatabases(host: Host) {
       if (view.revision !== input.baseRevision) return conflict(view, { deleted: true }, input.baseRevision);
       if (database.revision !== input.databaseRevision) return conflict(database, { deletedViewId: id }, input.databaseRevision);
       if (database.trashed) throw new VaultError(422, "Restore this database before deleting views");
-      if (database.viewIds.length < 2) throw new VaultError(422, "Keep at least one view in this database");
+      if (input.trashSource) {
+        base(input.sourceRevision); const item = source(ctx, view.dataSourceId), owner = sourceOwner(ctx, item);
+        if (item.revision !== input.sourceRevision) return conflict(item, input, input.sourceRevision);
+        if (owner.id !== database.id || isWikiDatabase(owner)) throw new VaultError(422, "Remove owned ordinary data sources from their original database");
+        if (database.viewIds.some(viewId => viewId !== id && ctx.views[viewId]?.dataSourceId === item.id)) throw new VaultError(422, "Other views still use this source in the database");
+        ctx.dataSources[item.id] = stamped({ ...item, ownerDatabaseId: owner.id, trashed: true });
+      }
       delete ctx.views[id];
       ctx.databases[database.id] = stamped({ ...database, viewIds: database.viewIds.filter(viewId => viewId !== id), dataSourceIds: database.dataSourceIds.filter(sourceId => owningDatabase(ctx, ctx.dataSources[sourceId])?.id === database.id || Object.values(ctx.views).some(view => view.databaseId === database.id && view.dataSourceId === sourceId)) });
       await save(ctx); return snapshot(await context(), database.id);
@@ -451,6 +495,7 @@ export function createDatabases(host: Host) {
       if (!object(stored)) throw new VaultError(404, "Data source not found");
       properties(stored.properties);
       const current = stamped(stored as DatabaseDataSource);
+      if (current.trashed) throw new VaultError(422, "Restore the data source from Trash before editing its pages");
       const changed = current.properties.filter(field => field.type === "title"
         ? input.title !== undefined && input.title !== page.title
         : input.properties !== undefined && JSON.stringify(input.properties[field.key]) !== JSON.stringify(page.properties[field.key]));

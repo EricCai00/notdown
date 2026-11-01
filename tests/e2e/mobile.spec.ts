@@ -15,7 +15,9 @@ test("mobile wiki conversion, page views, reload and Undo keep Home content", as
   await page.reload(); await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
   await expect(page.getByRole("textbox", { name: "Database title", exact: true })).toHaveValue("Mobile wiki");
   await page.screenshot({ path: info.outputPath("mobile-wiki-pages.png") });
-  await page.locator(".database-more-menu > summary").click();
+  await page.locator(".wiki-view-trigger").click();
+  await page.getByRole("menuitemradio", { name: "Home", exact: true }).click();
+  await page.getByRole("button", { name: "Notebook options", exact: true }).click();
   await page.getByRole("button", { name: "Undo wiki", exact: true }).click();
   await expect(page.locator(".wiki-home-tabs")).toBeHidden();
   await expect(page.locator(".pm-document")).toContainText("Mobile Home content");

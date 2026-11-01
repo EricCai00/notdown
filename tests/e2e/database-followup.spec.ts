@@ -1,0 +1,95 @@
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+const post = async (request: APIRequestContext, url: string, data: unknown) => { const response = await request.post(url, { data }); expect(response.ok(), await response.text()).toBeTruthy(); return response.json(); };
+const snapshot = async (request: APIRequestContext, id: string) => (await request.get(`/api/databases/${id}`)).json();
+async function sources(page: Page) { await page.getByRole("button", { name: "View settings", exact: true }).click(); await page.getByRole("button", { name: "Manage data sources", exact: true }).click(); }
+
+test("inline source title, wide data, searchable overflow views, inline search and automatic save", async ({ page, request }, info) => {
+  let db = await post(request, "/api/databases", { title: "Hidden container title" });
+  const old = db.dataSources[0], properties = [...old.properties, ...Array.from({ length: 7 }, (_, index) => ({ id: `field-${index}`, key: `field-${index}`, name: `Column ${index}`, type: "text" }))];
+  const response = await request.put(`/api/data-sources/${old.id}`, { data: { baseRevision: old.revision, title: "Actual source title", properties } }); expect(response.ok()).toBeTruthy();
+  const source = await response.json(), row = await post(request, `/api/data-sources/${source.id}/records`, { title: "Focused row", baseRevision: source.revision });
+  for (let index = 0; index < 8; index++) { db = await snapshot(request, db.database.id); await post(request, `/api/databases/${db.database.id}/views`, { baseRevision: db.database.revision, name: `Extra view ${index}`, dataSourceId: source.id }); }
+  const parent = await post(request, "/api/pages", { title: "Normal page width", syntax: { version: 1, variant: "notdown", extensions: {} }, body: `Prose keeps its normal width\n\n<database url="#page/${db.database.id}" inline="true"></database>\n\nAfter the table\n` });
+  await page.goto(`/#page/${parent.id}`);
+  const inline = page.getByRole("region", { name: "Inline database", exact: true });
+  await expect(inline.locator(".database-source-title")).toHaveText("Actual source title");
+  await inline.getByRole("tab", { name: "Table", exact: true }).click();
+  await page.getByRole("button", { name: "Hide data source titles", exact: true }).click();
+  await expect(inline.locator(".database-source-title")).toHaveCount(0);
+  await inline.getByRole("tab", { name: "Table", exact: true }).click();
+  await page.getByRole("button", { name: "Show data source titles", exact: true }).click();
+  await expect(inline.locator(".database-source-title")).toHaveText("Actual source title");
+  await expect(inline.locator(".database-heading")).toBeHidden();
+  await expect(inline.getByLabel("Database options", { exact: true })).toHaveCount(0);
+  const prose = page.locator(".pm-document > p").filter({ hasText: "Prose keeps its normal width" });
+  const normal = (await prose.boundingBox())!;
+  await expect.poll(async () => (await inline.locator(".database-table-scroll").boundingBox())!.width).toBeGreaterThan(normal.width + 100);
+  expect((await inline.locator(".database-toolbar").boundingBox())!.width).toBeLessThanOrEqual(normal.width + 2);
+  await expect(inline.getByRole("button", { name: "More database views", exact: true })).toBeVisible();
+  await inline.getByRole("button", { name: "More database views", exact: true }).click();
+  const more = page.getByRole("dialog", { name: "Database views", exact: true });
+  await expect(more.getByRole("menuitemradio", { name: "Table", exact: true })).toHaveAttribute("aria-checked", "true");
+  await expect(more.getByRole("button", { name: "New data source", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("overflow-views.png") });
+  await more.getByLabel("Search for a view", { exact: true }).fill("Extra view 7");
+  await expect(more.getByRole("menuitemradio")).toHaveCount(1);
+  await more.getByRole("menuitemradio", { name: "Extra view 7", exact: true }).click();
+  const cell = inline.getByLabel("Column 0: Focused row", { exact: true }); await cell.fill("Saved without leaving the cell");
+  await expect.poll(async () => (await (await request.get(`/api/pages/${row.id}`)).json()).properties["field-0"]).toBe("Saved without leaving the cell");
+  await expect(cell).toBeFocused();
+  await inline.getByRole("button", { name: "Search database", exact: true }).click();
+  const search = inline.getByRole("searchbox", { name: "Search database records", exact: true });
+  await expect(search).toBeFocused();
+  const searchBox = (await search.boundingBox())!, tools = (await inline.getByRole("button", { name: "Add row", exact: true }).boundingBox())!;
+  expect(Math.abs(searchBox.y - tools.y)).toBeLessThan(10);
+  await search.fill("nothing matches"); await expect(inline.locator("tbody tr:visible")).toHaveCount(0); await search.press("Escape");
+  await expect(inline.getByRole("button", { name: "Open Focused row", exact: true })).toBeVisible();
+  await inline.locator(".database-table-scroll").evaluate(element => { element.scrollLeft = 400; });
+  expect(await inline.locator(".database-table-scroll").evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+  await page.screenshot({ path: info.outputPath("inline-wide-source.png"), fullPage: true });
+  expect((await (await request.get(`/api/pages/${parent.id}`)).json()).fullWidth).not.toBe(true);
+  await page.reload(); await expect(inline.getByLabel("Column 0: Focused row", { exact: true })).toHaveValue("Saved without leaving the cell");
+});
+
+test("source row options move the real source and Trash restores its pages", async ({ page, request }, info) => {
+  const owner = await post(request, "/api/databases", { title: "Lifecycle owner" }), target = await post(request, "/api/databases", { title: "Lifecycle target" }), source = owner.dataSources[0];
+  const row = await post(request, `/api/data-sources/${source.id}/records`, { title: "Lifecycle page", baseRevision: source.revision });
+  await page.goto(`/#database/${owner.database.id}`); await sources(page);
+  await page.getByRole("button", { name: "Data source options for Lifecycle owner", exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "Data source options", exact: true });
+  await expect(menu.getByRole("button", { name: "Copy data source ID", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("source-options.png") });
+  await menu.getByRole("button", { name: "Move to", exact: true }).click();
+  await page.getByRole("dialog", { name: "Move data source", exact: true }).getByRole("button", { name: "Lifecycle target", exact: true }).click();
+  await expect.poll(async () => (await (await request.get(`/api/pages/${row.id}`)).json()).parent).toBe(target.database.id);
+  expect((await snapshot(request, owner.database.id)).views[0].linked).toBe(true);
+  await page.goto(`/#database/${target.database.id}`); await expect(page.getByLabel("Database title", { exact: true })).toHaveValue("Lifecycle target"); await sources(page);
+  await page.getByRole("button", { name: "Data source options for Lifecycle owner", exact: true }).click();
+  await menu.getByRole("button", { name: "Move to Trash", exact: true }).click();
+  await page.getByRole("dialog", { name: "Move data source to Trash", exact: true }).getByRole("button", { name: "Move to Trash", exact: true }).click();
+  await expect.poll(async () => (await (await request.get("/api/data-sources")).json()).some((item: any) => item.id === source.id)).toBe(false);
+  await page.locator('#sidebar [data-action="trash"]').click();
+  const trash = page.getByRole("dialog", { name: "Trash", exact: true });
+  await expect(trash).toContainText("Lifecycle owner · Data source · 1 pages");
+  await trash.locator(`[data-restore-source="${source.id}"]`).click();
+  await expect.poll(async () => (await snapshot(request, target.database.id)).pages.some((item: any) => item.id === row.id)).toBe(true);
+  expect((await (await request.get(`/api/pages/${row.id}`)).json()).dataSourceTrashed).not.toBe(true);
+});
+
+test("last source view deletion offers both choices and allows an empty database to create another view", async ({ page, request }, info) => {
+  const db = await post(request, "/api/databases", { title: "Last view choices" }), source = db.dataSources[0];
+  await post(request, `/api/data-sources/${source.id}/records`, { title: "Retained page", baseRevision: source.revision });
+  await page.goto(`/#database/${db.database.id}`); await page.getByRole("tab", { name: "Table", exact: true }).click();
+  await page.getByRole("button", { name: "Delete view", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete last view", exact: true });
+  await page.screenshot({ path: info.outputPath("last-view-choices.png") });
+  await dialog.getByRole("button", { name: "Delete view", exact: true }).click();
+  await expect(page.getByText("No views. Your data sources and pages are kept.", { exact: true })).toBeVisible();
+  expect((await snapshot(request, db.database.id)).pages).toHaveLength(1);
+  await page.getByRole("button", { name: "New view", exact: true }).click();
+  await page.getByLabel("View name", { exact: true }).fill("Replacement view"); await page.getByRole("button", { name: "Create view", exact: true }).click();
+  await page.getByRole("tab", { name: "Replacement view", exact: true }).click(); await page.getByRole("button", { name: "Delete view", exact: true }).click();
+  await dialog.locator('[value="source"]').check(); await dialog.getByRole("button", { name: "Delete view", exact: true }).click();
+  await expect.poll(async () => (await snapshot(request, db.database.id)).dataSources[0].trashed).toBe(true);
+  expect((await snapshot(request, db.database.id)).pages).toHaveLength(0);
+});

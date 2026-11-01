@@ -63,6 +63,9 @@
 .database-settings-panel .database-popover-footer { padding:9px 7px; }
 .database-settings-panel .database-popover-done { background:var(--hover,#f1f1ef); color:var(--text,#37352f)!important; }
 .database-tab-menu > .database-popover-header { display:none; }
+.database-source-actions > .database-popover-header,.database-overflow-menu > .database-popover-header { display:none; }
+.database-overflow-row { display:flex; align-items:center; }
+.database-overflow-row > .database-popover-row { flex:1; min-width:0; }
 .database-tab-menu .database-popover-section { margin-top:5px; padding-top:5px; }
 .database-tab-menu .database-popover-row { min-height:29px; }
 .database-source-menu-item .database-popover-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

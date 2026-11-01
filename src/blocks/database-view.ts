@@ -104,7 +104,8 @@ export class DatabaseBlockView implements NodeView {
     else { this.link.removeAttribute("target"); this.link.removeAttribute("rel"); }
     this.link.title = inline ? "Open database as a full page" : "Open database";
     this.mount.hidden = !inline;
-    this.menu.hidden = inline || !known || !!this.hostPage?.wiki || !!this.node.attrs.wiki;
+    this.menu.hidden = !known || !!this.hostPage?.wiki || !!this.node.attrs.wiki;
+    this.menu.querySelector("button")!.textContent = inline ? "Turn into page" : "Turn into inline database";
   }
   private draftScope(vaultPath: string, hostId: string) {
     // Occurrence, not source offset: prose edits must not change the draft key.
@@ -135,7 +136,6 @@ export class DatabaseBlockView implements NodeView {
         vaultKey: this.draftScope(vaultPath, hostId),
         initialSourceUrl: typeof this.node.attrs.dataSourceUrl === "string" ? this.node.attrs.dataSourceUrl : undefined,
         openPage: id => this.openPage(id), openDatabase: id => this.openDatabase(id),
-        toggleDisplay: () => this.toggleDisplay(),
         changed: saved => {
           // The supplied page list can contain the outer editor's live draft.
           // Let the app update its separate list cache without touching that draft.

@@ -29,6 +29,7 @@ test("view copies retain query and unknown fields; deleting a view preserves sou
   const deleted = await vault.databases.deleteView(extra.id, { baseRevision: extra.revision, databaseRevision: intermediate.database.revision });
   assert.deepEqual(deleted.database.viewIds, [id]); assert.equal(deleted.dataSources[0].id, source.id);
   assert.equal((await vault.get(body.id)).body, "Unchanged Markdown\r\n");
-  await assert.rejects(vault.databases.deleteView(id, { baseRevision: deleted.views[0].revision, databaseRevision: deleted.database.revision }), status(422));
+  const empty = await vault.databases.deleteView(id, { baseRevision: deleted.views[0].revision, databaseRevision: deleted.database.revision });
+  assert.equal(empty.views.length, 0); assert.equal(empty.dataSources[0].id, source.id);
   assert.ok((await fs.readdir(path.join(root, ".history", "database-conflicts"))).length);
 });

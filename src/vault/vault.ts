@@ -34,6 +34,7 @@ import {
 } from "../markdown-engine/config.js";
 
 export type Page = {
+  dataSourceTrashed?: boolean;
   dataSourceId?: string;
   databaseId?: string;
   databaseProxy?: boolean;
@@ -486,6 +487,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       result.set(stored.page.id, stored);
     }
     for (const stored of databaseFiles.proxies(index, new Set(result.keys()))) result.set(stored.page.id, stored);
+    const hiddenSources = new Set(Object.values(index.dataSources as Record<string, { id: string; trashed?: boolean }> ?? {}).filter(source => source.trashed).map(source => source.id));
+    const hiddenMembers = new Set([...result.values()].filter(stored => stored.page.dataSourceId && hiddenSources.has(stored.page.dataSourceId)).map(stored => stored.page.id));
+    for (let changed = true; changed;) { changed = false; for (const stored of result.values()) if (stored.page.parent && hiddenMembers.has(stored.page.parent) && !hiddenMembers.has(stored.page.id)) { hiddenMembers.add(stored.page.id); changed = true; } }
+    for (const id of hiddenMembers) { const stored = result.get(id)!; stored.page.trashed = true; stored.page.dataSourceTrashed = true; }
     return result;
   }
   async function indexedPage(id: string): Promise<StoredPage | undefined> {
@@ -952,6 +957,16 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   };
   const databases = createDatabases({
     platform, root, serialize, readMetadata, readOptional, atomicWrite: writeVaultFile, safeDirectory,
+    commitResources: async (index, expected, members) => {
+      const current = await scan(), files: DatabaseFileChange[] = [];
+      for (const member of members) {
+        const stored = current.get(member.id);
+        if (!stored || stored.page.revision !== member.revision) { if (stored) await registerConflict(stored, { parent: index.pages[member.id]?.parent as string | null }, member.revision); throw new VaultError(409, "A source page changed; the proposed move was preserved"); }
+        files.push({ path: "pages/" + path.basename(stored.filePath), before: stored.source, after: stored.source });
+      }
+      files.push({ path: "metadata.json", before: expected, after: JSON.stringify(index, null, 2) + "\n" });
+      await commitVaultBatch(files);
+    },
     resourceFiles: databaseFiles.snapshots,
     convertDisplay: async (parent, id, inline, revision) => {
       let body: string;

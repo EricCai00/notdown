@@ -152,9 +152,12 @@ System recycling requires a revision map covering the exact current subtree, a t
 | `PUT /api/databases/:id/icon` | `{icon,baseRevision,hostRevision?}` | Updated `DatabaseSnapshot`; icon-only alias |
 | `GET /api/data-sources/:id` | — | `DatabaseDataSource` |
 | `PUT /api/data-sources/:id` | `{baseRevision,title?,properties?}` | Updated `DatabaseDataSource` |
+| `GET /api/data-sources?includeTrashed=true` | — | Source summaries including recoverable sources, with owner revision and `trashed`; default listing excludes trashed sources |
+| `POST /api/data-sources/:id/move` | `{baseRevision,databaseRevision,targetDatabaseId,targetRevision}` | Original owner's updated `DatabaseSnapshot`; transfers the same source to an active ordinary database, updates record parents and linked owner references in one CAS transaction, preserving Markdown bytes |
+| `POST /api/data-sources/:id/trash` | `{baseRevision,databaseRevision,trashed:boolean}` | Owner's updated `DatabaseSnapshot`; soft-deletes or restores the source and derives page visibility without rewriting Markdown. Restore adds a Table view when the owner has no view for the source |
 | `POST /api/databases/:id/views` | `{baseRevision,name?,dataSourceId?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | 201 updated `DatabaseSnapshot`; revision belongs to the database |
 | `PUT /api/database-views/:id` | `{baseRevision,name?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | Updated `DatabaseView`; source/database identity stays unchanged |
-| `POST /api/database-views/:id/delete` | `{baseRevision,databaseRevision}` | Updated `DatabaseSnapshot`; removes only the view configuration, keeps sources and pages, and requires at least one remaining view. Checks both revisions and preserves conflict proposals |
+| `POST /api/database-views/:id/delete` | `{baseRevision,databaseRevision,trashSource?:boolean,sourceRevision?:string}` | Updated `DatabaseSnapshot`; view-only deletion can leave no views while preserving sources/pages. Last-source-view deletion can also soft-delete its owned ordinary source with a matching source revision. Conflicts retain recovery proposals |
 | `POST /api/data-sources/:id/records` | `{baseRevision,title?,properties?}` | 201 `Page`; revision belongs to the data source |
 | `PUT /api/data-sources/:id/records/:pageId` | `{baseRevision,schemaRevision,propertyId,value}` | Updated `Page`; checks both page and data-source revisions |
 | `POST /api/data-sources/:id/records/:pageId/remove` | `{baseRevision,schemaRevision}` | Updated `Page` detached from its data source; Markdown and properties preserved |

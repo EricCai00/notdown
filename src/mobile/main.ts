@@ -296,16 +296,7 @@ async function openDatabases(id?: string, showPages = false): Promise<void> {
     openDatabase: id => enqueue(async () => { if (await leavePage()) await openDatabases(id); }),
     createDatabase: () => enqueue(() => createDatabase()),
     createWiki: () => enqueue(() => createDatabase(undefined, "wiki")),
-    turnIntoInline: snapshot => enqueue(async () => {
-      const parent = pages.find(page => page.id === snapshot.hostPage?.parent);
-      if (!parent) throw new Error("The parent page is unavailable.");
-      await vault.databases.display(snapshot.database.id, { inline: true, baseRevision: snapshot.database.revision, parentRevision: parent.revision });
-      await refreshPages(); await openPage(parent.id);
-    }),
-    undoWiki: snapshot => enqueue(async () => {
-      await vault.databases.undoWiki(snapshot.database.id, { baseRevision: snapshot.database.revision, hostRevision: snapshot.hostPage!.revision });
-      await refreshPages(); await openPage(snapshot.hostPage!.id);
-    }),
+
   });
   await databaseWorkspace.load(id);
   rememberRoute(id ? `#database/${encodeURIComponent(id)}${showPages ? "#pages" : ""}` : "#databases");
@@ -562,6 +553,7 @@ const actions: Record<string, () => void | Promise<unknown>> = {
   "recover-copy": copyRecovery,
   import: () => { closeDialogs(); app.querySelector<HTMLInputElement>("#mobile-import")!.click(); }, export: backup,
 };
+document.addEventListener("notdown-database-structure-changed", () => { void refreshPages().catch(error => tell(error.message)); });
 app.addEventListener("click", event => {
   if (app.dataset.ready !== "true") return;
   const button = (event.target as Element).closest<HTMLButtonElement>("button"); if (!button) return;

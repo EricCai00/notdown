@@ -117,7 +117,9 @@ export function createApp(options: {
   app.put("/api/databases/:id", route(async (req, res) => res.json(await vault.databases.updatePresentation(String(req.params.id), req.body))));
   app.put("/api/databases/:id/icon", route(async (req, res) => res.json(await vault.databases.updateIcon(String(req.params.id), req.body))));
   app.post("/api/databases/:id/display", route(async (req, res) => res.json(await vault.databases.display(String(req.params.id), req.body))));
-  app.get("/api/data-sources", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.listSources()); }));
+  app.get("/api/data-sources", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.listSources(req.query.includeTrashed === "true")); }));
+  app.post("/api/data-sources/:id/trash", route(async (req, res) => res.json(await vault.databases.trashSource(String(req.params.id), req.body))));
+  app.post("/api/data-sources/:id/move", route(async (req, res) => res.json(await vault.databases.moveSource(String(req.params.id), req.body))));
   app.post("/api/databases/:id/data-sources", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.status(201).json(await vault.databases.createSource(String(req.params.id), input, baseRevision)); }));
   app.post("/api/databases/:id/data-sources/link", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.linkSource(String(req.params.id), input, baseRevision)); }));
   app.get("/api/data-sources/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.getSource(String(req.params.id))); }));

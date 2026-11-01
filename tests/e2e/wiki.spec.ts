@@ -57,8 +57,9 @@ test("slash Wiki creates one child wiki and a persistent official database refer
   await page.reload(); await expect(page.locator("#page-title")).toHaveValue("New wiki");
   await selectWikiView(page, "All pages");
   await page.screenshot({ path: info.outputPath("wiki-all-pages.png"), fullPage: true });
-  await page.locator(".database-more-menu > summary").click();
-  await page.getByRole("button", { name: "Undo wiki", exact: true }).click();
+  await selectWikiView(page, "Home");
+  await page.getByLabel("Page options", { exact: true }).click();
+  await page.getByRole("menuitem", { name: "Undo wiki", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Wiki views" })).toHaveCount(0);
   await expect(page.locator("#page-title")).toHaveValue("New wiki");
 });

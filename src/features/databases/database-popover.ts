@@ -27,7 +27,7 @@ export class DatabasePopover {
     }, { capture: true, signal: this.events.signal });
     window.addEventListener("resize", () => this.position(), { signal: this.events.signal });
   }
-  panel(title: string, anchor = this.anchor, level = 0, width = 292, trackChanges = true): HTMLElement {
+  panel(title: string, anchor = this.anchor, level = 0, width = 292, trackChanges = true, floating = false): HTMLElement {
     this.trim(level);
     const panel = document.createElement("section"); panel.className = "database-popover"; panel.style.width = `${width}px`; panel.dataset.level = String(level); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", title);
     const header = document.createElement("header"); header.className = "database-popover-header";
@@ -36,8 +36,9 @@ export class DatabasePopover {
     const close = menuButton("Close", X, () => { void this.dismiss(); }, "", false, "database-popover-close"); header.append(close); panel.append(header);
     const status = document.createElement("p"); status.className = "database-popover-status"; status.setAttribute("role", "status"); panel.append(status);
     if (trackChanges) { panel.addEventListener("input", () => this.dirty = true); panel.addEventListener("change", () => this.dirty = true); }
-    if (this.options.replace) for (const parent of this.panels) parent.hidden = true;
-    if (this.options.surface) panel.classList.add("database-settings-panel");
+    if (this.options.replace && !floating) for (const parent of this.panels) parent.hidden = true;
+    if (floating) panel.dataset.floating = "true";
+    if (this.options.surface && !floating) panel.classList.add("database-settings-panel");
     document.body.append(panel); this.panels.push(panel);
     (panel as any).anchor = anchor;
     this.position(); requestAnimationFrame(() => { if (!this.dead) this.position(); });
@@ -47,6 +48,7 @@ export class DatabasePopover {
     for (let index = 0; index < this.panels.length; index++) {
       const panel = this.panels[index], anchor = (panel as any).anchor as HTMLElement, rect = anchor.getBoundingClientRect();
       const width = Math.min(parseInt(panel.style.width), innerWidth - 16);
+      if (panel.dataset.floating) { Object.assign(panel.style, { left: `${Math.max(8, Math.min(rect.right - width, innerWidth - width - 8))}px`, top: `${Math.max(8, Math.min(rect.bottom + 4, innerHeight - panel.scrollHeight - 8))}px`, zIndex: String(1100 + index) }); continue; }
       if (this.options.surface) {
         const toolbar = this.options.surface.querySelector(".database-toolbar")?.getBoundingClientRect();
         if (toolbar) {
@@ -67,7 +69,7 @@ export class DatabasePopover {
   }
   trim(length: number) {
     const removed = this.panels.splice(length); for (const panel of removed) panel.remove();
-    if (this.panels.length) { this.panels.at(-1)!.hidden = false; if (this.options.replace && removed.length) ((removed[0] as any).anchor as HTMLElement)?.focus(); }
+    if (this.panels.length) { this.panels.at(-1)!.hidden = false; if (this.panels.at(-1)!.dataset.floating && this.panels.length > 1) this.panels.at(-2)!.hidden = false; if (this.options.replace && removed.length) ((removed[0] as any).anchor as HTMLElement)?.focus(); }
   }
   reanchor(anchor: HTMLElement) { this.anchor.setAttribute("aria-expanded", "false"); this.anchor = anchor; anchor.setAttribute("aria-expanded", "true"); }
   async perform(operation: () => Promise<void>) {

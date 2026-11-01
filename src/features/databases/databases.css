@@ -63,6 +63,26 @@
 .database-view-tabs > button svg { width: 17px; height: 17px; }
 .database-workspace .database-view-tabs > .database-icon-button { width: 32px; height: 32px; padding: 5px; border-radius: 4px; }
 .database-toolbar-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 4px; margin-left: auto; }
+.database-search-control { display:inline-flex; align-items:center; min-width:0; }
+.database-workspace .database-search-control .database-search { display:inline-flex; align-items:center; margin:0; padding:0; border:0; background:transparent; }
+.database-search-control .database-search input { width:150px; min-width:60px; padding:4px 3px; background:transparent; border:0; outline:none; font:inherit; }
+.database-search-control .database-search input::placeholder { color:#a4a4a0; }
+.database-save-recovery { display:flex; gap:8px; margin:8px 0; }
+.database-save-recovery[hidden] { display:none; }
+.database-view-tabs > [hidden] { display:none!important; }
+.database-view-tabs > .database-more-views { color:var(--database-muted); font-size:13px; padding:6px 9px; }
+.database-view-tabs > [data-db-tab] { max-width:230px; overflow:hidden; text-overflow:ellipsis; }
+.database-delete-view-dialog { width:min(400px,calc(100vw - 32px)); padding:24px 20px; border:0; border-radius:12px; color:var(--text,#37352f); background:var(--surface,#fff); box-shadow:0 14px 50px #0003; }
+.database-delete-view-dialog::backdrop { background:#0008; }
+.database-delete-view-dialog h3 { margin:12px 0 18px; font-size:17px; text-align:center; }
+.database-delete-view-dialog form > label { display:grid; grid-template-columns:1fr 20px; gap:5px; padding:13px; margin:8px 0; border:1px solid #e6e6e4; border-radius:8px; cursor:pointer; }
+.database-delete-view-dialog label input { grid-column:2; grid-row:1 / span 2; align-self:center; accent-color:#e56458; }
+.database-delete-view-dialog label strong,.database-delete-view-dialog label small { grid-column:1; font-size:13px; }
+.database-delete-view-dialog label small { font-size:12px; color:#8c8c88; }
+.database-delete-view-dialog label:has(input:checked) { border-color:#e56458; }
+.database-delete-view-dialog footer { display:grid; gap:8px; margin-top:20px; }
+.database-delete-view-dialog button { padding:8px 12px; border:1px solid #e1e1de; border-radius:6px; background:transparent; font:inherit; cursor:pointer; }
+.database-delete-view-dialog .danger { color:white; background:#e56458; border-color:#e56458; }
 .database-workspace .database-icon-button { width: 32px; height: 32px; padding: 5px; color: #6f706c; border: 0; border-radius: 4px; }
 .database-workspace .database-icon-button[aria-expanded="true"] { background:#efefed; }
 .database-workspace .database-icon-button[aria-pressed="true"], .database-workspace .database-icon-button.is-active { color: var(--database-blue); background: #edf3fb; }
