@@ -1,5 +1,6 @@
 import { mountWikiViewPicker } from "./wiki-view-picker";
 import { createDatabaseView } from "./database-create-view";
+import { openTabMenu } from "./database-tab-menu";
 import { isPageCoverPath } from "../pages/page-cover-picker";
 import { vaultAssetUrl } from "../../shared/vault-url";
 import { api, escape as e, type Page } from "../../shared/types";
@@ -492,9 +493,9 @@ export class DatabaseWorkspace {
       } catch (error) { throw new Error(`${moved} of ${total} pages moved. ${error instanceof Error ? error.message : "Could not move remaining pages"}. Remaining pages were not overwritten.`); }
     });
   }
-  private render() {
+  private render(preserveMenu = false) {
     this.wikiPickerCleanup?.(); this.wikiPickerCleanup = undefined;
-    this.menu?.destroy(); this.menu = undefined;
+    if (!preserveMenu) { this.menu?.destroy(); this.menu = undefined; }
     ++this.opening;
     const scrollTop = this.host.querySelector<HTMLElement>(".database-table-pane")?.scrollTop ?? 0;
     const scrollLeft = this.host.querySelector<HTMLElement>(".database-table-scroll")?.scrollLeft ?? 0;
@@ -517,10 +518,7 @@ export class DatabaseWorkspace {
       });
     }
     this.host.querySelector("[data-db-back]")!.addEventListener("click", () => void this.hooks.openDatabase());
-    const sourcesButton = document.createElement("button"); sourcesButton.type = "button"; sourcesButton.className = "database-icon-button";
-    sourcesButton.dataset.dbSources = ""; sourcesButton.setAttribute("aria-label", "Data sources"); sourcesButton.title = "Data sources"; sourcesButton.innerHTML = glyph(DatabaseIcon);
-    sourcesButton.addEventListener("click", () => { void this.manageSources().catch(error => this.message(error.message)); });
-    if (!isWikiDatabase(snapshot.database)) this.host.querySelector(".database-more-menu")!.before(sourcesButton);
+    if (preserveMenu) this.menu?.reanchor(this.host.querySelector<HTMLElement>("[data-db-view]")!);
     if (!isWikiDatabase(snapshot.database) && (this.hooks.toggleDisplay || this.hooks.turnIntoInline)) {
       const convert = document.createElement("button"); convert.type = "button"; convert.textContent = this.hooks.inline ? "Turn into page" : "Turn into inline database";
       convert.disabled = !this.hooks.inline && !snapshot.hostPage?.parent;
@@ -566,10 +564,14 @@ export class DatabaseWorkspace {
       void (async () => { if (!(await this.closePeek())) return; await this.load(snapshot.database.id); })().catch(error => this.message(error.message));
     });
     const act = (action: () => void) => void this.flush().then(async ok => { if (ok && await this.closePeek()) action(); });
-    this.host.querySelectorAll<HTMLElement>("[data-db-tab]").forEach(button => button.addEventListener("click", () => {
+    this.host.querySelectorAll<HTMLElement>("[data-db-tab]").forEach(button => {
+      button.setAttribute("aria-haspopup", "dialog");
+      button.addEventListener("contextmenu", event => { event.preventDefault(); act(() => this.tabMenu(button.dataset.dbTab!)); });
+      button.addEventListener("click", () => {
       const id = button.dataset.dbTab!;
       if (id !== this.view?.id) act(() => { this.rememberView(id); this.render(); });
-    }));
+      else act(() => this.tabMenu(id));
+    }); });
     this.host.querySelectorAll("[data-db-row]").forEach(button => button.addEventListener("click", () => act(() => this.addRow())));
     this.host.querySelector("[data-db-view]")!.addEventListener("click", () => act(() => this.editView()));
     this.host.querySelector("[data-db-filter]")!.addEventListener("click", () => act(() => this.editView("Filter")));
@@ -738,27 +740,53 @@ export class DatabaseWorkspace {
     });
   }
   showViewOptions() { this.editView(undefined, undefined, this.host.querySelector<HTMLElement>(".wiki-view-trigger") ?? undefined); }
-  private editView(section?: "Filter" | "Sort" | "Group", property?: DatabaseProperty, anchor?: HTMLElement) {
+  private tabMenu(id: string) {
     this.menu?.destroy();
-    const view = structuredClone(this.view); if (!view) return;
+    const snapshot = this.snapshot!, view = snapshot.views.find(item => item.id === id), anchor = this.host.querySelector<HTMLElement>(`[data-db-tab="${CSS.escape(id)}"]`);
+    if (!view || !anchor) return;
+    const source = snapshot.dataSources.find(source => source.id === view.dataSourceId); if (!source) return;
+    const publish = (next: DatabaseSnapshot, selected = this.view?.id) => {
+      this.snapshot = next; this.rememberView(next.views.some(view => view.id === selected) ? selected! : next.views[0].id); this.render();
+      document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: next }));
+    };
+    this.menu = openTabMenu(anchor, {
+      view, source, wiki: isWikiDatabase(snapshot.database), canDelete: snapshot.views.length > 1,
+      showSourceTitle: view.layout?.showDataSourceTitle ?? (snapshot.dataSources.length > 1 && (!this.hooks.inline || source.title !== snapshot.database.title)),
+      save: async draft => {
+        const saved = await api<DatabaseView>(`/database-views/${id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout }) });
+        this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.render(); document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: this.snapshot }));
+      },
+      edit: section => this.editView(section, undefined, this.host.querySelector<HTMLElement>("[data-db-view]")!, view),
+      duplicate: async () => {
+        const { id: _id, databaseId: _databaseId, revision: _revision, ...copy } = view;
+        const next = await api<DatabaseSnapshot>(`/databases/${snapshot.database.id}/views`, { method: "POST", body: JSON.stringify({ ...copy, name: `${view.name} (copy)`, baseRevision: snapshot.database.revision }) });
+        publish(next, next.views.find(item => !snapshot.views.some(previous => previous.id === item.id))!.id);
+      },
+      remove: async () => publish(await api<DatabaseSnapshot>(`/database-views/${id}/delete`, { method: "POST", body: JSON.stringify({ baseRevision: view.revision, databaseRevision: snapshot.database.revision }) })),
+    });
+  }
+  private editView(section?: "Filter" | "Sort" | "Group" | "Layout" | "Source", property?: DatabaseProperty, anchor?: HTMLElement, target?: DatabaseView) {
+    this.menu?.destroy();
+    const view = structuredClone(target ?? this.view); if (!view) return;
     if (property && section === "Filter") view.filters = [...view.filters ?? [], { propertyId: property.id, operator: "is_not_empty" }];
     if (property && section === "Sort") view.sorts = [...view.sorts ?? [], { propertyId: property.id, direction: "ascending" }];
     if (property && section === "Group") view.layout = { ...view.layout, groupBy: property.id };
     this.menu = openViewMenu(anchor ?? this.host.querySelector<HTMLElement>(section === "Filter" ? "[data-db-filter]" : section === "Sort" ? "[data-db-sort]" : "[data-db-view]")!, {
-      sources: this.snapshot!.dataSources, view, wiki: isWikiDatabase(this.snapshot!.database), manageSources: isWikiDatabase(this.snapshot!.database) ? undefined : () => { void this.manageSources().catch(error => this.message(error.message)); },
+      sources: this.snapshot!.dataSources, view, surface: this.host, wiki: isWikiDatabase(this.snapshot!.database), manageSources: isWikiDatabase(this.snapshot!.database) ? undefined : (pop, button, level) => { void this.manageSources(pop, button, level).catch(error => this.message(error.message)); },
       save: async draft => {
         const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout, filterMode: draft.filterMode, propertyIds: draft.propertyIds, filters: draft.filters, sorts: draft.sorts }) });
-        this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.visibleLimit = undefined; this.render();
+        view.revision = saved.revision; draft.revision = saved.revision;
+        this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.visibleLimit = undefined; this.render(true);
         document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: this.snapshot }));
       },
       editProperty: (field, anchor) => this.editProperty(field, undefined, anchor.isConnected ? anchor : undefined), addProperty: () => this.editProperty(),
     }, section);
     if (property) this.menu.dirty = true;
   }
-  private async manageSources() {
+  private async manageSources(pop?: DatabasePopover, anchor?: HTMLElement, level = 0) {
     if (isWikiDatabase(this.snapshot?.database)) return;
     if (!await this.flush() || !await this.closePeek() || !this.alive) return;
-    this.menu?.destroy();
+    if (!pop) this.menu?.destroy();
     const snapshot = this.snapshot!;
     const publish = (next: DatabaseSnapshot, sourceId: string) => {
       if (!this.alive) return;
@@ -770,12 +798,12 @@ export class DatabaseWorkspace {
       try { return await api<DatabaseSnapshot>(`/databases/${snapshot.database.id}/data-sources${operation}`, { method: "POST", body: JSON.stringify({ ...input, baseRevision: snapshot.database.revision }) }); }
       finally { this.sourceSaving = false; }
     };
-    this.menu = openSourceMenu(this.host.querySelector<HTMLElement>("[data-db-sources]")!, {
-      snapshot, list: () => api<DatabaseSourceSummary[]>("/data-sources"),
+    this.menu = openSourceMenu(anchor ?? this.host.querySelector<HTMLElement>("[data-db-view]")!, {
+      snapshot, surface: this.host, list: () => api<DatabaseSourceSummary[]>("/data-sources"),
       create: async title => { const next = await mutate("", { title }); publish(next, next.database.dataSourceIds.find(id => !snapshot.database.dataSourceIds.includes(id))!); },
       link: async source => { const next = await mutate("/link", { dataSourceId: source.id, sourceRevision: source.revision }); publish(next, source.id); },
       select: sourceId => { this.rememberView(snapshot.views.find(view => view.dataSourceId === sourceId)?.id ?? ""); this.render(); },
-    });
+    }, pop ? { pop, level } : undefined);
   }
   private newView(anchor?: HTMLElement) {
     this.menu?.destroy();

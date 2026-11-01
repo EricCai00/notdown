@@ -63,6 +63,7 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "PUT" && operation === "records" && child) return await vault.databases.updateCell(id, child, input);
         if (method === "POST" && operation === "records" && !child) return await vault.databases.createRecord(id, input, input.baseRevision);
       }
+      if (resource === "database-views" && method === "POST" && operation === "delete") return await vault.databases.deleteView(id, input);
       if (resource === "database-views" && method === "PUT") { const { baseRevision, ...patch } = input; return await vault.databases.updateView(id, patch, baseRevision); }
       throw new ApiError(501, { error: "This feature needs the desktop app. Its source remains preserved on this device." });
     } catch (error) {

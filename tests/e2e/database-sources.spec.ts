@@ -8,8 +8,9 @@ async function database(request: APIRequestContext, title: string) {
   expect(response.ok()).toBeTruthy(); return response.json();
 }
 async function snapshot(request: APIRequestContext, id: string) { return (await request.get(`/api/databases/${id}`)).json(); }
-async function newSource(page: Page) { await button(page, "Data sources").click(); await button(page, "New data source").click(); }
-async function linkMenu(page: Page) { await button(page, "Data sources").click(); await button(page, "Link existing data source").click(); }
+async function manager(page: Page) { await button(page, "View settings").click(); await button(page, "Manage data sources").click(); }
+async function newSource(page: Page) { await manager(page); await button(page, "Add data source").click(); }
+async function linkMenu(page: Page) { await manager(page); await button(page, "Link existing data source").click(); }
 
 test("creating sources keeps schemas and rows separate, supports cancellation and reload", async ({ page, request }, info) => {
   const target = await database(request, "Source management");
@@ -53,10 +54,10 @@ test("source relationships are searchable and link to their exact database views
   await expect(page.locator(".database-view-link")).toHaveText("Link");
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Manage data sources", exact: true }).click();
-  const manager = dialog(page, "Data sources");
-  await expect(manager.getByText("Sources", { exact: true })).toBeVisible();
+  const manager = dialog(page, "Manage data sources");
+  await expect(manager.getByText("Source", { exact: true })).toBeVisible();
   await expect(manager.getByText("Linked", { exact: true })).toBeVisible();
-  await expect(manager.getByText("From Product work · Views: Roadmap", { exact: true })).toBeVisible();
+  await expect(manager.getByRole("button", { name: "Show data source Roadmap", exact: true })).toHaveAttribute("title", "From Product work · Views: Roadmap");
   await button(page, "Details for Roadmap").click();
   const details = dialog(page, "Data source details");
   await expect(details.getByRole("link", { name: "Open Table in Product work", exact: true })).toBeVisible();
@@ -88,7 +89,7 @@ test("two title levels follow the active source and honor explicit visibility af
   const headingBounds = await page.locator(".database-heading").boundingBox(), sourceBounds = await title.boundingBox(), tabsBounds = await page.getByRole("tablist", { name: "Database views" }).boundingBox();
   expect(sourceBounds!.y).toBeGreaterThan(headingBounds!.y); expect(tabsBounds!.y).toBeGreaterThan(sourceBounds!.y);
   await button(page, "Current data source: Second collection").click();
-  await expect(dialog(page, "Data sources")).toBeVisible(); await page.keyboard.press("Escape");
+  await expect(dialog(page, "Manage data sources")).toBeVisible(); await page.keyboard.press("Escape");
   await page.screenshot({ path: info.outputPath("two-level-titles.png"), fullPage: true });
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Layout", exact: true }).click();
@@ -135,8 +136,9 @@ test("inline source creation preserves its outer Markdown and independent record
   const outer = await (await request.post("/api/pages", { data: { title: "Inline source host", body, syntax: { version: 1, variant: "notdown", extensions: {} }, bodyFormat: "notion-markdown" } })).json();
   await page.goto(`/#page/${outer.id}`);
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
-  await inline.getByRole("button", { name: "Data sources", exact: true }).click();
-  await button(page, "New data source").click();
+  await inline.getByRole("button", { name: "View settings", exact: true }).click();
+  await button(page, "Manage data sources").click();
+  await button(page, "Add data source").click();
   await page.getByLabel("Data source name", { exact: true }).fill("Inline second source");
   await button(page, "Create data source").click();
   await expect(inline.getByRole("tab", { name: "Inline second source", exact: true })).toHaveAttribute("aria-selected", "true");

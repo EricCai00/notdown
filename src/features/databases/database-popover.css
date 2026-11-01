@@ -54,3 +54,18 @@
 @media(max-width:600px) { .database-popover { max-height:80vh!important; } .database-popover[data-level]:not([data-level="0"]) { left:8px!important; width:calc(100vw - 16px)!important; } }
 .database-popover [hidden] { display:none!important; }
 .database-popover-grid button>svg:last-child:not(:first-child) { display:none; }
+.database-popover[hidden] { display:none!important; }
+.database-settings-panel { border:0; border-left:1px solid var(--border,#e9e9e7); border-radius:0; box-shadow:none; padding:8px; }
+.database-settings-panel .database-popover-header { padding:5px 7px 13px; color:var(--text,#37352f); font-size:13px; }
+.database-settings-panel .database-popover-header > span { font-weight:500; }
+.database-settings-panel .database-popover-row { min-height:30px; }
+.database-settings-panel .database-popover-section { margin:8px 8px 4px; padding-top:10px; }
+.database-settings-panel .database-popover-footer { padding:9px 7px; }
+.database-settings-panel .database-popover-done { background:var(--hover,#f1f1ef); color:var(--text,#37352f)!important; }
+.database-tab-menu > .database-popover-header { display:none; }
+.database-tab-menu .database-popover-section { margin-top:5px; padding-top:5px; }
+.database-tab-menu .database-popover-row { min-height:29px; }
+.database-source-menu-item .database-popover-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.database-source-menu-item .database-source-description { flex-shrink:0; margin:0 0 0 auto; font-size:13px; color:var(--muted,#999993); white-space:nowrap; }
+.database-settings-panel > div > .database-popover-section:first-child { border-top:0; margin-top:0; padding-top:4px; }
+@media(max-width:600px) { .database-settings-panel { border:1px solid var(--border,#e9e9e7); border-radius:8px; box-shadow:0 8px 25px #0002; } }

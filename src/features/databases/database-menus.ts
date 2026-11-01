@@ -33,12 +33,13 @@ export function openGroupMenu(anchor: HTMLElement, hooks: { field: DatabasePrope
 }
 type ViewMenuHooks = {
   wiki?: boolean;
-  manageSources?(): void;
+  surface?: HTMLElement;
+  manageSources?(pop: DatabasePopover, anchor: HTMLElement, level: number): void;
   sources: DatabaseDataSource[]; view: DatabaseView; create?: boolean;
   save(view: DatabaseView): Promise<void>; editProperty(field: DatabaseProperty, anchor: HTMLElement): void; addProperty(anchor: HTMLElement): void;
 };
-export function openViewMenu(anchor: HTMLElement, hooks: ViewMenuHooks, section?: "Filter" | "Sort" | "Group" | "Property visibility") {
-  const pop = new DatabasePopover(anchor, hooks.create ? "New view" : "View settings");
+export function openViewMenu(anchor: HTMLElement, hooks: ViewMenuHooks, section?: "Filter" | "Sort" | "Group" | "Property visibility" | "Layout" | "Source") {
+  const pop = new DatabasePopover(anchor, hooks.create ? "New view" : "View settings", { replace: true, surface: hooks.create ? undefined : hooks.surface });
   const draft = structuredClone(hooks.view); draft.layout ??= {};
   let source = hooks.sources.find(source => source.id === draft.dataSourceId)!;
   const layout = draft.layout;
@@ -110,7 +111,7 @@ export function openViewMenu(anchor: HTMLElement, hooks: ViewMenuHooks, section?
   function sourceMenu(button: HTMLElement, level: number) {
     collect(); const panel = pop.panel("Source", button, level);
     for (const item of hooks.sources) { const row = menuChoice(item.title, source.id === item.id, () => { if (!hooks.create) return; source = item; draft.dataSourceId = item.id; delete layout.groupBy; delete layout.datePropertyId; pop.dirty = true; draw(); }, Database); row.disabled = !hooks.create && source.id !== item.id; panel.append(row); }
-    if (hooks.manageSources) menuSection(panel).append(menuButton("Manage data sources", Database, async () => { if (await pop.save()) { pop.destroy(); hooks.manageSources!(); } }));
+    if (hooks.manageSources) menuSection(panel).append(menuButton("Manage data sources", Database, async button => { if (await pop.save()) hooks.manageSources!(pop, button, level + 1); }, "", true));
   }
   function draw() {
     collect(); const panel = pop.panel(hooks.create ? "New view" : "View settings");
@@ -123,8 +124,8 @@ export function openViewMenu(anchor: HTMLElement, hooks: ViewMenuHooks, section?
       if (draft.type !== "calendar") panel.append(menuButton("Group", Layers, grouping, "", true));
       panel.append(menuButton("Copy link to view", Link, async button => { try { const url = new URL(location.href); url.hash = routeHash({ kind: "database", id: draft.databaseId, viewId: draft.id }); await navigator.clipboard.writeText(url.href); button.querySelector(".database-popover-label")!.textContent = "Link copied"; } catch { const p = pop.panel("Link to view", button, 1); const url = new URL(location.href); url.hash = routeHash({ kind: "database", id: draft.databaseId, viewId: draft.id }); const input = menuInput("View link", url.href, () => {}); (input.querySelector("input")!).readOnly = true; p.append(input); input.querySelector("input")!.select(); } }));
       const sourceSection = menuSection(panel, hooks.wiki ? "Page properties" : "Data source settings"); if (!hooks.wiki) sourceSection.append(menuButton("Source", Database, button => sourceMenu(button, 1), source.title, true));
-      if (hooks.manageSources) menuSection(panel).append(menuButton("Manage data sources", Database, async () => { if (await pop.save()) { pop.destroy(); hooks.manageSources!(); } }));
       sourceSection.append(menuButton("Edit properties", List, button => { collect(); const child = pop.panel("Edit properties", button, 1); for (const field of source.properties) child.append(menuButton(field.name, propertyMenuIcon(field), async () => { if (await pop.save()) { const rect = button.getBoundingClientRect(); pop.destroy(); hooks.editProperty(field, anchor); } }, "", true)); child.append(menuButton("New property", Plus, async () => { if (await pop.save()) { pop.destroy(); hooks.addProperty(anchor); } })); }, "", true));
+      if (hooks.manageSources) menuSection(panel).append(menuButton("Manage data sources", Database, async button => { if (await pop.save()) hooks.manageSources!(pop, button, 1); }, "", true));
     }
     pop.footer(panel, hooks.create ? "Done" : "Done");
     panel.querySelector(".database-popover-done")!.setAttribute("aria-label", hooks.create ? "Create view" : "Save view");

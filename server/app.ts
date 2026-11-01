@@ -123,6 +123,7 @@ export function createApp(options: {
   app.get("/api/data-sources/:id", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.databases.getSource(String(req.params.id))); }));
   app.put("/api/data-sources/:id", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.updateSource(String(req.params.id), input, baseRevision)); }));
   app.put("/api/database-views/:id", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.json(await vault.databases.updateView(String(req.params.id), input, baseRevision)); }));
+  app.post("/api/database-views/:id/delete", route(async (req, res) => res.json(await vault.databases.deleteView(String(req.params.id), req.body))));
   app.post("/api/databases/:id/views", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.status(201).json(await vault.databases.createView(String(req.params.id), input, baseRevision)); }));
   app.post("/api/data-sources/:id/records", route(async (req, res) => { const { baseRevision, ...input } = req.body ?? {}; return res.status(201).json(await vault.databases.createRecord(String(req.params.id), input, baseRevision)); }));
   app.put("/api/data-sources/:id/records/:pageId", route(async (req, res) => res.json(await vault.databases.updateCell(String(req.params.id), String(req.params.pageId), req.body ?? {}))));

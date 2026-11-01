@@ -380,6 +380,19 @@ export function createDatabases(host: Host) {
       if (current.revision !== baseRevision) return conflict(current, proposed, baseRevision);
       validateView(proposed, ctx, current); ctx.views[id] = stamped(proposed); await save(ctx); return (await context()).views[id];
     }),
+    deleteView: (id: string, input: { baseRevision: string; databaseRevision: string }) => host.serialize(async () => {
+      base(input?.baseRevision); base(input?.databaseRevision); assertId(id);
+      const ctx = await context(), view = ctx.views[id];
+      if (!view) throw new VaultError(404, "View not found");
+      const database = snapshot(ctx, view.databaseId).database;
+      if (view.revision !== input.baseRevision) return conflict(view, { deleted: true }, input.baseRevision);
+      if (database.revision !== input.databaseRevision) return conflict(database, { deletedViewId: id }, input.databaseRevision);
+      if (database.trashed) throw new VaultError(422, "Restore this database before deleting views");
+      if (database.viewIds.length < 2) throw new VaultError(422, "Keep at least one view in this database");
+      delete ctx.views[id];
+      ctx.databases[database.id] = stamped({ ...database, viewIds: database.viewIds.filter(viewId => viewId !== id), dataSourceIds: database.dataSourceIds.filter(sourceId => owningDatabase(ctx, ctx.dataSources[sourceId])?.id === database.id || Object.values(ctx.views).some(view => view.databaseId === database.id && view.dataSourceId === sourceId)) });
+      await save(ctx); return snapshot(await context(), database.id);
+    }),
     createView: (databaseId: string, input: Partial<DatabaseView>, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); const ctx = await context(), database = snapshot(ctx, databaseId).database;
       if (database.trashed) throw new VaultError(422, "Restore this database before adding views");

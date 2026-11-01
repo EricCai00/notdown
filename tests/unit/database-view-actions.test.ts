@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createVault, VaultError } from "../../server/vault.js";
+
+test("view copies retain query and unknown fields; deleting a view preserves sources and Markdown", async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-view-actions-")), vault = createVault(root);
+  t.after(async () => { vault.closeHistory(); await fs.rm(root, { recursive: true, force: true }); });
+  const db = await vault.databases.create({ title: "Views" }), source = db.dataSources[0], original = db.views[0];
+  const row = await vault.databases.createRecord(source.id, { title: "Keep record" }, source.revision);
+  const body = await vault.update(row.id, { body: "Unchanged Markdown\r\n" }, row.revision);
+  const current = await vault.databases.get(db.database.id);
+  const view = await vault.databases.updateView(original.id, { filters: [{ propertyId: source.properties[0].id, operator: "contains", value: "Keep" }], layout: { showDataSourceTitle: true }, futureView: { keep: true } } as any, current.views[0].revision);
+  const snapshot = await vault.databases.get(db.database.id);
+  const { id, revision, databaseId, ...copy } = view;
+  const duplicated = await vault.databases.createView(databaseId, { ...copy, name: "Table (copy)" }, snapshot.database.revision);
+  const added = duplicated.views.find(item => item.id !== id)!;
+  assert.deepEqual(added.filters, view.filters); assert.deepEqual((added as any).futureView, { keep: true });
+  const stale = await vault.databases.updateView(added.id, { name: "Changed elsewhere" }, added.revision);
+  const status = (code: number) => (error: unknown) => error instanceof VaultError && error.status === code;
+  await assert.rejects(vault.databases.deleteView(added.id, { baseRevision: added.revision, databaseRevision: duplicated.database.revision }), status(409));
+  const fresh = await vault.databases.get(databaseId);
+  const concurrent = await vault.databases.createView(databaseId, { ...copy, name: "Other window view" }, fresh.database.revision);
+  await assert.rejects(vault.databases.deleteView(added.id, { baseRevision: stale.revision, databaseRevision: fresh.database.revision }), status(409));
+  const intermediate = await vault.databases.deleteView(added.id, { baseRevision: stale.revision, databaseRevision: concurrent.database.revision });
+  const extra = intermediate.views.find(view => view.id !== id)!;
+  const deleted = await vault.databases.deleteView(extra.id, { baseRevision: extra.revision, databaseRevision: intermediate.database.revision });
+  assert.deepEqual(deleted.database.viewIds, [id]); assert.equal(deleted.dataSources[0].id, source.id);
+  assert.equal((await vault.get(body.id)).body, "Unchanged Markdown\r\n");
+  await assert.rejects(vault.databases.deleteView(id, { baseRevision: deleted.views[0].revision, databaseRevision: deleted.database.revision }), status(422));
+  assert.ok((await fs.readdir(path.join(root, ".history", "database-conflicts"))).length);
+});

@@ -129,6 +129,17 @@ test("packaged databases own JSON files, link shared sources, and keep Wiki Home
   await page.locator("#breadcrumb").getByRole("link", { name: "Packaged inline parent", exact: true }).click();
   await expect(page.locator("#page-title")).toHaveValue("Packaged inline parent");
   expect(await fs.readFile(file, "utf8")).toBe(original);
+  await page.goto(`${origin}/#database/${linked.database.id}`);
+  const selected = page.locator('[data-db-tab][aria-selected="true"]');
+  await selected.click();
+  await expect(page.getByRole("dialog", { name: "View options", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Duplicate view", exact: true }).click();
+  await expect(page.locator("[data-db-tab]")).toHaveCount(3);
+  await page.getByRole("button", { name: "View settings", exact: true }).click();
+  await page.getByRole("button", { name: "Manage data sources", exact: true }).click();
+  const manager = page.getByRole("dialog", { name: "Manage data sources", exact: true });
+  await expect(manager.locator(".database-source-menu-item")).toHaveCount(2);
+  await expect(manager).toHaveCSS("box-shadow", "none");
 });
 
 test("Notion token is encrypted outside the vault and autofills after a desktop restart", async () => {

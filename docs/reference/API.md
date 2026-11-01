@@ -154,6 +154,7 @@ System recycling requires a revision map covering the exact current subtree, a t
 | `PUT /api/data-sources/:id` | `{baseRevision,title?,properties?}` | Updated `DatabaseDataSource` |
 | `POST /api/databases/:id/views` | `{baseRevision,name?,dataSourceId?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | 201 updated `DatabaseSnapshot`; revision belongs to the database |
 | `PUT /api/database-views/:id` | `{baseRevision,name?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | Updated `DatabaseView`; source/database identity stays unchanged |
+| `POST /api/database-views/:id/delete` | `{baseRevision,databaseRevision}` | Updated `DatabaseSnapshot`; removes only the view configuration, keeps sources and pages, and requires at least one remaining view. Checks both revisions and preserves conflict proposals |
 | `POST /api/data-sources/:id/records` | `{baseRevision,title?,properties?}` | 201 `Page`; revision belongs to the data source |
 | `PUT /api/data-sources/:id/records/:pageId` | `{baseRevision,schemaRevision,propertyId,value}` | Updated `Page`; checks both page and data-source revisions |
 | `POST /api/data-sources/:id/records/:pageId/remove` | `{baseRevision,schemaRevision}` | Updated `Page` detached from its data source; Markdown and properties preserved |

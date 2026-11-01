@@ -11,7 +11,7 @@ export class DatabasePopover {
   private events = new AbortController();
   private dead = false;
   commit?: () => Promise<void>;
-  constructor(readonly anchor: HTMLElement, readonly title: string) {
+  constructor(public anchor: HTMLElement, readonly title: string, readonly options: { replace?: boolean; surface?: HTMLElement } = {}) {
     anchor.setAttribute("aria-expanded", "true");
     document.addEventListener("pointerdown", event => {
       if (!this.panels.some(panel => panel.contains(event.target as Node)) && !anchor.contains(event.target as Node)) void this.dismiss();
@@ -27,16 +27,17 @@ export class DatabasePopover {
     }, { capture: true, signal: this.events.signal });
     window.addEventListener("resize", () => this.position(), { signal: this.events.signal });
   }
-  panel(title: string, anchor = this.anchor, level = 0, width = 292): HTMLElement {
+  panel(title: string, anchor = this.anchor, level = 0, width = 292, trackChanges = true): HTMLElement {
     this.trim(level);
     const panel = document.createElement("section"); panel.className = "database-popover"; panel.style.width = `${width}px`; panel.dataset.level = String(level); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", title);
     const header = document.createElement("header"); header.className = "database-popover-header";
     if (level) header.append(menuButton("Back", ChevronLeft, () => this.trim(level), "", false, "database-popover-back"));
     const label = document.createElement("span"); label.textContent = title; header.append(label);
-    const close = menuButton("Close", X, () => { if (level) this.trim(level); else void this.dismiss(); }, "", false, "database-popover-close"); header.append(close); panel.append(header);
+    const close = menuButton("Close", X, () => { void this.dismiss(); }, "", false, "database-popover-close"); header.append(close); panel.append(header);
     const status = document.createElement("p"); status.className = "database-popover-status"; status.setAttribute("role", "status"); panel.append(status);
-    panel.addEventListener("input", () => this.dirty = true);
-    panel.addEventListener("change", () => this.dirty = true);
+    if (trackChanges) { panel.addEventListener("input", () => this.dirty = true); panel.addEventListener("change", () => this.dirty = true); }
+    if (this.options.replace) for (const parent of this.panels) parent.hidden = true;
+    if (this.options.surface) panel.classList.add("database-settings-panel");
     document.body.append(panel); this.panels.push(panel);
     (panel as any).anchor = anchor;
     this.position(); requestAnimationFrame(() => { if (!this.dead) this.position(); });
@@ -46,14 +47,38 @@ export class DatabasePopover {
     for (let index = 0; index < this.panels.length; index++) {
       const panel = this.panels[index], anchor = (panel as any).anchor as HTMLElement, rect = anchor.getBoundingClientRect();
       const width = Math.min(parseInt(panel.style.width), innerWidth - 16);
-      const parent = this.panels[index - 1]?.getBoundingClientRect();
+      if (this.options.surface) {
+        const toolbar = this.options.surface.querySelector(".database-toolbar")?.getBoundingClientRect();
+        if (toolbar) {
+          const top = Math.max(8, Math.min(toolbar.bottom + 6, innerHeight - 160));
+          const size = Math.min(300, innerWidth - 16);
+          Object.assign(panel.style, { left: `${Math.max(8, Math.min(toolbar.right - size, innerWidth - size - 8))}px`, top: `${top}px`, width: `${size}px`, height: `${innerHeight - top - 8}px`, maxHeight: `${innerHeight - top - 8}px`, zIndex: String(1100 + index) });
+          continue;
+        }
+      }
+      const parent = !this.options.replace && this.panels[index - 1]?.getBoundingClientRect();
+      const origin = this.options.replace ? this.anchor.getBoundingClientRect() : rect;
       let left = index && parent ? parent.right + 4 : rect.left;
       if (index && parent && left + width > innerWidth - 8) left = parent.left - width - 4;
-      const top = index ? rect.top : rect.bottom + 6;
+      if (this.options.replace) left = origin.left;
+      const top = this.options.replace ? origin.bottom + 6 : index ? rect.top : rect.bottom + 6;
       Object.assign(panel.style, { left: `${Math.max(8, Math.min(left, innerWidth - width - 8))}px`, top: `${Math.max(8, Math.min(top, innerHeight - Math.min(panel.scrollHeight, innerHeight - 16) - 8))}px`, maxHeight: `${innerHeight - 16}px`, zIndex: String(1100 + index) });
     }
   }
-  trim(length: number) { for (const panel of this.panels.splice(length)) panel.remove(); }
+  trim(length: number) {
+    const removed = this.panels.splice(length); for (const panel of removed) panel.remove();
+    if (this.panels.length) { this.panels.at(-1)!.hidden = false; if (this.options.replace && removed.length) ((removed[0] as any).anchor as HTMLElement)?.focus(); }
+  }
+  reanchor(anchor: HTMLElement) { this.anchor.setAttribute("aria-expanded", "false"); this.anchor = anchor; anchor.setAttribute("aria-expanded", "true"); }
+  async perform(operation: () => Promise<void>) {
+    if (this.busy) return this.busy;
+    this.busy = (async () => {
+      this.panels.forEach(panel => panel.setAttribute("aria-busy", "true"));
+      try { await operation(); this.destroy(); return true; }
+      catch (error) { const status = this.panels.at(-1)?.querySelector<HTMLElement>("[role=status]"); if (status) { status.textContent = error instanceof Error ? error.message : String(error); status.append(menuButton("Discard menu changes", undefined, () => this.destroy())); } return false; }
+      finally { this.panels.forEach(panel => panel.removeAttribute("aria-busy")); this.busy = undefined; }
+    })(); return this.busy;
+  }
   async save(): Promise<boolean> {
     if (this.busy) return this.busy;
     if (!this.dirty || !this.commit) return true;
