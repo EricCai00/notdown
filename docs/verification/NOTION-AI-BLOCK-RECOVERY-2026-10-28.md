@@ -1,63 +1,79 @@
-# Notion AI block 缓存恢复与 Button 调查（2026-10-28）
+<a id="notion-ai-block-缓存恢复与-button-调查2026-10-28"></a>
 
-## 已实现范围
+# Notion AI block cache recovery and Button investigation (2026-10-28)
 
-Notdown 方言开启已有桌面缓存选项时，可从只读 SQLite 恢复已识别的 custom v3 AI block 提示词和完整的受支持输出子树。使用现有 `ai-block`，不添加重复正文语法。官方 Notion Markdown、关闭补充、旧缓存或不完整子树均不应用自定义恢复。
+**English** · [简体中文](NOTION-AI-BLOCK-RECOVERY-2026-10-28.zh-CN.md)
 
-公开 Block API 提供当前块身份、类型和编辑时间；缓存限定同账户／工作区，子块要求父指针一致，最多 1,000 个块、30 层、10 MiB。API 仅提供分钟时间时只能核对编辑分钟，不能证明跨来源原子一致。未知配置、提示词提及、未知输出节点与缺失子块保留占位，继续原有公开 API 子内容恢复。采用的原记录与可用 CRDT 原数据进入批次归档，参与身份；不覆盖已编辑的本地副本，不自动执行 AI 或按钮。
+<a id="已实现范围"></a>
 
-实现：`server/notion-private-blocks.ts`、`server/notion-desktop-cache.ts`、`server/notion-block-import.ts` 和 `server/notion-import.ts`。使用说明见 [Notion 导入](../features/NOTION-IMPORT.md)。
+## Realized scope
 
-## 本机样本
+When the Notdown dialect is enabled with the desktop caching option, you can read only SQLite to recover the identified custom v3 AI block cue words and the full supported output subtree. `ai-block`The official Notion Markdown add-on, closed add-on, old cache or incomplete subtrees do not apply to custom recovery.
 
-重新读取 Test / Blocks：AI 配置包含 `ai_block_configuration_menu={type:custom,version:3,autofillInstructions:[["hi"]]}`，`content` 指向文字为 `Hi!` 的子块。实际只读缓存与转换函数恢复出 prompt `hi`、结果 `Hi!`。此转换验证使用从缓存构造的模拟 Block API 时间，不是新 token 的真实云端导入验收。连接器重新读取仍将 AI 和 button 返回为 unknown。
+Public Block API provides the current block identity, type and editing time; the cache limit is the same as the account/workspace, and the child block requires the parent pointer to be consistent, with a maximum of 1, 000 blocks, 30 layers, and 10 MiB. When API only provides minutes, it can only check edit minutes and cannot prove atomic consistency across sources. Unknown configurations, prompt word mentions, unknown output nodes and missing sub-blocks are retained and the original public API sub-content is restored. The adopted original record and the available CRDT original data enter the batch archive and participate in the identity; the edited local copy is not overwritten, and the AI or button is not automatically executed.
 
-Button 原界面可读取名称 `Insert block`、动作 `Insert blocks below button` 和模板 `Inserted block`；SQLite 只有 `automation_id`，相同 ID 在 `automation`、`workflow` 及已检查的 `records` 中均缺失。打开设置后仍未取得缓存定义，因此没有实现普通 button 的自动动作迁移。不得把来源占位描述成已恢复按钮。
+Implementation: `server/notion-private-blocks.ts`, `server/notion-desktop-cache.ts`, `server/notion-block-import.ts` and `server/notion-import.ts`. For usage instructions, see [ Notion import ](../features/NOTION-IMPORT.md).
 
-本次 HTML 导出省略了该 button 和当时的空 AI block。没有据此判断已生成 AI 结果在所有 HTML 导出中的行为。后续页面内结构化读取仍需真实验证；此次 Chrome 调试连接无法附加，原生开发工具窗口控制也发生超时，未取得可用于通用转换的 action JSON。
+<a id="本机样本"></a>
 
-## 验证与限制
+## native sample
 
-- 新增四项单元测试，覆盖实际配置形状、空输出、XML 边界、旧缓存、缺失／循环子树、未知配置／mark、账户隔离、SQLite 字节不变、CRDT 保留、方言／关闭补充、原始归档、批次身份和已有本地编辑保护。与已有提醒测试合计 9 项通过。
-- 全量 `npm test`：1,189 通过、5 跳过，另有一项既有 child-page-settings 测试在临时目录清理时出现 Windows unlink 错误；该文件单独重跑 9 项通过。没有修改该功能来规避清理错误。
-- `npm run build` 通过。后续仅服务端 CRDT 原数据保留与测试细化，另做类型检查和定向单元验证。
-- 已添加隔离 Chrome 用例，验证预览／提交／重开后 prompt 和输出、不自动生成及官方方言边界。首次相关用例组在浏览器 context 创建阶段超时；单独新用例重试 60 秒仍在 context 创建阶段超时，未进入断言，不能算浏览器验收通过。机器当时可用物理内存不足 100 MiB；终止本次测试启动的浏览器后仍不足 500 MiB，没有关闭用户应用或其他任务进程。
-- 未更新已安装桌面程序，未修改用户知识库或 Notion 源内容。普通 Button 完整迁移与真实云端 token 导入仍未验收。
+Rereading Test / Blocks : The AI configuration contains `ai_block_configuration_menu={type:custom,version:3,autofillInstructions:[["hi"]]}` , and `content` points to a subblock with text `Hi!` . The actual read-only cache and conversion function restore prompt `hi` and the result `Hi!`. This conversion validation uses simulated Block API times constructed from cache and is not a real cloud import acceptance of the new token. Connector reread still returns AI and button as unknown .
 
-本地日志在 `.run/logs/notion-private-*2026-10-28.log`、`.run/logs/notion-ai-live-conversion-2026-10-28.json`；实际 HTML 导出在 `.run/logs/notion-blocks-html-2026-10-28.html`。这些日志不作为仓库测试输入。
+The original interface of Button can read the name `Insert block`, action `Insert blocks below button` and template `Inserted block`; SQLite only has `automation_id`, and the same ID is missing in `automation`, `workflow` and the checked `records`. After opening the settings, the cache definition is still not obtained, so the automatic action migration of ordinary button is not implemented. The source placeholder may not be described as a restored button.
 
-## 0.1.6 发布复核
+This HTML export omits the button and the empty AI block at that time. There is no basis for judging the behavior of generated AI results in all HTML exports. The structured reading in subsequent pages still needs to be authentically verified; this time the Chrome debugging connection cannot be attached, the native development tool window control also timed out, and no action JSON that can be used for universal conversion was obtained.
 
-后续资源可用时，新增 AI 导入 Chrome 用例通过，验证缓存 prompt／输出在预览、提交、重开后仍为可编辑 AI block，且不自动生成；官方方言继续保留 unknown。全量单元测试也通过（1,190 通过、5 跳过），实际打包程序的 11 项桌面测试通过，已安装版本更新为 0.1.6。普通 Button 和真实云端 token 整链验收仍保留上述限制，详见 [发布验证](RELEASE-0.1.6-2026-10-28.md)。
+<a id="验证与限制"></a>
 
-## 0.1.7：真实连接的 AI 子块读取拒绝
+## Authentication and restrictions
 
-随后使用本机已保存的真实连接，只读预览 Test / Blocks，复现第 15 个 API 请求返回 HTTP 400：AI block 在公开响应中标为 `has_children: true`，但 `/blocks/<AI block ID>/children` 返回 `validation_error`，说明当前连接类型不支持 `ai_block`。0.1.6 在发现后代页面的阶段中止，尚未进入缓存恢复；原测试样本错误地设置了 `has_children: false`，浏览器用例还排除了后代页面，未覆盖真实请求。
+- Four new unit tests have been added, covering actual configuration shape, empty output, XML boundaries, old cache, missing/cyclic subtrees, unknown configuration/mark, account isolation, SQLite byte unchanged, CRDT reserved, dialect/off supplement, original archive, batch identity and existing local edit protection. A total of 9 passes with existing reminder tests.
+- Full `npm test`: 1, 189 passed, 5 skipped, and an existing child-page-settings test had a Windows unlink error when cleaning the temporary directory; this file was rerun separately and 9 passed. This function has not been modified to circumvent cleanup errors.
+- `npm run build`Passed. In the future, only the original data of CRDT on the server side will be retained and tested for refinement, and type checking and directional unit verification will be performed.
+- Added isolation Chrome use case to verify prompt and output after preview/submit/reopen, no automatic generation and official dialect boundaries. The first related use case group times out in the context creation phase of the browser; a single new use case retry for 60 seconds still times out in the context creation phase and does not enter the assertion, so the browser acceptance cannot be considered passed. The available physical memory of the machine at that time was insufficient for 100 MiB; after terminating the browser started in this test, it was still insufficient for 500 MiB, and user applications or other task processes were not closed.
+- Installed desktop programs have not been updated, user vault or Notion source content has not been modified. The complete migration of ordinary Button and the import of real cloud token have not yet been accepted.
 
-修复只对首批子块请求中这一明确的类型不支持错误降级为警告，继续可读 Markdown 与已核验缓存恢复。不扩大到其他必需读取的 400，不允许子块分页中途的 400 生成部分预览。错误正文至多读取 16 KiB，只提取白名单错误码和严格匹配的块类型；普通失败提示请求路径，不显示上游消息、URL 或凭据。API 错误码的含义参见 [Notion 状态码文档](https://developers.notion.com/reference/status-codes)。
+The local logs are in `.run/logs/notion-private-*2026-10-28.log` and `.run/logs/notion-ai-live-conversion-2026-10-28.json`; the actual HTML export is in `.run/logs/notion-blocks-html-2026-10-28.html`. These logs are not used as input for warehouse testing.
 
-修复后的同一真实连接预览成功，返回 2 个页面，AI 提示词和输出从匹配缓存恢复，普通 Button 继续保留来源占位；还恢复了一个已核验提醒。此次真实预览关闭附件下载，未向用户知识库提交副本，不构成附件、整库迁移或所有 AI 配置的验收。
+<a id="016-发布复核"></a>
 
-验证：全量单元测试 1,192 通过、5 跳过；修正后的隔离 Chrome 用例组 10 项通过，包含实际导入弹窗在 AI 子项被拒绝后仍到达 Ready、显示警告、允许提交，以及 AI prompt／输出重开后保留、官方方言边界和保存失败保护。测试样本现在与真实响应一致，明确返回 AI 子项 HTTP 400。0.1.7 的 TypeScript、Vite、Electron 与 NSIS 构建通过，实际打包程序的 11 项桌面测试通过。
+## 0.1.6 Release Review
 
-通过应用菜单正常退出 0.1.6 并备份原程序后，NSIS 静默升级退出码为 0，已安装产品版本为 0.1.7.0。安装后的 exe 与 `app.asar` SHA-256 均与经过桌面测试的产物一致，知识库选择配置和加密保存的连接 token 哈希不变。未通过此次诊断向用户知识库提交导入副本。
+When subsequent resources are available, the new AI import Chrome use case passes, and the verification cache prompt/output is still editable AI block after preview, submission, and reopening, and is not automatically generated; the official dialect continues to retain unknown. The full unit test also passed (1, 190 passed, 5 skipped), the 11 desktop test of the actual packaged program passed, and the installed version was updated to 0.1.6. The above restrictions are still retained for the whole chain acceptance of ordinary Button and real cloud token. For details, see [ Release Verification ](RELEASE-0.1.6-2026-10-28.md).
 
-本地证据位于 `.run/logs/notion-http400-*`，不进入源码 Git；不保存明文连接 token。
+<a id="017真实连接的-ai-子块读取拒绝"></a>
 
-## 0.1.8：Button 的专用块复制数据
+## 0.1.7: AI sub-block read of real connection rejected
 
-继续只读调查后，公开连接器仍返回 Button unknown，SQLite 中的自动化、动作模板和关联 records 仍缺失；Button 的 CRDT 只有空标题，没有动作定义。新发现是 Notion 的块复制通道：选中来源按钮再 Ctrl+C，Windows 剪贴板中的 `text/_notion-blocks-v3-production` 包含完整的 `blockSubtree`，以及 `automation`、`automation_action` 和模板子块；普通 HTML 部分只有来源标记。此通道与原 HTML 导出不同，早期“未取得动作定义”的结论仅适用于当时检查的接口与缓存。
+Then use the real connection saved on this machine to read-only preview Test / Blocks, and reproduce the 15 API request returning HTTP 400: AI block is marked as `has_children: true` in the public response, but `/blocks/<AI block ID>/children` returns `validation_error`, indicating that the current connection type does not support `ai_block`. 0.1.6 was aborted at the stage of discovering descendant pages and has not yet entered cache recovery; the original test sample incorrectly set `has_children: false`, and the browser use case also excluded descendant pages and did not cover the real request.
 
-实际样本的自动化名称为 `Insert block`，触发器为 button，唯一动作是 `duplicate_blocks`，其空 text 容器持有文字 `Inserted block` 的模板子块。与 Notion 的编辑界面对照，动作位置为 below button，模板只显示该文字。未执行 Notion 来源按钮，也未修改其动作。
+Fix only for first subchunk requests in which this explicit type is not supported error downgraded to warning, continues readable Markdown with verified cache recovery. 400 does not expand to other required reads and does not allow sub-block pagination of 400 midway through generating a partial preview. The error text reads at most 16 KiB and only extracts whitelist error codes and strictly matching block types; ordinary failure prompts the request path and does not display upstream messages, URL or credentials. For the meaning of the API error code, please refer to the [ Notion status code document ](https://developers.notion.com/reference/status-codes).
 
-新增桌面弹窗的显式 **Read copied Notion blocks**，只提取已复制的 Notion 专用格式；不后台采集剪贴板或登录凭据，不写回剪贴板。快照只存在当前弹窗，清除、重读、切换输入会使旧预览失效，关闭弹窗即清除。恢复只用于 Notdown 方言且独立于 SQLite 补充开关。API 身份、类型、父级与编辑时间，以及复制数据中的工作区、自动化和模板父子链必须通过核对。
+The same real connection preview after repair was successful, 2 pages were returned, AI prompt words and output were restored from the matching cache, and ordinary Button continued to retain the source placeholder; a verified reminder was also restored. This real preview closes attachment downloading and does not submit a copy to the user vault. It does not constitute acceptance of attachments, entire database migration, or all AI configurations.
 
-当前转换范围是完整的静态“在按钮下方插入块”流程，可保留动作顺序和完整受支持模板；未知动作、位置、条件、变量、格式、缺失／循环模板或冲突整体保留占位。采用现有本地 `button` 和 `actions` 协议，不自动执行、不迁移云端自动化服务；采用记录归档到 `copied-blocks/<buttonId>.json` 并参与批次身份。页面复制快照最多 5 MiB，模板最多 1,000 块、30 层，动作最多 50 步。
+Verification: Testing of the whole unit1,192 I'm going to go through this.5 The following is a list of the most common types of cell phones.Chrome Use groups10 The bill passed, containing the actual imported bullet window in theAI The sub-neck is still reached after being rejectedReady、The first is the warning, the permission to submit, and the second is the warning.AI prompt／Reserved after the output is restarted, official language boundaries and preserved failure protection. Test samples are now backed up with a clear, consistent response.AI Sub-headingsHTTP 400。0.1.7 ofTypeScript、Vite、Electron withNSIS The first is to build a real, real packaging program that11 The test was passed on the desktop.
 
-以实际复制数据和本机真实连接进行只读预览，成功返回 2 页，恢复 Button、模板和来源归档，AI block 同时保持恢复。此次真实预览关闭附件下载，未向用户知识库提交副本。自动化测试使用去除真实身份的同形 fixture。
+After exiting 0.1.6 normally through the application menu and backing up the original program, the silent upgrade exit code of NSIS is 0 and the installed product version is 0.1.7.0. The installed exe and `app.asar` SHA-256 are consistent with the products that have been tested on the desktop. The token hash of the vault selection configuration and encrypted saved connection remains unchanged. The imported copy was not submitted to the user vault through this diagnosis.
 
-验证结果：全量单元测试 1,196 通过、5 跳过；相关独立 Chrome 回归 15 项通过，包括复制补充读取／清除、预览失效、导入后点击执行、单步撤销、保存重开，以及 AI、连接和导入进度回归。0.1.8 的 TypeScript、Vite、Electron 和 NSIS 构建通过；实际打包程序的 12 项桌面测试通过，新增 IPC 用例用测试进程内的剪贴板替身，验证只有显式读取才调用桥接、来源页自动填入、关闭弹窗清除快照，不改系统剪贴板。
+The local evidence is located in `.run/logs/notion-http400-*` and does not enter the source code Git; the clear text connection token is not saved.
 
-旧版正常退出并备份后，安装程序退出码为 0，本机产品版本为 0.1.8.0；exe 和 `app.asar` 的 SHA-256 与经过测试的产物一致，知识库选择配置与加密 token 哈希不变。程序更新不替换已有笔记中的占位；需读取复制数据并重新预览，导入新副本。
+<a id="018button-的专用块复制数据"></a>
 
-本地调查和验证日志为 `.run/logs/notion-button-*`，真实复制数据不进入 Git。
+## 0.1.8: Private block copy data of Button
+
+After reading the survey, the public connector still returns to Button unknown, the automation in SQLite, the action template and the associated records are still missing; Button's CRDT has only empty headings, no action definition. The new find is a block of Notion duplicate path: the selected source button is added to the Ctrl+C and Windows clips. `text/_notion-blocks-v3-production` Includes full `blockSubtree`and `automation`、`automation_action` and template blocks; normalHTML The source is only partly marked.HTML The conclusion that early screws did not achieve a motion-defining screws was only applicable to the interfaces and caches that were inspected at the time.
+
+The actual sample's automation name is `Insert block` , the trigger is button , the only action is `duplicate_blocks` , and its empty text container holds a template subblock of text `Inserted block` . Compared with the editing interface of Notion, the action position is below button, and the template only displays this text. The Notion source button has not been implemented, nor has its action been modified.
+
+Added explicit **Read copied Notion blocks** in the desktop pop-up window, which only extracts the copied Notion special format; does not collect the clipboard or login credentials in the background, and does not write back to the clipboard. Only the current pop-up window exists in the snapshot. Clearing, re-reading, and switching inputs will invalidate the old preview. Closing the pop-up window will clear it. Restore only works with Notdown dialects and is independent of the SQLite supplementary switch. API identity, type, parent and edit time, as well as workspace, automation and template parent-child chains in copied data must be checked.
+
+The current conversion scope is a complete static "insert block below button" flow, which preserves the action sequence and full supported templates; unknown actions, positions, conditions, variables, formats, missing/looping templates, or conflicts remain placeholders overall. Adopt existing local `button` and `actions` protocols, do not automate or migrate cloud automation services; adopt record archiving to `copied-blocks/<buttonId>.json` and participate in batch identities. The maximum number of page copy snapshots is 5 MiB, the maximum number of templates is 1, 000 blocks, and 30 layers, and the maximum number of actions is 50 steps.
+
+Perform read-only preview with actual copied data and real local connection, successfully return to 2 page, restore Button, template and source archive, AI block remains restored at the same time. Attachment downloading is closed for this real preview, and no copy has been submitted to the user vault. Automated testing uses isomorphic fixture with real identity removed.
+
+Verification results: Full unit test1,196 I'm going to go through this.5 The following is a list of the countries of the world:Chrome Return to the country15 The following are the steps taken to complete the process: copy, add, read/remove, preview, fail, click execution after import, unstep withdrawal, save and restart, andAI、The first is the connection and the import and the return.0.1.8 ofTypeScript、Vite、Electron andNSIS The actual packaging process is12 The tablets are approved and addedIPC In the test process, the scrapboard is replaced by the example, verifying that only explicit reading is required to call the bridge, the source page is automatically filled, the bullet window is closed, the snapshot is removed, and the system scrapboard is not changed.
+
+After the old version normally withdrew and backed up, the installer withdrew code to 0 and the native product version to 0.1.8.0; exe and `app.asar` The SHA-256 is consistent with the product tested, and the vault selects the configuration and encryption of the token hash. The program update does not replace the existing notes; it is necessary to read the duplicate data and re-preview it and import new copies.
+
+The local investigation and verification log is `.run/logs/notion-button-*`, and the real replication data does not enter Git.

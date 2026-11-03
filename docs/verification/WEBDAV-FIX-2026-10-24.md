@@ -1,32 +1,42 @@
-# 坚果云连接失败修复验证（2026-10-24）
+<a id="坚果云连接失败修复验证2026-10-24"></a>
 
-## 问题与修复
+# Nutstore connection failure fix validation (2026-10-24)
 
-本地后端日志显示，登录检测的 MKCOL 返回 400，随后被通用异常处理误报为 `Local file operation failed`。使用用户提供的应用凭据复现，坚果云响应为 `sandbox name is too long`：旧检测目录名由长前缀和完整 UUID 组成，超过顶层目录名称限制。
+**English** · [简体中文](WEBDAV-FIX-2026-10-24.zh-CN.md)
 
-真实服务还表现为：GET 的 ETag 没有双引号；顶层目录不能通过 WebDAV 删除；对已存在目录的 MKCOL 仍返回 201；PUT 忽略 `If-None-Match: *`。原先仅使用本机模拟服务的验证没有覆盖这些行为。
+<a id="问题与修复"></a>
 
-- 检测目录改为 `Notdown-checks/nd-<24 hex>`；保留空父目录，只清理本次随机子目录。
-- 允许受限字符组成的不带引号的版本标记，原样传入 `If-Match`；仍拒绝弱 ETag，并验证错误、有效与过期版本。
-- 创建知识库前显式检查目录，初始化索引前再检查已有索引，避免把坚果云的 201 当作目录排他创建证明。
-- HTTP 层保留 WebDAV 错误消息、状态和限流恢复时间，避免误报本地文件操作失败。
+## Issues and fixes
 
-## 验证结果
+The local backend log shows that MKCOL of login detection returns 400, which is subsequently falsely reported as `Local file operation failed` by general exception handling. Reproduce using the application credentials provided by the user, Nut Cloud responds as `sandbox name is too long`: The old detected directory name consists of a long prefix and complete UUID, exceeding the top-level directory name limit.
 
-| 检查 | 结果 | 本地证据 |
+The real service is also:GET ofETag No double quotation; top-level directories cannot passWebDAV Delete; for existing directoriesMKCOL Still coming back201；PUT Ignore`If-None-Match: *`The first is that the verification of the behavior of the user is not covered by the authentication of the user's own simulation service.
+
+- Change the detection directory to `Notdown-checks/nd-<24 hex>`; keep the empty parent directory and only clean up this random subdirectory.
+- Unquoted version tags consisting of restricted characters are allowed, passed in `If-Match` as is; weak ETag is still rejected, and false, valid, and expired versions are validated.
+- Explicitly check the directory before creating the vault, and check the existing index before initializing the index to avoid using Nut Cloud's 201 as proof of exclusive creation of the directory.
+- The HTTP layer retains the WebDAV error message, status, and current limit recovery time to avoid false reports of local file operation failures.
+
+<a id="验证结果"></a>
+
+## Verification results
+
+| Check | result | local evidence |
 | --- | --- | --- |
-| `npm test` | 978 项：973 通过、5 跳过、0 失败；包含 12 项 WebDAV 测试 | `.run/logs/webdav-fix-unit.log` |
-| `npm run test:sync` | TypeScript、独立桌面及移动构建通过；Supabase、WebDAV 两项跨端浏览器流程通过 | `.run/logs/webdav-fix-browser.log` |
-| 真实坚果云连接检测 | 认证、读写、原始 ETag 更新通过；错误和过期 If-Match 均返回 412；子目录清理返回 204 | `.run/logs/webdav-fix-live-probe.log` |
-| 真实坚果云临时知识库 | 创建、压缩提交及索引上传与读取、过期版本拒绝、二进制附件往返、已有知识库初始化保护均通过；临时知识库清理返回 204 | `.run/logs/webdav-fix-live-roundtrip.log` |
-| 本地服务 | 使用现有启动脚本重启后端，4317 页面与代理就绪，保留原知识库路径 | `.run/logs/` 中对应启动日志 |
+| `npm test` | 978 items: 973 passed, 5 skipped, 0 failed; contains 12 items WebDAV test | `.run/logs/webdav-fix-unit.log` |
+| `npm run test:sync` | TypeScript, independent desktop and mobile construction passed; Supabase, WebDAV two cross-end browser processes passed | `.run/logs/webdav-fix-browser.log` |
+| Real nut cloud connection detection | Authentication, read-write, original ETag update passed; error and expired If-Match are returned to 412; subdirectory cleaning returns 204 | `.run/logs/webdav-fix-live-probe.log` |
+| Real Nut Cloud temporary vault | Creation, compression submission, index upload and reading, expired version rejection, binary attachment round trip, and existing vault initialization protection all passed; temporary vault cleanup returned 204 | `.run/logs/webdav-fix-live-roundtrip.log` |
+| local service | Use the existing startup script to restart the backend. The 4317 page and agent are ready, and the original vault path is retained. | `.run/logs/`Corresponding startup log in |
 
-浏览器使用独立 Chrome 与临时本地知识库。真实服务测试只上传本次生成的临时数据，没有启用或上传用户本地知识库；凭据没有写入源码或测试日志。
+The browser uses standalone Chrome with a temporary local vault. The real service test only uploads the temporary data generated this time, and does not enable or upload the user's local vault; the credentials are not written into the source code or test logs.
 
-## 边界与残留
+<a id="边界与残留"></a>
 
-- 真实服务测试不代表 Android 真机、跨网络或后台同步验收，也没有测量服务速度。
-- 坚果云的 MKCOL 和 If-None-Match 行为使同目录的并发首次初始化缺少原子排他保证。只在一台设备上首次创建，其他设备随后连接已有知识库。已有索引更新继续使用验证过的 If-Match。
-- 排查早期的两次顶层目录探测各留下一个 `nd-` 开头的随机测试目录及 `condition.txt`。坚果云拒绝 WebDAV 删除顶层目录，需在坚果云网页或客户端删除。最终修复后的检测子目录与临时知识库均已清理；固定的空 `Notdown-checks` 父目录保留供后续检测。
+## Boundaries and residues
 
-配置与排错见[坚果云 WebDAV 同步](../features/WEBDAV-SYNC.md)。
+- Real service testing does not represent Android real machine, cross-network or backend synchronization acceptance, nor does it measure service speed.
+- The behavior of MKCOL and If-None-Match in Nut Cloud makes concurrent first initialization of the same directory lack the atomic exclusive guarantee. Created for the first time only on one device, other devices subsequently connect to the existing vault. Existing index updates continue to use verified If-Match.
+- The two top-level directory detections in the early stages of troubleshooting each left a random test directory starting with `nd-` and `condition.txt`. Nut Cloud refuses WebDAV to delete the top-level directory, which needs to be deleted on the Nut Cloud web page or client. The final repaired detection subdirectory and temporary vault have been cleaned up; the fixed empty `Notdown-checks` parent directory is retained for subsequent detection.
+
+For configuration and troubleshooting, see [ Nut Cloud WebDAV synchronization ](../features/WEBDAV-SYNC.md).

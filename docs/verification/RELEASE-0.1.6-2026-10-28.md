@@ -1,40 +1,50 @@
-# Windows 0.1.6 发布验证（2026-10-28）
+<a id="windows-016-发布验证2026-10-28"></a>
 
-## 发布范围
+# Windows 0.1.6 release validation (2026-10-28)
 
-按用户明确选择，汇总当前全部未提交的源码、文档和测试，版本由 0.1.5 升至 0.1.6。主要内容：
+**English** · [简体中文](RELEASE-0.1.6-2026-10-28.zh-CN.md)
 
-- 数据库 Table、List、Gallery、Board、Calendar 五种布局，视图／属性浮层与数据源创建、接入和关系查看。
-- Notion Wiki、视图和行内图片导入补充；custom v3 AI block 可从匹配的桌面缓存恢复提示词和完整的受支持输出子树。
-- 官方 Notion 载体的规范化与旧源码保留、Mermaid 预览、有序列表编号与日期显示兼容。
-- 子页面入口设置及可恢复批量写入、侧栏层级和数据库子项设置、外部引用检查与页面阅读目录调整。
-- 桌面 Notion token 加密保存、系统代理书签读取和封面候选、统一窗口标题及原生标题栏颜色。
+<a id="发布范围"></a>
 
-使用说明分别维护在 `docs/features/` 和 `docs/reference/`。根 README 只同步数据库布局的用户能力边界，没有加入逐项修复日志。
+## Release scope
 
-## 验证结果
+According to the user's explicit selection, all currently unsubmitted source code, documents and tests are summarized, and the version is upgraded from 0.1.5 to 0.1.6. Main content:
 
-| 检查 | 结果 |
+- There are five layouts of database Table, List, Gallery, Board and Calendar, view/attribute floating layer and data source creation, access and relationship viewing.
+- Notion Wiki, view and inline picture import supplement; custom v3 AI block restores prompt words and the complete supported output subtree from the matching desktop cache.
+- The normalization of official Notion carriers is compatible with legacy source code retention, Mermaid preview, and ordered list number and date display.
+- Sub-page entry settings and resumable batch writing, sidebar level and database sub-item settings, external reference check and page reading directory adjustment.
+- Desktop Notion token encrypted save, system proxy bookmark reading and cover candidate, unified window title and native title bar color.
+
+Instructions for use are maintained in `docs/features/` and `docs/reference/` respectively. Root README only synchronizes the user capability boundaries of the database layout and does not add item-by-item repair logs.
+
+<a id="验证结果"></a>
+
+## Verification results
+
+| Check | result |
 | --- | --- |
-| `npm test -- --test-concurrency=1` | 1,190 通过、5 跳过、0 失败 |
-| `npm run desktop:dist` | TypeScript、Vite、Electron 主进程和 NSIS 构建通过 |
-| 相关 Chrome 回归 | 115 个不同用例全部通过；包含修正旧弹窗名称定位后的补跑 |
-| 实际打包程序的桌面测试 | 11 项通过，使用临时用户配置和临时知识库 |
-| 打包内容检查 | 版本 0.1.6，包含 AI 缓存恢复和加密 token 存储，排除移动端原生依赖 |
-| 中英文 README | 110／108 行，相对文件链接有效 |
-| 本机安装 | NSIS 静默升级退出码 0，安装后产品版本 0.1.6.0 |
-| 安装后文件与设置 | exe、app.asar 的 SHA-256 与测试产物一致；知识库选择设置哈希不变 |
+| `npm test -- --test-concurrency=1` | 1, 190 passed, 5 skipped, 0 failed |
+| `npm run desktop:dist` | TypeScript, Vite, Electron main process and NSIS build through |
+| Related Chrome regression | 115 different use cases all passed; including the rerun after correcting the positioning of the old pop-up window name |
+| Desktop testing of actual packagers | 11 item passed, using temporary user configuration and temporary vault |
+| Package content inspection | Version 0.1.6, including AI cache recovery and encrypted token storage, excluding mobile native dependencies |
+| Chinese and English README | 110 / 108 lines, relative file links are valid |
+| Native installation | NSIS Silent upgrade exit code 0, product version after installation 0.1.6.0 |
+| Post-installation files and settings | exe and app.asar's SHA-256 are consistent with the test products; the vault selection setting hash remains unchanged. |
 
-Chrome 用例通过独立测试服务与临时知识库运行，不连接用户浏览器。桌面测试使用 `.run/desktop-release/win-unpacked/Notdown.exe` 和独立临时 profile，覆盖系统代理、知识库隔离、加密 token 重启恢复、标题栏、关闭保存、托盘和单实例恢复、退出保存失败与冲突保护。
+The Chrome use case is run through a stand-alone test service and a temporary vault, without connecting to the user's browser. Desktop testing uses `.run/desktop-release/win-unpacked/Notdown.exe` and independent temporary profile, covering system agents, vault isolation, encrypted token restart recovery, title bar, close save, tray and single instance recovery, exit save failure and conflict protection.
 
-浏览器首组 26 项通过；扩展组先通过 84 项，侧栏用例因查找旧弹窗名称 `Add a new view` 超时，余下 4 项未运行。将测试定位更新为当前的 `New view` 后，侧栏和标签页 6 项全部通过，其中 1 项是已通过用例的复测。此次修正仅涉及测试定位，安装程序与已通过桌面测试的源码保持一致。
+The first group of 26 items in the browser passed; the extension group passed the 84 item first. The sidebar use case timed out due to finding the old pop-up window name `Add a new view`, and the remaining 4 items were not run. After updating the test positioning to the current `New view`, all 6 items in the sidebar and tab page passed, of which 1 items are retests of the passed use cases. This correction only involves test positioning, and the installation program remains consistent with the source code that has passed desktop testing.
 
-安装前备份原 0.1.5 程序到 `.run/desktop-backups/`。更新只替换程序文件，未迁移或重写用户知识库，知识库选择配置逐字节保持不变。
+Back up the original 0.1.5 program to `.run/desktop-backups/` before installation. The update only replaces the program files, the user vault is not migrated or rewritten, and the vault selection configuration remains unchanged byte by byte.
 
-## 保留边界
+<a id="保留边界"></a>
 
-- 普通 Button 的完整动作迁移仍未实现：已检查样本的 SQLite 只有关联 ID，没有动作定义；不把类型占位当成可执行按钮。[AI / Button 专项记录](NOTION-AI-BLOCK-RECOVERY-2026-10-28.md)
-- AI 自动化验证使用受控 Block API／缓存样本；真实缓存的 `hi` 与 `Hi!` 已验证转换，但未完成真实云端 token 的整链导入验收。Notion 模型、运行服务与自动更新不迁移。
-- 此次不是全量浏览器、Android 真机或真实云同步验收；安装包仍未签名，不扩大已有同步、格式和外部服务保证。
+## preserve boundaries
 
-详细构建、测试、安装哈希和备份路径保存在 `.run/logs/release-0.1.6-*`，不进入 Git；安装包为 `.run/desktop-release/Notdown-Setup-0.1.6-x64.exe`。
+- The complete action migration of ordinary Button has not yet been implemented: SQLite of the checked sample is only associated with ID and has no action definition; the type placeholder is not regarded as an executable button. [ AI / Button special records](NOTION-AI-BLOCK-RECOVERY-2026-10-28.md)
+- AI automated verification uses controlled Block API/cached samples; the real cached `hi` and `Hi!` have been verified for conversion, but the entire chain import acceptance of real cloud token has not been completed. Notion models, running services and automatic updates are not migrated.
+- This time is not a full browser, Android real machine or real cloud synchronization acceptance; the installation package has not yet been signed, and the existing synchronization, format and external service guarantees will not be expanded.
+
+Detailed build, test, installation hash and backup paths are saved in `.run/logs/release-0.1.6-*` and do not enter Git; the installation package is `.run/desktop-release/Notdown-Setup-0.1.6-x64.exe`.

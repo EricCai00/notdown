@@ -1,40 +1,50 @@
-# 侧栏精简与安卓直接选择方言（2026-10-26）
+<a id="侧栏精简与安卓直接选择方言2026-10-26"></a>
 
-## 范围
+# Sidebar simplification and direct Android dialect selection (2026-10-26)
 
-- 顶部默认显示 Search、Vault、Databases、Attachments；People、Graph、Conflicts and versions 可在设置中开启，保留已保存的显式快捷入口偏好。
-- 移除侧栏底部重复的新建页面、新建数据库和打开知识库按钮；原功能保留在页面分组加号、数据库首页和知识库名称／设置入口。
-- 两种导入合并为 Import 来源选择；Block Explorer 与 Markdown Lab 的侧栏链接在 Experimental features 中分别开启，默认关闭。
-- 收藏、页面树与底部操作使用整个侧栏的滚动区；拖放自动滚动使用同一个容器，正文独立。
-- Import、Trash 与本地状态、设置共同组成底部操作区；短页面列表时整组靠下，长列表时与页面树至少保留 24px 间距。图标沿用左对齐，底部区不另建滚动容器。
-- 侧栏标题改为当前 vault 名称，移除重复的应用图标与固定 workspace 标题。导航、Favorites 和 Private pages 之间增加分组留白；唯一的顶栏图标打开 File / View / History 分组的应用菜单，连接现有标签、页面、导入、设置与知识库管理命令。
-- 安卓在 Notebook 菜单中直接选择 Page dialect，移除单独的方言设置页和 Done 步骤；保存、未知字段、原文和冲突保护沿用原链路。
+**English** · [简体中文](SIDEBAR-AND-MOBILE-DIALECT-2026-10-26.zh-CN.md)
 
-## 自动化验证
+<a id="范围"></a>
 
-| 检查 | 结果 |
+## range
+
+- Search, Vault, Databases, and Attachments are displayed by default at the top; People, Graph, and Conflicts and versions can be turned on in the settings to retain the saved explicit shortcut entry preferences.
+- Removed the duplicate New Page, New Database and Open vault buttons at the bottom of the sidebar; the original functions are retained in the page grouping plus sign, database home page and vault name/settings entry.
+- The two imports are merged into Import source selection; the sidebar links of Block Explorer and Markdown Lab are respectively opened in Experimental features and closed by default.
+- Collections, page trees, and bottom operations use the entire sidebar scroll area; drag-and-drop automatic scrolling uses the same container, and the text is independent.
+- Import, Trash, together with the local status and settings, form the bottom operation area; when the page list is short, the whole group is at the bottom, and when the page list is long, at least 24px spacing should be maintained with the page tree. The icon is left aligned and no additional scrolling container is created in the bottom area.
+- The sidebar title is changed to the current vault name, and the duplicate application icon and fixed workspace title are removed. Add grouping space between navigation, Favorites and Private pages; the only top bar icon opens the application menu of the File / View / History group, connecting existing tags, pages, import, settings and vault management commands.
+- And I'm not going toNotebook Directly Select from the MenuPage dialect，Remove separate language settings andDone Steps; save, unknown fields, and conflict protection along the original link.
+
+<a id="自动化验证"></a>
+
+## Automated verification
+
+| Check | result |
 | --- | --- |
-| 全量单元测试 | 1,051 通过，5 跳过，0 失败 |
-| 浏览器构建与侧栏、拖放、设置、标签页回归 | 22 通过 |
-| vault 标题、应用菜单、键盘／窄屏、分组间距、标签保存与冲突复测 | 26 通过 |
-| 底部操作区、短列表对齐、长列表间距及拖放／设置复测 | 17 通过 |
-| 合并导入入口及设置定向复测 | 8 通过 |
-| Windows 实际打包产物测试（临时知识库与独立配置） | 5 通过 |
-| 底部按钮修正后的实际桌面包定向复测 | 1 通过 |
-| vault 名称与应用菜单修正后的实际桌面包全组复测 | 5 通过 |
-| 手机方言切换与冲突定向测试 | 2 通过 |
-| 安卓构建及原生 JVM 测试任务 | 成功；原生报告 11 项通过 |
+| Full unit testing | 1, 051 passed, 5 skipped, 0 failed |
+| Browser building and sidebar, drag and drop, settings, tab return | 22 passed |
+| vault title, application menu, keyboard/narrow screen, group spacing, label saving and conflict retest | 26 passed |
+| Bottom operation area, short list alignment, long list spacing and drag and drop/setup retest | 17 passed |
+| Merge import portal and set up targeted retest | 8 passed |
+| Windows actual packaged product testing (temporary vault and independent configuration) | 5 passed |
+| Actual desktop package orientation retest after bottom button correction | 1 passed |
+| Full group retest of the actual desktop package after vault name and application menu correction | 5 passed |
+| Mobile phone dialect switching and conflict orientation test | 2 passed |
+| Android build and native JVM test tasks | Success; native reporting 11 items passed |
 
-较早的扩展浏览器回归中，联系人测试误将导入页面“Page”当作编辑视图按钮；已将测试限定到编辑工具栏并等待目标页面加载。复测的五项联系人用例通过。联系人斜杠入口用例仍失败，在未修改基线上也能复现，不宣称全量浏览器测试通过。
+In an earlier extension browser regression, the contact test mistakenly regarded the import page "Page" as the edit view button; the test has been restricted to the editing toolbar and waits for the target page to load. Five contact use cases passed the retest. The contact slash entry use case still fails and can be reproduced on the unmodified baseline. It does not claim that the full browser test has passed.
 
-## 本机更新
+<a id="本机更新"></a>
 
-Windows 安装器的旧版本卸载步骤报错，退出码 2。原程序与归档已备份到本机 `.run/desktop-backups/before-sidebar-update-20261026/`，随后使用通过测试的 `win-unpacked` 文件更新现有安装目录；已验证安装目录中的 `Notdown.exe` 和 `resources/app.asar` 与测试产物 SHA-256 一致，并重新启动 App。未删除知识库或用户配置。
+## Native update
 
-底部按钮分组修正后再次更新电脑安装目录，更新前程序另存于 `.run/desktop-backups/before-footer-actions-20261026/`，并再次核对上述文件与最新测试包一致。
+Windows The uninstallation step of the old version of the installer reported an error and the exit code was 2. The original program and archive have been backed up to the local `.run/desktop-backups/before-sidebar-update-20261026/`, and then the existing installation directory is updated with the tested `win-unpacked` file; it has been verified that `Notdown.exe` and `resources/app.asar` in the installation directory are consistent with the test product SHA-256, and App is restarted. No vault or user configuration has been deleted.
 
-vault 标题与应用菜单修正后的更新前程序保存在 `.run/desktop-backups/before-application-menu-20261026/`。应用菜单在桌面和浏览器共用；窄屏、键盘关闭与外部点击、保存后切换标签、冲突阻止关闭及知识库入口均有定向覆盖。本轮初次单测有一项外部 Pandoc 进程退出状态异常，完整复跑为 1,051 通过、5 跳过、0 失败。
+After correcting the button grouping at the bottom, update the computer installation directory again. The program before the update is saved in `.run/desktop-backups/before-footer-actions-20261026/`, and check again that the above files are consistent with the latest test package.
 
-安卓调试 APK 已通过 `adb install -r` 更新到当前连接的手机，版本为 0.1.2、versionCode 3，并启动 MainActivity。未卸载或清除应用数据；安装和启动成功不代表完成真机输入法、触控或云同步的完整验收。手机方言截图来自隔离浏览器测试。
+The pre-update program with the corrected vault title and application menu is saved in `.run/desktop-backups/before-application-menu-20261026/`. The application menu is shared between the desktop and the browser; narrow screen, keyboard closing and external click, switching tabs after saving, conflict prevention closing and vault entry all have targeted coverage. The first single test of this round has an abnormal exit status of the external Pandoc process. The complete rerun is 1, 051 passed, 5 skipped, and 0 failed.
 
-本地构建、安装与测试日志位于 `.run/logs/`。安装包为未签名 Windows 开发包和本机调试签名 APK，不包含在源码提交中。
+Android debugging APK has been updated to the currently connected mobile phone through `adb install -r`, the versions are 0.1.2, versionCode and 3, and MainActivity is started. The application data has not been uninstalled or cleared; successful installation and startup does not mean complete acceptance of real device input method, touch control or cloud synchronization. Mobile dialect screenshots are from isolated browser testing.
+
+Local build, installation and test logs are located at `.run/logs/`. The installation package is an unsigned Windows development package and a native debugging signed APK package, which is not included in the source code submission.

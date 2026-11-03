@@ -1,3 +1,4 @@
+import { setUIText } from "../shared/i18n";
 import { readSidebarTreePreferences, sidebarTreeKey, sidebarTreeChanged } from "./sidebar-tree-state";
 
 const items = [["search", "Search"], ["home", "Vault"], ["databases", "Databases"], ["attachments", "Attachments"], ["people", "People"], ["graph", "Graph"], ["conflicts", "Conflicts and versions"]] as const;
@@ -22,10 +23,10 @@ export function applySidebarPreferences() {
 export function mountSidebarPreferences(dialog: HTMLElement) {
   const section = document.createElement("section");
   section.className = "settings-section sidebar-preferences";
-  section.innerHTML = '<h3>Sidebar</h3><p>Choose which shortcuts appear. Hidden features remain available; Search also opens with Ctrl/⌘ K. Saved in this browser.</p>';
+  section.innerHTML = `<h3 data-i18n="Sidebar">Sidebar</h3><p data-i18n="Choose which shortcuts appear. Hidden features remain available; Search also opens with Ctrl/⌘ K. Saved in this browser.">Choose which shortcuts appear. Hidden features remain available; Search also opens with Ctrl/⌘ K. Saved in this browser.</p>`;
   for (const [action, name] of items) {
     const row = document.createElement("label"); row.className = "switch-row";
-    const label = document.createElement("span"); label.textContent = name;
+    const label = document.createElement("span"); setUIText(label, name);
     const input = document.createElement("input"); input.type = "checkbox"; input.checked = !hidden().includes(action);
     input.addEventListener("change", () => {
       const values = new Set(hidden());
@@ -34,9 +35,9 @@ export function mountSidebarPreferences(dialog: HTMLElement) {
     });
     row.append(label, input); section.append(row);
   }
-  const reset = document.createElement("button"); reset.type = "button"; reset.className = "secondary-button"; reset.textContent = "Show all shortcuts";
+  const reset = document.createElement("button"); reset.type = "button"; reset.className = "secondary-button"; setUIText(reset, "Show all shortcuts");
   reset.addEventListener("click", () => { localStorage.setItem(key, "[]"); section.querySelectorAll<HTMLInputElement>("input").forEach(input => input.checked = true); applySidebarPreferences(); });
-  const defaults = document.createElement("button"); defaults.type = "button"; defaults.className = "secondary-button"; defaults.textContent = "Restore default shortcuts";
+  const defaults = document.createElement("button"); defaults.type = "button"; defaults.className = "secondary-button"; setUIText(defaults, "Restore default shortcuts");
   defaults.addEventListener("click", () => {
     localStorage.removeItem(key);
     section.querySelectorAll<HTMLInputElement>("input").forEach((input, index) => input.checked = !defaultHidden.includes(items[index][0]));
@@ -44,9 +45,9 @@ export function mountSidebarPreferences(dialog: HTMLElement) {
   });
   section.append(reset, defaults);
   const tree = document.createElement("div");
-  tree.innerHTML = `<h4>Page tree</h4><label class="switch-row"><span>Database children</span><select aria-label="Database children"><option value="pages">Pages</option><option value="views">Views</option></select></label><label class="switch-row"><span>Default expanded levels</span><select aria-label="Default expanded levels"><option value="0">0 — Collapsed</option>${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("")}<option value="all">All levels</option></select></label><p>0 shows only root pages; 1 also shows their children. Changes apply immediately. Manual expansion lasts until reload or a depth change.</p>`;
-  const children = tree.querySelector<HTMLSelectElement>('[aria-label="Database children"]')!;
-  const depth = tree.querySelector<HTMLSelectElement>('[aria-label="Default expanded levels"]')!;
+  tree.innerHTML = `<h4 data-i18n="Page tree">Page tree</h4><label class="switch-row"><span data-i18n="Database children">Database children</span><select aria-label="Database children" data-i18n-aria-label="Database children"><option value="pages" data-i18n="Pages">Pages</option><option value="views" data-i18n="Views">Views</option></select></label><label class="switch-row"><span data-i18n="Default expanded levels">Default expanded levels</span><select aria-label="Default expanded levels" data-i18n-aria-label="Default expanded levels"><option value="0" data-i18n="0 — Collapsed">0 — Collapsed</option>${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("")}<option value="all" data-i18n="All levels">All levels</option></select></label><p data-i18n="0 shows only root pages; 1 also shows their children. Changes apply immediately. Manual expansion lasts until reload or a depth change.">0 shows only root pages; 1 also shows their children. Changes apply immediately. Manual expansion lasts until reload or a depth change.</p>`;
+  const children = tree.querySelector<HTMLSelectElement>('[data-i18n-aria-label="Database children"]')!;
+  const depth = tree.querySelector<HTMLSelectElement>('[data-i18n-aria-label="Default expanded levels"]')!;
   const preferences = readSidebarTreePreferences();
   children.value = preferences.databaseChildren; depth.value = String(preferences.expandDepth);
   const saveTree = () => {
@@ -59,10 +60,10 @@ export function mountSidebarPreferences(dialog: HTMLElement) {
   if (actions) actions.before(section); else dialog.append(section);
   const experimental = document.createElement("section");
   experimental.className = "settings-section experimental-preferences";
-  experimental.innerHTML = '<h3>Experimental features</h3><p>Enable experimental tools to show their sidebar links. Off by default. Saved in this browser.</p>';
+  experimental.innerHTML = `<h3 data-i18n="Experimental features">Experimental features</h3><p data-i18n="Enable experimental tools to show their sidebar links. Off by default. Saved in this browser.">Enable experimental tools to show their sidebar links. Off by default. Saved in this browser.</p>`;
   for (const [id, name] of experiments) {
     const row = document.createElement("label"); row.className = "switch-row";
-    const label = document.createElement("span"); label.textContent = name;
+    const label = document.createElement("span"); setUIText(label, name);
     const input = document.createElement("input"); input.type = "checkbox"; input.checked = enabledExperiments().includes(id);
     input.addEventListener("change", () => {
       const values = new Set(enabledExperiments());

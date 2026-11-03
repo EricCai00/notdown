@@ -1,3 +1,4 @@
+import { savedVaultLocation, saveVaultLocation } from "./vault-location-settings.js";
 import express from "express";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -10,17 +11,19 @@ import { seedNewDefaultVault } from "./seed.js";
 export type BrowserVaultEntry = { name: string; path: string; url: string };
 export interface BrowserVaultManagement {
   list(): Promise<{ dataPath: string; vaults: BrowserVaultEntry[] }>;
+  setLocation(input: unknown): Promise<void>;
   open(input: { mode?: unknown; name?: unknown; path?: unknown }): Promise<BrowserVaultEntry>;
 }
-type Options = Parameters<typeof createApp>[0] & { dataPath: string; seedDefault?: boolean };
+type Options = Parameters<typeof createApp>[0] & { dataPath: string; seedDefault?: boolean; locationSettings?: string };
 
 /** One createApp per canonical directory; default and already-open tabs never change vault. */
 export async function createBrowserApp(options: Options) {
   const host = express();
   const apps = new Map<string, ReturnType<typeof createApp>>();
   const entries = new Map<string, BrowserVaultEntry>();
-  const dataPath = path.resolve(options.dataPath);
-  const settings = path.join(dataPath, ".browser-vaults.json");
+  const locationSettings = options.locationSettings || path.join(options.dataPath, ".vault-location.json");
+  let dataPath = savedVaultLocation(locationSettings) || path.resolve(options.dataPath);
+  const settings = path.join(path.dirname(locationSettings), ".browser-vaults.json");
   const identity = (root: string) => createHash("sha256").update(process.platform === "win32" ? root.toLowerCase() : root).digest("hex");
   const register = (root: string) => {
     const id = identity(root), entry = { name: path.basename(root), path: root, url: `/v/${id}/` };
@@ -36,7 +39,7 @@ export async function createBrowserApp(options: Options) {
     return fs.realpath(selected);
   };
   const persist = async () => {
-    await fs.mkdir(dataPath, { recursive: true });
+    await fs.mkdir(path.dirname(settings), { recursive: true });
     const temporary = `${settings}.${randomUUID()}.tmp`;
     try {
       await fs.writeFile(temporary, JSON.stringify([...entries.values()].map(entry => entry.path)));
@@ -54,16 +57,22 @@ export async function createBrowserApp(options: Options) {
     return { app: apps.get(id)!, entry };
   };
   const management: BrowserVaultManagement = {
+    setLocation(input) { return serial(async () => {
+      for (const entry of await listManagedVaults(dataPath)) register(await canonical(entry.path));
+      await persist();
+      dataPath = await saveVaultLocation(locationSettings, input);
+    }); },
     async list() {
       for (const entry of await listManagedVaults(dataPath)) register(await canonical(entry.path));
       return { dataPath, vaults: [...entries.values()].sort((a, b) => a.name.localeCompare(b.name)) };
     },
     open(input) { return serial(async () => {
       if (!["create", "open"].includes(String(input.mode))) throw new VaultError(400, "Choose create or open.");
+      if (input.path && (typeof input.path !== "string" || !path.isAbsolute(input.path))) throw new VaultError(400, "Enter an absolute folder path.");
       let selected: string;
-      if (input.mode === "create" && !input.path) {
+      if (input.mode === "create" && (!input.path || typeof input.name === "string")) {
         if (typeof input.name !== "string") throw new VaultError(400, "Enter a vault name.");
-        try { selected = await createManagedVaultFolder(dataPath, input.name); }
+        try { selected = await createManagedVaultFolder(typeof input.path === "string" ? input.path : dataPath, input.name); }
         catch (error) { throw new VaultError(400, (error as Error).message); }
       } else {
         if (typeof input.path !== "string" || !path.isAbsolute(input.path)) throw new VaultError(400, "Enter an absolute folder path on this computer.");
@@ -87,8 +96,8 @@ export async function createBrowserApp(options: Options) {
   const root = await canonical(options.vaultPath);
   apps.set(register(root).id, initialApp);
   const initial = { app: initialApp };
-  try {
-    const saved: unknown = JSON.parse(await fs.readFile(settings, "utf8"));
+  for (const registry of new Set([path.join(options.dataPath, ".browser-vaults.json"), settings])) try {
+    const saved: unknown = JSON.parse(await fs.readFile(registry, "utf8"));
     if (Array.isArray(saved)) for (const item of saved.slice(-100)) {
       if (typeof item === "string" && path.isAbsolute(item)) {
         try { register(await canonical(item)); } catch { /* Keep unavailable folders off the list. */ }

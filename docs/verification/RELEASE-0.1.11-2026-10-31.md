@@ -1,39 +1,49 @@
-# Windows 0.1.11 发布验证
+<a id="windows-0111-发布验证"></a>
 
-日期：2026-10-31。范围为数据库入口统一、展示转换、面包屑及本机桌面升级。
+# Windows 0.1.11 release validation
 
-## 行为与存储
+**English** · [简体中文](RELEASE-0.1.11-2026-10-31.zh-CN.md)
 
-- 编辑器统一使用 `block.database`。Inline、Full page 与 linked-only 数据库都拥有 `databases/<id>.json`；链接型数据库可没有自有来源，其视图保留外部来源的明确身份。
-- `/database`、`/inline`、`/link` 命中同一 Database 创建入口，可选择展示方式和新建／链接来源。创建失败保留选择，取消不创建资源。
-- 块菜单及数据库菜单支持双向转换，先保存 pending 正文和单元格；数据库 ID、JSON、来源、记录及视图不因转换重建。父页中的官方 `inline` 属性决定该入口的展示。
-- 面包屑按真实父页面、数据库、记录层级导航。Inline 使用紧凑标题、视图标签和右侧工具，提供 Open as page；链接来源显示箭头和 Link。
-- 同步接收旧格式时保持原宿主页及资源，避免下载过程中隐式迁移导致身份冲突。批次与逐项接收均有回归。
+Date: 2026-10-31. The scope is database entry unification, display conversion, breadcrumbs and native desktop upgrade.
 
-操作边界与 API 见[数据库](../features/DATABASES.md#创建位置与页面树)和[接口参考](../reference/API.md)。没有运行实际用户知识库迁移。
+<a id="行为与存储"></a>
 
-## 验证结果
+## behavior and storage
 
-| 检查 | 结果 |
+- The editor uses `block.database` uniformly. The Inline, Full page, and linked-only databases all have `databases/<id>.json`; linked databases can have no own sources, and their views retain the explicit identity of external sources.
+- `/database`, `/inline`, `/link` hit the same Database creation entry, you can choose the display method and new/link source. If the creation fails, the selection will be retained. If canceled, the resource will not be created.
+- The block menu and database menu support bidirectional conversion. The text and cells of pending are saved first; the database ID, JSON, sources, records and views will not be rebuilt due to conversion. The official `inline` attribute in the parent page determines the display of this entry.
+- Breadcrumbs navigate by actual parent page, database, and record levels. Inline uses the compact title, view label, and right-hand tool to provide Open as page; the link source shows arrows and Link.
+- Keep the original host page and resources when receiving the old format synchronously to avoid identity conflicts caused by implicit migration during the download process. There are regressions for both batch and itemized receipts.
+
+Operating boundaries with API[Database](../features/DATABASES.md#creation-locations-and-the-page-tree)and[Interface reference](../reference/API.md)The first is the "Migration of the Real User Knowledge".
+
+<a id="验证结果"></a>
+
+## Verification results
+
+| Check | result |
 | --- | --- |
-| `npm test` | 1232 通过，5 跳过，0 失败 |
-| TypeScript、生产前端和移动前端构建 | 通过 |
-| 数据库／Wiki 浏览器回归 | 50 项均已通过；49 项在整组运行通过，面包屑旧断言更新后单独复跑通过 |
-| 移动浏览器数据库／Wiki | 4 项通过，含旧格式同步、编辑和 reload |
-| 打包桌面程序 | 13 项通过；独立 profile、临时知识库 |
-| 包内容 | 版本 0.1.11，主进程与构建一致，不含用户 vault 或 Capacitor 原生依赖 |
-| 安装后校验 | 产品版本 0.1.11.0；exe、app.asar 的 SHA-256 与已测打包程序一致；知识库配置哈希不变 |
+| `npm test` | 1232 passes, 5 skips, 0 fails |
+| TypeScript, production frontend and mobile frontend build | Pass |
+| Database/Wiki browser regression | 50 items have all passed; 49 items have passed in the entire group run, and the old breadcrumb assertions have been updated and passed in individual reruns. |
+| Mobile browser database/Wiki | 4 items passed, including old format synchronization, editing and reload |
+| Package desktop programs | 13 items passed; independent profile, temporary vault |
+| Package contents | Version 0.1.11, the main process is consistent with the build, and does not contain user vault or Capacitor native dependencies. |
+| Post-installation verification | Product version0.1.11.0；exe、app.asar ofSHA-256 Consistent with the already-tested packaging process; knowledge base configuration hashes unchanged |
 
-桌面用例直接检查 linked-only JSON、共享记录、inline 收为页面入口、面包屑返回父页，以及转换前后 JSON 字节相同。浏览器还覆盖块手柄转换、待保存单元格、来源版本冲突、取消创建、导入原文及未知属性保留。既有保存失败和冲突保护用例继续通过。
+The desktop use case directly checks linked-only JSON, shared records, inline collected as page entry, breadcrumbs returned to the parent page, and JSON bytes before and after conversion are the same. The browser also covers block handle conversion, cells to be saved, source version conflicts, cancel creation, import of original text, and unknown attribute retention. Existing save failures and conflict protection use cases continue to pass.
 
-日志位于 `.run/logs/`：`database-unify-full-unit.log`、`database-unify-all-browser.log`、`database-unify-breadcrumb-regression.log`、`database-unify-mobile.log`、`release-0.1.11-build.log`、`release-0.1.11-desktop.log`。UI 检查截图为 `release-0.1.11-inline.png`、`release-0.1.11-linked-inline.png`；触屏截图保存在 `test-results/mobile/`。
+The log is located at `.run/logs/`: `database-unify-full-unit.log`, `database-unify-all-browser.log`, `database-unify-breadcrumb-regression.log`, `database-unify-mobile.log`, `release-0.1.11-build.log`, `release-0.1.11-desktop.log`. UI check screenshots are `release-0.1.11-inline.png` and `release-0.1.11-linked-inline.png`; touch screen screenshots are saved in `test-results/mobile/`.
 
-## 安装
+<a id="安装"></a>
 
-安装包：`.run/desktop-release/Notdown-Setup-0.1.11-x64.exe`。
+## Installation
+
+Installation package: `.run/desktop-release/Notdown-Setup-0.1.11-x64.exe`.
 
 SHA-256：`82958ada6f76921c680c6db6665485735c551011b71dcb28f294f598de167b82`。
 
-原 0.1.10 从应用菜单正常退出后，备份至 `.run/desktop-backups/Notdown-0.1.10.0-before-0.1.11-2026-10-31T13-52-58Z/`，并核对核心文件哈希。NSIS 静默升级退出码为 0，安装前后的 `vaults.json` 哈希相同。内容校验和安装收据为 `.run/logs/release-0.1.11-artifact.json`、`release-0.1.11-install-before.json` 与 `release-0.1.11-install-after.json`。
+After the original 0.1.10 exits normally from the application menu, back it up to `.run/desktop-backups/Notdown-0.1.10.0-before-0.1.11-2026-10-31T13-52-58Z/` and check the core file hash. The NSIS silent upgrade exit code is 0, and the `vaults.json` hashes before and after installation are the same. Content verification and installation receipts are `.run/logs/release-0.1.11-artifact.json`, `release-0.1.11-install-before.json` and `release-0.1.11-install-after.json`.
 
-Windows 安装包未签名。本次没有扩大 Android 真机、实际托管云服务或真实 Notion token 导入的验收范围。
+Windows installation package is not signed. This time there is no expansion of the acceptance scope of Android real machines, actual hosted cloud services, or real Notion token imports.

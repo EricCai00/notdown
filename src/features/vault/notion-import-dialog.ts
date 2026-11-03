@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import { api, escape as e } from "../../shared/types";
 import type { ImportProgress } from "../../shared/import-progress";
 import "./import-dialog.css";
@@ -18,28 +19,28 @@ export function openNotionImportDialog(options: {
   if (document.querySelector(".import-dialog")) return;
   const dialog = document.createElement("dialog");
   dialog.className = "import-dialog notion-import-dialog";
-  dialog.setAttribute("aria-label", "Import from Notion API");
-  dialog.innerHTML = `<header><h2>Import from Notion API</h2><button id="notion-close" aria-label="Close import">×</button></header>
-    <p>Import a local copy of a page, database or data source using Notion's API.</p>
-    <p class="import-hint">Matching public API colors are combined automatically. On Windows, the local Notion desktop cache can also restore missing colors, Notdown reminders and supported AI block prompts and output. Open the source pages in Notion and let them sync before previewing. Stale, conflicting or incomplete content is preserved for review.</p>
-    <label>Integration token<input id="notion-token" type="password" autocomplete="off" spellcheck="false" /></label>
-    <p class="import-hint">The token is saved on this device and filled in next time. Clear the field to forget it.</p>
+  setUIAttribute(dialog, "aria-label", "Import from Notion API");
+  dialog.innerHTML = `<header><h2 data-i18n="Import from Notion API">Import from Notion API</h2><button id="notion-close" aria-label="Close import" data-i18n-aria-label="Close import">×</button></header>
+    <p data-i18n="Import a local copy of a page, database or data source using Notion's API.">Import a local copy of a page, database or data source using Notion's API.</p>
+    <p class="import-hint" data-i18n="Matching public API colors are combined automatically. On Windows, the local Notion desktop cache can also restore missing colors, Notdown reminders and supported AI block prompts and output. Open the source pages in Notion and let them sync before previewing. Stale, conflicting or incomplete content is preserved for review.">Matching public API colors are combined automatically. On Windows, the local Notion desktop cache can also restore missing colors, Notdown reminders and supported AI block prompts and output. Open the source pages in Notion and let them sync before previewing. Stale, conflicting or incomplete content is preserved for review.</p>
+    <label><span data-i18n="Integration token">Integration token</span><input id="notion-token" type="password" autocomplete="off" spellcheck="false" /></label>
+    <p class="import-hint" data-i18n="The token is saved on this device and filled in next time. Clear the field to forget it.">The token is saved on this device and filled in next time. Clear the field to forget it.</p>
     <p id="notion-token-status" class="import-hint" role="status" hidden></p>
-    <label>Page URL or ID<input id="notion-page" type="text" placeholder="https://www.notion.so/..." autocomplete="off" spellcheck="false" /></label>
-    <label><input id="notion-children" type="checkbox" checked /> Include descendant pages</label>
-    <label><input id="notion-assets" type="checkbox" checked /> Import files, media, covers and icons into Attachments</label>
-    <label><input id="notion-cache" type="checkbox" checked /> Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache</label>
-    <div id="notion-copied" ${window.notdownDesktop?.notionImportClipboard ? "" : "hidden"}><p class="import-hint">Select buttons or the whole page in Notion, press Ctrl+C, then read copied blocks here. Repeat for other pages; copies accumulate in this dialog. Preview a common parent with descendants included, or import those pages separately. Closing this dialog clears the copies.</p><button id="notion-read-copied" type="button">Read copied Notion blocks</button> <button id="notion-clear-copied" type="button" hidden>Clear copied blocks</button><p id="notion-copied-status" class="import-hint" role="status"></p></div>
-    <label>Import dialect<select id="notion-variant"><option value="notdown">Notdown — restore supported unknown blocks</option><option value="notion-markdown">Notion Markdown — preserve official output</option></select></label>
-    <p class="import-hint">Share the root page with your Notion connection and enable Read content. Up to 500 pages / 20 MB including archived responses.</p>
-    <p class="import-hint">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and cloud automations remain in Notion.</p>
+    <label><span data-i18n="Page URL or ID">Page URL or ID</span><input id="notion-page" type="text" placeholder="https://www.notion.so/..." autocomplete="off" spellcheck="false" /></label>
+    <label><input id="notion-children" type="checkbox" checked /> <span data-i18n="Include descendant pages">Include descendant pages</span></label>
+    <label><input id="notion-assets" type="checkbox" checked /> <span data-i18n="Import files, media, covers and icons into Attachments">Import files, media, covers and icons into Attachments</span></label>
+    <label><input id="notion-cache" type="checkbox" checked /> <span data-i18n="Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache">Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache</span></label>
+    <div id="notion-copied" ${window.notdownDesktop?.notionImportClipboard ? "" : "hidden"}><p class="import-hint" data-i18n="Select buttons or the whole page in Notion, press Ctrl+C, then read copied blocks here. Repeat for other pages; copies accumulate in this dialog. Preview a common parent with descendants included, or import those pages separately. Closing this dialog clears the copies.">Select buttons or the whole page in Notion, press Ctrl+C, then read copied blocks here. Repeat for other pages; copies accumulate in this dialog. Preview a common parent with descendants included, or import those pages separately. Closing this dialog clears the copies.</p><button id="notion-read-copied" type="button" data-i18n="Read copied Notion blocks">Read copied Notion blocks</button> <button id="notion-clear-copied" type="button" hidden data-i18n="Clear copied blocks">Clear copied blocks</button><p id="notion-copied-status" class="import-hint" role="status"></p></div>
+    <label><span data-i18n="Import dialect">Import dialect</span><select id="notion-variant"><option value="notdown" data-i18n="Notdown — restore supported unknown blocks">Notdown — restore supported unknown blocks</option><option value="notion-markdown" data-i18n="Notion Markdown — preserve official output">Notion Markdown — preserve official output</option></select></label>
+    <p class="import-hint" data-i18n="Share the root page with your Notion connection and enable Read content. Up to 500 pages / 20 MB including archived responses.">Share the root page with your Notion connection and enable Read content. Up to 500 pages / 20 MB including archived responses.</p>
+    <p class="import-hint" data-i18n="Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and cloud automations remain in Notion.">Imports use Notion Markdown v2, including available meeting transcripts. Descendants include child databases. Formula and rollup values remain snapshots; original views are archived and local tables show all records. Attachments up to 10 MB each are saved within the total import limit; failures retain their source URLs. Permissions and cloud automations remain in Notion.</p>
     <div id="notion-preview" aria-live="polite"></div>
     <p id="notion-status" role="status"></p>
     <p id="notion-step" role="status" hidden></p>
     <p id="notion-timing" class="import-hint" aria-live="off" hidden></p>
-    <progress id="notion-progress" aria-label="Notion import progress" hidden></progress>
-    <details id="notion-progress-details" hidden><summary>Recent steps</summary><ol id="notion-progress-history"></ol></details>
-    <footer><button id="notion-cancel">Cancel</button><button id="notion-preview-button" class="primary-button">Preview</button><button id="notion-commit" class="primary-button" disabled>Import copies</button></footer>`;
+    <progress id="notion-progress" aria-label="Notion import progress" hidden data-i18n-aria-label="Notion import progress"></progress>
+    <details id="notion-progress-details" hidden><summary data-i18n="Recent steps">Recent steps</summary><ol id="notion-progress-history"></ol></details>
+    <footer><button id="notion-cancel" data-i18n="Cancel">Cancel</button><button id="notion-preview-button" class="primary-button" data-i18n="Preview">Preview</button><button id="notion-commit" class="primary-button" disabled data-i18n="Import copies">Import copies</button></footer>`;
   document.body.append(dialog);
   const token = dialog.querySelector<HTMLInputElement>("#notion-token")!;
   const tokenStatus = dialog.querySelector<HTMLElement>("#notion-token-status")!;
@@ -60,7 +61,7 @@ export function openNotionImportDialog(options: {
     }, () => {
       if (!dialog.isConnected || edit !== tokenEdit) return;
       tokenStatus.hidden = false;
-      tokenStatus.textContent = "The token could not be saved on this device. You can still preview with the entered token.";
+      setUIText(tokenStatus, "The token could not be saved on this device. You can still preview with the entered token.");
     });
   };
   token.addEventListener("input", persistToken);
@@ -69,7 +70,7 @@ export function openNotionImportDialog(options: {
   }, () => {
     if (!dialog.isConnected || tokenEdit !== 0) return;
     tokenStatus.hidden = false;
-    tokenStatus.textContent = "The saved token could not be loaded. Enter a token to continue.";
+    setUIText(tokenStatus, "The saved token could not be loaded. Enter a token to continue.");
   });
   const page = dialog.querySelector<HTMLInputElement>("#notion-page")!;
   const children = dialog.querySelector<HTMLInputElement>("#notion-children")!;
@@ -165,7 +166,7 @@ export function openNotionImportDialog(options: {
   readCopied.addEventListener("click", async () => {
     if (state !== "idle" || !window.notdownDesktop?.notionImportClipboard) return;
     invalidate(); state = "clipboard"; update();
-    copiedStatus.textContent = "Reading copied Notion blocks…";
+    setUIText(copiedStatus, "Reading copied Notion blocks…");
     try {
       const data = await window.notdownDesktop.notionImportClipboard.get();
       if (!dialog.isConnected) return;
@@ -178,7 +179,7 @@ export function openNotionImportDialog(options: {
     } finally { state = "idle"; update(); }
   });
   clearCopied.addEventListener("click", () => {
-    copiedBlocks = undefined; clearCopied.hidden = true; copiedStatus.textContent = "Copied blocks cleared."; invalidate();
+    copiedBlocks = undefined; clearCopied.hidden = true; setUIText(copiedStatus, "Copied blocks cleared."); invalidate();
   });
   const dismiss = () => {
     if (state !== "commit") dialog.close();
@@ -199,12 +200,12 @@ export function openNotionImportDialog(options: {
   previewButton.addEventListener("click", async () => {
     if (state !== "idle") return;
     if (!token.value.trim()) {
-      status.textContent = "Enter the Notion integration token first.";
+      setUIText(status, "Enter the Notion integration token first.");
       token.focus();
       return;
     }
     if (!page.value.trim()) {
-      status.textContent = "Enter a Notion page URL or ID first.";
+      setUIText(status, "Enter a Notion page URL or ID first.");
       page.focus();
       return;
     }
@@ -230,9 +231,9 @@ export function openNotionImportDialog(options: {
       }, showProgress);
       if (!dialog.isConnected) return;
       summary = result;
-      preview.innerHTML = `<h3>${e(result.name)}</h3><p>${result.pages} pages · ${variant.value === "notdown" ? "Notdown" : "Notion Markdown"}</p>
-        <details><summary>Import notes and limitations</summary><ul>${result.warnings.map((w) => `<li>${e(w)}</li>`).join("")}</ul></details>
-        <label>Markdown to import<select id="notion-preview-page">${result.documents.map((doc, index) => `<option value="${index}">${e(doc.title)} (${index + 1})</option>`).join("")}</select></label>
+      preview.innerHTML = `<h3>${e(result.name)}</h3><p>${result.pages} <span data-i18n="pages ·">pages ·</span> ${variant.value === "notdown" ? "Notdown" : "Notion Markdown"}</p>
+        <details><summary data-i18n="Import notes and limitations">Import notes and limitations</summary><ul>${result.warnings.map((w) => `<li>${e(w)}</li>`).join("")}</ul></details>
+        <label><span data-i18n="Markdown to import">Markdown to import</span><select id="notion-preview-page">${result.documents.map((doc, index) => `<option value="${index}">${e(doc.title)} (${index + 1})</option>`).join("")}</select></label>
         <pre id="notion-markdown-source" tabindex="0"></pre>`;
       const select = preview.querySelector<HTMLSelectElement>("select")!;
       const source = preview.querySelector<HTMLElement>("pre")!;
@@ -242,8 +243,7 @@ export function openNotionImportDialog(options: {
       };
       select.addEventListener("change", show);
       show();
-      status.textContent =
-        "Ready. Review the Markdown above. Existing local pages will not be overwritten.";
+      setUIText(status, "Ready. Review the Markdown above. Existing local pages will not be overwritten.");
     } catch (error) {
       if (dialog.isConnected)
         status.textContent =

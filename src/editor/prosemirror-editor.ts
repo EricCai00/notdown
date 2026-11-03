@@ -1558,15 +1558,19 @@ export class BlockEditor {
       return;
     if (this.selectedBlocks.size) this.selectBlocks([]);
     if (event.clientX >= bounds.left && event.clientX <= bounds.right) {
-      const contentBottom = Array.from(this.root.querySelectorAll(
-        ".pm-document > *, .md-bibliography, .md-csl-bibliography",
-      )).reduce((bottom, element) => {
+      // Tail insertion belongs to this editing pane, not the surrounding page
+      // navigation and relations. Keep the wider surface for gutter selection.
+      const tailSurface = this.root.closest(".page-pane") || this.root;
+      // Bibliography panels have their own trailing padding. Only their actual
+      // content ends the document; that padding remains a valid typing target.
+      const contentSelector = ".pm-document > *, .md-bibliography > *, .md-csl-bibliography > *";
+      const contentBottom = Array.from(this.root.querySelectorAll(contentSelector)).reduce((bottom, element) => {
         const rect = element.getBoundingClientRect();
         return rect.height ? Math.max(bottom, rect.bottom) : bottom;
       }, bounds.top);
-      if (event.clientY > contentBottom &&
-          event.clientY <= Math.max(bounds.bottom, surface.getBoundingClientRect().bottom) &&
-          !target.closest(".pm-document > *, .md-bibliography, .md-csl-bibliography")) {
+      if (tailSurface.contains(target) && event.clientY > contentBottom &&
+          event.clientY <= Math.max(bounds.bottom, tailSurface.getBoundingClientRect().bottom) &&
+          !target.closest(contentSelector)) {
         event.preventDefault();
         this.focusDocumentTail();
       }

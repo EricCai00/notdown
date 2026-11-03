@@ -1,26 +1,34 @@
-# 内容节点 object ID 统一验证
+<a id="内容节点-object-id-统一验证"></a>
 
-日期：2026-09-24。范围见[内容对象与节点身份](../architecture/OBJECT-IDENTITY.md)。对照基线为提交 `b51c57f`，在独立临时 worktree 中运行；浏览器使用独立 Chrome 和临时知识库。
+# Content-node object ID unification validation
 
-## 通过的检查
+**English** · [简体中文](OBJECT-IDENTITY-2026-09-24.zh-CN.md)
 
-- 全量单元/服务测试：680 项，679 通过、1 跳过、0 失败。
-- TypeScript 类型检查与生产构建通过；构建仍有原有大 chunk 提示。
-- 新增单元测试验证实际 schema 名称等于 object ID、旧节点名称不再注册、属性与 CRLF 保留、撤销与重开、共享 object ID 的不同编辑表示，以及结构约束。
-- 新增浏览器测试直接读取真实 ProseMirror 文档，验证人员、日期、页面链接、链接卡片、音频、标题、段落和引用的节点名称，并检查保存和重开。
-- HTML 源码从 `{=html}` 改为其他格式时，节点必须同步改变类型。此次发现并修复该回归；原有双向转换、撤销、保存和重开测试复测通过。
+Date: 2026-09-24. Scope See [ Content Object and Node Identity ](../architecture/OBJECT-IDENTITY.md). The comparison baseline is submitted `b51c57f`, running in independent temporary worktree; the browser uses independent Chrome and temporary vault.
 
-## 全量浏览器结果及限制
+<a id="通过的检查"></a>
 
-`npm run test:e2e` 原始结果：370 通过、26 失败、28 未运行，总计 424 项。没有将该次运行记为全绿。
+## passed inspection
 
-失败项逐一核对后：
+- Full unit/service test: 680 items, 679 passed, 1 skipped, 0 failed.
+- TypeScript type check and production build pass; the build still has the original large chunk prompt.
+- Added unit tests to verify that the actual schema name is equal to object ID, that the old node name is no longer registered, that properties are preserved with CRLF, undo and reopen, different edit representations of shared object ID, and structural constraints.
+- The new browser test directly reads the real ProseMirror document, verifies the person, date, page link, link card, audio, title, paragraph and referenced node name, and checks saving and reopening.
+- When the HTML source code is changed from `{=html}` to other formats, the node must change type simultaneously. The regression was discovered and fixed this time; the original two-way conversion, undo, save and restart tests passed the retest.
 
-- 17 项在修改前的基线上同样失败：块间距 3 项、Callout 图标选择 1 项、方言扩展开关 3 项、旧嵌套/子页语法 2 项、扩展来源界面 3 项、手工验收页面集合断言 1 项、旧 Notion 格式用例 2 项、MMD 元数据创建 1 项、GFM 表格单元格定位 1 项。
-- 手工验收页面集合的初始化断言失败，导致后续 28 项没有执行；这一限制未在本次命名重构中修改。
-- 8 项加载/超时等失败在固定构建副本下复测通过：代码光标、输入批处理、CRLF 粘贴、PHP Extra、页面操作、封面、引用定义编辑和选区菜单。全量运行过程中共享 `dist` 被重建，日志记录了 `dist/index.html` 暂时不存在；复测使用独立构建目录。
-- 1 项为上述 HTML 源码转换回归，修复后通过。
+<a id="全量浏览器结果及限制"></a>
 
-额外定向复测包含完整 Markdown 块、原生方言、源码工作区和选区菜单测试文件。新的节点身份浏览器测试也使用固定构建通过。
+## Full browser results and limitations
 
-本地完整日志位于 `.run/logs/node-identity-*.log`；全量单元结果为 `node-identity-unit-complete.log`，全量浏览器结果为 `node-identity-e2e.log`，修复后的核心复测为 `node-identity-fixed-check.log`，基线对照为 `node-identity-baseline-e2e*.log`。
+`npm run test:e2e`Raw results: 370 passed, 26 failed, 28 did not run, total 424 items. The run was not recorded as all-green.
+
+After checking the failed items one by one:
+
+- 17 items also failed on the pre-modification baseline: block spacing 3 item, Callout icon selection 1 item, dialect expansion switch 3 item, old nesting/subpage syntax 2 item, extended source interface 3 item, manual acceptance page collection assertion 1 item, old Notion format use case 2 item, MMD metadata creation 1 item, GFM table cell positioning 1 item.
+- The initialization assertion of the manual acceptance page collection failed, resulting in the subsequent 28 items not being executed; this restriction has not been modified in this naming reconstruction.
+- 8 item loading/timeout, etc. failed retesting under the fixed build copy: code cursor, input batch processing, CRLF paste, PHP Extra, page operations, cover, reference definition editing and selection menu. During the full run, the shared `dist` was rebuilt, and the log recorded that `dist/index.html` temporarily did not exist; the retest used an independent build directory.
+- The 1 item is the regression of the above HTML source code conversion and passed after repair.
+
+Additional targeted retesting includes the full Markdown block, native dialect, source code workspace and selection menu test files. The new node identity browser test also passes using the fixed build.
+
+The local complete log is located at `.run/logs/node-identity-*.log`; the full unit result is `node-identity-unit-complete.log`, the full browser result is `node-identity-e2e.log`, the repaired core retest is `node-identity-fixed-check.log`, and the baseline control is `node-identity-baseline-e2e*.log`.

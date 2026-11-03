@@ -1,28 +1,38 @@
-# Windows 托盘驻留与单实例（2026-10-26）
+<a id="windows-托盘驻留与单实例2026-10-26"></a>
 
-## 范围
+# Windows tray residence and single instance (2026-10-26)
 
-- 应用创建系统托盘图标，左键点击或菜单 **Open Notdown** 恢复最近的已有窗口；最小化窗口先还原。恢复不新建欢迎页或重启知识库服务。
-- 普通窗口关闭先沿用页面、数据库及冲突保存检查，再隐藏到托盘；窗口、标签、草稿与本地服务保留。欢迎页也可隐藏，选定知识库后销毁已完成任务的欢迎页。
-- 同一用户配置使用 Electron 单实例锁；第二次启动退出自身并通知现有实例恢复窗口。正常多知识库窗口仍属于同一实例。
-- 托盘与桌面应用菜单提供 **Quit Notdown**。退出前暂停所有知识库窗口输入，等待全部保存通过，随后移除托盘并退出；任一失败则恢复窗口与输入，不逐个提前销毁已经保存的窗口。
-- 在关闭保存尚未完成时恢复窗口，不会在保存完成后再次隐藏它。保存响应、失败和超时仍通过受限 preload 与主进程核对。
+**English** · [简体中文](TRAY-AND-SINGLE-INSTANCE-2026-10-26.zh-CN.md)
 
-托盘驻留不构成后台云同步承诺；隐藏窗口的云同步仍受现有前台调度限制。知识库内容、身份和 CAS 规则未作迁移。
+<a id="范围"></a>
 
-## 验证
+## range
 
-- 全量单元测试：1,051 通过，5 跳过，0 失败。
-- 浏览器构建与应用菜单、标签保存和冲突回归：9 通过。
-- Windows 实际解包产物：8 项桌面测试全部通过。
-- 桌面测试使用隔离用户配置、临时知识库和独立 Electron 进程；覆盖真实 Tray 对象、菜单回调、欢迎页关闭、保存后隐藏与恢复、实际第二次启动、最小化恢复、多窗口退出失败及重试。
+- Apply to create a system tray icon, left-click or menu **Open Notdown** to restore the most recent existing window; minimize the window and restore it first. Restore the new welcome page or restart the vault service.
+- When a normal window is closed, the page, database, and conflict save checks are first inherited, and then hidden in the tray; windows, labels, drafts, and local services are retained. The welcome page can also be hidden, and the welcome page for completed tasks will be destroyed after selecting the vault.
+- The same user configuration uses the Electron single-instance lock; the second launch exits itself and notifies the existing instance of the recovery window. Normal multiple vault windows still belong to the same instance.
+- The tray and desktop application menus provide **Quit Notdown**. Pause all vault window input before exiting, wait for all saves to pass, then remove the tray and exit; if any fails, restore the window and input, and do not destroy the saved windows one by one in advance.
+- Restoring the window when closing the save is not yet complete will not hide it again after the save is complete. Save responses, failures and timeouts are still checked against the main process via restricted preload.
 
-第二次启动测试直接调用 Electron 实际可执行文件，而非 Playwright 在 Windows 上使用的命令行包装进程。原程序与知识库不用于测试。
+Tray residency does not constitute a background cloud synchronization commitment; cloud synchronization of hidden windows is still subject to existing foreground scheduling restrictions. vault content, identities, and CAS rules are not migrated.
 
-日志位于本机 `.run/logs/tray-*.log`；Windows 通知区域的图标排列及折叠由系统管理。
+<a id="验证"></a>
 
-## 本机更新
+## Validation
 
-已将测试通过的解包产物更新到现有电脑安装目录，更新前的程序保存在 `.run/desktop-backups/before-tray-20261026/`。安装目录的 `Notdown.exe` 与 `resources/app.asar` 已通过 SHA-256 对比，匹配测试产物。
+- Full unit test: 1, 051 passed, 5 skipped, 0 failed.
+- Browser builds with app menus, tab saving, and conflict regressions: 9 passed.
+- Windows actual unpacking product: 8 desktop tests all passed.
+- Desktop testing uses isolated user configuration, temporary vault and independent Electron process; covers real Tray objects, menu callbacks, welcome page closing, hiding and restoring after saving, actual second startup, minimized restore, multi-window exit failure and retry.
 
-本机实际验证：正常关闭窗口后主进程仍驻留，再次启动 exe 的新进程正常退出，原主进程及窗口恢复。更新保留原知识库与用户配置。
+The second launch of the test directly calls the Electron actual executable, rather than the command line wrapper process used by Playwright on Windows. The original program and vault are not used for testing.
+
+The log is located in `.run/logs/tray-*.log` of the local machine; the icon arrangement and folding of the Windows notification area are managed by the system.
+
+<a id="本机更新"></a>
+
+## Native update
+
+The unpacked product that passed the test has been updated to the existing computer installation directory, and the program before the update is saved in `.run/desktop-backups/before-tray-20261026/`. `Notdown.exe` and `resources/app.asar` in the installation directory have been compared with SHA-256 and match the test product.
+
+Actual verification on this machine: After the window is closed normally, the main process still resides. The new process that starts exe again exits normally, and the original main process and window are restored. The update retains the original vault and user configuration.

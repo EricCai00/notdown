@@ -1,87 +1,109 @@
-# 媒体与嵌入
+<a id="媒体与嵌入"></a>
 
-2026-10-27：Web embed 新建/编辑统一写官方 `<embed source="…">题注</embed>`，不再生成 web-embed 标签。HTML embed 的既有官方 src 编码仍保留。尺寸、对齐等官方缺失信息使用必要补充属性，见[自定义扩展说明](../reference/NOTDOWN-EXTENSIONS.md)。下文旧载体举例仅作历史说明。
+# Media and embeds
 
-从 `/` 菜单选择 Image、Video、Audio、PDF、File、HTML embed 或 Web embed。可用入口取决于当前 Markdown 方言；不支持媒体块的方言提供图片和普通文件链接。
+**English** · [简体中文](MEDIA-AND-EMBEDS.zh-CN.md)
 
-## 选择合适的内容类型
+2026-10-27: creating or editing a Web embed now writes the official `<embed source="…">题注</embed>` form instead of generating a web-embed tag. Existing official src encoding for HTML embeds remains supported. Dimensions, alignment and other information absent from the official format use necessary supplementary attributes; see [custom extensions](../reference/NOTDOWN-EXTENSIONS.md). Older representations below are historical examples only.
 
-| 类型 | 用途与表现 |
+Choose Image, Video, Audio, PDF, File, HTML embed or Web embed from the `/` menu. Available entries depend on the current Markdown dialect. Dialects without media blocks offer images and ordinary file links.
+
+<a id="选择合适的内容类型"></a>
+
+## Choosing a content type
+
+| Type | Purpose and behavior |
 | --- | --- |
-| Image | 显示图片，可编辑说明；Notdown 支持保存尺寸、对齐和可恢复裁剪。 |
-| Video / Audio | 使用播放器播放媒体文件；Video 也识别支持的 YouTube 网址。 |
-| PDF | 本地 PDF 使用浏览器预览，具体能力取决于浏览器。 |
-| File | 显示文件卡片，即使选中图片、音频或 PDF，也不自动换成播放器。 |
-| Web bookmark | 用站点图标、标题、摘要和网址显示网页书签。 |
-| HTML embed | 上传或拖入 HTML 文件，保存为知识库附件后预览。 |
-| Web embed | 使用 HTTP(S) 网址嵌入远程页面；目标网站可能禁止嵌入。 |
+| Image | Displays an image with an editable caption. Notdown can save dimensions, alignment and reversible cropping. |
+| Video / Audio | Plays media files in a player; Video also recognizes supported YouTube URLs. |
+| PDF | Previews local PDFs in the browser; available capabilities depend on the browser. |
+| File | Displays a file card. Selecting an image, audio file or PDF does not automatically turn it into a player. |
+| Web bookmark | Displays a web bookmark with its site icon, title, description and URL. |
+| HTML embed | Uploads or accepts a dropped HTML file, saves it as a vault attachment, then previews it. |
+| Web embed | Embeds a remote HTTP(S) page; the target website may prohibit embedding. |
 
-上传、Markdown 文件夹导入与 Notion 导入的新附件统一存放在 `vault/assets/<UUID>.<扩展名>`，UUID 使用带连字符的 `8-4-4-4-12` 格式。UUIDv5 由内容 SHA-256 和规范扩展名确定，相同内容与扩展名复用同一文件；原文件名独立保存在附件元数据中。旧哈希、UUID、批次等文件名继续读取，不自动重命名或批量改写引用。File 卡片默认读取附件元数据中的原文件名，显式填写的卡片名称继续优先；下载使用原文件名。卡片显示图标、名称和可读取的本地文件大小；远程文件、无法取得大小的附件和静态导出省略大小。打开系统文件选择器前会移交焦点，取消或失败后恢复编辑器焦点。
+New attachments from uploads, Markdown folder imports and Notion imports all use `vault/assets/<UUID>.<扩展名>`, with a hyphenated `8-4-4-4-12` UUID. UUIDv5 is derived from the content SHA-256 and normalized extension; identical content with the same extension reuses one file. The original filename is stored separately in attachment metadata. Existing hash, UUID and batch filenames remain readable without automatic renaming or bulk reference rewrites. File cards default to the original metadata filename, while explicit card names retain priority; downloads use the original filename. Cards show an icon, name and readable local file size. Remote files, unavailable sizes and static exports omit the size. Focus transfers before the system file picker opens and returns to the editor after cancellation or failure.
 
-### 删除页面时清理附件
+<a id="删除页面时清理附件"></a>
 
-移入应用 Trash 时保留附件，恢复页面仍能打开原文件。从 Trash 点击 Delete，彻底移走页面及子页面后，仅清理这些页面引用过、现在失去所有引用的附件；不会顺带清扫早已未引用的上传。其他页面（包括 Trash）、图标／封面／属性、冲突草稿、全局元数据及可解析的 HTML/SVG/CSS 间接依赖仍保护附件。无法可靠解析的来源或动态依赖会阻止清理并提示，不据此猜测文件无用。
+### Attachment cleanup when deleting pages
 
-清理使用同一知识库锁；删除前再次检查页面／冲突版本和附件字节，不跟随符号链接。附件与页面一样移到系统回收站，没有永久删除回退；`.history/deleted-assets/` 另存原附件字节、路径及未知元数据，供手工恢复。失败时保留恢复材料并报告，页面和附件的多文件回收不是原子事务；中断或部分失败可能留下需要以后处理的附件，不会强制重试或扩大清理范围。未保存的其他窗口草稿不属于可检查的知识库引用，因此恢复副本仍需保留。
+Moving a page to app Trash keeps its attachments so restored pages can still open them. After Delete in Trash removes a page and its descendants, cleanup considers only attachments those pages referenced that now have no remaining references; it does not sweep older unreferenced uploads. Other pages, including Trash, icons, covers, properties, conflict drafts, global metadata and parseable indirect HTML/SVG/CSS dependencies still protect attachments. Unreliable source parsing or dynamic dependencies block cleanup and show a warning instead of guessing that a file is unused.
 
-## 附件库
+Cleanup uses the same vault lock and rechecks page/conflict revisions and attachment bytes before deletion, without following symbolic links. Attachments go to the system recycle bin like pages, with no permanent-delete fallback. `.history/deleted-assets/` separately retains original bytes, paths and unknown metadata for manual recovery. Failures preserve recovery materials and report the problem. Recycling multiple page and attachment files is not atomic; interruption or partial failure may leave attachments for later handling, without forced retries or broader cleanup. Unsaved drafts in other windows are outside inspectable vault references, so recovery copies remain necessary.
 
-桌面／浏览器应用侧栏的 **Attachments** 集中浏览当前知识库中的本地附件。支持按名称或路径搜索、按文件类型筛选，以及按名称、大小或登记时间排序。选择文件可预览图片、音视频、PDF 或沙箱 HTML，并下载原文件、复制相对路径或查看引用它的页面。普通文件提供下载；媒体能否预览仍取决于浏览器支持。
+<a id="附件库"></a>
 
-- **Upload files** 支持一次选择多个文件；逐个上传，单文件上限 15 MB，失败前已完成的文件保留。新上传文件的原文件名、类型、字节数与登记时间保存在 `metadata.json` 的 `assets` 字段，正文继续引用稳定的 `assets/…` 路径。
-- 页面菜单的 **Page attachments** 默认勾选 **This page only**；取消勾选可查看全库。打开附件库前收取并保存当前输入，保存冲突时保留草稿。
-- 插入菜单的 **From attachments** 复用已有文件；也可直接在附件详情选择 **Insert into page**。**Insert as** 按当前方言提供图片、音视频、PDF 或 File / link。明确选择 File 时保留文件卡片语义；不支持媒体块的方言使用普通 Markdown 文件链接。插入只增加引用，不复制文件。
-- 引用统计读取已保存的正文、页面图标、封面和属性，包括数据库记录的文件属性及回收站页面。代码围栏和行内代码中的示例不计为实际引用。点击正常页面可跳转；回收站页面标注 Trash。
-- 扫描会纳入现有附件与子目录，不迁移旧文件。原文件名未登记时使用实际文件名，并标注 **Not recorded**。正文引用的本地文件不存在时显示 **Missing**，不提供插入和下载。
-- Notion 导入下载成功的媒体、文件、邮件附件、数据库 Files、封面和图标也会进入同一附件库，登记可获取的名称、类型和来源；同一内容去重。无法下载的文件在导入预览中提示，并保留远程链接。范围和大小限制见 [Notion 导入](NOTION-IMPORT.md#附件与数据库)。
+## Attachment library
 
-引用统计不包含历史快照、尚未保存的其他窗口草稿，或 HTML 附件内部依赖。不能解析的正文会给出提示；“0 pages”仅表示没有找到当前页面引用，不能用作删除依据。当前版本提供浏览、上传与复用，尚不提供附件删除、既有文件的批量去重、重命名或自动清理。手机端尚无附件库界面。
+Open **Attachments** in the desktop/browser sidebar to browse local attachments in the current vault. Search by name or path, filter by file type, and sort by name, size or registration time. Select a file to preview images, audio/video, PDF or sandboxed HTML, download the original, copy its relative path, or view referring pages. Ordinary files provide downloads; media previews still depend on browser support.
 
-## 图片
+- **Upload files** accepts multiple files and uploads them individually, with a 15 MB limit per file. Files completed before a failure remain saved. Original filenames, types, byte counts and registration times are stored in `metadata.json`, under the `assets` field; bodies continue to reference stable `assets/…` paths.
+- The page menu's **Page attachments** starts with **This page only** selected; clear it to browse the entire vault. Pending input is captured and saved before the library opens; save conflicts preserve the draft.
+- Use **From attachments** in the insertion menu to reuse files, or choose **Insert into page** in attachment details. **Insert as** offers images, audio/video, PDF or File / link according to the current dialect. Explicit File choices retain file-card semantics; dialects without media blocks use ordinary Markdown file links. Insertion adds a reference without copying the file.
+- Reference counts read saved bodies, page icons, covers and properties, including database-record file properties and Trash pages. Examples in fenced or inline code do not count as references. Normal pages can be opened; recycled pages are marked Trash.
+- Scans include existing attachments and subdirectories without migrating old files. Unregistered original names fall back to the actual filename and show **Not recorded**. Missing locally referenced files show **Missing**, with insertion and download unavailable.
+- Successfully downloaded Notion media, files, email attachments, database Files, covers and icons enter the same library, with available names, types and provenance recorded. Identical content is deduplicated. Failed downloads appear in the import preview and retain remote links. See [Notion import](NOTION-IMPORT.md#attachments-and-databases) for scope and size limits.
 
-独立图片在悬停或键盘聚焦时显示工具栏，支持对齐、说明、裁剪、展开、下载和更多操作；两侧手柄支持拖动或键盘调整。裁剪只改变显示区域，不覆盖原图，可以重置或撤销。完整操作和方言约束见[图片工具栏](INLINE-OBJECTS.md#image-controls)。
+Reference counts exclude historical snapshots, unsaved drafts in other windows and dependencies inside HTML attachments. Unparseable bodies produce a notice. “0 pages” means no current page reference was found and is not a basis for deletion. This version supports browsing, uploading and reuse, with no attachment deletion, bulk deduplication of existing files, renaming or automatic cleanup. Mobile has no attachment-library interface yet.
 
-新上传的图片默认没有题注，不把文件名显示在图片下方。通过工具栏的 **Edit caption** 添加题注；已有 Markdown 中明确填写的题注继续显示，不按文件名或扩展名自动隐藏。
+<a id="图片"></a>
 
-Notdown 和 Notion Markdown 中独占一行的 Markdown 图片使用 `block.image_block`，包括空说明图片和导入的嵌套图片。已有导入重新打开即按块解析，无需改写 Markdown。Notdown 中夹在文字里的图片仍是 `inline.image`；官方 Notion Markdown 的行内图片写法保留为字面源码。
+## Images
 
-布局编辑要求对应方言支持这些属性。Notdown 使用已有图片属性保存布局；官方 Notion Markdown 保留文档定义的题注与链接语法，不写入 Notdown 布局扩展。未知属性和未修改源码继续保留。
+Standalone images show a toolbar on hover or keyboard focus for alignment, captions, cropping, expansion, download and more actions. Side handles support dragging or keyboard resizing. Cropping changes the displayed region without overwriting the original and can be reset or undone. See the [image toolbar](INLINE-OBJECTS.md#image-controls) for operations and dialect constraints.
 
-## 音视频
+New uploads have no caption by default and do not show the filename below the image. Use **Edit caption** in the toolbar to add one. Explicit captions in existing Markdown remain visible; filenames or extensions do not automatically hide them.
 
-本地和直接链接的音视频使用浏览器播放器，默认只显示播放器，题注按需添加。能否播放取决于媒体格式和浏览器支持。
+Standalone Markdown image lines in Notdown and Notion Markdown use `block.image_block`, including images with empty captions and imported nested images. Existing imports parse as blocks when reopened without rewriting Markdown. Images within Notdown text remain `inline.image`; inline image syntax in official Notion Markdown is retained as literal source.
 
-Video 块中的 YouTube watch、短链接、Shorts、live 和 embed 网址使用 YouTube iframe 播放器，并保留原始 Markdown URL。远程播放使用浏览器／系统网络与代理设置，不经过本地 Node 服务的代理环境；视频可用性和网站嵌入限制仍然适用。
+Layout editing requires dialect support for the relevant attributes. Notdown saves layout in existing image attributes. Official Notion Markdown keeps documented caption and link syntax without writing Notdown layout extensions. Unknown attributes and unmodified source remain preserved.
 
-## HTML 附件
+<a id="音视频"></a>
 
-使用 **HTML embed** 上传或拖入 HTML 文件，正文引用 `assets/…html`，不会把完整 HTML 塞进笔记。预览从附件元数据读取原文件名作为标题和下载名称（显式标题保留），有全屏／更多按钮与 **Interact** 遮罩；菜单提供替换文件、下载、转为 File、说明及对齐。点击 Interact 后可与沙箱预览交互，但本地 HTML 的脚本仍被禁用。
+## Audio and video
 
-- Notdown 使用 `<embed src="assets/…html">说明</embed>`，可保存 title、width、height、align 等支持的属性。
-- 官方 `notion-markdown` 只启用官方 embed 语法及说明，不启用 Notdown 布局扩展。
-- 已有 HTML 附件的 `web-embed` 引用保留原编码；Typora 保留原生 iframe 和尺寸。
-- HTML 文件依赖的相对资源不会一并导入，Notion 导入会下载可识别的 HTML 附件本身，相对依赖不会一并下载。
+Local and directly linked audio/video use browser players, showing only the player by default with captions added when needed. Playback depends on the media format and browser support.
 
-上传先验证返回的附件路径再更新块。旧后台返回 `.bin` 时保留草稿并提示重启；预览需要后台返回可内联显示的 HTML，而不是下载附件响应。重启步骤见[运行指南](../architecture/DEVELOPMENT.md#windows-后台启动与重启)。
+YouTube watch, short, Shorts, live and embed URLs in Video blocks use the YouTube iframe player while preserving the original Markdown URL. Remote playback follows browser/system network and proxy settings, outside the local Node service's proxy environment. Video availability and site embedding restrictions still apply.
 
-旧内联正文 `html-embed` 标签已退役。需要迁移时使用[格式契约](../FORMAT.md)中的显式迁移流程，它通过知识库版本校验保存历史与冲突；不自动批量改写旧文件。
+<a id="html-附件"></a>
 
-## 网页书签
+## HTML attachments
 
-使用 **Web bookmark** 输入 HTTP(S) URL，或粘贴网址后选择 **Bookmark**。卡片使用浅灰细边框，依次显示站点图标、标题、最多两行摘要和淡灰网址；有预览图时显示在右侧。点击卡片打开原网页，悬停或键盘聚焦后可刷新、修改网址或编辑属性。
+Use **HTML embed** to upload or drop an HTML file. The body references `assets/…html` rather than embedding the entire HTML. Previews use the original metadata filename for their title and download name, retaining explicit titles. They provide fullscreen/more buttons and an **Interact** overlay. The menu offers file replacement, download, conversion to File, captions and alignment. Interact enables interaction with the sandboxed preview; local HTML scripts remain disabled.
 
-仅有网址的书签（包括 Notion 导入的书签）在打开时按需加载网页信息，预览不改写正文。创建或手动 **Refresh bookmark** 时才保存获取的标题、摘要和图片信息。网站无法访问或缺少信息时保留域名、网址及后备图标；图片加载失败不妨碍打开链接。
+- Notdown uses `<embed src="assets/…html">说明</embed>` and can save supported title, width, height and align attributes.
+- Official `notion-markdown` enables only official embed syntax and captions, without Notdown layout extensions.
+- Existing HTML attachment `web-embed` references retain their encoding; Typora retains native iframe syntax and dimensions.
+- Relative dependencies of HTML files are not imported alongside them. Notion import downloads identifiable HTML attachments themselves, without their relative dependencies.
 
-## 网页嵌入
+Uploads validate the returned attachment path before updating the block. If an older backend returns `.bin`, the draft is preserved and a restart is requested. Preview requires inline HTML responses rather than attachment downloads. See the [running guide](../architecture/DEVELOPMENT.md#windows-background-startup-and-restart) for restart steps.
 
-使用 **Web embed** 输入 HTTP(S) URL。Notdown 保存为 `<web-embed url="…"/>`，使用独立的换网址流程；它与 HTML 附件共享底层节点，但用户入口和文件操作各有用途。
+The legacy inline-body `html-embed` tag is retired. When migration is needed, use the explicit process in the [format contract](../FORMAT.md), which preserves history and conflicts through vault revision checks. Old files are not rewritten in bulk automatically.
 
-网页可直接交互，悬浮工具栏提供对齐、说明、打开和更多操作，侧边手柄调整尺寸。菜单支持替换网址、全屏、打开网页和复制原链接。居中嵌入在鼠标／键盘缩放及重新加载后仍保持居中；已有锚点时可取得块链接。
+<a id="网页书签"></a>
 
-网页嵌入不提供 HTML 文件替换操作。远端网站的认证、下载和嵌入限制由网站与浏览器控制；菜单没有 Notion 评论、建议修改、AI 操作或跨页面移动。
+## Web bookmarks
 
-## 导出与离线使用
+Enter an HTTP(S) URL through **Web bookmark**, or paste a URL and choose **Bookmark**. Cards have a thin light-gray border and show the site icon, title, up to two description lines and a muted URL, with an optional preview image on the right. Click to open the original page; hover or keyboard focus exposes refresh, URL editing and properties.
 
-单页 HTML 导出保留相对附件引用，不打包整个知识库。分享导出结果时需同时处理其附件。
+URL-only bookmarks, including Notion imports, fetch page information on demand when opened without rewriting the body. Retrieved titles, descriptions and images are saved only on creation or manual **Refresh bookmark**. Unreachable sites or missing information retain the domain, URL and fallback icon. Image failures do not prevent opening the link.
 
-Notion API 导入默认将可下载的图片和文件保存在本地附件库；下载失败或关闭附件下载时保留远程 URL，签名链接可能过期。它不是完整的 Notion 离线备份。导入范围见 [Notion 导入](NOTION-IMPORT.md)。
+<a id="网页嵌入"></a>
+
+## Embedded web pages
+
+Enter an HTTP(S) URL through **Web embed**. Notdown saves `<web-embed url="…"/>` and uses a dedicated URL replacement flow. It shares the underlying node with HTML attachments, while its entry point and file operations have separate purposes.
+
+Embedded pages support direct interaction. The floating toolbar offers alignment, captions, opening and more actions; side handles resize the embed. The menu offers URL replacement, fullscreen, opening the page and copying the original link. Centered embeds remain centered after mouse/keyboard resizing and reload. Existing anchors enable block links.
+
+Web embeds do not offer HTML file replacement. Remote authentication, downloads and embedding restrictions are controlled by the site and browser. The menu has no Notion comments, suggested changes, AI actions or cross-page movement.
+
+<a id="导出与离线使用"></a>
+
+## Export and offline use
+
+Single-page HTML exports retain relative attachment references without packaging the whole vault. Handle the associated attachments when sharing an export.
+
+Notion API import downloads accessible images and files to the local attachment library by default. Failed downloads or disabled attachment downloading retain remote URLs, whose signed links may expire. This is not a complete offline Notion backup. See [Notion import](NOTION-IMPORT.md) for scope.

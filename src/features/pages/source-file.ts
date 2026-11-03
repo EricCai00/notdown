@@ -4,11 +4,11 @@ import "./source-file.css";
 
 export function sourceFileMenu() {
   return `<details id="source-file-options" class="page-options source-file-options" name="topbar-menu" hidden>
-    <summary class="icon-button" aria-label="Open source file" title="Open source file" aria-haspopup="menu"><i data-lucide="file-code-2"></i><span>Open source file</span><i data-lucide="chevron-down"></i></summary>
-    <div class="page-options-menu" role="menu" aria-label="Source file">
-      <button role="menuitem" data-source-file="browser"><i data-lucide="globe"></i>Show in browser</button>
-      <button role="menuitem" data-source-file="app"><i data-lucide="external-link"></i>Open in default app</button>
-      <button role="menuitem" data-source-file="copy"><i data-lucide="copy"></i>Copy file path</button>
+    <summary class="icon-button" aria-label="Open source file" title="Open source file" aria-haspopup="menu" data-i18n-title="Open source file" data-i18n-aria-label="Open source file"><i data-lucide="file-code-2"></i><span data-i18n="Open source file">Open source file</span><i data-lucide="chevron-down"></i></summary>
+    <div class="page-options-menu" role="menu" aria-label="Source file" data-i18n-aria-label="Source file">
+      <button role="menuitem" data-source-file="browser"><i data-lucide="globe"></i><span data-i18n="Show in browser">Show in browser</span></button>
+      <button role="menuitem" data-source-file="app"><i data-lucide="external-link"></i><span data-i18n="Open in default app">Open in default app</span></button>
+      <button role="menuitem" data-source-file="copy"><i data-lucide="copy"></i><span data-i18n="Copy file path">Copy file path</span></button>
     </div>
   </details>`;
 }

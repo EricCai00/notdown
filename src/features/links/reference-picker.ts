@@ -20,22 +20,22 @@ export function referenceMarkdown(page: Page, location: ReferenceLocation | unde
 
 export function mountReferencePicker(root: HTMLElement, kind: "page" | "location", pages: Page[], currentId: string, config: SyntaxConfig, insert: (source: string) => void) {
   const available = pages.filter(page => !page.trashed);
-  root.innerHTML = `<label>Page<select aria-label="Reference page">${available.map(page => `<option value="${escape(page.id)}" ${page.id === currentId ? "selected" : ""}>${escape(page.title)}</option>`).join("")}</select></label>
-    <label>Display text (optional)<input aria-label="Reference display text" placeholder="Use the page or location name"></label>
-    ${kind === "location" ? '<input aria-label="Find location" placeholder="Find a heading, block or anchor"><div data-reference-locations></div>' : '<button class="primary" data-reference-insert>Insert page link</button>'}`;
+  root.innerHTML = `<label><span data-i18n="Page">Page</span><select aria-label="Reference page" data-i18n-aria-label="Reference page">${available.map(page => `<option value="${escape(page.id)}" ${page.id === currentId ? "selected" : ""}>${escape(page.title)}</option>`).join("")}</select></label>
+    <label><span data-i18n="Display text (optional)">Display text (optional)</span><input aria-label="Reference display text" placeholder="Use the page or location name" data-i18n-placeholder="Use the page or location name" data-i18n-aria-label="Reference display text"></label>
+    ${kind === "location" ? `<input aria-label="Find location" placeholder="Find a heading, block or anchor" data-i18n-placeholder="Find a heading, block or anchor" data-i18n-aria-label="Find location"><div data-reference-locations></div>` : `<button class="primary" data-reference-insert data-i18n="Insert page link">Insert page link</button>`}`;
   const select = root.querySelector<HTMLSelectElement>("select")!;
-  const label = root.querySelector<HTMLInputElement>('[aria-label="Reference display text"]')!;
+  const label = root.querySelector<HTMLInputElement>('[data-i18n-aria-label="Reference display text"]')!;
   const selected = () => available.find(page => page.id === select.value)!;
   if (kind === "page") root.querySelector("button")!.addEventListener("click", () => insert(referenceMarkdown(selected(), undefined, config, label.value)));
   else {
-    const search = root.querySelector<HTMLInputElement>('[aria-label="Find location"]')!;
+    const search = root.querySelector<HTMLInputElement>('[data-i18n-aria-label="Find location"]')!;
     const list = root.querySelector<HTMLElement>("[data-reference-locations]")!;
     let locations: ReferenceLocation[] = [];
     const render = () => {
       const query = search.value.trim().toLocaleLowerCase();
       list.innerHTML = locations.map((location, index) => ({ location, index }))
         .filter(({ location }) => `${location.label} ${location.fragment} ${location.kind}`.toLocaleLowerCase().includes(query))
-        .map(({ location, index }) => `<button class="search-result" data-location-index="${index}"><span>${escape(location.label)}</span><small>${escape(location.kind)} · ${escape(location.fragment)}</small></button>`).join("") || '<p>No matching locations. Headings, existing block IDs and anchors appear here.</p>';
+        .map(({ location, index }) => `<button class="search-result" data-location-index="${index}"><span>${escape(location.label)}</span><small>${escape(location.kind)} · ${escape(location.fragment)}</small></button>`).join("") || `<p data-i18n="No matching locations. Headings, existing block IDs and anchors appear here.">No matching locations. Headings, existing block IDs and anchors appear here.</p>`;
     };
     const load = () => {
       const page = selected();

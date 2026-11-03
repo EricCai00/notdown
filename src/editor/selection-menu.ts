@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../shared/i18n";
 import { editorKind, isEditorKind } from "../document/node-identity";
 import { Plugin, TextSelection, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
@@ -96,7 +97,7 @@ export function selectionMenu(options: Options) {
       const menu = document.createElement("div");
       menu.className = "pm-selection-menu";
       menu.setAttribute("role", "toolbar");
-      menu.setAttribute("aria-label", "Text formatting");
+      setUIAttribute(menu, "aria-label", "Text formatting");
       menu.hidden = true;
       document.body.append(menu);
       const abort = new AbortController(),
@@ -147,11 +148,11 @@ export function selectionMenu(options: Options) {
       ) => {
         const el = document.createElement("button");
         el.type = "button";
-        el.title = label;
-        el.setAttribute("aria-label", label);
+        setUIAttribute(el, "title", label);
+        setUIAttribute(el, "aria-label", label);
         if (typeof glyph === "string") el.textContent = glyph;
         else if (glyph) el.append(icon(glyph));
-        else el.textContent = label;
+        else setUIText(el, label);
         el.onclick = () => {
           if (eligible()) action();
         };
@@ -408,7 +409,7 @@ export function selectionMenu(options: Options) {
             const symbol = document.createElement("span");
             symbol.textContent = glyph;
             const text = document.createElement("span");
-            text.textContent = label;
+            setUIText(text, label);
             item.replaceChildren(symbol, text);
             item.setAttribute(
               "aria-pressed",
@@ -421,7 +422,7 @@ export function selectionMenu(options: Options) {
           const group = (title: string, values: string[]) => {
             const heading = document.createElement("div");
             heading.className = "pm-selection-label";
-            heading.textContent = title;
+            setUIText(heading, title);
             const grid = document.createElement("div");
             grid.className = "pm-selection-swatches";
             for (const value of values) {

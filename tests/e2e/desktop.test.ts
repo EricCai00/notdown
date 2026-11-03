@@ -1,4 +1,4 @@
-import { test, expect, _electron as electron, type ElectronApplication } from "@playwright/test";
+import { test, expect, _electron as electron, type Page, type ElectronApplication } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -51,16 +51,19 @@ test("desktop bookmarks follow the system session proxy and changes without rest
 
 test("managed vaults use sibling named folders and remain separate", async () => {
   const welcome = await desktop.firstWindow();
-  await expect(welcome.locator("#data-path")).toHaveText(path.join(root, "profile", "vault-data"));
-  await welcome.locator("#vault-name").fill("Work");
-  const firstPromise = desktop.waitForEvent("window"); await welcome.locator("#managed-create").click();
+  await expect(welcome.locator(".vault-location > summary")).toContainText(path.join(root, "profile", "vault-data"));
+  await welcome.locator("[data-create-panel] > summary").click();
+  await welcome.locator('[data-vault-create] input[name="name"]').fill("Work");
+  const firstPromise = desktop.waitForEvent("window"); await welcome.locator("[data-vault-create] button[type=submit]").click();
   const first = await firstPromise; await expect(first.locator(".sidebar")).toBeVisible();
   const managedRoot = path.join(root, "profile", "vault-data");
   expect(await fs.readdir(path.join(managedRoot, "Work", "pages"))).toEqual([]);
   const launcherPromise = desktop.waitForEvent("window"); await first.locator('.workspace-switch[data-action="vaults"]').click();
-  const launcher = await launcherPromise; await expect(launcher.locator("#managed-vaults")).toContainText("Work");
-  await launcher.locator("#vault-name").fill("Personal");
-  const secondPromise = desktop.waitForEvent("window"); await launcher.locator("#managed-create").click();
+  const launcher = await launcherPromise; await expect(launcher.locator(".vault-manager-list")).toContainText("Work");
+  await launcher.locator("[data-create-panel] > summary").click();
+  await launcher.locator('[data-vault-create] input[name="name"]').fill("Personal");
+  await launcher.screenshot({ path: ".run/logs/vault-unified-desktop.png" });
+  const secondPromise = desktop.waitForEvent("window"); await launcher.locator("[data-vault-create] button[type=submit]").click();
   const second = await secondPromise; await expect(second.locator(".sidebar")).toBeVisible();
   expect(await fs.readdir(managedRoot)).toEqual(expect.arrayContaining(["Work", "Personal"]));
   expect(new URL(first.url()).origin).not.toBe(new URL(second.url()).origin);
@@ -286,7 +289,7 @@ test("two vaults isolate drafts and folder import copies its sources", async () 
   const secondPath = path.join(root, "Second"); await fs.mkdir(secondPath);
   await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, secondPath);
   const secondPromise = desktop.waitForEvent("window");
-  await launcher.locator("#create").click();
+  await createFromPicker(launcher, secondPath);
   const second = await secondPromise;
   await expect(second.locator(".sidebar")).toBeVisible();
   expect(new URL(first.url()).origin).not.toBe(new URL(second.url()).origin);
@@ -323,11 +326,41 @@ async function chooseFolder(folder: string, mode: "create" | "open") {
   await welcome.waitForLoadState("domcontentloaded");
   await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, folder);
   const next = desktop.waitForEvent("window");
-  await welcome.locator(`#${mode}`).click();
+  if (mode === "create") await createFromPicker(welcome, folder);
+  else { await welcome.locator('[data-open-panel] > summary').click(); await welcome.locator('[data-vault-open] input').fill(folder); await welcome.locator('[data-vault-open] button[type=submit]').click(); }
   const page = await next;
   await expect(page.locator(".sidebar")).toBeVisible();
   return page;
 }
+
+test("interface language persists across desktop origins, vaults and restart", async () => {
+  const vaultPath = path.join(root, "Language"); await fs.mkdir(vaultPath);
+  let page = await chooseFolder(vaultPath, "create");
+  await page.locator('#sidebar [data-action="settings"]').click();
+  await page.locator('select[name="ui-language"]').selectOption("zh-CN");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  const filename = path.join(root, "profile", "interface-language.json");
+  await expect.poll(() => fs.readFile(filename, "utf8").catch(() => "")).toBe('"zh-CN"');
+  await page.getByRole("button", { name: "完成", exact: true }).click();
+  const origin = new URL(page.url()).origin;
+  const closed = desktop.waitForEvent("close");
+  await desktop.evaluate(({ app }) => app.exit(0)); await closed;
+  desktop = await electron.launch({ executablePath: process.env.NOTDOWN_PACKAGED_EXE, args: [...launchArgs, `--vault=${vaultPath}`], env: launchEnv });
+  page = await desktop.firstWindow();
+  await expect(page.locator('#sidebar [data-action="settings"]')).toContainText("工作区设置");
+  expect(new URL(page.url()).origin).not.toBe(origin);
+  const launcherPromise = desktop.waitForEvent("window");
+  await page.locator('.workspace-switch[data-action="vaults"]').click();
+  const launcher = await launcherPromise;
+  const secondPath = path.join(root, "Language second"); await fs.mkdir(secondPath);
+  await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, secondPath);
+  const secondPromise = desktop.waitForEvent("window"); await createFromPicker(launcher, secondPath);
+  const second = await secondPromise;
+  await expect(second.locator('#sidebar [data-action="settings"]')).toContainText("工作区设置");
+  await second.locator('#sidebar [data-action="settings"]').click();
+  await second.locator('select[name="ui-language"]').selectOption("en");
+  await expect(page.locator('#sidebar [data-action="settings"]')).toContainText("Workspace settings");
+});
 test("closing saves pending input to the vault, hides to tray and restores the same window and tabs", async () => {
   const welcome = await desktop.firstWindow();
   await expect(welcome.getByRole("heading", { name: "Notdown", exact: true })).toBeVisible();
@@ -419,7 +452,7 @@ test("quit keeps all windows frozen until all saves finish and preserves drafts 
   const launcher = await launcherPromise;
   const secondPath = path.join(root, "Quit second"); await fs.mkdir(secondPath);
   await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, secondPath);
-  const next = desktop.waitForEvent("window"); await launcher.locator("#create").click(); const second = await next;
+  const next = desktop.waitForEvent("window"); await createFromPicker(launcher, secondPath); const second = await next;
   await second.locator('#sidebar .section-label [data-action="new"]').click();
   await second.locator("#page-title").fill("Second quit draft");
   let release!: () => void;
@@ -466,4 +499,35 @@ test("failed conflict save prevents close and preserves both versions", async ()
   const conflicts = (await fs.readdir(path.join(vaultPath, ".history/conflicts"))).filter(name => name.endsWith(".md"));
   expect(conflicts.length).toBeGreaterThan(0);
   expect(await fs.readFile(path.join(vaultPath, ".history/conflicts", conflicts[0]), "utf8")).toContain("Unsaved local title");
+});
+
+async function createFromPicker(page: Page, folder: string) {
+  expect(path.resolve(folder).startsWith(path.resolve(root) + path.sep)).toBe(true);
+  await fs.rmdir(folder); // Remove only the test-owned empty placeholder; creation rejects existing folders.
+  await page.locator('[data-create-panel] > summary').click();
+  await page.locator('[data-vault-create] input[name="name"]').fill(path.basename(folder));
+  await page.locator('[data-vault-create] details > summary').click();
+  await page.locator('[data-vault-create] input[name="path"]').fill(path.dirname(folder));
+  await page.locator('[data-vault-create] button[type=submit]').click();
+}
+
+test("vault location can be changed with a native picker and survives desktop restart", async () => {
+  const welcome = await desktop.firstWindow();
+  const destination = path.join(root, "Chosen location"); await fs.mkdir(destination);
+  await welcome.locator('.vault-location > summary').click();
+  await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, destination);
+  await welcome.locator('[data-browse="location"]').click();
+  await expect(welcome.locator('[data-vault-location] input')).toHaveValue(destination);
+  await welcome.locator('[data-vault-location] button[type=submit]').click();
+  await expect(welcome.locator('.vault-location > summary')).toContainText(destination);
+  await desktop.close();
+  desktop = await electron.launch({ executablePath: process.env.NOTDOWN_PACKAGED_EXE, args: launchArgs, env: launchEnv });
+  const restarted = await desktop.firstWindow();
+  await expect(restarted.locator('.vault-location > summary')).toContainText(destination);
+  await restarted.locator('[data-create-panel] > summary').click();
+  await restarted.locator('[data-vault-create] input[name="name"]').fill('Persisted');
+  const next = desktop.waitForEvent('window');
+  await restarted.locator('[data-vault-create] button[type=submit]').click();
+  await expect((await next).locator('.sidebar')).toBeVisible();
+  expect(await fs.readdir(path.join(destination, 'Persisted', 'pages'))).toEqual([]);
 });

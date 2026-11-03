@@ -1,57 +1,73 @@
-# 多设备云同步（实验性）
+<a id="多设备云同步实验性"></a>
 
-Notdown 可以把桌面和 Android 的本地知识库连接到同一个云端知识库，支持 Supabase 和[坚果云／WebDAV](WEBDAV-SYNC.md)。编辑先写本地 Markdown；断网仍能使用，联网后在应用打开期间同步。Supabase 需要配置自己的项目，WebDAV 使用自己的网盘账号；目前没有内置的公共 Notdown 云服务。
+# Cross-device cloud sync (experimental)
 
-## Supabase 配置
+**English** · [简体中文](CLOUD-SYNC.zh-CN.md)
 
-1. 在 Supabase 项目 SQL Editor 执行[同步服务迁移](../../server/sync/supabase.sql)。它创建私有同步表、带账号校验的 RPC 和私有的 `notdown-sync` 附件桶；可重复执行，不重置已有笔记。
-2. 在项目 Authentication 中创建自己的用户，启用邮箱/密码登录。客户端使用项目 URL 和 **publishable key**；旧版项目也可使用 `anon` key。不要使用 secret key 或 `service_role` key。
-3. 桌面打开 **Workspace settings → Cloud sync**，Android 打开 **Notebook options → Cloud sync**，输入项目地址、公钥和用户账号并登录。
-4. 第一台设备选择 **Create a new cloud notebook**；其他设备使用同一账号，选择刚创建的云端知识库。现有本地内容会加入该云端知识库；相同身份的不同版本保留为冲突。
+Notdown can connect desktop and Android local vaults to the same cloud notebook using Supabase or [Nutstore / WebDAV](WEBDAV-SYNC.md). Edits save to local Markdown first. Notes remain usable offline and sync when connected while the app is open. Supabase requires your own project; WebDAV uses your own storage account. There is currently no built-in public Notdown cloud service.
 
-Android 首次打开必须配置同步，只能选择电脑已创建的云端知识库；首次下载成功后才进入编辑器。手机不创建独立库、不通过 ZIP 恢复新库，后续仍支持离线编辑已连接的副本。
+<a id="supabase-配置"></a>
 
-生产项目使用 HTTPS，HTTP 仅允许本机回环地址。账号之间的知识库、变更记录和附件隔离，客户端不能绕过同步 RPC 修改版本表。
+## Supabase setup
 
-此版本没有端到端加密，正文与附件在云端可读取。Supabase 登录密码不落盘，仅保留会话令牌；WebDAV 为后续请求保留应用密码。凭据存于设备的 `.notdown/sync/connection.json`。整个 `.notdown/sync/` 是设备状态，不应复制到其他设备；应用 ZIP 导出排除此目录，导入也忽略它。增加设备应通过应用连接云端或导入 ZIP 备份。
+1. Run the [sync service migration](../../server/sync/supabase.sql) in the Supabase project SQL Editor. It creates private sync tables, account-checked RPCs and the private `notdown-sync` attachment bucket. It can be run repeatedly without resetting existing notes.
+2. Create your user in project Authentication and enable email/password login. Clients use the project URL and **publishable key**; older projects can also use an `anon` key. Do not use a secret key or `service_role` key.
+3. On desktop, open **Workspace settings → Cloud sync**; on Android, open **Notebook options → Cloud sync**. Enter the project URL, public key and user credentials, then sign in.
+4. On the first device, choose **Create a new cloud notebook**. On other devices, use the same account and select that notebook. Existing local content joins the cloud notebook; differing versions with the same identity are retained as conflicts.
 
-## 使用与范围
+Android requires sync setup on first launch and can only select a cloud notebook already created on a computer. The editor opens after the first successful download. Mobile does not create independent vaults or restore a new vault from ZIP, but supports subsequent offline editing of the connected copy.
 
-- 应用打开时，编辑后、恢复联网、回到前台及定期检查触发同步，也可以点击 **Sync now**。本地保存状态与最近同步时间分别显示。
-- Cloud sync 面板持续显示同步阶段、当前资源、已下载／上传数量、冲突数和耗时。读取云端记录、逐项写入及附件分块传输使用各自的阶段进度条；尚未取得总量时显示活动进度条，不将阶段百分比当作整库百分比。等待较久时提示当前步骤仍在等待，失败时保留进度和错误，重新同步会开始新的计数。
-- **Pause sync** 暂停当前设备同步；本地保存继续。**Disconnect** 保留本地和云端笔记；未解决同步冲突需先处理。
-- 登录会话无法刷新时，使用 **Sign in again** 登录同一账号，保留当前知识库关联、待上传内容和冲突。
-- 页面正文、属性、数据库、数据源、视图、联系人和 `assets/` 附件参与同步。原始 Markdown、BOM、换行及未知 metadata 字段保留。
-- `.history/`、解释器路径、运行设置与其他未列出的文件不参与同步；未知文件仍保留在本地及 ZIP 备份中。同步不能替代独立备份。
+Production projects use HTTPS; HTTP is permitted only for loopback addresses. Vaults, change records and attachments are isolated between accounts. Clients cannot bypass sync RPCs to change revision tables.
 
-## 冲突
+This version has no end-to-end encryption: bodies and attachments can be read in the cloud. Supabase login passwords are not saved to disk; only session tokens are retained. WebDAV retains the application password for later requests. Credentials live in the device's `.notdown/sync/connection.json`. The entire `.notdown/sync/` directory is device state and must not be copied to other devices. App ZIP exports exclude it and imports ignore it. Add devices through the app's cloud connection or a ZIP backup import.
 
-同步保存共同基线、本地版本与云端版本。不同页面独立同步；同一资源并发修改时停止该资源上传并保留双方，不采用“最后写入获胜”，也不刷新版本强制重试。
+<a id="使用与范围"></a>
 
-正文冲突复用 `.history/conflicts/`、历史快照、差异显示和桌面 **Conflicts and versions** 的合并入口。Cloud sync 同时提供桌面和安卓共用的冲突界面：选择 **Keep this device**、**Use cloud version**，或编辑合并后的正文和完整属性。保存时检查本地版本，上传时再次检查云端版本。共同基线和双方原始内容保留在历史中。
+## Usage and scope
 
-删除与编辑、联系人、附件或数据库资源冲突也在 Cloud sync 中处理；删除版本明确标记为 deleted。保留本地可将其恢复到云端。永久删除通过删除标记传播；长期离线设备不会仅因文件缺失而自动复活旧内容。
+- While the app is open, sync runs after edits, reconnection, returning to the foreground and periodic checks. You can also click **Sync now**. Local save status and the latest sync time are shown separately.
+- The Cloud sync panel continuously shows the phase, current resource, downloaded/uploaded counts, conflicts and elapsed time. Reading cloud records, applying resources and transferring attachment chunks each have phase-specific progress bars. An indeterminate bar appears until a total is known; a phase percentage does not represent the whole vault. Long waits identify the pending step. Failures retain progress and errors, and a new sync starts fresh counters.
+- **Pause sync** pauses synchronization on this device; local saves continue. **Disconnect** keeps both local and cloud notes; resolve outstanding sync conflicts first.
+- If the login session cannot refresh, use **Sign in again** with the same account. The notebook connection, pending uploads and conflicts are retained.
+- Page bodies, properties, databases, data sources, views, contacts and `assets/` attachments sync. Original Markdown, BOMs, line endings and unknown metadata fields are preserved.
+- `.history/`, interpreter paths, runtime settings and other unlisted files do not sync. Unknown files remain in local storage and ZIP backups. Sync does not replace an independent backup.
 
-## 存储与恢复
+<a id="冲突"></a>
 
-- [共用引擎](../../src/sync/engine.ts) 使用云端游标取增量变更，按资源保存基线。JSON 指纹稳定排序，兼容 JSONB 键顺序变化。
-- 正文仍在 `pages/*.md`，通用页面属性仍在 `metadata.json`。独立数据库以 `metadata:databaseFiles/<id>` 传输完整 `databases/<id>.json`，包含自有数据源、页面成员和视图引用，不再同步第二份宿主页面或来源／视图定义。跨库来源只传引用；旧格式保留原资源项。使用独立数据库文件的知识库要求各端升级到同一支持版本。
-- 写回通过 `createVault` 的锁、版本校验、恢复日志与原子替换。同一数据库文件里的并发结构修改按一个资源处理，不自动合并；不同数据库仍独立同步。
-- 下载后按有界批次比较资源并写入：同一批共用页面扫描、恢复记录和一次 `metadata.json` 更新；Android 对可批量替换的文件使用一次原生调用。扫描结果只在当前写入锁内复用，每个资源仍检查原版本；并发改动继续保留为冲突。断电或进程退出后根据批次恢复记录继续，不强制覆盖外部编辑。
-- 离线改动在规范文件中持久保存。上传前保存完整操作与唯一操作 ID；请求成功但响应丢失后，以相同 ID 和内容重放，由云端返回原结果。
-- 同步事务的前后内容存于 `.history/sync/`；恢复时如遇第三方外部改动，停止并保留恢复材料。
-- 附件按 1 MiB 分块，以 SHA-256 校验、去重和复用，完成后发布清单。中断重试可重用已上传块；传输单附件上限 64 MiB，应用上传入口仍遵守其现有大小限制。
-- 云端在同一数据库事务中检查版本、更新资源、记录变更和幂等结果。每个知识库通过行锁排序，避免游标跳过尚未提交的并发写入。
+## Conflicts
 
-## 当前限制
+Sync retains the shared baseline, local version and cloud version. Different pages sync independently. Concurrent edits to the same resource stop its upload and preserve both sides. Sync does not use last-write-wins or refresh revisions to force a retry.
 
-- 个人账号多设备同步；没有多人共享、实时协作、自动三方合并。
-- Android 使用前台 TypeScript 引擎，应用关闭或被系统回收后不保证联网；下次打开恢复。尚未接入 WorkManager 后台传输。
-- 没有端到端加密、远端历史恢复界面、远端垃圾回收或服务商迁移向导。变更历史、删除标记和附件当前不自动清理。
-- 本地会扫描资源以发现外部编辑；首次同步传输全部资源。变更按有界批次保存恢复记录，文件仍逐个替换，中间状态不代表整个知识库已同步。路径碰撞或仅大小写不同的重命名会停止并提示处理。
-- 自动化使用独立 Chrome、IndexedDB、临时磁盘知识库和 PostgreSQL/WASM。托管 Supabase 网络、真实账号、Android WebView 和真机后台行为仍需部署后验收。
+Body conflicts reuse `.history/conflicts/`, history snapshots, diff display and the desktop **Conflicts and versions** merge entry. Cloud sync also provides a shared desktop/Android conflict interface: choose **Keep this device**, **Use cloud version**, or edit the merged body and complete properties. Saving checks the local revision; uploading checks the cloud revision again. The shared baseline and both original versions remain in history.
 
-## 验证
+Delete/edit conflicts and conflicts involving contacts, attachments or database resources are also resolved in Cloud sync. Deleted versions are explicitly marked deleted. Keeping the local version can restore it to the cloud. Permanent deletion propagates through tombstones; a long-offline device does not revive old content merely because a file is missing.
+
+<a id="存储与恢复"></a>
+
+## Storage and recovery
+
+- [shared engine](../../src/sync/engine.ts) retrieves incremental changes using a cloud cursor and saves baselines per resource. JSON fingerprints use stable key sorting and tolerate JSONB key-order changes.
+- Bodies remain in `pages/*.md` and shared page properties in `metadata.json`. Individual databases use `metadata:databaseFiles/<id>` to transfer the complete `databases/<id>.json`, including owned data sources, page membership and view references. There is no second synced copy of host pages or source/view definitions. Cross-database sources transfer references only; legacy formats keep their original resource items. All devices accessing a vault with individual database files must upgrade to the same supporting version.
+- Writes use `createVault` locking, revision checks, recovery journals and atomic replacement. Concurrent structural edits in the same database file are treated as one resource and do not merge automatically; different databases still sync independently.
+- Downloaded resources are compared and written in bounded batches. A batch shares a page scan, recovery records and one `metadata.json` update; Android uses one native call for files that support batch replacement. Scan results are reused only under the current write lock, and each resource still checks its original revision. Concurrent changes remain conflicts. After power loss or process exit, batch recovery records guide continuation without forcing external edits to be overwritten.
+- Offline changes persist in canonical files. Before uploading, the complete operation and a unique operation ID are saved. If a request succeeds but its response is lost, replaying the same ID and content returns the original cloud result.
+- The before/after contents of sync transactions are stored in `.history/sync/`. Recovery stops and preserves its materials if it encounters third-party external edits.
+- Attachments transfer in 1 MiB chunks, verified, deduplicated and reused by SHA-256, with a manifest published on completion. Interrupted transfers can reuse uploaded chunks. The transfer limit is 64 MiB per attachment; application upload entry points retain their existing size limits.
+- In one database transaction, the cloud checks revisions, updates resources and records changes and idempotent results. Row locks serialize writes within each notebook so a cursor cannot skip concurrent writes that have not committed.
+
+<a id="当前限制"></a>
+
+## Current limitations
+
+- Multi-device sync is for personal accounts. There is no multi-user sharing, real-time collaboration or automatic three-way merge.
+- Android uses a foreground TypeScript engine. Network activity is not guaranteed after the app closes or the system reclaims it; sync resumes on the next launch. WorkManager background transfers are not integrated.
+- There is no end-to-end encryption, remote history recovery interface, remote garbage collection or provider migration wizard. Change history, tombstones and attachments are not currently cleaned up automatically.
+- Local scans detect external edits, and the first sync transfers all resources. Changes save recovery records in bounded batches, while files are still replaced individually; an intermediate state does not mean the entire vault has synced. Path collisions or case-only renames stop sync and request resolution.
+- Automation uses isolated Chrome, IndexedDB, temporary disk vaults and PostgreSQL/WASM. Hosted Supabase networking, real accounts, Android WebView and physical-device background behavior still require acceptance after deployment.
+
+<a id="验证"></a>
+
+## Validation
 
 ```powershell
 npm ci
@@ -59,4 +75,4 @@ node --import tsx --test tests/unit/sync.test.ts tests/unit/sync-cloud.test.ts
 npm run test:sync
 ```
 
-`test:sync` 构建独立桌面和移动前端，以临时测试云端验证登录、安卓下载、离线编辑、冲突、合并回传和重载。测试云端执行实际迁移 SQL，仅 Auth 与附件 HTTP 传输使用测试适配器；它不是生产服务器。日志在 `.run/logs/`，截图和 trace 在 `test-results/sync/`。
+`test:sync` builds isolated desktop and mobile frontends and uses a temporary test cloud to verify login, Android downloads, offline editing, conflicts, merge uploads and reloads. The test cloud executes the actual migration SQL; only Auth and attachment HTTP transport use test adapters. It is not a production server. Logs go in `.run/logs/`, and screenshots and traces in `test-results/sync/`.

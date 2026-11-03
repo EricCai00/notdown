@@ -1,79 +1,95 @@
-# 当前自定义正文写法与背景色迁移
+<a id="当前自定义正文写法与背景色迁移"></a>
 
-## 后续：官方载体统一
+# Current custom syntax and background-color migration
 
-用户进一步要求移除可由官方语法完整表达的项目写法。当前契约见[保留的自定义扩展及官方替代](../reference/NOTDOWN-EXTENSIONS.md)；下文“仍存在”表为这一轮修改前的审计快照。
+**English** · [简体中文](CUSTOM-SYNTAX-AUDIT-2026-10-27.zh-CN.md)
 
-本轮替换 Web embed、书签 URL/题注、Tabs 标题/活动项、会议标题/转录、有效列宽别名、可核验的 ISO 日期时间，并停止将折叠状态写入正文。卡片缓存、布局、本地提醒、同步与服务配置只有官方缺少对应语义时才保留。未知属性、代码和未知容器均受原文边界保护；冲突属性不猜测转换。
+<a id="后续官方载体统一"></a>
 
-先预检再备份，经 createVault/baseRevision 保存并复核：Default 扫描 219 页、修改 6 页，Notion test 扫描 137 页、修改 2 页；两阶段共转换/清理 17 个块。重复预检剩余可转换项为 0，767 个既有 Notion 导入归档逐项哈希不变。
+## Follow-up: unifying official representations
 
-首阶段完整备份：`D:/ProgramData/Notdown/backups/canonical-syntax-20261027-231458/`；折叠状态阶段完整备份：`D:/ProgramData/Notdown/backups/canonical-view-state-20261027-231944/`。本机计划、逐页旧/新哈希和 revision、结果分别在 `.run/logs/canonical-vault-carriers.json`、`canonical-vault-migration.json`、`canonical-vault-verification.json`。旧备份、历史和导入归档未做格式转换。
+Users further requested the removal of item writing that could be fully expressed by the official grammar. For the current contract, see [ retained custom extensions and official replacement ](../reference/NOTDOWN-EXTENSIONS.md); the "Still Existing" table below is an audit snapshot before this round of modifications.
 
-验证：全部单元测试文件分组执行，1183 通过、5 跳过；R notebook 文件的 3 项独立运行并在断言完成后退出，避免该 Windows worker 残留句柄造成挂起，其余 1180 项正常退出。修正后的载体/字面标题/日期/边界专项 29 项通过。构建、桌面打包通过，相关 Chrome 回归分批覆盖 46 项，包括嵌入、书签、Tabs、会议、列宽、官方边界和 v2 导入。首轮旧编码断言、旧菜单定位已更新；一次 ECONNRESET 的书签测试隔离复测通过。20 项补测完成全部断言后测试服务清理挂起，手动终止了本次独立服务；最后的边界 2 项在另一独立端口正常通过。本记录不代表整个 E2E 目录通过。
+This round replaces Web embed, bookmark URL/ title, Tabs title/activity item, conference title/transcription, valid column width alias, verifiable ISO date and time, and stops writing the folded status to the text. Card caching, layout, local reminders, synchronization and service configuration are only retained if there is no official corresponding semantics. Unknown properties, codes, and unknown containers are protected by source boundaries; conflicting properties are not translated guesstimately.
 
-最终安装包：`.run/desktop-release/Notdown-Setup-0.1.5-canonical-syntax-x64.exe`，205253210 字节；生成后未覆盖安装。日志位于 `.run/logs/canonical-syntax-*`。标题里的转义标签/格式字符经转换保持字面意义，既不误解成提及也不二次转义；无法核验的边界仍拒绝转换。
+Pre-check first and then back up.createVault/baseRevision Save and review:Default scan219 page, modify6 page,Notion test scan137 page, modify2 page; two-stage conversion/clean up17 blocks. Repeat preflight remaining convertible items are0，767 an existingNotion Import archive itemized hashes unchanged.
 
-## 早先：bg_color 退役与审计
+First stage full backup: `D:/ProgramData/Notdown/backups/canonical-syntax-20261027-231458/`; folded state stage full backup: `D:/ProgramData/Notdown/backups/canonical-view-state-20261027-231944/`. Native plan, page-by-page old/new hashing and revision, results in `.run/logs/canonical-vault-carriers.json`, `canonical-vault-migration.json`, `canonical-vault-verification.json` respectively. Old backups, history and imported archives are not format converted.
 
-2026-10-27。检查当前解析器、写入器、对象样例和属性边界，并对照 [Enhanced Markdown v1 官方规范](https://developers.notion.com/guides/data-apis/enhanced-markdown)与 [Notion-flavored Markdown v2 官方规范](https://developers.notion.com/guides/data-apis/notion-flavored-markdown)。这份记录覆盖旧审计中已过时的分类。标签是官方的，不表示本地附加属性也是官方的；内部模型字段、DOM data 属性与正文编码分开核对。
+Verification: All unit test files are grouped and executed.1183 I'm going to go through this.5 The first is the jump.R notebook The document3 The project is to operate independently and withdraw after the completion of the affirmative action to avoid theWindows worker The remaining handles caused the hanging, the rest1180 Normal exit. Modified carrier/Literary headings/Date/Border specials29 The following are the results of the survey:Chrome Back to batch coverage46 The first is the "Blood" and the second is the "Blood".Tabs、The meeting, the width of the column, the official boundaries and thev2 Import. First round of old coding statements, updated old menu locations; onceECONNRESET The bookmark test is a separate and repeated test.20 After the completion of the test, the test service was suspended and the independent service was terminated manually; the final boundary2 The document is normally passed at another independent port. This record does not represent the entire port.E2E The directory is approved.
 
-## bg_color 已退役
+Final installation package: `.run/desktop-release/Notdown-Setup-0.1.5-canonical-syntax-x64.exe`, 205253210 bytes; installation is not overwritten after generation. The log is located at `.run/logs/canonical-syntax-*`. Escaped tags/formatting characters in titles are converted to maintain literal meaning and are neither misinterpreted as mentions nor re-escaped; unverifiable boundaries still refuse to be converted.
 
-所有 Notdown 颜色编辑路径统一输出现有 `span color`，包括没有 v2 标记的 Notdown 页面：
+<a id="早先bg_color-退役与审计"></a>
+
+## Earlier: retiring and auditing bg_color
+
+2026-10-27. Check current parsers, writers, object instances, and property boundaries against [ Enhanced Markdown v1 official specification ](https://developers.notion.com/guides/data-apis/enhanced-markdown) and [ Notion-flavored Markdown v2 official specification ](https://developers.notion.com/guides/data-apis/notion-flavored-markdown) . This record overwrites obsolete classifications from older audits. The label is official, but it does not mean that the local attached attributes are also official; internal model fields, DOM data attributes and text encoding are checked separately.
+
+<a id="bg_color-已退役"></a>
+
+## bg_color has been retired
+
+All Notdown color editing paths uniformly output existing `span color`，Including nov2 The markNotdown The page:
 
 ```md
 <span color="red"><span color="yellow_bg">红字黄底</span></span>
 ```
 
-自创正文属性 `bg_color` 不再参与颜色解析；遇到整个 span 时保留字面源码。内部模型中的背景通道仍存在，以便独立编辑与渲染，但不会以这个属性写入 Markdown。Notion Markdown v1 的菜单能力保持原有单颜色限制；v2 的两个通道可独立设置。嵌套形式有官方语法依据，本地显示与保存已验证，未宣称 Notion 远端能往返保留同一行内范围的双颜色。
+The self-created text attribute `bg_color` no longer participates in color analysis; the literal source code is retained when encountering the entire span. The background channel in the internal model still exists for independent editing and rendering, but it is not written to Markdown as this attribute. The menu capabilities of Notion Markdown v1 maintain the original single color limit; the two channels of v2 can be set independently. The nested form has an official syntax basis, and local display and saving have been verified. It is not claimed that the Notion remote end can retain dual colors in the same row range back and forth.
 
-用户明确授权迁移 **Default 和 Notion test**，覆盖本项目通常不批量迁移用户内容的默认规则。先保存并退出桌面程序，再备份两个完整知识库；不自动扩展到其他库。
+The user explicitly authorizes the migration of **Default and Notion test**, overriding the default rule of this project that usually does not migrate user content in batches. Save and exit the desktop program first, and then back up the two complete vaults; it will not be automatically expanded to other libraries.
 
-| 知识库 | 扫描活动 Markdown | 修改页面 | 转换 span |
+| Vault | Scan activity Markdown | Modify page | Convert span |
 | --- | ---: | ---: | ---: |
 | Default | 219 | 2（Subpage、Tests） | 5 |
 | Notion test | 50 | 0 | 0 |
 
-完整备份目录为 `D:/ProgramData/Notdown/backups/bg-color-retirement-20261027-011206/`，包含 `Default.zip` 与 `Notion-test.zip`。归档已解包读取，并核对所有页面和 metadata 与迁移前内容的 SHA-256；迁移记录位于本机 `.run/logs/bg-color-migration.json`。
+The complete backup directory is `D:/ProgramData/Notdown/backups/bg-color-retirement-20261027-011206/`, including `Default.zip` and `Notion-test.zip`. The archive is unpacked, read, and reconciled with all pages and metadata versus SHA-256 of the pre-migration content; the migration record is in native `.run/logs/bg-color-migration.json` .
 
-转换只定位可遍历源码中的配对 span，不全局替换：跳过围栏、行内代码、未知容器和字面提及。保留未知属性与文本；迁移前后解析结果去除源码缓存并规范化颜色后逐项比较。实际保存经 `createVault.update` 传入读取时的 `baseRevision`，没有冲突重试。已有导入归档、备份和历史正文不转换；正常保存仍记录新的版本。
+The transformation only targets the pair span in the traversable source code, and does not replace globally: fence-jumping, inline code, unknown containers, and literal mentions. Unknown attributes and text are retained; the source code cache is removed from the parsing results before and after migration, and the colors are normalized and compared one by one. actual preservation history `createVault.update` When passing in the read `baseRevision`, try again without conflict. Existing imported archives, backups, and historical texts will not be converted; normal saves will still record new versions.
 
-## 仍存在的自定义写法
+<a id="仍存在的自定义写法"></a>
 
-下表列出的是本地约定，并非把整个同名官方标签判为私有。本轮仅移除 `bg_color`，其余项目未修改。
+## Remaining custom syntax
 
-| 类别 | 当前项目写法 | 判断与已有替代 |
+The following table lists local conventions and does not rule the entire official label of the same name as private. Only `bg_color` is removed in this round, and the remaining items are not modified.
+
+| Category | Current project writing method | Assessment and existing alternatives |
 | --- | --- | --- |
-| 网页嵌入载体 | `<web-embed url="…" title="…" caption="…" width="…" height="…" align="…"/>` | 项目自定义载体。官方 v2 已有 `<embed source="…">题注</embed>`；Typora/raw HTML 另有 iframe。尺寸、对齐、标题等补充字段需另行安置，不能不验证就替换整个块。 |
-| 卡片补充编码 | 本地 `<bookmark url="…" title="…" description="…" icon="…" image="…" caption="…"/>`；带 `title/description/image` 的本地 `<link-preview>`、`<mention-link>` | Bookmark 与 link-preview 本身已有官方形式；上述卡片元数据和本地可创建行为是项目扩展。官方 v2 link-preview 是只读标记，本地卡片不能仅改名就声称等价。 |
-| 非拥有关系的页面块 | `<page-link url="…">标题</page-link>` | Link to page 的项目载体。官方 `<page>` 表示当前页的子页面；改成 page 会混淆拥有关系。普通 Markdown 链接/提及可导航，但不是同一个块类型。 |
-| 面包屑 | `<breadcrumb path="…"/>` | 项目载体与路径字段。空路径时按本地页面层级计算导航。 |
-| 动作按钮 | `<button label="…" icon="…" variant="…" actions="JSON"/>`，旧 `action/target` | 项目动作协议，不是 HTML button 原生行为，也不是官方 Markdown 按钮契约。 |
-| AI block | `<ai-block prompt="…" model="…" generate="…" using="…" context="…" search="…">…</ai-block>` | 项目容器及本地服务配置。 |
-| 官方块的本地属性 | embed 的 `title/width/height/align`；折叠/标题的 `open`；代码题注；列的旧 `width-ratio`；表格额外属性 | 属性语义由项目补充。官方列宽已有 `ratio`，新建采用它；只有旧列宽的文件在拖动时仍可能写旧别名。代码围栏属性、表格跨度/题注可复用 Pandoc 等已有语法，借用语法不等于这些属性属于官方 Notion。 |
-| 日期增强 | `reminder/reminder-offset/date-format/time-format`、旧 mention-date 的 `time-zone` 与 ISO start/end 约定 | 提醒与显示格式是本地扩展。**官方 v2 `<date time-zone="…">` 本身是官方属性**，不可因同名而整体判私有。 |
-| 本地同步控制 | synced block 的 `id/source-revision/snapshot-hash/auto-refresh/auto-sync` | 标签有官方依据，这些本地定位、版本和刷新控制是项目扩展。 |
-| 会议笔记配置 | `meeting-config`，以及旧 `title/audio/language/transcript` 属性形式 | meeting-notes 与分区标签是官方的；转写服务配置、本地音频关联和旧属性式标题属于项目补充。新建笔记用官方标题正文和分区。 |
-| 旧 Tabs 属性 | `<tabs active="…"><tab title="…">…` | tabs/tab 是官方标签；`active` 和属性式 `title` 是旧本地格式，尚能读取并编辑旧内容。新建采用官方标题正文。 |
+| Web page embed vector | `<web-embed url="…" title="…" caption="…" width="…" height="…" align="…"/>` | Project custom vector. Official v2 already has `<embed source="…">题注</embed>`; Typora/raw HTML also has iframe. Supplementary fields such as size, alignment, title, etc. need to be placed separately, and the entire block cannot be replaced without validation. |
+| Card supplementary code | local `<bookmark url="…" title="…" description="…" icon="…" image="…" caption="…"/>`; with `title/description/image` of local `<link-preview>`、`<mention-link>` | Bookmark and link-preview themselves have official forms; the card metadata and locally createable behaviors described above are project extensions. Official v2 link-preview is a read-only mark and local cards cannot claim equivalence simply by changing their name. |
+| Non-owning page blocks | `<page-link url="…">标题</page-link>` | Project vector for Link to page. Official `<page>` represents the subpage of the current page; changing it to page will confuse the ownership relationship. Normal Markdown links/mentions are navigable, but not of the same block type. |
+| Breadcrumbs | `<breadcrumb path="…"/>` | Project vector and path fields. When the path is empty, the navigation is calculated based on the local page level. |
+| action button | `<button label="…" icon="…" variant="…" actions="JSON"/>`, legacy `action/target` | The project action protocol is not a HTML button native behavior, nor is it an official Markdown button contract. |
+| AI block | `<ai-block prompt="…" model="…" generate="…" using="…" context="…" search="…">…</ai-block>` | Project container and local service configuration. |
+| Local properties for official blocks | embed's `title/width/height/align`;collapse/title `open`;Code caption;Column old `width-ratio`;Table extra properties | Attribute semantics are supplemented by items. The official column width already has `ratio`, and new ones will use it; files with only the old column width may still write the old alias when dragging. Code fence attributes, table spans/captions can reuse existing syntax such as Pandoc, but borrowing syntax does not mean that these attributes belong to the official Notion. |
+| Date enhancements | `reminder/reminder-offset/date-format/time-format`, old mention-date's `time-zone` Agreement with ISO start/end | Alert and display formats are native extensions. **official v2 `<date time-zone="…">` itself is the official attribute** and cannot be deemed private as a whole because of the same name. |
+| Local sync controls | synced block's`id/source-revision/snapshot-hash/auto-refresh/auto-sync` | Tags have an official basis and these localization, versioning and refresh controls are project extensions. |
+| Meeting notes configuration | `meeting-config`, as well as the old `title/audio/language/transcript` attribute form | meeting-notes and partition labels are official; transliteration service configuration, local audio association, and legacy attribute-style titles are project additions. Create new notes with official title text and sections. |
+| Old Tabs properties | `<tabs active="…"><tab title="…">…` | tabs/tab is the official label; `active` and attribute `title` are old local formats, and old content can still be read and edited. The new one uses the official title text. |
 
-另有本地地址约定 `#page/<uuid>`、`person://<uuid>`，分别指向本地页面和联系人；它们借用现有链接/提及语法，不是新的 Markdown 定界符，但其他应用未必能解析。本地联系人不能冒充 Notion 的 `user://` 身份。
+Other local addresses agreed `#page/<uuid>`、`person://<uuid>`，They refer to the local pages and contacts separately; they borrow from existing links/References to grammar, not newMarkdown Definition markers, but other applications do not have to be analyzed.Notion of`user://` I.D.
 
-## 不属于当前自创语法的内容
+<a id="不属于当前自创语法的内容"></a>
 
-- `<span underline="true">…</span>` 是官方 **v1** 文档明确列出的下划线形式，v2 才改为 `<u>…</u>`；不能因为只对照 v2 就把 v1 写法归为自创。不同版本的官方语法应按版本区分。
-- `<page>`、`<folder>`、`<database>`、`<tabs>/<tab>`、分区 `<meeting-notes>`、`<mail>`、`<custom-block>`、`<external_object_instance>`、v2 bookmark/embed/link-preview：均有官方依据，要区分版本及附加属性。
-- Pandoc 属性/表格/引文、MultiMarkdown、CriticMarkup、Obsidian wiki 与块引用、Quarto/R Markdown、GFM 等已有语法，不因进入 Notdown 合集就变成自创。
-- 实际 Notion REST 输出中见到的 `<code>…</code>` 是上游观测形式，未列入所查 v2 文档。Notdown 限定读取它，严格官方模式保留字面源码；它不是项目新设计的持久协议。
-- 已停用的 `:::nest`、`:::columns`、`::page`、`html-embed`、独立 figure 属性载体，以及 Lab 的旧 bookmark 围栏，不应作为当前新建输出列出。未知原文可恢复保留不代表兼容执行。
+## Content that is not currently custom syntax
 
-## 实现与验证
+- `<span underline="true">…</span>` It's official **v1** The document explicitly lists the underlined form, v2 is changed to `<u>…</u>`；It's not just the opposite.v2 I'm just going tov1 The written code is self-created. The official syntax of different versions should be distinguished by version.
+- `<page>`, `<folder>`, `<database>`, `<tabs>/<tab>`, partition `<meeting-notes>`, `<mail>`, `<custom-block>`, `<external_object_instance>`, v2 bookmark/embed/link-preview: all have official basis, and the versions and additional attributes must be distinguished.
+- Pandoc attributes/tables/citations, MultiMarkdown, CriticMarkup, Obsidian wiki and block references, Quarto/R Markdown, GFM, etc. already have syntax, and it does not become self-created just because it enters the Notdown collection.
+- The actual Notion REST output is seen `<code>…</code>` It is an upstream observation format, not included in the documentation of the v2 that was examined. Notdown is read-only, strictly the official mode retains the literal source code; it is not a permanent protocol for the new design of the project.
+- deactivated `:::nest`、`:::columns`、`::page`、`html-embed`、Independencefigure The characteristic carrier, andLab The Oldbookmark The fence should not be listed as a current newly constructed output. Unknown original restored preserved does not represent compatibility execution.
 
-主要依据：[颜色写入](../../src/document/editor-markdown.ts)、[通用解析](../../src/markdown-engine/codec.ts)、[Notion 解析](../../src/document/notion-markdown.ts)、[对象编码](../../src/document/object-codec.ts)、[对象字段](../../src/document/object-model.ts)、[属性边界](../../src/document/notdown-boundary.ts)、[v2 编码](../../src/document/notion-v2.ts)。
+<a id="实现与验证"></a>
 
-- 定向颜色/Notion 单元测试：53 通过。
-- 全量单元测试：1107 通过、5 跳过、0 失败。
-- `npm run build` 通过。
-- 独立临时知识库的 Chrome 回归：`selection-menu.spec.ts` 与 `notion-v2-import.spec.ts` 共 19 通过，覆盖旧版 Notdown/v2 的双色菜单、清除、撤销、保存、重开及导入补色。这不是全部浏览器用例验收。
-- 迁移后重新读取确认两个库活动正文的旧属性均为 0；两个已修改页面与迁移记录哈希一致，Notion test 的 289 个已有导入归档文件逐项哈希不变。
-- `npm run desktop:dist` 通过，安装包为 `.run/desktop-release/Notdown-Setup-0.1.3-standard-colors-x64.exe`（205187293 字节）。本轮生成安装包，未覆盖已安装程序；旧程序已保存并退出。
+## Implementation and validation
+
+Main basis: [ color writing ](../../src/document/editor-markdown.ts), [ general analysis ](../../src/markdown-engine/codec.ts), [ Notion analysis ](../../src/document/notion-markdown.ts), [ object encoding ](../../src/document/object-codec.ts), [ object field ](../../src/document/object-model.ts), [ attribute boundary ](../../src/document/notdown-boundary.ts), [ v2 encoding ](../../src/document/notion-v2.ts).
+
+- Directional Color/Notion Unit Test: 53 passed.
+- Full unit test: 1107 passed, 5 skipped, 0 failed.
+- `npm run build` passed.
+- Chrome return of the independent temporary vault: `selection-menu.spec.ts` and `notion-v2-import.spec.ts` share 19, covering the two-color menu, clear, undo, save, reopen and import complementary colors of the old version of Notdown/v2. This is not all browser use case acceptance.
+- After migration, re-reading confirms that the old attributes of the two library activity bodies are 0; the two modified pages have the same hash as the migration record, and the item-by-item hashes of the imported archive files of Notion test and 289 remain unchanged.
+- `npm run desktop:dist`Passed, the installation package is `.run/desktop-release/Notdown-Setup-0.1.3-standard-colors-x64.exe` (205187293 bytes). This round of generation of installation packages has not overwritten the installed programs; the old programs have been saved and exited.

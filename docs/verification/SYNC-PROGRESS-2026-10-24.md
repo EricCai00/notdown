@@ -1,30 +1,40 @@
-# 手机同步进度与重复扫描优化验证（2026-10-24）
+<a id="手机同步进度与重复扫描优化验证2026-10-24"></a>
 
-## 范围
+# Mobile sync progress and repeated-scan optimization validation (2026-10-24)
 
-Cloud sync 显示准备、读取云端记录、逐项下载写入、本地扫描、上传及完成阶段；提供当前批次／资源、阶段进度条、附件分块大小、累计上传／下载／冲突数和耗时。总量未知时使用活动条，超过 15 秒没有进度更新时提示等待。失败保留进度并刷新连接状态以提供重试按钮。
+**English** · [简体中文](SYNC-PROGRESS-2026-10-24.zh-CN.md)
 
-进度轮询读取进程内快照，不扫描知识库或增加云端请求，不替代持久同步游标。普通页面写入事务从四次全库扫描缩减为一次；扫描只在同一次串行写入锁内复用，不跨资源缓存。
+<a id="范围"></a>
 
-## 验证
+## range
 
-| 检查 | 结果 | 日志 |
+Cloud sync displays the preparation, reading cloud records, item-by-item download and write, local scanning, uploading and completion stages; provides the current batch/resource, stage progress bar, attachment block size, cumulative upload/download/conflict number and time consumption. Use the activity bar when the total amount is unknown. If there is no progress update for more than 15 seconds, you will be prompted to wait. Failure preserves progress and refreshes the connection state to provide a retry button.
+
+Progress polling reads in-process snapshots, does not scan the vault or add cloud requests, and does not replace persistent synchronization cursors. Ordinary page write transactions are reduced from four full database scans to one; scans are only reused within the same serial write lock and are not cached across resources.
+
+<a id="验证"></a>
+
+## Validation
+
+| Check | result | Log |
 | --- | --- | --- |
-| `npm test` | 1000 项：995 通过、5 跳过；覆盖逐项进度、失败重试、无文件读取的进度接口、单次扫描及外部编辑拒绝 | `.run/logs/sync-progress-unit-final.log` |
-| Supabase 分块进度专项 | 7 项通过，含上传和下载各分块大小 | `.run/logs/sync-progress-cloud-final.log` |
-| `npm run test:mobile` | 11 项通过；包含延迟附件、49% 进度、等待提示、失败重试及重新打开面板 | `.run/logs/sync-progress-mobile-final.log` |
-| `npm run test:sync` | Supabase／WebDAV 两项跨端同步、离线编辑和冲突回传通过 | `.run/logs/sync-progress-sync.log` |
-| `npm run test:e2e -- tests/e2e/conflict-diff.spec.ts` | 最终桌面 TypeScript／Vite 构建及差异合并检查通过；未运行桌面全套浏览器测试 | `.run/logs/sync-progress-desktop.log` |
-| Android 构建 | 最终移动构建后执行 `cap sync android` 与 Gradle 构建成功；8 项原生检查为 UP-TO-DATE，已有结果无失败 | `.run/logs/sync-progress-android-final.log` |
-| 手机覆盖安装 | `adb install -r` 成功，已安装 APK 哈希与产物一致；应用启动成功 | `.run/logs/sync-progress-install.log` |
+| `npm test` | 1000 items: 995 passed, 5 skipped; covering item-by-item progress, failure retry, progress interface without file reading, single scan and external editing rejection | `.run/logs/sync-progress-unit-final.log` |
+| Supabase block progress project | 7 items passed, including upload and download block sizes | `.run/logs/sync-progress-cloud-final.log` |
+| `npm run test:mobile` | 11 items passed; including delayed attachments, 49% progress, waiting prompts, failed retries and reopening the panel | `.run/logs/sync-progress-mobile-final.log` |
+| `npm run test:sync` | Supabase / WebDAV two cross-end synchronization, offline editing and conflict postback passed | `.run/logs/sync-progress-sync.log` |
+| `npm run test:e2e -- tests/e2e/conflict-diff.spec.ts` | The final desktop TypeScript / Vite build and differential merge check passed; the full desktop browser test was not run | `.run/logs/sync-progress-desktop.log` |
+| Android build | After the final mobile build, `cap sync android` and Gradle were successfully built; the 8 native check was UP-TO-DATE, and the results were no failures. | `.run/logs/sync-progress-android-final.log` |
+| Mobile phone coverage installation | `adb install -r`Success, the installed APK hash is consistent with the product; the application starts successfully | `.run/logs/sync-progress-install.log` |
 
-浏览器截图 `test-results/mobile/mobile-first-sync-shows-li-b0a5f-retains-failure-and-retries/mobile-first-sync-progress.png` 已检查，进度和长资源名称在窄屏内可读。
+Browser screenshot `test-results/mobile/mobile-first-sync-shows-li-b0a5f-retains-failure-and-retries/mobile-first-sync-progress.png` checked, progress and long resource names are readable on narrow screens.
 
-## 真机观察与交付边界
+<a id="真机观察与交付边界"></a>
 
-检查时手机已有 150 页，游标为 100，已持久保存 100 条基线，首次同步尚未完成；WebDAV 记录 25 次请求，没有冷却记录。代码中逐页反复扫描全库会增加原生文件桥接开销；未进行真机前后耗时对照，不报告具体提速倍数，也不据此排除其他网络或设备原因。
+## Real machine observation and delivery boundaries
 
-覆盖更新后再次确认：150 页、100 条基线、游标 100 和已有启用连接均保留。没有清除应用数据。尚未验证更新后真实云端整库同步完成；打开 Cloud sync 后可使用 **Sync now** 继续。
+At the time of the check, the phone already had the 150 page, the cursor was 100, 100 baselines had been saved persistently, and the first synchronization had not yet been completed; WebDAV recorded 25 requests, and there was no cooling record. Repeatedly scanning the entire library page by page in the code will increase the overhead of native file bridging; there is no time-consuming comparison before and after the real machine, no specific speedup multiple is reported, and other network or device reasons are not ruled out based on this.
 
-- 安装包：`.run/android-release/Notdown-Android-sync-progress-2026-10-24.apk`。
+Confirm again after overwriting the update: the 150 page, 100 baseline, cursor 100 and existing enabled connections are preserved. App data is not cleared. It has not been verified that the real cloud database synchronization is completed after the update; after opening Cloud sync, you can use **Sync now** to continue.
+
+- Installation package: `.run/android-release/Notdown-Android-sync-progress-2026-10-24.apk`.
 - SHA-256：`04610C25CF036538637A6F76D6313E3FFE846F959C8D947272258C94B2210F41`。

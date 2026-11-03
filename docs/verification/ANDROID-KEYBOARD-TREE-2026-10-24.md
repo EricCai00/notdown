@@ -1,32 +1,42 @@
-# Android 键盘收起与页面层级（2026-10-24）
+<a id="android-键盘收起与页面层级2026-10-24"></a>
 
-范围：Android 返回键、底部收起键盘按钮，以及手机 Pages 列表的顺序和层级显示。使用说明见 [Android 指南](../features/ANDROID.md)。
+# Android keyboard dismissal and page hierarchy (2026-10-24)
 
-## 改动
+**English** · [简体中文](ANDROID-KEYBOARD-TREE-2026-10-24.zh-CN.md)
 
-- 原生返回键检查 IME 可见性，优先关闭输入法；前端收取结束输入后的草稿，避免直接转到页面列表。
-- 底部新增 Hide keyboard，清除标题、正文或源码输入焦点，并调用 Android 原生关闭输入法。按钮不等待同步任务完成才响应。
-- 普通页面列表复用桌面的 `comparePageOrder`，按 `parent` 显示缩进，箭头独立展开/折叠；搜索继续匹配正文，清空后恢复折叠状态。
-- 列表只读投影，不修改顺序、父子关系或 Markdown。缺失父页、自引用和循环关系保留可导航入口，避免丢失可恢复页面。
+Scope: Android return key, bottom keyboard retract button, and the order and hierarchical display of the phone's Pages list. Instructions for use are provided in the [ Android Guidelines ](../features/ANDROID.md).
 
-## 自动化
+<a id="改动"></a>
 
-- `npm test`：1,004 通过，5 跳过，0 失败；包含新页面树排序、折叠及异常关系测试。
-- `npm run build`：TypeScript 与桌面生产构建通过。
-- 移动端生产构建及 `playwright test -c tests/e2e/mobile.config.ts`：13 项通过，覆盖键盘收起后的中文正文、源码和标题保存，三层顺序、折叠、搜索及 320px 工具栏。
-- 最终补齐键盘按钮图标后重新构建 APK；键盘保存与窄屏工具栏 2 项重跑通过，并确认按钮 SVG 可见。
-- Android `assembleDebug`、`testDebugUnitTest` 通过；原生 HTTP 测试 3 项、文件存储测试 8 项均无失败。
-- 桌面针对 `page-tree.spec.ts`、`sidebar-layout.spec.ts`、`sidebar-drag.spec.ts` 的 9 项回归：首轮 8 项通过，拖到回收站的用例失败；该用例单独重跑通过，记录为一次不稳定结果。完整 682 项桌面浏览器集启动后中止，改用上述相关用例，本记录不宣称完整浏览器集通过。
+## Change
 
-## 真机
+- The native return key checks the visibility of IME and gives priority to closing the input method; the front end collects the draft after the input is completed to avoid going directly to the page list.
+- Add Hide keyboard at the bottom, clear the title, text or source code input focus, and call Android to natively close the input method. The button does not wait for the synchronization task to complete before responding.
+- The ordinary page list reuses the `comparePageOrder` of the desktop, press `parent` to display the indentation, and the arrows expand/collapse independently; the search continues to match the text, and the folded state is restored after clearing.
+- A read-only projection of the list that does not modify order, parent-child relationships, or Markdown. Missing parent pages, self-references and circular relationships retain navigable entries to avoid losing recoverable pages.
 
-在已连接的 Android 16 手机覆盖安装调试 APK，保留应用数据和现有笔记。用户解锁并允许继续后，使用 Notdown WebView 检查：
+<a id="自动化"></a>
 
-- 页面搜索框调起真实输入法，系统返回键关闭输入法，Pages 面板仍保持打开。
-- 标题输入框调起真实输入法，底部按钮关闭输入法并清除焦点，当前页与标题保持不变。
-- 正文编辑区分别使用系统返回键和底部按钮，均成功关闭真实输入法，正文保持不变。
-- 页面层级截图及底部按钮布局检查通过；工具栏按钮均位于可视宽度内。
+## Automation
 
-真机操作只聚焦现有输入框，不输入、删除或改写笔记正文。中文文本保存由隔离浏览器测试覆盖；本次没有在真实中文输入法的候选字组合过程中输入测试正文，也不代表所有 Android 版本与输入法都已验收。
+- `npm test`: 1, 004 passed, 5 skipped, 0 failed; including new page tree sorting, folding and abnormal relationship tests.
+- `npm run build`: TypeScript passes with desktop production build.
+- Mobile terminal production construction and `playwright test -c tests/e2e/mobile.config.ts`: 13 items passed, covering Chinese text, source code and title saving after the keyboard is closed, three-layer order, folding, search and 320px toolbar.
+- Finally, after completing the keyboard button icon, APK is rebuilt; the keyboard save and narrow-screen toolbar 2 items are rerun, and the button SVG is confirmed to be visible.
+- Android `assembleDebug`、`testDebugUnitTest` The original HTTP test 3 and the file storage test 8 were both successful.
+- The table is aimed at `page-tree.spec.ts`、`sidebar-layout.spec.ts`、`sidebar-drag.spec.ts` 9 return: The first round of 8 passes, and the use case fails to be pulled to the recycling station; the use case is run back through separately, recording an unstable result. The complete 682 desktop browser set is discontinued after launch, and the relevant use case is modified, which this record does not claim to be the complete browser set.
 
-APK：`.run/android-release/Notdown-Android-debug.apk`。日志和真机截图位于 `.run/logs/mobile-navigation-*`、`.run/logs/android-*.png`；浏览器截图位于 `test-results/mobile/`。这些本地产物不进入版本控制。
+<a id="真机"></a>
+
+## Real machine
+
+The link isAndroid 16 Mobile phone coverage installed modulationAPK，Keeping the application data and existing notes. Users can unlock and allow the application to continue using the app.Notdown WebView Check it out:
+
+- The search box on the page calls up the real input method, the system return key closes the input method, and the Pages panel remains open.
+- The title input box activates the real input method. The button at the bottom closes the input method and clears the focus. The current page and title remain unchanged.
+- In the text editing area, the system return key and the bottom button were used to successfully close the real input method, and the text remained unchanged.
+- Page level screenshots and bottom button layout checks passed; toolbar buttons are all within the visible width.
+
+The real machine operation only focuses on the existing input box and does not enter, delete or rewrite the text of the note. Chinese text saving is covered by the isolated browser test; this time, the test text was not entered during the candidate word combination process of the real Chinese input method, and it does not mean that all Android versions and input methods have been accepted.
+
+APK: `.run/android-release/Notdown-Android-debug.apk`. Logs and real machine screenshots are located in `.run/logs/mobile-navigation-*` and `.run/logs/android-*.png`; browser screenshots are located in `test-results/mobile/`. These local products do not enter version control.

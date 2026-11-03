@@ -35,7 +35,7 @@ export function openSourceMenu(anchor: HTMLElement, hooks: {
       const section = menuSection(current, kind);
       for (const source of sources) {
         const item = catalog?.find(item => item.id === source.id), row = document.createElement("div"); row.className = "database-source-menu-item";
-        const select = menuButton(source.title, kind === "Linked" ? Link : Database, () => { pop.destroy(); hooks.select(source.id); });
+        const select = menuButton(source.title, kind === "Linked" ? Link : Database, () => { pop.destroy(); hooks.select(source.id); }, "", false, "database-popover-row", false);
         select.setAttribute("aria-label", `Show data source ${source.title}`);
         const note = document.createElement("small"); note.className = "database-source-description";
         const views = hooks.snapshot.views.filter(view => view.dataSourceId === source.id);
@@ -79,7 +79,7 @@ export function openSourceMenu(anchor: HTMLElement, hooks: {
     try {
       const databases = await api<DatabaseResource[]>("/databases"); if (!child.isConnected) return;
       status.textContent = "";
-      for (const database of databases.filter(database => database.id !== source.ownerDatabaseId && !database.trashed && !isWikiDatabase(database))) child.append(menuButton(database.title, Database, () => { void pop.perform(() => hooks.move(source, database)); }));
+      for (const database of databases.filter(database => database.id !== source.ownerDatabaseId && !database.trashed && !isWikiDatabase(database))) child.append(menuButton(database.title, Database, () => { void pop.perform(() => hooks.move(source, database)); }, "", false, "database-popover-row", false));
       if (!child.querySelector(".database-popover-row")) status.textContent = "No other ordinary databases are available.";
     } catch (error) { status.textContent = error instanceof Error ? error.message : String(error); }
   }
@@ -90,7 +90,7 @@ export function openSourceMenu(anchor: HTMLElement, hooks: {
       const source = (await loading).find(item => item.id === id); if (!form.isConnected) return;
       if (!source) { status.textContent = "Source relationships are unavailable. Its original database may be in Trash."; return; }
       status.textContent = "";
-      menuSection(form, source.title).append(sourceUsage(source, () => pop.destroy()));
+      menuSection(form, source.title, false).append(sourceUsage(source, () => pop.destroy()));
     } catch (error) { if (form.isConnected) status.textContent = error instanceof Error ? error.message : "Source relationships could not be loaded."; }
   }
   const actions = menuSection(panel);
@@ -135,7 +135,7 @@ export function openSourceMenu(anchor: HTMLElement, hooks: {
       results.replaceChildren();
       const matches = sources.filter(source => `${source.title} ${source.ownerTitle}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
       for (const source of matches) {
-        const row = menuButton(source.title, Link, () => { void pop.perform(() => hooks.link(source)); });
+        const row = menuButton(source.title, Link, () => { void pop.perform(() => hooks.link(source)); }, "", false, "database-popover-row", false);
         row.setAttribute("aria-label", `Link ${source.title} from ${source.ownerTitle}`);
         const note = document.createElement("small"); note.className = "database-source-description";
         note.textContent = `${source.ownerTitle} · ${source.recordCount} records · ${source.propertyCount} properties`;

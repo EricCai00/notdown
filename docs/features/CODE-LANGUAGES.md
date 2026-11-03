@@ -1,56 +1,66 @@
-# 代码语言与高亮
+<a id="代码语言与高亮"></a>
 
-语言菜单分为 **Notion（87 项）** 和 **Custom（17 项）**，两个分组分别按显示名排列。搜索按显示名、围栏 ID、别名统一匹配，保留分组标题并隐藏无匹配的分组。键盘方向键和 Enter 可跨分组选择。Mermaid 归入 Diagram，不出现在代码语言菜单。Makefile 已属于 Notion 分组，使用 Prism Makefile 高亮，不在 Custom 重复。
+# Code languages and highlighting
 
-菜单与分词选择共用 [语言注册表](../../src/editor/code-languages.ts)。旧围栏不会因打开菜单、搜索或更新显示名而迁移；只有用户明确选择语言时才修改该块的标签。未知标签保留在 Current 分组。
+**English** · [简体中文](CODE-LANGUAGES.zh-CN.md)
 
-Notion 导入时仅对语言注册表无法识别的非空围栏标签核对同批 Block API，以完整代码文本唯一匹配后恢复语言，修复已确认的 `shell` → `shen` 导出差异。已知语言、别名、空标签及 Mermaid 不触发核对，也不因其他未知标签触发的扫描而被改写，详见[Notion 导入](NOTION-IMPORT.md#内容支持与剩余边界)。普通 Markdown 中的 `shen` 仍保留为未知标签，不全局映射到 Shell。
+The language menu is divided into **Notion (87 item)** and **Custom (17 item)**. The two groups are arranged according to the display name. The search matches uniformly by display name, fence ID, and alias, retains the group title and hides unmatched groups. Keyboard arrow keys and Enter can be selected across groups. Mermaid is subsumed under Diagram and does not appear in the code language menu. Makefile already belongs to the Notion group and is highlighted using Prism Makefile, which is not repeated in Custom.
 
-代码语言和图注控件跟随编辑器的可编辑状态，包括 Callout、引用内的嵌套代码块。Source/Split 编辑同步到 Page 视图后恢复可用；只读预览中保持禁用。
+The menu and word segmentation selection share the [ language registry ](../../src/editor/code-languages.ts). Old fences are not migrated by opening a menu, searching, or updating the display name; the block's label is only modified when the user explicitly selects a language. Unknown tags remain in the Current grouping.
 
-## Custom 来源与名称
+When Notion is imported, only the non-empty fence tags that are not recognized by the language registry are checked against the same batch of Block API, and the language is restored after unique matching of the complete code text, and the confirmed `shell` → `shen` Export differences. Known languages, aliases, empty tags and Mermaid do not trigger verification and will not be overwritten by scanning triggered by other unknown tags. For details, see[Notion import](NOTION-IMPORT.md#content-support-and-remaining-limitations). in normal Markdown `shen` Remains as unknown label, not globally mapped to Shell .
 
-| 显示名 | 新建围栏 ID | 高亮来源 | 常用搜索／读取别名 |
+Code language and legend controls follow the editable state of the editor, including Callout , nested code blocks within references. Source/Split editing is back available after syncing to Page view; remains disabled in read-only preview.
+
+<a id="custom-来源与名称"></a>
+
+## Custom sources and names
+
+| Display name | Create a new fence ID | Highlighting source | Common search / reader aliases |
 | --- | --- | --- | --- |
 | ActionScript | `actionscript` | Prism ActionScript | `as`、`as3` |
 | AWK | `awk` | Prism AWK | `gawk` |
-| Batch (CMD) | `batch` | Prism Batch，Windows 命令脚本 | `bat`、`cmd`、`dos`、`windows batch` |
-| Django Template Language | `django` | Prism Django/Jinja2，含模板分词钩子 | `dtl`、`django-html` |
-| Easy Programming Language | `epl` | 易语言的本地基础词法规则 | `易语言`、`eyuyan`、`e-language` |
+| Batch (CMD) | `batch` | Prism Batch, Windows command script | `bat`、`cmd`、`dos`、`windows batch` |
+| Django Template Language | `django` | Prism Django/Jinja2, including template word segmentation hook | `dtl`、`django-html` |
+| Easy Programming Language | `epl` | Local basic lexical rules for E language | `易语言`、`eyuyan`、`e-language` |
 | Excel Formula | `excel-formula` | Prism Excel Formula | `excel`、`xlsx`、`xls`、`Excel 公式` |
-| GNU Octave | `octave` | 本地扩展 Prism MATLAB 规则 | `octave` |
-| Jinja | `jinja` | Prism Django/Jinja2，含模板分词钩子 | `jinja2`、`j2`、`jinja-html` |
-| Lean | `lean` | Shiki 的 Lean 4 TextMate 语法 | `lean4`、`lean 4` |
+| GNU Octave | `octave` | Local extension Prism MATLAB rules | `octave` |
+| Jinja | `jinja` | Prism Django/Jinja2, including template word segmentation hook | `jinja2`、`j2`、`jinja-html` |
+| Lean | `lean` | Shiki ofLean 4 TextMate Syntax | `lean4`、`lean 4` |
 | Regular Expression | `regex` | Prism Regex | `regexp`、`regular-expression`、`正则` |
-| sed | `sed` | language-sed TextMate 语法，经 Shiki 着色 | `gsed`、`gnu sed` |
-| SPARQL | `sparql` | Prism SPARQL，复用 Turtle 依赖 | `rq` |
-| SVG | `svg` | Prism Markup/XML；独立菜单项 | `scalable vector graphics` |
+| sed | `sed` | language-sed TextMate syntax, colored by Shiki | `gsed`、`gnu sed` |
+| SPARQL | `sparql` | Prism SPARQL, reuse Turtle dependencies | `rq` |
+| SVG | `svg` | Prism Markup/XML; independent menu item | `scalable vector graphics` |
 | Turtle | `turtle` | Prism Turtle | `ttl`、`rdf turtle` |
 | Vimscript | `vimscript` | Prism Vim | `vim`、`viml`、`vim script` |
-| Wenyan | `wenyan` | Shiki 的文言 TextMate 语法 | `wenyan-lang`、`wenyan lang`、`文言`、`文言文` |
-| Wikitext | `wikitext` | Prism Wiki markup，MediaWiki 风格 | `wiki`、`mediawiki`、`wiki markup` |
+| Wenyan | `wenyan` | Shiki classical ChineseTextMate Syntax | `wenyan-lang`、`wenyan lang`、`文言`、`文言文` |
+| Wikitext | `wikitext` | Prism Wiki markup, MediaWiki style | `wiki`、`mediawiki`、`wiki markup` |
 
-来源：
+Source:
 
-- [Prism 语言组件](https://prismjs.com/#supported-languages)。Jinja 与 Django 在菜单中是独立选项，目前共用上游的混合模板语法；不把二者的语法视为完全相同。[Jinja 文档](https://jinja.palletsprojects.com/en/stable/)、[Django Template Language 文档](https://docs.djangoproject.com/en/stable/ref/templates/language/)。
-- [Shiki 语言包](https://shiki.style/languages)提供 Lean 和 Wenyan 的现成 TextMate 语法；使用 [JavaScript 引擎同步 API](https://shiki.style/guide/sync-usage)，按需初始化对应语法，无运行时 CDN。[Lean 官方编辑器](https://github.com/leanprover/vscode-lean4)、[文言官方高亮项目](https://github.com/wenyan-lang/highlight)。文言官方项目也提供独立 Prism 组件。
-- sed 复用 [language-sed](https://github.com/Alhadis/language-sed)，固定上游提交、转换为 JSON，并保留 ISC 许可证；详见[语法来源与转换](../../src/editor/grammars/README.md)。
-- GNU Octave 的本地规则按官方[关键词](https://docs.octave.org/interpreter/Keywords.html)、[块注释](https://docs.octave.org/interpreter/Block-Comments.html)和[字符串](https://docs.octave.org/interpreter/Strings.html)说明补充 `#`／`%` 注释、成对独立行块注释、单双引号字符串、转置符、`endif`／`endfunction` 等关键字。属于词法高亮，不是完整 Octave 解析器。
+- [Prism language component ](https://prismjs.com/#supported-languages). Jinja and Django are independent options in the menu and currently share the upstream hybrid template syntax; their syntax is not considered identical. [ Jinja document ](https://jinja.palletsprojects.com/en/stable/), [ Django Template Language document ](https://docs.djangoproject.com/en/stable/ref/templates/language/).
+- [Shiki language pack](https://shiki.style/languages)ProvidedLean andWenyan The resultsTextMate The language of the language[JavaScript engine synchronization API](https://shiki.style/guide/sync-usage), corresponding syntax for on-demand initialization, no runtime CDN.[Lean official editor](https://github.com/leanprover/vscode-lean4)、[Classical Chinese Official Highlight Project](https://github.com/wenyan-lang/highlight). The official Wenyan project also provides independent Prism components.
+- sed reuses [ language-sed ](https://github.com/Alhadis/language-sed), fixes the upstream submission and conversion to JSON, and retains the ISC license; see [ syntax source and conversion ](../../src/editor/grammars/README.md) for details.
+- The local rules of GNU Octave follow the official [ keywords ](https://docs.octave.org/interpreter/Keywords.html), [ block comments ](https://docs.octave.org/interpreter/Block-Comments.html) and [ string ](https://docs.octave.org/interpreter/Strings.html) descriptions, supplemented by `#`/`%` comments, paired independent line block comments, single and double quotation mark strings, transpose characters, `endif`/`endfunction` and other keywords. It is lexical highlighting, not a complete Octave parser.
 
-## 脚本、模式与公式
+<a id="脚本模式与公式"></a>
 
-菜单并不限于通用编程语言：[sed](https://www.gnu.org/software/sed/manual/html_node/sed-Programs.html) 是文本处理脚本语言；Regular Expression 是描述匹配规则的领域专用语言；Excel Formula 是电子表格公式语言，[LAMBDA](https://www.microsoft.com/en-us/research/blog/lambda-the-ultimatae-excel-worksheet-function/) 还支持自定义函数。三者均提供源码着色，不执行脚本、匹配或计算。
+## Scripts, patterns and formulas
 
-EPL 在这里指易语言（Easy Programming Language），不指同缩写的事件处理语言。规则支持复制出的文本源码中的点指令、单引号注释、直／弯双引号字符串、函数调用、常量、数字和运算符；不读取二进制 `.e` 工程、不解析支持库签名，也不做语义校验。Vimscript 采用现有 Prism Vim 规则，不承诺完整覆盖 Vim9。Regex 各引擎的扩展语法和 Excel 本地化函数名不保证完整覆盖。
+The menu is not limited to general programming languages: [ sed ](https://www.gnu.org/software/sed/manual/html_node/sed-Programs.html) is a text processing script language; Regular Expression is a domain-specific language for describing matching rules; Excel Formula is a spreadsheet formula language, [ LAMBDA ](https://www.microsoft.com/en-us/research/blog/lambda-the-ultimatae-excel-worksheet-function/) also supports custom functions. All three provide source code shading and do not perform scripting, matching or calculations.
+
+EPL here refers to Easy Language (Easy Programming Language), not the event processing language with the same abbreviation. The rules support dot instructions, single quote comments, straight/curved double quote strings, function calls, constants, numbers and operators in the copied text source code; the binary `.e` project is not read, the support library signature is not parsed, and semantic verification is not performed. Vimscript adopts existing Prism Vim rules and does not promise to fully cover Vim9. The extended syntax of each Regex engine and Excel localized function names are not guaranteed to be fully covered.
 
 ## Wolfram Language
 
-语言显示名使用 **Wolfram Language**；Mathematica 是使用该语言的产品名称，参见 [Wolfram 官方语言介绍](https://www.wolfram.com/language/)。该项仍属于 Notion 对应分组，移到 W 的字母位置，不在 Custom 中重复添加。现有 `mathematica` 围栏 ID 保持兼容，`wolfram`、`wolfram-language`、`wl`、`nb` 均可识别和搜索。
+The language display name uses **Wolfram Language**; Mathematica is the product name using this language, see [ Wolfram official language introduction ](https://www.wolfram.com/language/). This item still belongs to the corresponding group of Notion, moved to the letter position of W, and will not be added repeatedly in Custom. The existing `mathematica` fence ID remains compatible, and `wolfram`, `wolfram-language`, `wl`, and `nb` can all be recognized and searched.
 
-## 边界与正文保护
+<a id="边界与正文保护"></a>
 
-- 104 个选项中，ASCII Art 和 Plain Text 有意保持原色，其余 102 项连接到语法；不承诺每种语言所有版本、扩展、方言与语义的完整识别。
-- Lean 以 Lean 4 为目标，不运行证明检查或语言服务器。Notion Formula 仅本地词法着色，不执行公式。
-- 两个引擎输出原文偏移，ProseMirror Decoration 负责着色。模板钩子恢复占位内容后验证原文；SVG、模板和代码不会作为可执行 HTML 注入。
-- 高亮异常、未知语言、超过 32,000 个 UTF-16 代码单元的块均保留可编辑纯文本。颜色采用 Notdown 本地色板，不宣称复刻 Notion 或各语言 IDE。
-- Mermaid 围栏在 Notdown 和官方 Notion 方言（v1/v2，包括导入页）中默认显示 Diagram 预览，嵌套块同样支持；**Edit source** 可编辑源码，渲染错误时保留源码并显示错误。关闭 diagrams 扩展后显示普通代码块，重新开启可恢复图表；不因显示预览改写原文或添加新的正文协议。官方 Notion 方言仅支持 Mermaid，不额外启用 sequence/flow 围栏。
+## Boundaries and body preservation
+
+- Of the 104 options, ASCII Art and Plain Text are intentionally left untouched, with the remaining 102 items connected to the syntax; complete recognition of all versions, extensions, dialects, and semantics of each language is not promised.
+- Lean targets Lean 4 and does not run proof checks or language servers. Notion Formula only local lexical coloring, no formula execution.
+- Both engines output text offsets, and ProseMirror Decoration is responsible for coloring. The template hook verifies the original text after restoring the placeholder content; SVG, template and code will not be injected as executable HTML.
+- Highlighted exceptions, unknown languages, and blocks with more than 32 and 000 UTF-16 code units remain editable plain text. The color adopts the Notdown local color palette and does not claim to be a replica of Notion or IDE in each language.
+- Mermaid The fence isNotdown and officialNotion The languagev1/v2，Including import page)Diagram The first is the preview, which is supported by the same nested blocks.**Edit source** The source code can be edited, and the source code will be retained and errors will be displayed when rendering errors occur. After turning off the diagrams extension, the normal code block is displayed, and reopening can restore the diagram; the original text will not be rewritten or a new text protocol will be added due to the display preview. The official Notion dialect only supports Mermaid and does not additionally enable sequence/flow fencing.

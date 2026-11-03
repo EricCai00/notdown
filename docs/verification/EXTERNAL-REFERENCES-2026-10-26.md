@@ -1,5 +1,7 @@
 # External references — 2026-10-26
 
+**English** · [简体中文](EXTERNAL-REFERENCES-2026-10-26.zh-CN.md)
+
 ## Scope
 
 - Added a vault-owned external entity registry in `metadata.json.externalEntities`, with Notion identities separated into pages, users, databases, data sources and block locations.

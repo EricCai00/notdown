@@ -1,58 +1,72 @@
-# HTML / Web embed 验证（2026-09-27）
+<a id="html--web-embed-验证2026-09-27"></a>
 
-范围为 Notdown 嵌入容器与操作，依据用户提供的六张 Notion 截图。前四张为 HTML，后两张为网页。嵌入网页的商标、图片和正文属于外部内容，不由容器复刻。使用现有 Notdown 字体、Lucide 图标、Markdown codec 和临时测试知识库。
+# HTML / Web embed validation (2026-09-27)
 
-## 视觉对照
+**English** · [简体中文](EMBED-DESIGN-QA-2026-09-27.zh-CN.md)
 
-- 来源：`C:/Users/Eric/AppData/Local/Temp/codex-clipboard-dd91a72e-bfbe-4da8-84cd-e3960c8b89b0.png`（1057×285，HTML 悬停）、`codex-clipboard-a965d0d2-8db0-4d29-b9fa-2578c0bb4fce.png`（1146×496，HTML 菜单）、`codex-clipboard-c5255006-8e1a-4e62-9e27-5846b15621be.png`（1435×481，网页悬停），均为该 Temp 目录中的用户附件。
-- 独立 Chrome，桌面 viewport 1440×1000，窄屏 390×844，deviceScaleFactor 1。预览 HTML 容器 708×261 CSS px，网页容器 708×433 CSS px；页面内容宽度遵循 Notdown，拖拽高度由正文属性决定。
-- 实现：`.run/logs/embed-preview-html-hover.png`、`embed-preview-html-active.png`、`embed-preview-web-hover.png`、`embed-preview-page.png`；自动化菜单截图为 `test-results/embed-html-menu.png`、`embed-web-menu.png`、`embed-mobile-menu.png`。
-- 并排比较：`.run/logs/embed-compare-html-hover.png`、`embed-compare-html-menu.png`、`embed-compare-web-hover.png`。以原始像素并排排列；菜单裁出编辑内容区域，不缩放源图。不同页面宽度/外部正文不用于像素一致性判断。容器与菜单在这些图中可读，不另做放大局部图。
+The scope is Notdown embedded containers and operations, based on six Notion screenshots provided by the user. The first four pictures are HTML, and the last two pictures are web pages. Trademarks, images and text embedded in web pages are external content and are not reproduced by the container. Use existing Notdown fonts, Lucide icons, Markdown codec and temporary test vault.
 
-### 发现与复查
+<a id="视觉对照"></a>
 
-1. 首轮 [P1] Interact 白字被编辑器的通用按钮颜色覆盖，对比度不足。提高局部选择器优先级后重新构建、截图；第二轮按钮白字清晰，并用浏览器断言验证 `rgb(255, 255, 255)`。
-2. 首轮网页截图停留在 iframe 中，未展示工具栏悬停状态。改为悬停工具栏，等待其 opacity 为 1 后重新截图；浮动按钮、两侧/底部/角落拖拽柄均清晰可见。
-3. 第二轮无容器范围内的 P0/P1/P2 未解决问题。HTML 有文件名、细边框、遮罩及黑色交互按钮；激活后可选中内容并使用表单；网页没有 HTML 文件标题或遮罩。说明位于框外下方，选中背景为淡蓝色。
+## visual contrast
 
-五项表面检查：字体沿用应用字体，菜单 16px、说明 14px；间距保持独立文件头、预览框与说明；颜色使用灰色控件、白色菜单、淡蓝选中及黑白 Interact；无需新增图像资产，外部网页自带图像保持 iframe 内容；按钮文案对应实际能力。菜单直接呈现全屏/打开和对齐选项，复用原有块手柄菜单提供源码、属性与类型转换。没有伪造 Notion 评论、建议修改、AI 或跨页移动入口。官方 Notion `<embed>` 不增加自定义布局，保留其原生 caption。
+- Source: `C:/Users/Eric/AppData/Local/Temp/codex-clipboard-dd91a72e-bfbe-4da8-84cd-e3960c8b89b0.png` (1057 × 285, HTML hover), `codex-clipboard-a965d0d2-8db0-4d29-b9fa-2578c0bb4fce.png` (1146 × 496, HTML menu), `codex-clipboard-c5255006-8e1a-4e62-9e27-5846b15621be.png` (1435 × 481, web page hover), are all user attachments in the Temp directory.
+- Independent Chrome, desktop viewport 1440 × 1000, narrow screen 390 × 844, deviceScaleFactor 1. Preview HTML container 708 × 261 CSS px, web page container 708 × 433 CSS px; page content width follows Notdown, and drag height is determined by the text attribute.
+- Implementation: `.run/logs/embed-preview-html-hover.png`, `embed-preview-html-active.png`, `embed-preview-web-hover.png`, `embed-preview-page.png`; screenshots of the automation menu are `test-results/embed-html-menu.png`, `embed-web-menu.png`, `embed-mobile-menu.png`.
+- Side-by-side comparison: `.run/logs/embed-compare-html-hover.png` , `embed-compare-html-menu.png` , `embed-compare-web-hover.png` . Arrange them side by side with original pixels; the menu crops out the editing content area and does not scale the source image. Different page widths/external text are not used for pixel consistency judgment. Containers and menus are readable in these images, and no enlarged details are required.
 
-## 功能与数据验证
+<a id="发现与复查"></a>
 
-- `npm test`：841 passed，5 skipped，0 failed（新增属性用例另行执行）。
-- `npx tsx --test tests/unit/embed.test.ts`：4 passed，覆盖说明转义、多行/中文、布局与未知属性、撤销、方言边界。
-- `npm run test:e2e -- tests/e2e/embeds.spec.ts`：构建成功，7 passed；后续增加下载检查后再次独立运行同组，7 passed。
-- 测试覆盖：上传/拖放/取消/失败/外部刷新竞态、脚本隔离、URL 校验、替换、说明实时保存、拖拽/键盘尺寸、取消拖拽、对齐、全屏、HTML 下载、搜索菜单、复制/删除/撤销、刷新恢复、窄屏边界、官方 caption 与 Typora 原编码。
-- 临时预览的独立 Chrome 检查：`pageerror` 数量 0。预览使用临时知识库，不写用户 `vault/`。
-- 扩展回归：嵌入、选择菜单、方言边界合计 15 passed / 2 failed。失败分别为 `notdown-boundary.spec.ts:17` 找不到表格 Merge right 按钮、`selection-menu.spec.ts:244` 找不到窄屏 Text and background color 按钮；两份失败用例不含 embed。未改动相关表格/文字选择实现。详情保留于 `.run/logs/embed-final-e2e.log`，不宣称整个浏览器测试套件通过。
+### Discovery and review
 
-## 实现清单
+1. First round [ P1 ] Interact The white text is covered by the editor's general button color, and the contrast is insufficient. Improve the priority of the local selector and rebuild and take screenshots; the second round of buttons has clear white text, and uses browser assertions to verify `rgb(255, 255, 255)`.
+2. The first round of web page screenshots stayed in iframe and did not show the toolbar hover state. Change to hovering the toolbar and wait for its opacity to be 1 before taking a screenshot again; the floating buttons and the side/bottom/corner drag handles are all clearly visible.
+3. Second round of P0/P1/P2 unresolved issues without container scope. HTML has a file name, thin border, mask, and black interaction buttons; when activated, you can select content and use forms; the web page has no HTML file title or mask. The description is located below the outside of the box, and the selected background is light blue.
 
-- [x] HTML / 网页视图分离及实际交互。
-- [x] 布局、说明进入 PM 事务与现有 CAS 保存路径。
-- [x] 原载体、未知字段和方言边界保留。
-- [x] 定向浏览器验证、原始截图与复查记录。
-- [x] 中英文 README 和 FORMAT 边界更新。
+Five surface checks: fonts should be used as application fonts, menu 16px, description 14px; spacing should be maintained as separate file headers, preview boxes and descriptions; colors should be gray controls, white menus, light blue selections and black and white Interact; there is no need to add new image assets, external web pages have built-in images to maintain iframe content; button copy should correspond to actual capabilities. The menu directly presents full screen/open and alignment options, and reuses the original block handle menu to provide source code, attributes and type conversion. No fake Notion comments, suggested changes, AI or cross-page mobile entries. Official Notion `<embed>` does not add custom layout and retains its native caption.
 
-## 用户反馈后的修订：独立入口、菜单差异与居中缩放
+<a id="功能与数据验证"></a>
 
-本节覆盖前面的首轮结论。首轮遗漏了两个实际问题：HTML 与 Web 共用插入入口；通用 `.pm-document > * { margin: 0 }` 覆盖默认居中的自动边距，导致缩窄后偏左。不能用此前只检查属性值的结果代替实际位置验证。
+## Function and data validation
 
-- [P1，已修复] 插入菜单同时提供 HTML embed 与 Web embed，使用不同图标、搜索词、空态与表单。HTML 新建复用原生 `<embed>`，只上传/替换 HTML 文件；Web 只接受网址。旧 HTML `web-embed` 文件仍按原载体保存。空 HTML 块保存、重载、撤销后也不会变成 Web 插入表单。
-- [P1，已修复] HTML 顶栏只保留全屏与更多；菜单提供 Turn into → File、下载、Align 子菜单，以及 More options → Full screen / Open in browser。Web 悬浮栏提供对齐、说明、打开和更多，菜单直接列出全屏/打开/原始链接，不出现 HTML 文件操作。HTML 仅有底部/角落拖拽柄；Web 另有两侧拖拽柄。
-- [P1，已修复] 提高居中/左右对齐规则的选择器优先级，缩放按父容器内容宽度计算。浏览器验证直接读取 boundingClientRect：HTML 与 Web 的中心点在拖拽中、松手后、保存重载后均与父容器中心相差小于 1px；分栏内键盘缩放也保持中心不变。
-- [P1，已修复] 子菜单初版先 hover 再 click 时触发原生 auto popover 的自动关闭。子菜单改为 manual，由父菜单统一关闭；重新测试鼠标、Escape、文件转换及撤销均通过。
+- `npm test`: 841 passed, 5 skipped, 0 failed (new attribute use cases will be executed separately).
+- `npx tsx --test tests/unit/embed.test.ts`: 4 passed, covering description escaping, multiline/Chinese, layout and unknown attributes, undoing, and dialect boundaries.
+- `npm run test:e2e -- tests/e2e/embeds.spec.ts`: The build is successful, 7 passed; after adding the download check, run the same group independently again, 7 passed.
+- Test coverage: upload/drag/drop/cancel/failure/external refresh race, script isolation, URL verification, replacement, description real-time saving, drag/keyboard size, cancel drag, alignment, full screen, HTML download, search menu, copy/delete/undo, refresh recovery, narrow screen border, official caption and Typora original coding.
+- Temporary preview of independent Chrome checks: `pageerror` number 0 . The preview uses a temporary vault and does not write user `vault/`.
+- Extended regression: embedding, selection menu, dialect boundary total 15 passed / 2 failed. The failures were that `notdown-boundary.spec.ts:17` could not find the table Merge right button, and `selection-menu.spec.ts:244` could not find the narrow screen Text and background color button; the two failed use cases did not contain embed. The related table/text selection implementation has not been changed. Details are reserved to `.run/logs/embed-final-e2e.log` and no claims are made that the entire browser test suite passes.
 
-最新截图：`test-results/embed-distinct-insertions.png`、`embed-html-menu.png`、`embed-web-menu.png`、`embed-html-centered.png`、`embed-web-centered.png`；桌面 1440×1000，密度 1。最新预览截图仍在 `.run/logs/embed-preview-*.png`，HTML 为 566.39×261 CSS px，Web 为 637.19×413 CSS px（80%/90% 居中宽度）。同源参考图与最新实现重新生成并排图 `.run/logs/embed-compare-*.png` 并检查：文件头、灰色交互遮罩、工具栏、菜单层级、边角拖拽柄及框外说明均与对应类型的参考一致。应用字体、不同宽度及测试 iframe 正文为明确的产品/样本差异。未实现的 Notion 评论与 AI 功能不显示虚假按钮。
+<a id="实现清单"></a>
 
-最新验证：
+## Implementation Checklist
 
-- `npm test`：846 passed，5 skipped，0 failed，日志 `.run/logs/embed-split-unit.log`。
-- 最后标签与菜单修订后的定向单元测试：14 passed，日志 `.run/logs/embed-split-final-unit.log`。
-- `npm run build -- --outDir .run/embed-frontend`：通过，日志 `.run/logs/embed-split-final-build.log`。
-- 独立端口 4347、独立构建运行 `playwright test tests/e2e/embeds.spec.ts`：10 passed，日志 `.run/logs/embed-split-final-e2e.log`。原 `npm run test:e2e` 的默认端口与仓库另一组测试冲突，因此本轮最终浏览器运行隔离端口和产物。
-- 预览使用独立临时知识库；独立 Chrome 检查 `pageErrors: []`。未操作用户知识库。
+- [x] HTML / Web page view separation and actual interaction.
+- [x] Layout, description into PM transaction and existing CAS save path.
+- [x] The original carrier, unknown fields and dialect boundaries are preserved.
+- [x] Directed browser verification, original screenshots and review records.
+- [x] Chinese and English README and FORMAT boundaries updated.
 
-修订后无本次范围内未解决的 P0/P1/P2。
+<a id="用户反馈后的修订独立入口菜单差异与居中缩放"></a>
+
+## Revisions after user feedback: independent entrance, menu differences and centered scaling
+
+This section covers the previous first-round conclusions. Two practical issues were missed in the first round: HTML and Web share the insertion entrance; the universal `.pm-document > * { margin: 0 }` overrides the default centered automatic margin, causing the narrowed back to the left. The results of a previous check of only attribute values ​​cannot be used in place of actual location verification.
+
+- [ P1 , fixed] Insert menu offers both HTML embed and Web embed, using different icons, search terms, empty states and forms. HTML newly reuses native `<embed>` and only uploads/replaces HTML files; Web only accepts URLs. Old HTML `web-embed` files are still saved in the original carrier. An empty HTML block will not become a Web insertion form after being saved, reloaded, or canceled.
+- [P1, fixed] HTML top bar only retains full screen and more; menu provides Turn into → File, Download, Align submenus, and More options → Full screen / Open in browser. The Web floating bar provides alignment, description, opening and more, and the menu directly lists full screen/open/original links without HTML file operations. HTML only has bottom/corner drag handles; Web also has two side drag handles.
+- [P1, fixed] Increase selector priority for center/left alignment rules, scaling is calculated based on parent container content width. The browser verifies that boundingClientRect is read directly: the center points of HTML and Web are less than 1px from the center of the parent container during dragging, after letting go, and after saving and reloading; the keyboard zoom in the column also keeps the center unchanged.
+- [P1，Repaired] First edition of the sub-menuhover I'm going to go again.click When triggered by the nativesauto popover The sub-menu is changed tomanual，The parent menu is united; the mouse is retested;Escape、The transfers and withdrawals were approved.
+
+The latest screenshots: `test-results/embed-distinct-insertions.png`, `embed-html-menu.png`, `embed-web-menu.png`, `embed-html-centered.png`, `embed-web-centered.png`; desktop 1440 × 1000, density 1. The latest preview screenshot is still `.run/logs/embed-preview-*.png`, HTML is 566.39 × 261 CSS px, and Web is 637.19 × 413 CSS px (80%/90% centered width). Regenerate the side-by-side diagram `.run/logs/embed-compare-*.png` from the same source reference diagram and the latest implementation and check that: the file header, gray interactive mask, toolbar, menu level, corner drag handle and outer description are consistent with the reference of the corresponding type. Apply fonts, different widths and test iframe text for clear product/sample differences. Unimplemented Notion comments and AI functionality do not display fake buttons.
+
+Latest verification:
+
+- `npm test`: 846 passed, 5 skipped, 0 failed, log `.run/logs/embed-split-unit.log`.
+- Last revised directional unit tests for labels and menus: 14 passed, log `.run/logs/embed-split-final-unit.log`.
+- `npm run build -- --outDir .run/embed-frontend`: Passed, log `.run/logs/embed-split-final-build.log`.
+- Independent port 4347, independent build and run `playwright test tests/e2e/embeds.spec.ts`:10 passed, log `.run/logs/embed-split-final-e2e.log`. The default port of the original `npm run test:e2e` conflicts with another set of tests in the repository, so the final browser run of this round isolates the port and product.
+- Preview uses a standalone temporary vault; standalone Chrome checks `pageErrors: []` . The user vault is not operated.
+
+After the revision, there are no P0/P1/P2 unresolved within this scope.
 
 final result: passed

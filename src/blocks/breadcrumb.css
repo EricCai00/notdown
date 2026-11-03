@@ -7,7 +7,10 @@
 .pm-breadcrumb a.pm-breadcrumb-page:hover{background:rgba(55,53,47,.06)}
 .pm-breadcrumb a.pm-breadcrumb-page:focus-visible{outline:2px solid #337c68;outline-offset:1px;background:rgba(55,53,47,.06)}
 .pm-breadcrumb .pm-breadcrumb-separator{flex:none;margin:0 2px;color:rgba(55,53,47,.5);font-size:.9em;user-select:none}
-.pm-breadcrumb .page-link-icon{flex:none;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-size:16px;color:inherit}
+.pm-breadcrumb .pm-breadcrumb-icon{flex:none;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.pm-breadcrumb .pm-breadcrumb-icon > .page-link-icon{flex:none;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-size:16px;color:inherit}
+/* Emoji advances can exceed 1em; center their natural width inside the slot. */
+.pm-breadcrumb .pm-breadcrumb-icon > .page-link-icon.emoji{width:auto;height:auto;font-size:14px}
 .pm-breadcrumb .pm-breadcrumb-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pm-breadcrumb .pm-breadcrumb-empty{color:#787774!important}
 .pm-breadcrumb .pm-breadcrumb-empty{display:inline-block;padding:2px 6px}

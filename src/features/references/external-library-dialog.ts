@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import { api, escape as e, type Page } from "../../shared/types";
 import type { Person } from "../people/person";
 import { externalLibrary, refreshExternalEntities, setExternalLibrary } from "./external-client";
@@ -12,8 +13,8 @@ export async function openExternalLibrary(options: { onOpenReference: (origin: R
   if (document.querySelector(".external-library-dialog")) return;
   const dialog = document.createElement("dialog");
   dialog.className = "external-library-dialog";
-  dialog.setAttribute("aria-label", "External references");
-  dialog.innerHTML = '<header><h2>External references</h2><button type="button" aria-label="Close external references">×</button></header><p>Unresolved internal references are shown by default. Ordinary web URLs do not need resolving. Later imports can connect matching source IDs; names alone do not establish a match.</p><input type="search" aria-label="Search external references" placeholder="Search names, types or source IDs"><label class="external-library-filter"><input type="checkbox" aria-label="Include resolved references"> Include resolved references</label><output role="status">Loading…</output><div class="external-library-list"></div>';
+  setUIAttribute(dialog, "aria-label", "External references");
+  dialog.innerHTML = `<header><h2 data-i18n="External references">External references</h2><button type="button" aria-label="Close external references" data-i18n-aria-label="Close external references">×</button></header><p data-i18n="Unresolved internal references are shown by default. Ordinary web URLs do not need resolving. Later imports can connect matching source IDs; names alone do not establish a match.">Unresolved internal references are shown by default. Ordinary web URLs do not need resolving. Later imports can connect matching source IDs; names alone do not establish a match.</p><input type="search" aria-label="Search external references" placeholder="Search names, types or source IDs" data-i18n-placeholder="Search names, types or source IDs" data-i18n-aria-label="Search external references"><label class="external-library-filter"><input type="checkbox" aria-label="Include resolved references" data-i18n-aria-label="Include resolved references"> <span data-i18n="Include resolved references">Include resolved references</span></label><output role="status" data-i18n="Loading…">Loading…</output><div class="external-library-list"></div>`;
   document.body.append(dialog); dialog.showModal();
   dialog.querySelector("button")!.onclick = () => dialog.close();
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
@@ -38,21 +39,21 @@ export async function openExternalLibrary(options: { onOpenReference: (origin: R
       const matches = (text: string) => text.toLowerCase().includes(search.value.toLowerCase());
       for (const entity of snapshot.entities.filter(entity => entity.references.length && (includeResolved.checked || entity.status !== "resolved") && matches(`${entity.label ?? ""} ${entity.id} ${entity.kind} ${unknownEntityLabel(entity.kind)}`))) {
         const row = document.createElement("div"); row.className = "external-library-row";
-        row.innerHTML = `<strong>${e(entity.status === "resolved" ? entity.label || unknownEntityLabel(entity.kind) : unknownEntityLabel(entity.kind))} · ${entity.status === "resolved" ? "Linked" : entity.status === "ambiguous" ? "Multiple matches" : "Unresolved"}</strong><small>${e(entity.label || "")} · Notion ${e(entity.kind)} · ${e(entity.id)}<br>${entity.references.length} reference locations · ${entity.importIds.length} import batches</small>`;
+        row.innerHTML = `<strong>${e(entity.status === "resolved" ? entity.label || unknownEntityLabel(entity.kind) : unknownEntityLabel(entity.kind))} · ${entity.status === "resolved" ? "Linked" : entity.status === "ambiguous" ? "Multiple matches" : "Unresolved"}</strong><small>${e(entity.label || "")} · Notion ${e(entity.kind)} · ${e(entity.id)}<br>${entity.references.length} <span data-i18n="reference locations ·">reference locations ·</span> ${entity.importIds.length} <span data-i18n="import batches">import batches</span></small>`;
         origins(row, entity.references.map(ref => ({ ...ref, key: entity.key })));
         if (["page", "database", "user"].includes(entity.kind)) {
-          const label = document.createElement("label"); label.textContent = "Local target ";
+          const label = document.createElement("label"); setUIText(label, "Local target ");
           const select = document.createElement("select"); select.setAttribute("aria-label", `Local target for ${entity.id}`);
-          select.innerHTML = '<option value="">Match source ID automatically</option>';
+          select.innerHTML = `<option value="" data-i18n="Match source ID automatically">Match source ID automatically</option>`;
           const candidates = entity.kind === "user" ? people.map(person => ({ id: person.id, title: person.name })) : pages.filter(page => entity.kind !== "database" || page.databaseId);
           for (const candidate of candidates) { const option = document.createElement("option"); option.value = candidate.id; option.textContent = `${candidate.title} · ${candidate.id.slice(0, 8)}`; select.append(option); }
           select.value = entity.localId || "";
-          const save = document.createElement("button"); save.type = "button"; save.textContent = "Save link";
+          const save = document.createElement("button"); save.type = "button"; setUIText(save, "Save link");
           save.onclick = async () => {
             dialog.querySelectorAll<HTMLButtonElement | HTMLSelectElement>("button,select").forEach(element => { element.disabled = true; });
             try {
               snapshot = await api<ExternalLibrary>("/external-entities/binding", { method: "PUT", body: JSON.stringify({ key: entity.key, localId: select.value || null, baseRevision: snapshot.revision }) });
-              setExternalLibrary(snapshot); status.textContent = "Link saved. Original note content was preserved."; render();
+              setExternalLibrary(snapshot); setUIText(status, "Link saved. Original note content was preserved."); render();
             } catch (error) { status.textContent = error instanceof Error ? error.message : String(error); }
             finally { dialog.querySelectorAll<HTMLButtonElement | HTMLSelectElement>("button,select").forEach(element => { element.disabled = false; }); }
           };
@@ -62,10 +63,10 @@ export async function openExternalLibrary(options: { onOpenReference: (origin: R
       }
       for (const entry of local.entries.filter(entry => (includeResolved.checked || entry.status !== "resolved") && matches(`${entry.label} ${entry.target} Internal link`))) {
         const row = document.createElement("div"); row.className = "external-library-row";
-        row.innerHTML = `<strong>${e(entry.label)} · ${entry.status === "resolved" ? "Linked" : "Unresolved"}</strong><small>Internal link · ${e(entry.target)}<br>${entry.references.length} reference locations</small>`;
+        row.innerHTML = `<strong>${e(entry.label)} · ${entry.status === "resolved" ? "Linked" : "Unresolved"}</strong><small><span data-i18n="Internal link ·">Internal link ·</span> ${e(entry.target)}<br>${entry.references.length} <span data-i18n="reference locations">reference locations</span></small>`;
         origins(row, entry.references); list.append(row);
       }
-      if (!list.childElementCount) list.textContent = "No matching external references.";
+      if (!list.childElementCount) setUIText(list, "No matching external references.");
     };
     search.oninput = render;
     includeResolved.onchange = render;

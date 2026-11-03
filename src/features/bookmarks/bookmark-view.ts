@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { closeHistory } from "prosemirror-history";
@@ -134,10 +135,10 @@ export class BookmarkView implements NodeView {
     if (!this.view.editable || this.dialog) return;
     const dialog = this.dialog = el("div", "pm-bookmark-popover");
     this.original = this.node;
-    dialog.popover = "auto"; dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-label", "Web bookmark");
+    dialog.popover = "auto"; dialog.setAttribute("role", "dialog"); setUIAttribute(dialog, "aria-label", "Web bookmark");
     const form = el("form", ""), input = el("input", ""), submit = el("button", "");
     input.type = "text"; input.inputMode = "url"; input.setAttribute("autocomplete", "url");
-    input.placeholder = "Paste in https://…"; input.setAttribute("aria-label", "Bookmark URL");
+    input.placeholder = "Paste in https://…"; setUIAttribute(input, "aria-label", "Bookmark URL");
     input.value = this.node.attrs.url; input.autofocus = true;
     submit.type = "submit"; submit.textContent = input.value ? "Update bookmark" : "Create bookmark";
     const output = el("output", "pm-bookmark-error"); output.setAttribute("aria-live", "polite");
@@ -146,8 +147,8 @@ export class BookmarkView implements NodeView {
     form.append(input, submit, el("p", "", "Create a visual bookmark from a link."), output);
     form.onsubmit = event => {
       event.preventDefault();
-      if (!bookmarkUrl(input.value)) { output.textContent = "Enter a valid http:// or https:// URL."; input.setAttribute("aria-invalid", "true"); input.focus(); return; }
-      submit.disabled = true; input.disabled = true; submit.textContent = "Creating bookmark…";
+      if (!bookmarkUrl(input.value)) { setUIText(output, "Enter a valid http:// or https:// URL."); input.setAttribute("aria-invalid", "true"); input.focus(); return; }
+      submit.disabled = true; input.disabled = true; setUIText(submit, "Creating bookmark…");
       void this.resolve(input.value.trim(), output);
     };
     dialog.append(form); document.body.append(dialog);
@@ -177,7 +178,7 @@ export class BookmarkView implements NodeView {
     this.loading = false;
     const pos = this.getPos();
     if (!this.view.editable || pos === undefined || !this.view.state.doc.nodeAt(pos)?.eq(original)) {
-      if (output) output.textContent = "This bookmark changed. Close and reopen it to try again.";
+      if (output) setUIText(output, "This bookmark changed. Close and reopen it to try again.");
       this.render(); return;
     }
     const changedUrl = bookmarkUrl(original.attrs.url) !== bookmarkUrl(url);

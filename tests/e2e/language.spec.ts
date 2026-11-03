@@ -1,0 +1,98 @@
+import { test, expect } from "@playwright/test";
+
+test("language switches live without replacing editor content or settings drafts", async ({ page }) => {
+  const created = await page.request.post("/api/pages", { data: {
+    title: "Search", body: "Search\n\nSettings\n\n```text\nWorkspace settings\n```\n",
+  } });
+  expect(created.ok()).toBeTruthy();
+  const note = await created.json();
+  await page.goto(`/#page/${note.id}`);
+  await expect(page.locator(".ProseMirror").first()).toContainText("Workspace settings");
+  const content = await page.locator(".ProseMirror").first().textContent();
+  const before = await page.request.get(`/api/pages/${note.id}`).then(r => r.json());
+  await page.locator('#sidebar [data-action="settings"]').click();
+  const dialog = page.locator(".workspace-settings-dialog");
+  await dialog.getByRole("button", { name: "Connections", exact: true }).click();
+  const model = dialog.locator('input[name="model"]');
+  await expect(model).toBeEnabled();
+  await model.fill("Search draft 中文");
+  await dialog.getByRole("button", { name: "Workspace", exact: true }).click();
+  await dialog.getByRole("combobox", { name: "Interface language", exact: true }).selectOption("zh-CN");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await expect(dialog).toHaveAttribute("aria-label", "工作区设置");
+  await expect(dialog.locator(".settings-navigation button")).toHaveText(["工作区", "外观", "编辑", "同步与历史", "连接", "高级"]);
+  await expect(dialog.getByRole("combobox", { name: "界面语言", exact: true })).toHaveValue("zh-CN");
+  await dialog.getByRole("button", { name: "连接", exact: true }).click();
+  await expect(model).toHaveValue("Search draft 中文");
+  await dialog.getByRole("button", { name: "编辑", exact: true }).click();
+  await expect(dialog.getByRole("combobox", { name: "代码块输入方式", exact: true })).toHaveValue("notion");
+  await dialog.getByRole("button", { name: "工作区", exact: true }).click();
+  await page.screenshot({ path: ".run/logs/language-settings-zh-CN.png" });
+  await dialog.getByRole("button", { name: "完成", exact: true }).click();
+  await expect(page.locator('#sidebar [data-action="settings"]')).toContainText("工作区设置");
+  await expect(page.locator("#page-title")).toHaveValue("Search");
+  expect(await page.locator(".ProseMirror").first().textContent()).toBe(content);
+  const after = await page.request.get(`/api/pages/${note.id}`).then(r => r.json());
+  expect(after.body).toBe(before.body);
+  expect(after.revision).toBe(before.revision);
+  await page.locator(`[data-page-row="${note.id}"]`).hover();
+  await page.locator(`[data-page-menu="${note.id}"]`).click();
+  await expect(page.getByRole("menuitem", { name: "重命名", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await page.locator('#sidebar [data-action="settings"]').click();
+  await dialog.getByRole("combobox", { name: "界面语言", exact: true }).selectOption("en");
+  await expect(dialog).toHaveAttribute("aria-label", "Workspace settings");
+  await expect(dialog.getByRole("combobox", { name: "Code block input", exact: true })).toHaveCount(1);
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.locator("#page-title")).toHaveValue("Search");
+});
+
+test("English is the default in a Chinese browser and saved choices update other windows", async ({ browser }) => {
+  const context = await browser.newContext({ locale: "zh-CN", viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.locator('[data-action="sidebar"]').click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator('#sidebar [data-action="settings"]')).toContainText("Workspace settings");
+  await page.locator('#sidebar [data-action="settings"]').click();
+  const language = page.locator('select[name="ui-language"]');
+  await expect(language).toBeInViewport();
+  await expect(language).toHaveValue("en");
+  await language.selectOption("zh-CN");
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  expect(await page.locator(".settings-body").evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: ".run/logs/language-settings-zh-CN-narrow.png" });
+  const other = await context.newPage();
+  await other.goto("/");
+  await other.evaluate(() => localStorage.setItem("notdown-ui-language", "en"));
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(language).toHaveValue("en");
+  await context.close();
+});
+
+test("Chinese database menus keep user names and filter values unchanged", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("notdown-ui-language", "zh-CN"));
+  const response = await page.request.post("/api/databases", { data: { title: "Search" } });
+  expect(response.ok()).toBeTruthy();
+  const snapshot = await response.json();
+  await page.goto(`/#database/${snapshot.database.id}`);
+  await expect(page.locator(".database-title-input")).toHaveValue("Search");
+  await expect(page.locator(".database-view-tabs [data-db-tab]").first()).toContainText(snapshot.views[0].name);
+  await page.locator("[data-db-view]").click();
+  const view = page.getByRole("dialog", { name: "视图设置", exact: true });
+  await expect(view).toBeVisible();
+  await view.locator('[data-i18n-aria-label="Source"]').click();
+  const source = page.locator(".database-popover").last();
+  await expect(source.getByRole("button", { name: "Search", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await view.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(view).toHaveCount(0);
+  await page.locator("[data-db-filter]").click();
+  await page.getByRole("combobox", { name: "筛选属性", exact: true }).selectOption(snapshot.dataSources[0].properties[0].id);
+  const operator = page.getByRole("combobox", { name: "筛选运算符", exact: true });
+  await expect(operator.locator('option[value="contains"]')).toHaveText("包含");
+  await operator.selectOption("equals");
+  await expect(operator).toHaveValue("equals");
+});

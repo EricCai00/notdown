@@ -1,40 +1,52 @@
-# 日期与提醒显示修正（2026-10-26）
+<a id="日期与提醒显示修正2026-10-26"></a>
 
-## 范围与依据
+# Date and reminder display corrections (2026-10-26)
 
-修正正文及会议标题的日期显示：统一 `@`、相对日期、12/24 小时制、静止无底色、普通日期灰色、提醒末尾闹钟。官方独立日期时间字段不再走通用灰底文本回退；时区放在详情中。日期比较使用声明时区的当天，覆盖午夜、跨年和夏令时。
+**English** · [简体中文](DATE-PRESENTATION-2026-10-26.zh-CN.md)
 
-用户提供的 Notion 截图显示 `@Last Friday` 与红色 `@Last Saturday 9:00 AM`。普通日期灰色与过期提醒红色采用该截图的文字颜色。根据 [Notion 官方提醒说明](https://www.notion.com/help/reminders)，未来提醒为蓝色，Today 或已过期提醒变红；普通日期不因过去而变红。相对格式的星期标签覆盖前后 2–6 天，其余回退完整日期；该边界是当前实现规则，未逐日实测 Notion 全部边界。
+<a id="范围与依据"></a>
 
-## 数据与能力边界
+## Scope and basis
 
-- Notion Enhanced Markdown 返回具体日期及独立时间、时区，不把 `Today` 等显示文字作为日期真相。此次实际页面读取的带时间日期未返回 reminder 字段；不能凭时间推断提醒。
-- 官方方言不激活本地提醒或写入格式扩展。初轮将独立时间字段设为只读；下述补修已开放原生日期、时间和时区编辑，并使格式仅在官方节点视图会话生效。编辑保留未知属性和原日期载体。
-- 原文未编辑时字节不变；不批量迁移用户文件，不修改真实知识库。
-- 本地提醒服务仍依赖应用运行；本次不恢复 Notion 的云端提醒服务。
+Corrected the date display of the text and meeting title: unified `@`, relative date, 12/24 hour format, static without background color, ordinary date gray, alarm at the end of reminder. The official independent date and time fields no longer fall back to the general gray background text; the time zone is placed in the details. Date comparisons use the current day of the declared time zone, covering midnight, New Year's Eve, and daylight saving time.
 
-## 验证
+The screenshot of Notion provided by the user shows `@Last Friday` with `@Last Saturday 9:00 AM` in red. The normal date gray and the expiration reminder red use the text color of the screenshot. According to [ Notion official reminder instructions ](https://www.notion.com/help/reminders), future reminders are blue, Today or expired reminders turn red; ordinary dates do not turn red because of the past. The relative format of the week label covers 2 – 6 days before and after, and the rest fall back to the complete date; this boundary is the current implementation rule, and all Notion boundaries have not been measured on a daily basis.
 
-- `npm test`：1,076 项，1,071 通过、5 跳过、0 失败。
-- `npm run test:e2e -- tests/e2e/date.spec.ts tests/e2e/meeting-date.spec.ts tests/e2e/meeting-notes.spec.ts tests/e2e/notion-v2-import.spec.ts tests/e2e/inline-context-menu.spec.ts`：类型检查、生产构建及 26 项 Chrome 测试通过。使用独立临时知识库，无用户浏览器连接；未执行全量浏览器套件。
-- 新增覆盖两种方言的 v2 日期、`@`、独立时间和时区、源码原文保留、日期编辑和保存重载，以及普通／未来提醒／Today 提醒／过期提醒的颜色与闹钟顺序。
-- 最终补充提醒值校验，沿用本地提醒服务的 ISO 时间门槛，避免 `5` 等可被 JavaScript 宽松解析的未知值误显为有效提醒；日期和方言边界单测 12 项通过，日志 `.run/logs/date-presentation-boundary.log`。
-- 已查看浏览器截图：`test-results/browser/date-Notion-date-presentat-fcc1c-while-plain-dates-stay-gray/date-reminder-states.png`；导入日期截图位于同级对应 `imported-dates.png`。
-- 日志：`.run/logs/date-presentation-unit.log`、`.run/logs/date-presentation-browser.log`；桌面构建记录在 `.run/logs/date-presentation-desktop-final.log`。
+<a id="数据与能力边界"></a>
 
-桌面安装包单独输出至 `.run/date-presentation-release/`，不覆盖原 `.run/desktop-release/` 产物；当前运行的已安装应用未被关闭或替换。
+## Data and capability boundaries
 
-## 补修：原提醒恢复与完整菜单
+- Notion Enhanced Markdown returns the specific date, independent time and time zone, and does not treat the displayed text such as `Today` as the actual date. The actual page read with time and date did not return the reminder field; the reminder cannot be inferred based on time.
+- Official dialects do not activate local reminders or write format extensions. The initial round will make the independent time field read-only; the following patch has enabled native date, time and time zone editing, and made the format only effective in the official node view session. Edited to retain unknown attributes and original date vector.
+- When the original text is not edited, the bytes remain unchanged; user files are not migrated in batches, and the real vault is not modified.
+- The local reminder service still relies on the application to run; the cloud reminder service of Notion will not be restored this time.
 
-用户进一步指出该项原本为 reminder。只读查看 Notion 原页面，确认日期为 2026-10-24 09:00、Timezone 为 PDT，Remind 为 **On day of event**；没有修改远端内容。将用户确认的这一条本地导入记录补回 `reminder="2026-10-24T16:00:00.000Z"` 和 `reminder-offset="0"`。通过 `createVault.update` 与读取时的 `baseRevision` 写入，保留未知属性与其他全部正文；修改前另存 `.run/date-reminder-repair/Blocks-before.md`，并有知识库历史快照。日志 `.run/logs/date-reminder-repair.log` 仅记录 revision 和提醒时间，不含正文。重新加载当前已保存窗口后确认已读到提醒字段。这是针对已核实记录的恢复，不是按“有时间”批量推断。
+<a id="验证"></a>
 
-Notdown 日期不再因含 `startTime` / `endTime` / `timeZone` 而限制菜单。补齐 10 分钟前、2 小时前选项，日期范围、Include time、Date format、Time format、Timezone、Remind 都可操作。IANA 时区通过目标日期解析夏令时，拒绝不存在的当地时间；日期、时间和时区修改会重新计算相对提醒。独立日期字段仍以独立字段保存。官方方言也可编辑原生时间／时区，显示格式仅在节点会话生效，不写入本地扩展。
+## Validation
 
-导入预览对真实日期标签明确警告公开 Markdown API 不提供提醒配置；代码围栏中的日期示例不触发警告，不自动补造提醒。
+- `npm test`: 1, 076 items, 1, 071 pass, 5 skip, 0 fail.
+- `npm run test:e2e -- tests/e2e/date.spec.ts tests/e2e/meeting-date.spec.ts tests/e2e/meeting-notes.spec.ts tests/e2e/notion-v2-import.spec.ts tests/e2e/inline-context-menu.spec.ts`: Type check, production build, and 26 Chrome tests passed. An independent temporary vault is used, without user browser connection; the full browser suite is not implemented.
+- Added v2 date, `@`, independent time and time zone covering two dialects, source code original text retention, date editing and saving overloading, as well as the color and alarm sequence of normal/future reminder/Today reminder/expired reminder.
+- Finally, the reminder value verification is added, and the ISO time threshold of the local reminder service is used to prevent unknown values such as `5` that can be loosely parsed by JavaScript from being mistakenly displayed as valid reminders; the date and dialect boundary single test 12 items are passed, and the log is `.run/logs/date-presentation-boundary.log`.
+- Viewed browser screenshot: `test-results/browser/date-Notion-date-presentat-fcc1c-while-plain-dates-stay-gray/date-reminder-states.png`; the imported date screenshot is located at the same level corresponding to `imported-dates.png`.
+- Logs: `.run/logs/date-presentation-unit.log`, `.run/logs/date-presentation-browser.log`; desktop builds are logged in `.run/logs/date-presentation-desktop-final.log`.
 
-补修验证：
+The desktop installation package is output to `.run/date-presentation-release/` separately and does not overwrite the original `.run/desktop-release/` product; the currently running installed application is not closed or replaced.
 
-- 全量 `npm test`：1,078 项，1,073 通过、5 跳过、0 失败，日志 `.run/logs/imported-reminder-unit.log`。
-- 类型检查与生产构建通过。28 项相关 Chrome 回归初轮 27 通过、1 项测试选择器因同时匹配 End date 输入和开关失败；改用 textbox 角色后，完整日期文件 10 项复验通过，其余 18 项已在初轮通过。日志 `.run/logs/imported-reminder-browser.log` 和 `.run/logs/imported-reminder-browser-final.log`；未运行全量浏览器套件。
-- 浏览器覆盖独立字段设置提醒、时间／IANA 时区修改、跨夏令时提醒重算、范围／时间开关、移除提醒、保存重载、未知属性保留，以及官方格式不落盘。已查看截图 `test-results/browser/date-Notion-date-presentat-9bd1a-eminders-in-their-IANA-zone/complete-imported-date-menu.png`。
-- 补修桌面安装包输出至 `.run/reminder-editor-release/`，构建日志 `.run/logs/imported-reminder-desktop.log`；运行中的安装版程序尚未替换，完整菜单需更新安装版后生效。
+<a id="补修原提醒恢复与完整菜单"></a>
+
+## Fix: Original reminder restored with full menu
+
+The user further stated that this entry was originally reminder . Read-only view the original page of Notion, confirm the date is 2026-10-24 09:00, Timezone is PDT, Remind is **On day of event**; the remote content is not modified. Add `reminder="2026-10-24T16:00:00.000Z"` and `reminder-offset="0"` to the local import record confirmed by the user. Write through `createVault.update` and `baseRevision` when reading, retain unknown attributes and all other text; save `.run/date-reminder-repair/Blocks-before.md` before modification, and have a historical snapshot of the vault. Log `.run/logs/date-reminder-repair.log` only records revision and reminder time, without text. Confirm that the reminder field has been read after reloading the currently saved window. This is a recovery of verified records, not a "when available" batch extrapolation.
+
+Notdown dates no longer limit the menu because they contain `startTime` / `endTime` / `timeZone`. Complete the 10 minutes ago and 2 hours ago options, and the date range, Include time, Date format, Time format, Timezone, and Remind are all operable. IANA time zone parses daylight saving time by target date, rejecting non-existent local times; date, time and time zone modifications recalculate relative reminders. Independent date fields are still saved as independent fields. The official dialect can also edit the native time/time zone. The display format only takes effect in the node session and does not write local extensions.
+
+The import preview explicitly warns the real date label that Markdown API does not provide reminder configuration; date examples in code fences do not trigger warnings and do not automatically create reminders.
+
+Follow-up fix validation:
+
+- Full `npm test`: 1, 078 items, 1, 073 passed, 5 skipped, 0 failed, log `.run/logs/imported-reminder-unit.log`.
+- Type checking and production build pass. 28 items related to Chrome returned to the first round, 27 passed, and the 1 item test selector failed because it matched the End date input and switch at the same time; after switching to the textbox role, the complete date file 10 items passed the retest, and the remaining 18 items passed the first round. Log `.run/logs/imported-reminder-browser.log` and `.run/logs/imported-reminder-browser-final.log`; not running the full browser suite.
+- The browser covers independent field setting reminders, time/IANA time zone modification, cross daylight saving time reminder recalculation, range/time switch, removal reminder, save reload, unknown attribute retention, and the official format is not included in the disk. Viewed screenshot `test-results/browser/date-Notion-date-presentat-9bd1a-eminders-in-their-IANA-zone/complete-imported-date-menu.png`.
+- The patched desktop installation package is output to `.run/reminder-editor-release/` and the build log is `.run/logs/imported-reminder-desktop.log`; the running installation version program has not been replaced, and the complete menu needs to be updated to the installation version to take effect.

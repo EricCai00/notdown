@@ -1,3 +1,4 @@
+import { setUIText } from "../../shared/i18n";
 import { createElement, FileText, Table2, List, Columns3, LayoutGrid, Calendar, ChevronDown, Check, Plus, Ellipsis } from "lucide";
 import type { DatabaseSnapshot } from "./database-model";
 import { DatabasePopover, menuButton } from "./database-popover";
@@ -15,7 +16,7 @@ export function mountWikiViewPicker(host: HTMLElement, snapshot: DatabaseSnapsho
   trigger.append(createElement(selected === "home" ? FileText : icons[current?.type ?? "table"], { width: 17, height: 17 }), document.createTextNode(selected === "home" ? "Home" : current?.name ?? "All pages"), createElement(ChevronDown, { width: 14, height: 14 }));
   trigger.setAttribute("aria-label", `Wiki view: ${selected === "home" ? "Home" : current?.name ?? "All pages"}`);
   trigger.setAttribute("aria-haspopup", "menu"); trigger.setAttribute("aria-expanded", "false"); host.append(trigger);
-  const linkLabel = () => { const label = document.createElement("small"); label.className = "database-view-link"; label.textContent = "Link"; label.setAttribute("aria-hidden", "true"); return label; };
+  const linkLabel = () => { const label = document.createElement("small"); label.className = "database-view-link"; setUIText(label, "Link"); label.setAttribute("aria-hidden", "true"); return label; };
   if (current?.linked) trigger.insertBefore(linkLabel(), trigger.lastChild);
   let pop: DatabasePopover | undefined;
   const events = new AbortController();
@@ -27,7 +28,7 @@ export function mountWikiViewPicker(host: HTMLElement, snapshot: DatabaseSnapsho
     const entries = [{ id: "home", name: "Home", type: "home" }, ...snapshot.views];
     for (const entry of entries) {
       const row = document.createElement("div"); row.className = "wiki-view-menu-row";
-      const button = menuButton(entry.name, entry.id === "home" ? FileText : icons[entry.type as keyof typeof icons], () => act(() => hooks.select(entry.id)));
+      const button = menuButton(entry.name, entry.id === "home" ? FileText : icons[entry.type as keyof typeof icons], () => act(() => hooks.select(entry.id)), "", false, "database-popover-row", false);
       button.setAttribute("role", "menuitemradio"); button.setAttribute("aria-checked", String(entry.id === selected));
       if ("linked" in entry && entry.linked) button.append(linkLabel());
       if (entry.id === selected) button.append(createElement(Check, { width: 17, height: 17 }));

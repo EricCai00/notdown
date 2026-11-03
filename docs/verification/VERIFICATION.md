@@ -1,351 +1,419 @@
-# 本轮验收：方言误解析与输入规则
+<a id="本轮验收方言误解析与输入规则"></a>
 
-2026-09-22。覆盖 12 个预设的默认语法与禁用边界。Notion / Notdown 的 H5/H6 按官方规范继续转为 H4，键入与源码解析行为统一；其余修复见 [误解析核对](../reference/DIALECT-CONFORMANCE.md#误解析核对)。
+# Acceptance: dialect parsing errors and input rules
 
-- `npm test`：410 项，**409 通过、1 项 Windows 符号链接权限条件跳过，0 失败**。新增矩阵覆盖标题、列表标记、图片引用开关、Notion 标签与子语法、代码字面量、CRLF 原文和相邻编辑；输入规则覆盖全部 12 个方言。
-- TypeScript / Vite 构建通过；最终独立构建使用 `npm run build -- --outDir test-results/overparsing-recheck-dist`，保留既有大 chunk 提示。
-- Pandoc 预设的列表边界另与本机 Pandoc 实际输出对照：普通单词、畸形括号、无效罗马数字及大写字母后的间隔规则一致。
-- **130 项浏览器用例分批通过**：8 项直接相关用例全部通过；补充套件 122 项中先通过 119 项，3 项单独复测通过。插件用例改为验证既有插件身份及全部默认启用，避免并行新增插件使固定数量断言失效；页面历史与侧栏冲突提示在最新构建、全新临时知识库中复测通过。初次运行还遇到默认端口占用、共享 `dist` 被其他构建覆盖及测试进程中断，后续使用独立端口、构建和结果目录。该结果不是一次完整运行全绿，也不表示认证工作区持续新增的全部用例。
-- 浏览器均使用独立临时知识库与 Chrome；没有迁移或写入用户 `vault/`。本轮未修改存储 CAS、冲突分支或跨端同步能力。
+**English** · [简体中文](VERIFICATION.zh-CN.md)
 
-# 此前验收：上游方言默认值与可选块插件
+2026-09-22。Coverage12 A default grammar with a disabled border.Notion / Notdown ofH5/H6 The official guidelines continue to beH4，Unification of typing and source code analysis; rest of the correction[Checking incorrect parses](../reference/DIALECT-CONFORMANCE.md#checking-incorrect-parses)。
 
-2026-09-22。按各产品官方规范分别定义默认语法，取消向所有方言隐式注入本地对象和 Pandoc 扩展。十一种上游预设的九类项目块默认关闭，通过页面语法设置显式激活；项目自有 Notdown 预设独立配置。来源、逐方言差异与兼容边界见 [方言核对记录](../reference/DIALECT-CONFORMANCE.md)。
+- `npm test`: 410 entry, **pass, 409 pass, 1 entry Windows symbolic link permission condition skipped, 0 fail**. The new matrix covers titles, list tags, image reference switches, Notion tags and sub-grammars, code literals, CRLF original text and adjacent editing; input rules cover all 12 dialects.
+- The TypeScript / Vite build passes; the final independent build uses `npm run build -- --outDir test-results/overparsing-recheck-dist`, retaining the existing large chunk prompt.
+- The preset list boundaries of Pandoc are also compared with the actual output of the local Pandoc: the spacing rules after ordinary words, malformed brackets, invalid Roman numerals and capital letters are consistent.
+- **Browser use cases for 130 are sorted by batch**8: All directly related use cases are approved; the complementary suite 122 is first re-tested by 119 and 3 separately. The plug-in use cases are converted to verify both the identity of the plug-in and full default enablement, to avoid the simultaneous addition of additional plug-ins that invalidate the fixed number of claims. Page history and sidebar conflicts suggest duplication in the latest build, new temporary vault. `dist` Other builds are covered and test processes are interrupted, with the subsequent use of independent ports, builds and result directories. The result is not a complete green run, nor does it represent all use cases of continuous new work areas.
+- Browsers are using a stand-alone temporary vault with Chrome; there is no migration or writing of user `vault/`. Storage CAS, conflicting branches or cross-end synchronization capabilities have not been modified in this round.
 
-- `npm test`：380 项，**379 通过、1 项 Windows 符号链接权限条件跳过，0 失败**。新增测试覆盖十一种上游方言 × 九类对象的默认关闭、独立激活、切换与原文保留，以及配置重置、导出与链接索引的一致性。
-- `npm run build -- --outDir .run/dialect-final-dist`：TypeScript／Vite 通过，保留既有大 chunk 提示。为避免其他任务同时构建覆盖产物，浏览器验证使用该构建的独立临时副本、独立端口、临时知识库与 Chrome。
-- 最终涉及的 **77 项浏览器回归分批通过**：77 项运行中 76 通过；一个旧 Typora 综合用例未显式启用可选 alerts／diagrams，修正样例配置后单项补跑通过。覆盖方言设置与重开、样本页面、Markdown workspace、Notion、产品语法，以及关联的按钮、Tabs 和侧栏交互。此前完整运行暴露的旧默认假设与共享构建干扰，已在独立构建的相关套件中复测；不将分批结果描述为一次完整运行全绿。
-- 核对和回归限于此次默认能力与扩展边界，不代表完成全部上游语法一致性认证。没有迁移或写入用户知识库。
+<a id="此前验收上游方言默认值与可选块插件"></a>
 
-# 上一轮：块属性移入手柄菜单弹窗
+# Previous Acceptance: Upstream Dialect Defaults vs. Optional Block Plugins
 
-2026-09-22。原 ContentObjectView 的属性折叠面板及正文元数据字段统一从六点手柄菜单 Properties… 打开。弹窗使用字段草稿，Save 一次提交并可一次撤销，Cancel／Escape 不修改正文。编辑器内目标块变更会禁用保存；整个编辑器被外部刷新替换时销毁旧弹窗。容器边框／按钮区定位到容器手柄，内部段落继续独立操作。
+2026-09-22. Define the default syntax according to the official specifications of each product, and cancel the implicit injection of local objects and Pandoc extensions into all dialects. Nine types of project blocks of eleven upstream presets are turned off by default and are explicitly activated through page syntax settings; the project's own Notdown presets are independently configured. For sources, dialect-by-dialect differences, and compatibility boundaries, see the [ Dialect Verification Record ](../reference/DIALECT-CONFORMANCE.md).
 
-- `npm test`：356 项，**355 通过、1 项 Windows 符号链接权限条件跳过**。新增未知属性、原文往返、撤销、过期目标、标签索引校验、同步来源修订清理及 YAML／MMD 字段语义验证。
-- `npm run build` 与 `npm run test:e2e` 的 TypeScript／Vite 构建通过。浏览器使用独立构建目录、动态端口、临时知识库及 Chrome。
-- 134 个浏览器用例分批通过：完整运行 104 通过；样本安装器端口不匹配导致 1 项失败、26 项未运行，另有 2 项浏览器会话／产物写入故障及 1 项页面切换等待不足。统一测试进程端口并补上页面切换等待后，涉及的 **30 项补跑全部通过**。
-- 属性相关验证涵盖菜单入口、取消、焦点、保存、撤销／重做、重开、窄屏、外部刷新、同步块更新、Meeting notes 字段和嵌套 Tab 改名；截图检查窗口布局。保留生成、转录和同步等实际操作按钮，页面级属性及正文语义 Toggle 不受影响。
+- `npm test`: 380 entry, **pass, 379 pass, 1 entry Windows symbolic link permission condition skipped, 0 fail**. The new test covers the default shutdown, independent activation, switching and original text retention of eleven upstream dialects × nine types of objects, as well as the consistency of configuration reset, export and link index.
+- `npm run build -- --outDir .run/dialect-final-dist`:TypeScript/Vite passed, retaining the existing chunk prompt. To avoid other tasks building overlay artifacts at the same time, browser validation uses a separate temporary copy of the build, a separate port, a temporary repository, and Chrome.
+- The final implications **The 77 browser is back in batches**：77 In operation76 Passed; an old oneTypora Comprehensive use cases not explicitly enabledalerts／diagrams，After modifying the sample configuration, the single item is passed.Markdown workspace、Notion、The product grammar and associated buttonsTabs and side-bar interaction. The old default assumption that previously fully run exposed to interference with shared builds has been replicated in independently built related kits; the batch results will not be described as a fully run green.
+- Checking and regression are limited to this default capability and expansion boundary, and do not mean that all upstream syntax consistency certifications have been completed. There is no migration or writing to the user vault.
 
-# 上一轮：内置语法独立列为第二组
+<a id="上一轮块属性移入手柄菜单弹窗"></a>
 
-2026-09-22。Extensions、Block Explorer 扩展列表与方言详情新增第二组 Built-in syntax。CommonMark／GFM／CommonMark X 的九项基础规则只读显示规范链接与无开关状态；HTML 仍保留可配置开关。缺少 Pandoc flag 或产品没有 Pandoc preset 均不自动推定为内置。
+# Previous round: Block properties moved into controller menu popup
 
-- `npm test`：347 项，**346 通过、1 项 Windows 符号链接权限条件跳过**。新增分组与原生解析验证覆盖基础围栏、反斜杠换行、转义、标题空格、列表编号／中断、词内下划线和快捷引用，以及原文往返。
-- `npm run test:e2e` 内的 TypeScript／Vite 构建通过。完整 117 项中 114 通过；新增用例的一处断言误用内部 ID，已改为验证名称链接。另两个失败伴随共享构建／测试产物被其他运行覆盖；观察到并行 Vite 构建、trace 文件缺失和重载页面缺失。
-- 使用独立构建副本、动态端口、独立产物目录、临时知识库与 Chrome 重跑：**5 项全部通过**，包括全部 3 项扩展展示用例及上述两个产品语法用例。截图检查第二组位置、只读条目、来源链接与目录状态。
-- 更新 README 与扩展依据说明；不修改用户正文、默认开关或解析行为。
+2026-09-22. The property folding panel and text metadata fields of the original ContentObjectView can be opened from the six-dot handle menu Properties.... The pop-up window uses a field draft. Save is submitted once and can be revoked once. Cancel/Escape does not modify the text. Target block changes within the editor disable saving; old pop-ups are destroyed when the entire editor is replaced by an external refresh. The container border/button area is positioned to the container handle, and the inner paragraphs continue to operate independently.
 
-# 上一轮：按方言区分扩展规范与 Pandoc 默认值
+- `npm test`:356 entry, **pass, 355 pass, 1 entry, Windows symbolic link permission condition skips**. Added unknown attributes, original text round-trip, revocation, expired target, tag index verification, synchronization source revision cleaning and YAML/MMD field semantic verification.
+- `npm run build` with `npm run test:e2e` The TypeScript/Vite builds through the use of independent build directories, dynamic ports, temporary vault and Chrome by the browser.
+- 134 browser use cases passed in batches: the complete run of 104 passed; the sample installer port mismatch caused 1 items to fail, 26 items not to run, there were also browser session/product writing failures for 2 items, and insufficient page switching wait for 1 items. After unifying the test process ports and adding the page switching wait, all the **and 30 items involved passed**.
+- Attribute-related verification covers menu entry, cancel, focus, save, undo/redo, reopen, narrow screen, external refresh, synchronized block update, Meeting notes field and nested Tab rename; screenshot to check window layout. The actual operation buttons such as generation, transcription and synchronization are retained, and page-level attributes and text semantics Toggle are not affected.
 
-2026-09-22。编辑页扩展设置、Block Explorer 扩展列表及方言关联列表共用规范依据与分组。规范项按必需／可选和 GFM Spec／Docs 排列，后接 Pandoc 其他默认开启项与其他扩展；非 Markdown 项保持最后。标签链接官方依据；Pandoc 3.11 快照状态与当前勾选分别显示。见[依据说明](../reference/EXTENSION-PROVENANCE.md)。
+<a id="上一轮内置语法独立列为第二组"></a>
 
-- `npm test`：345 项，**344 通过、1 项 Windows 符号链接权限条件跳过**。新增测试覆盖全部 115 项在 11 个方言中的不重不漏、规范来源、Typora 可选设置、Pandoc 缺少 flag 与缺少产品 reader 的区别。最终补充 Strict Mode 标注后，4 项依据测试再次通过。
-- TypeScript／Vite 构建通过，最终版再次构建通过；保留既有大 chunk 提示。
-- 完整 `npm run test:e2e` 的 116 项中 114 通过；2 项为测试假设不适应新增依据链接及全文搜索同时匹配 CriticMarkup，已修正。随后 6 项 Markdown workspace 回归通过；最终目录与扩展设置 **7 项全部通过**，验证切换方言、复选框覆盖不改变规范／默认标注、筛选与往返导航。同期修复同一目录内选择条目丢失查询条件的问题。
-- 独立 Chrome／临时知识库，截图检查设置标签和目录分组。没有修改用户工作簿、知识库正文、方言默认开关或 codec。
+# Previous round: Built-in grammar is listed independently as the second group
 
-# 上一轮：Callout 手柄与图标选择
+2026-09-22。Extensions、Block Explorer Expanded list and dialect details Added second groupBuilt-in syntax。CommonMark／GFM／CommonMark X The nine basic rules of the Code read only to show the link to the non-switched status of the specification;HTML The configurable switches are still retained.Pandoc flag Or the product doesn'tPandoc preset The first is that the system is not automatically presumed to be built-in.
 
-2026-09-22。Callout 首段定位整体手柄到容器外侧，后续段落与嵌套列表项保持独立操作。Notion 标签 Callout 增加图标选择器（搜索、最近使用、自定义 emoji／符号、移除），保留原生 Alert 编码与显示。显式空图标在保存后不再恢复默认灯泡。
+- `npm test`:347 entry, **pass, 346 pass, 1 entry, Windows symbolic link permission condition skips**. New grouping and native parsing validation covers base fencing, backslash wrapping, escaping, title spacing, list numbering/breaks, in-word underlining and shortcut citations, and round-trips to the original text.
+- `npm run test:e2e`The TypeScript/Vite build passed. Among the complete 117 items, 114 passed; one assertion in the new use case misused internal ID and has been changed to verify the name link. The other two failures occurred with shared build/test artifacts being overwritten by other runs; parallel Vite builds, missing trace files, and missing reload pages were observed.
+- Use independent build copy, dynamic port, independent product directory, temporary vault and Chrome rerun: **5 items all pass**, including all 3 item extended display use cases and the above two product syntax use cases. Screenshot to check the second set of locations, read-only entries, source links, and directory status.
+- Updated README and extension dependency descriptions; does not modify user text, default switches, or parsing behavior.
 
-- `npm test`：341 项，**340 通过、1 项 Windows 符号链接权限条件跳过**。新增容器／子块移动与撤销、图标修改／移除后的 CRLF 重开、未知属性保留验证。
-- `npm run test:e2e` 内的 TypeScript／Vite 构建通过；114 个浏览器用例中 113 通过，1 个旧 Slash 用例被同名测试页面的下拉选项干扰。将选择器限定到 Block types 菜单后，Callout 与 Notion 格式共 **6 项重新通过**，产品代码未因该测试失败改变。
-- 独立 Chrome、临时知识库中验证整体／子段落拖动、手柄位置、选择器搜索／取消、图标撤销／重做、保存重开与移除；截图确认选择器和外侧手柄正常。其余完整回归覆盖视图切换、外部刷新、窗口草稿隔离和 CAS 冲突恢复。
-- README 与 FORMAT 更新当前边界。图标当前为纯文本 emoji／符号，不提供图片上传；没有更改用户知识库内容。
+<a id="上一轮按方言区分扩展规范与-pandoc-默认值"></a>
 
-# 上一轮：方言与扩展测试子页面
+# Previous Round: Differentiating Extended Specifications vs. Pandoc Defaults by Dialect
 
-2026-09-22。新增可重复生成的 27 份验收正文，覆盖 11 个方言、103 个扩展与 81 个内容对象；加导航与引用目标，共 29 个 Tests 直接子页面。具体结构与运行方式见 [测试页面说明](./MANUAL-ACCEPTANCE-PAGES.md)。经用户要求通过应用 API 安装到指定知识库，原有 13 个页面的 revision 全部保持不变。
+2026-09-22. Edit page extension settings, Block Explorer extension list and dialect association list share the same specification basis and grouping. Specification items are arranged by required/optional and GFM Spec/Docs, followed by Pandoc, other default enabled items and other extensions; non-Markdown items are kept last. Official basis of label link; Pandoc 3.11 snapshot status and current check are displayed separately. See [ for instructions on ](../reference/EXTENSION-PROVENANCE.md) .
 
-- `npm test`：339 项，**338 通过、1 项 Windows 符号链接权限条件跳过，0 失败**。首次运行现有 REST 测试随机分配到 fetch 禁用端口，整套重跑通过。
-- `npm run build`：TypeScript 与 Vite 通过，保留已有大 chunk 提示。
-- 新增浏览器样本检查：**27 项通过**；最终调整默认方言样本后，11 个方言页再次全部通过。使用独立 Chrome 和临时知识库，验证逐页打开、视图切换、源码保留及浏览器异常；没有向真实模型发送内容。
-- 样本清单检查覆盖全部扩展、对象与方言，并验证 schema 和未修改源码往返。页面人工验收记录仍为 Not run；冒烟检查不等于全部编辑操作或上游语法兼容认证。
+- `npm test`：345 The neck,**344 is passed by the 1 symbol linking permission condition of Windows**The new test covers all 115 items in the 11 dialect, no leaks, specification sources, Typora options, Pandoc differences between flag and reader missing products. Finally, the Strict Mode labeling was added and the 4 items were approved again.
+- TypeScript/Vite passed the build, and the final version passed again; the existing large chunk prompts were retained.
+- Full of `npm run test:e2e` of116 In the following sections114 Adopted;2 Testing assumptions that are not suitable for new link-based and full text search simultaneouslyCriticMarkup，It was corrected.6 The following:Markdown workspace Returns are approved; final directory and extension settings**7 is all passed**Verify the switching dictionary, check the check box to cover the non-changing specification/default tag, filter and back-and-forth navigation. Fix the same time period for the selected items in the same directory.
+- Independent Chrome/temporary vault, screenshot check setting tags and directory grouping. There are no modifications to the user workbook, vault text, dialect default switch, or codec.
 
-# 上一轮：对象补齐、扩展规范命名与兼容服务
+<a id="上一轮callout-手柄与图标选择"></a>
 
-2026-09-22。注册表仍为 81 个语义对象；工作簿 103 个 Markdown 扩展均有本地执行路径，12 个 Outside Markdown scope 项排在最后且不能启用。notdown_* 配置兼容读取，规范键 notion_* 优先并用于后续配置写回；未知键与用户原文保留。
+# Previous Round: Callout Controller and Icon Selection
 
-- `npm test`：**338 项，337 通过、1 项 Windows 符号链接权限条件跳过，0 失败**。
-- `npm run build`：TypeScript 和 Vite 通过，保留图表库大 chunk 的构建提示。
-- `npm run test:e2e`：**85 项全部通过**，独立 Chrome、临时知识库。最后仅更新目录范围说明后，另运行目录单元测试 5 项通过，并重新构建和验证目录浏览器用例。
-- 单元覆盖新对象 LF/CRLF 原文复用、未知属性、无效／未闭合输入、代码围栏、嵌套引用；三种新增表格编码及编辑后重开、行列跨度和列属性对齐；Small caps 属性、嵌套 Raw TeX、example 编号与引用更新；LaTeX 宏、Gutenberg、路径和 sourcepos；本地 Pandoc CSL citeproc。
-- 浏览器覆盖对象／方言／扩展双向跳转与别名，表格编辑、元数据字段撤销、定义列表排序、缩写属性修改／撤销／重开、Tabs 标题和排序；兼容服务设置、生成、转录、保存撤销以及延迟结果保护；本地提醒确认与 Synced block 自动刷新暂停、CAS 发布冲突。
-- 回归覆盖 pending 输入、视图切换、拖动、外部刷新、窗口草稿隔离和 CAS 恢复。截图核对服务对象显示正常。
-- 模型服务测试使用模拟端点和测试密钥，没有向真实模型发送笔记或音频。提醒不是后台系统任务，Synced block 不是跨端同步；Raw TeX、raw source 和部分语法以源码编辑提供能力。具体限制见 [本地对象与服务](../reference/LOCAL-OBJECTS.md)。
-- 未批量迁移用户知识库，未修改用户工作簿或 MyBase 主库。旧评审和能力矩阵保留日期快照，当前以 [对象 Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md) 与 Block Explorer 为准。
+2026-09-22. The first paragraph of Callout positions the overall handle to the outside of the container, and subsequent paragraphs and nested list items maintain independent operations. Notion tag Callout adds icon selector (search, recently used, custom emoji/symbol, remove), retaining native Alert encoding and display. Explicitly empty icons no longer restore the default light bulb after saving.
 
-# 上一轮：表外对象清理与目录归位
+- `npm test`:341 entry, **pass, 340 pass, 1 entry, Windows symbolic link permission condition skips**. Added container/sub-block movement and undo, CRLF restart after icon modification/removal, unknown attribute retention verification.
+- `npm run test:e2e` In the InteriorTypeScript／Vite The building is approved;114 In a browser case113 It was passed.1 The old one.Slash The user case is interrupted by the drag option on the test page of the same name.Block types After the menu,Callout withNotion The format**The 6 is re-adopted**The product code has not been changed due to the failure of the test.
+- Verify the overall/subparagraph dragging, handle position, selector search/cancel, icon undo/redo, save, reopen and remove in independent Chrome and temporary vault; take screenshots to confirm that the selector and outer handles are normal. The rest of the complete regression covers view switching, external refresh, window draft isolation, and CAS conflict recovery.
+- README and FORMAT update the current boundaries. The icon is currently a plain text emoji/symbol, and no image upload is provided; the user vault content has not been changed.
 
-2026-09-22。移除 Mention agent 的产品注册与提及解析、Inline media 节点和本地链接转播放器规则；Inline raw source 纳入正式清单，File transclusion 统一块级与行内位置。移除 Existing content 板块与误拼别名 date ot reminder，正式对象共 81 项。
+<a id="上一轮方言与扩展测试子页面"></a>
 
-- `npm test`：298 项，**297 通过、1 项 Windows 符号链接权限条件跳过**。新增正式 raw inline 示例及编辑重开、文件引入的双位置身份、旧 Agent 标签（未知属性、自闭合、未闭合）、CRLF 和相邻编辑恢复；本地音视频链接保持普通链接。
-- `npm run test:e2e` 包含的 TypeScript/Vite 构建通过。整套浏览器测试 **75 项通过**，唯一失败是新增用例误用了 `.syntax-inline` 选择器；修正为实际 `.pm-syntax-inline` 后，`npx playwright test tests/e2e/block-catalog.spec.ts -g 'cleaned objects'` **1 项通过**，未改变产品代码或降低断言。
-- 浏览器使用独立 Chrome 与临时知识库。验证已清理条目的搜索结果、正式对象与扩展双向跳转、旧目录链接回到正式对象、重新加载及官方依据链接；75 项回归覆盖 pending 输入、文件引入预览、外部刷新、窗口草稿隔离与 CAS 冲突恢复。
-- 截图确认目录只保留 Content objects、Child structures、Markdown variants、Extensions。README、FORMAT、对象 Roadmap 与格式依据同步更新；没有批量改写用户文件。
+# Previous Round: Dialects and Extensions Testing Subpage
 
-# 上一轮：MMD 元数据归并、数据库对象移除及表外格式依据
+2026-09-22: newly added reproducible 27 portions accept the original language, covering the 11 dialect, 103 extensions and 81 content objects; additional navigation and reference objectives, and a direct subpage of 29 and Tests. Structure and operation [Test page description](MANUAL-ACCEPTANCE-PAGES.md)。Applications requested by usersAPI Installed in a designated knowledge library, originally13 The pagerevision It's all the same.
 
-2026-09-21。MMD metadata 归入 YAML front matter，保留独立的受限纯文本 reader 和编码来源；完整页面 YAML 不受影响。Database reference 注册项及专用节点移除，原文回退到 Unsupported。剩余四项明确区分官方依据与本地兼容行为，见[说明](../architecture/METADATA-AND-COMPATIBILITY.md)。
+- `npm test`: 339 entry, **pass, 338 pass, 1 entry Windows symbolic link permission condition skipped, 0 fail**. The first run of the existing REST test was randomly assigned to the fetch disabled port, and the entire set of reruns passed.
+- `npm run build`: TypeScript and Vite are passed, and the existing large chunk prompt is retained.
+- New browser sample check: **27 item passed**; after final adjustment of the default dialect sample, all 11 dialect pages passed again. Use independent Chrome and temporary vault to verify page-by-page opening, view switching, source code retention and browser exceptions; no content is sent to the real model.
+- The sample manifest checks cover all extensions, objects and dialects, and verifies schema and unmodified source roundtrips. The page manual acceptance record is still Not run; smoke checking does not equal all editing operations or upstream syntax compatibility certification.
 
-- `npm test`：295 项，**294 通过、1 项 Windows 符号链接权限条件跳过**。覆盖首行/空行边界、ASCII/数字键、大小写与空格归一、多行与冒号缩进、可选分隔符、纯文本值与完整 YAML 的区别、CRLF、扩展开关、代码围栏及旧数据库标签恢复。
-- `npm run test:e2e`：**75 项全部通过**，独立 Chrome 与临时知识库。新增 metadata 源码编辑后的变量刷新、pending 输入收取、保存重开和页面标题不被正文元数据覆盖；目录验证 MMD 别名归并、官方依据链接及数据库对象退回 Unsupported。
-- TypeScript/Vite 构建通过，保留既有大型图表资源 chunk 提示。整套回归后仅更正 Inline media 的目录适配器归属：不再错误挂到 Notion 媒体开关；对象/扩展关系定向测试及构建再次通过。
-- 未修改用户工作簿或知识库，未批量迁移页面 YAML；未新增数据库、Agent 执行或原始格式 writer 服务。
+<a id="上一轮对象补齐扩展规范命名与兼容服务"></a>
 
-# 上一轮：独立列表项、统一表格与对象子结构
+# Previous round: Object completion, extended specification naming and compatibility services
 
-2026-09-21。三种列表项底层节点独立；Heading 继续共享结构；管道、Notion、MMD 表格统一到结构化节点，移除 MMD 整块源码载体及 Notion 专用重复表格 NodeView。Child structures 与 Existing content 分开展示。实现和边界见 [对象 Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md)。
+2026-09-22. The registry is still 81 semantic objects; the workbook 103 and Markdown extensions all have local execution paths, and the 12 and Outside Markdown scope entries are ranked last and cannot be enabled. notdown_* configuration is compatible with reading, and the specification key notion_* takes priority and is used for subsequent configuration writeback; unknown keys are retained with the user's original text.
 
-- `npm test`：291 项，**290 通过、1 项 Windows 符号链接权限条件跳过**，无失败。新增三类列表身份、混合嵌套与转换/撤销；表格编辑再解析的结构一致性、表头/分区、同时跨行跨列、题注位置与引用标签、多行代码/列表单元格、Tab 与代码内换行、CRLF 相邻编辑、扩展开关关闭及代码围栏/未闭合输入保留。
-- `npm run build`（也由 `npm run test:e2e` 执行）：TypeScript 与 Vite 通过；仍有既有的大型图表资源 chunk 提示。
-- 最终 `npm run test:e2e`：**74 项全部通过**，独立 Chrome 与临时知识库。验证列表节点类型、混合缩进/拆行、拖动/转换/撤销、保存重开；MMD 单元格/题注直接编辑、待提交输入收取、末格 Tab 新增行与重新打开；对象/方言/扩展和子结构链接；既有外部刷新、窗口草稿隔离及 CAS 冲突恢复。
-- 首轮修复了重复表格 NodeView、跨行跨列输出及题注标签规范化导致的保留问题。后续整套运行遇到旧脚注用例在节点尚未显示时读取 boundingBox 的竞态，加入显示等待后最终全套通过；未降低布局断言要求。
-- 新增/拆分合并单元格的操作界面仍未实现。没有批量迁移用户 Markdown、访问用户浏览器或写入用户知识库。
+- `npm test`：**338 and 337 passed through the 1 and Windows symbol linking permission conditions, and 0 failed.**。
+- `npm run build`: TypeScript and Vite are passed, and the construction prompt of chunk of the chart library is retained.
+- `npm run test:e2e`: **85 items all pass**, independent Chrome, temporary vault. Finally, after only updating the directory scope description, another directory unit test 5 item is run and passed, and the directory browser use case is rebuilt and verified.
+- Unit covers new object LF/CRLF original text reuse, unknown attributes, invalid/unclosed input, code fence, nested reference; three new table codes and reopening after editing, row and column span and column attribute alignment; Small caps attribute, nested Raw TeX, example number and reference update; LaTeX macro, Gutenberg, path and sourcepos; local Pandoc CSL citeproc.
+- The browser covers object/dialect/extension bidirectional jumps and aliases, table editing, metadata field undoing, definition list sorting, abbreviation attribute modification/undoing/reopening, Tabs titles and sorting; compatible service settings, generation, transcription, save undoing and delayed result protection; local reminder confirmation conflicts with Synced block automatic refresh pause and CAS publishing.
+- Regression covering pending input, view switching, dragging, external refresh, window draft isolation, and CAS recovery. Take a screenshot to check that the service object displays normally.
+- Model serving tests use mock endpoints and test keys, with no notes or audio sent to the real model. Reminder is not a background system task, and Synced block is not cross-end synchronization; Raw TeX, raw source and some grammars are provided with source code editing capabilities. See [ Local Objects and Services ](../reference/LOCAL-OBJECTS.md) for specific restrictions.
+- The user vault has not been migrated in batches, and the user workbook or MyBase main library has not been modified. The old review and competency matrix retention date snapshot is currently based on [ objects Roadmap ](../architecture/CONTENT-OBJECT-ROADMAP.md) and Block Explorer.
 
-# 上一轮：Block Explorer 关系、来源与命名
+<a id="上一轮表外对象清理与目录归位"></a>
 
-2026-09-21。范围见 [目录分类与命名说明](../reference/CATALOG-RELATIONS.md)。只读读取用户工作簿，并保留 `extensions!A2:N117` 快照；未修改原工作簿或用户知识库。
+# Previous round: Cleaning up off-table objects and relocating directories
 
-- `npm test`：282 项，281 通过、1 项 Windows 符号链接权限条件跳过，无失败。新增来源数量、当前注册表覆盖、编码／修饰／计划关系、对象／方言双向一致性以及 `notdown_*` 命名边界验证。
-- `npm run test:e2e` 内的 `npm run build`：TypeScript 与 Vite 通过，保留既有图表资源 chunk 大小提示。
-- 完整 Chrome E2E：**72 项全部通过**，使用独立浏览器进程和临时知识库。新增六个方向的对象／方言／扩展跳转、官方链接地址、刷新和前进／后退、分类与搜索恢复、待实现及非 Markdown 状态、补充对象导航。
-- 首轮定向用例发现长扩展名导致 390px 页面横向溢出；调整卡片换行及窄屏布局后，完整回归通过。查看了最终窄屏详情截图。
-- 核对主要官方来源，并逐项校验 Pandoc 89 条参考链接的章节锚点。未把网页或工作簿的上游能力当成本地已实现能力，未改动方言默认值和配置键。
+2026-09-22. Remove Mention agent's product registration and mention parsing, Inline media node and local link to player rules; Inline raw source is included in the official list, and File transclusion unifies block level and inline position. Removed the Existing content section and the misspelled alias date ot reminder, and there are a total of 81 items in the official object.
 
-# 上一轮：内容对象统一 P0 / P1
+- `npm test`:298 entry, **pass, 297 pass, 1 entry, Windows symbolic link permission condition skips**. Added official raw inline examples and edit reopening, dual-position identities introduced by files, old Agent tags (unknown attributes, self-closing, unclosed), CRLF and adjacent edit restoration; local audio and video links remain normal links.
+- `npm run test:e2e`The included TypeScript/Vite build passes. The entire browser test **75 items passed**, the only failure was that the new use case misused the `.syntax-inline` selector; after correcting to the actual `.pm-syntax-inline`, `npx playwright test tests/e2e/block-catalog.spec.ts -g 'cleaned objects'` **1 items passed**, without changing the product code or lowering the assertion.
+- The browser uses standalone Chrome and a temporary vault. Verify the search results of cleaned entries, bidirectional jumps between official objects and extensions, old directory links back to official objects, reloading and official basis links; 75 item regression covers pending input, file introduction preview, external refresh, window draft isolation and CAS conflict recovery.
+- The screenshot confirms that only Content objects, Child structures, Markdown variants, and Extensions are retained in the directory. README, FORMAT, object Roadmap are updated synchronously with the format basis; there is no batch rewriting of user files.
 
-2026-09-21。首批对象范围与实现边界见 [对象 Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md)。P2–P4 尚未作为本批功能交付。
+<a id="上一轮mmd-元数据归并数据库对象移除及表外格式依据"></a>
 
-- `npm test`：279 项，278 通过，1 项因 Windows 不允许创建符号链接而跳过；无失败。新增 80 对象注册与上下文识别、真实目录示例、Callout 属性与原编码、TOC 范围及 HTML 导出、撤销、扩展开关与源码边界验证。
-- `npm run build`：TypeScript 与 Vite 通过；仍有既有的大型图表资源 chunk 提示。
-- `npm run test:e2e`：完整 70 项全部通过，使用独立 Chrome 和临时知识库。新增目录分类/别名、折叠持久化、目录更新、视图切换收取输入及统一 Callout 入口。
-- 专门验证外部刷新后的 DOM 与 revision 一起替换；刷新请求尚未返回时输入会保留原 revision，后续产生 409 并保留磁盘与本地内容；两个窗口分别恢复各自的 Callout 草稿，陈旧保存不会覆盖另一窗口内容。
-- 完整回归后仅补充旧名称搜索别名，并重新构建和定向验证目录与合并对象交互。测试没有连接用户浏览器或写入用户知识库。
+# Previous round: MMD metadata merging, database object removal and off-table formatting basis
 
-# 历史补充：Typora／Obsidian 与 62 条产品语法实现
+2026-09-21. MMD metadata is subsumed under YAML front matter, leaving separate restricted plain text reader and encoding sources; full page YAML is not affected. Database reference registration items and dedicated nodes are removed, and the original text is returned to Unsupported. The remaining four clearly distinguish between official basis and local compatible behavior, see [ description ](../architecture/METADATA-AND-COMPATIBILITY.md).
 
-2026-09-15。本轮新增两个预设、27 项规则，合计 11 个预设、70 个注册扩展。逐项当前支持、默认开关及边界见 [PRODUCT-SYNTAX.md](../reference/PRODUCT-SYNTAX.md)。下文之前的缺口审计保留为历史记录。
+- `npm test`:295 entry, **pass, 294 pass, 1 entry, Windows symbolic link permission condition skips**. Covers first line/blank line boundaries, ASCII/ numeric keys, case and space normalization, multi-line and colon indentation, optional delimiters, the difference between plain text values ​​and full YAML, CRLF, expansion switches, code fences and old database tag restoration.
+- `npm run test:e2e`: **75 items all pass**, independent Chrome and temporary vault. Added variable refresh after metadata source code editing, pending input collection, save and reopen, and page title not being overwritten by text metadata; directory verification MMD alias merging, official basis link and database object return to Unsupported.
+- TypeScript/Vite passed the construction, retaining the existing large chart resource chunk prompt. After the complete set of regressions, only the directory adapter ownership of Inline media has been corrected: it no longer incorrectly hangs on the Notion media switch; the object/extension relationship orientation test and construction passed again.
+- The user workbook or vault has not been modified, and the page YAML has not been migrated in batches; no database, Agent execution or original format writer service has been added.
 
-- `npm ci` 完成；依赖审计 0 个已知漏洞。Mermaid 本地按需加载，复杂表格使用 markdown-it-multimd-table。
-- 最终 `npm test`：252 项，251 通过，1 项 Windows 符号链接权限条件跳过，无失败。62 条原始样例覆盖实际语义、原文往返与相邻块编辑；补充属性写回、转义、原始格式导出回退、BibTeX、临时文件依赖与越界／循环保护。
-- `npm run build`：TypeScript 与 Vite 通过。存在大型动态资源 chunk 提示（主要图表资源），未测量大文档实时性能，不能据此宣称性能目标已经全部达成。
-- `npm run test:e2e`：完整 46 项全部通过（独立 Chrome、临时知识库）。涵盖原有交互、六种 Pandoc 预设、新产品块的图表、iframe、复杂表格、元数据变量、真实 BibTeX、嵌入文件和内联嵌入刷新、跳转、Slash、拖动、扩展开关、三视图、保存重载与撤销。
-- 随后补充定义源码编辑的提示刷新，并重新构建；`npx playwright test tests/e2e/product-syntax.spec.ts` 最终 6 项全部通过。完整 46 项运行发生在这项小修之前，最终全套测试文件合计 47 项。
-- 第一轮回归发现目录刷新直接修改标题 DOM 会干扰编辑器状态，已移除该修改路径。既有 Notion 分栏测试再次出现点击空白区域后输入落入标题的偶发问题；改为点击文本位置后整套通过，未宣称修复所有 Chrome 空白区域点击行为。
-- 查看了 MMD 页面截图，核对元数据预览／源码输入、目录与文字布局；复杂表格跨度与题注、图表 SVG 及隔离 iframe 另有浏览器 DOM 断言。测试未写入用户知识库。开发服务恢复到 4317／4318。
+<a id="上一轮独立列表项统一表格与对象子结构"></a>
 
-# 上一轮：62 条用户语法核对与列表修复
+# Previous Round: Independent List Items, Unified Tables, and Object Substructures
 
-2026-09-15。逐项运行用户的 62 条语法样例，记录实际节点与未修改源码的往返情况；结合显示和导航代码核对功能边界。详见 [核对报告](../audits/SYNTAX-AUDIT-2026-09-15.md)及其机器记录。这不等于 62 条功能全部支持或完成视觉验收。
+2026-09-21: Three list items are independent of the base node; Heading continues to share structure; pipeline, Notion, MMD table is unified into structured nodes, removing the entire source code carrier of MMD and the Notion specially replicated NodeView table. Child structures and Existing content display separately. Implementation and boundaries [Object Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md)。
 
-- 修复 `lists_without_preceding_blankline` 限制误用于同级列表边界的问题；连续编号项不再被吞进前一项。新单元用例覆盖六个预设、连续有序／无序列表、编辑写回和段落打断限制；六个原生方言浏览器用例增加三项编号列表检查。
-- `npm test`：185 项，184 通过、1 项 Windows 符号链接权限跳过；TypeScript/Vite 构建通过。
-- 全套浏览器测试 40 通过、1 失败；失败为既有 Notion 分栏输入落入页首标题，非新增方言用例。未修改产品或测试代码，单独重跑该项通过。记录为一次偶发输入定位失败，不能仅凭重跑通过宣称其原因已修复。
-- 本次没有实现报告中缺失的图表、属性、引文、注释等功能。README 明确区分预设可选与完整语法兼容；没有写入用户知识库。
+- `npm test`: 291 entry, **290 passed, 1 entry Windows symlink permission condition skipped**, no failures. Three new types of list identities, mixed nesting and conversion/undo; structural consistency of table editing and re-parsing, table header/partition, simultaneous cross-row and column, caption position and reference label, multi-line code/list cell, Tab and intra-code line breaks, CRLF adjacent editing, expansion switch off, and code fence/unclosed input retention.
+- `npm run build`(Also executed by `npm run test:e2e`): TypeScript and Vite pass; there is still an existing large chart resource chunk prompt.
+- In the end, all `npm run test:e2e`: **and 74 items passed**, independent of Chrome and the temporary vault. Verify list node type, mixed indent/line break, drag/convert/undo, save and reopen; MMD cell/caption direct editing, collection of input to be submitted, last cell Tab new line and reopen; object/dialect/expansion and substructure linking; existing external refresh, window draft isolation and CAS conflict recovery.
+- The first round fixed the retention issues caused by duplicate table NodeView, cross-row and cross-column output, and normalization of caption labels. Subsequent runs of the entire set encountered a race condition in which the old footnote use case read boundingBox before the node was displayed. After adding the display wait, the entire set finally passed; the layout assertion requirements were not reduced.
+- The operation interface for adding/splitting merged cells has not yet been implemented. There is no batch migration of user Markdown, access to user browsers, or writing to user vaults.
 
-# 前一次补充：六个原生 Markdown 方言
+<a id="上一轮block-explorer-关系来源与命名"></a>
 
-2026-09-15。新增 Pandoc Markdown、CommonMark X、Markdown Strict、PHP Markdown Extra、MultiMarkdown、旧 GitHub Markdown 的核心 reader/writer；九个预设均可选，注册表 43 项。实际范围与未完成项见 [NATIVE-DIALECTS.md](../reference/NATIVE-DIALECTS.md)。
+# Previous Round: Block Explorer Relationships, Origins and Naming
 
-- `npm ci` 完成，增加上下标、缩写及 Emoji 的 markdown-it 插件，锁文件同步。
-- `npm test`：184 项，183 通过、0 失败、1 项 Windows 符号链接权限跳过。包含 60 组与本机 Pandoc 3.11 的块结构对照；这不是完整方言一致性认证。
-- `npm run build`：TypeScript/Vite 通过；仍有超过 500 KB 的共享包构建提示。
-- `npm run test:e2e`：全套 41 项通过。新增六项逐方言覆盖实际规则开关、默认重置、页面编辑、源码空行、保存重载、切换方言保留源码、未知开关保留，并拦截 Pandoc API 验证日常编辑无调用。
-- 既有 HTML、定义列表、脚注、行块、Div、Slash、拖动、Notion 空行保留、三视图、共同撤销与同步滚动测试继续通过。
-- 收尾补齐“元数据开启但广义转义关闭”时普通文字的写回，以及 Div 内停用代码围栏后的闭合识别。随后再次通过完整 184 项单元测试（183 通过、1 跳过）、构建和相关 9 项浏览器回归。
-- 测试仅使用临时知识库与独立 Chrome。待实现扩展在面板中单独列出，不执行其配置；元数据仅识别保留，不写入页面属性。未宣称完整 Pandoc 语法、Meta 或 AST 双向兼容。
+2026-09-21. For the scope, see [ directory classification and naming instructions ](../reference/CATALOG-RELATIONS.md). The user workbook is read-only and the `extensions!A2:N117` snapshot is retained; the original workbook or user vault is not modified.
 
-# 前一次补充：Notion Markdown 空行保留
+- `npm test`: 282 entry, 281 passed, 1 entry Windows symbolic link permission condition skipped, no failures. Added number of sources, current registry overrides, encoding/modification/scheme relationships, object/dialect bidirectional consistency, and `notdown_*` naming boundary validation.
+- `npm run test:e2e`Within `npm run build`:TypeScript and Vite, retain the existing chart resource chunk size hint.
+- Complete Chrome E2E: **72 items all pass**, using a separate browser process and a temporary vault. Added six directions of object/dialect/extension jump, official link address, refresh and forward/backward, classification and search recovery, pending and non-Markdown status, supplementary object navigation.
+- The first round of targeted use cases found that long extensions caused the 390px page to overflow horizontally; after adjusting card wrapping and narrow screen layout, the complete regression passed. Check out the final narrow screen detailed screenshots.
+- Check primary official sources and verify chapter anchors for Pandoc 89 reference links. The upstream capabilities of web pages or workbooks are not treated as local implemented capabilities, and the dialect default values ​​and configuration keys are not changed.
 
-2026-09-15。Notion reader 记录顶层块前间隔及文件尾部空白，writer 复用现有原文保留机制。编辑不再用单换行重拼整篇；新增／重写边界及容器内同级块默认以空行分隔，列表项仍紧凑。复合块内部修改可能规范化其间隔。
+<a id="上一轮内容对象统一-p0--p1"></a>
 
-- `npm test`：176 项，175 通过、1 项 Windows 符号链接权限跳过。新增覆盖连续空行、首尾空白、CRLF、原始代码／未知块、插入／移动及容器内部编辑后的语义往返。
-- `npm run test:e2e` 完成构建及 35 项浏览器用例，其中 34 项通过；唯一失败为旧测试仍要求段落与列表之间没有空行。按新的明确输出规则将断言改为两个换行后，独立重跑该项通过。产品代码在这次断言调整后没有变化。
-- 新浏览器用例确认 Notion 页面编辑保留三个连续换行，Enter 创建新段落后源码有空行，保存和重开保持一致，排版空行不产生额外节点，代码内部空行不变。
-- 测试使用临时知识库及独立 Chrome，没有批量改写用户正文。README 与 FORMAT 已更新写回规则。
+# Previous Round: Content Object Unification P0/P1
 
-# 前一次补充：HTML 与 Markdown 复合块
+2026-09-21. See [ Object Roadmap ](../architecture/CONTENT-OBJECT-ROADMAP.md) for the first batch of object scopes and implementation boundaries. P2 – P4 are not yet shipped as features in this batch.
 
-2026-09-15。新增 `raw_html`、`definition_lists`、`footnotes`、`line_blocks`、`fenced_divs`，注册表共 24 项；完整方言归属、块清单和边界见 [BLOCKS.md](../reference/BLOCKS.md)。
+- `npm test`: 279 entry, 278 passed, 1 entry skipped because Windows does not allow creation of symbolic links; no failures. Added 80 object registration and context identification, real directory examples, Callout attributes and original encoding, TOC scope and HTML export, undo, extension switches and source code boundary verification.
+- `npm run build`: TypeScript and Vite pass; there is still an existing large chart resource chunk prompt.
+- `npm run test:e2e`: All complete 70 items passed, using independent Chrome and temporary vault. Added directory classification/alias, folding persistence, directory update, view switching input and unified Callout entry.
+- Specially verify that DOM and revision after external refresh are replaced together; when the refresh request has not yet been returned, the input will retain the original revision, and subsequently generate 409 and retain the disk and local content; the two windows restore their respective Callout drafts, and the old save will not overwrite the content of the other window.
+- Full regression only to supplement old name search aliases, and rebuild and direct validation directory interaction with merged objects. The test does not connect to the user's browser or write to the user's vault.
 
-- `npm ci` 完成；新增 HTML5 解析器 `parse5` 与定义列表语法插件 `markdown-it-deflist`，锁文件同步。
-- `npm test`：173 项，172 通过、0 失败、1 项 Windows 符号链接权限跳过。新增测试覆盖解析／编辑／重开、原文保留、停用扩展、代码围栏及缩进代码、嵌套 Div、未闭合输入、脚注标签与续写、管道表格优先级、行内 HTML、容器整体移动和 HTML 清理／导出。
-- `npm run build`：TypeScript/Vite 通过；共享包仍有超过 500 KB 的构建提示。
-- `npm run test:e2e`：独立临时知识库与 Chrome 全套 34 项通过。随后补充 HTML 源码框的共同撤销／重做、焦点保持与 GFM 脚注默认值，再构建并复测新增块和三视图的 7 项浏览器用例。
-- 浏览器新增覆盖五类块的真实 Slash 插入、HTML 整块拖动、术语／定义／脚注／诗行／Div 编辑、源码双向更新、保存／重开、扩展开关前后正文不变及 HTML 事件／脚本／应用操作属性隔离。
-- 已查看 `test-results/markdown-blocks.png`。修复 HTML 预览继承编辑器保留空白样式造成的多余间距；HTML 源码字段使用共同历史，并在重做后保持展开和焦点。
+<a id="历史补充typoraobsidian-与-62-条产品语法实现"></a>
 
-测试没有改动用户 vault；没有接入全套 Pandoc AST 转换。HTML 元素与样式、脚注排版、Div 属性执行、跨容器引用定义、复杂表格和 Notion codec 的新增扩展适配仍有明确边界，详见块文档。
+# Historical supplement: Typora/Obsidian and 62 product syntax implementation
 
-# 前一次补充：原生 Markdown 编辑核心
+2026-09-15. Two new presets and 27 rules were added in this round, for a total of 11 presets and 70 registered extensions. See [ PRODUCT-SYNTAX.md ](../reference/PRODUCT-SYNTAX.md) for itemized current support, default switches, and boundaries. Previous gap audits below are retained as historical records.
 
-2026-09-15。主应用接入统一源码草稿、三视图、3 个原生预设和 19 个内置扩展；见 [架构与实际边界](../architecture/MARKDOWN-ENGINE.md)。
+- `npm ci`Complete; dependency audit 0 known vulnerabilities. Mermaid is loaded locally on demand, and markdown-it-multimd-table is used for complex tables.
+- Final `npm test`: 252 entry, 251 passed, 1 entry Windows symbolic link permission condition skipped, no failures. 62 original samples cover actual semantics, original text round-trip and adjacent block editing; supplementary attribute writeback, escaping, original format export fallback, BibTeX, temporary file dependency and out-of-bounds/loop protection.
+- `npm run build`: TypeScript and Vite pass. There are chunk prompts for large dynamic resources (main chart resources), and the real-time performance of large documents has not been measured, so it cannot be claimed that all performance targets have been achieved.
+- `npm run test:e2e`: All complete 46 items passed (independent Chrome, temporary vault). Covers original interactions, six Pandoc presets, charts for new product blocks, iframe, complex tables, metadata variables, real BibTeX, embedded files and inline embedded refresh, jump, Slash, dragging, expansion switches, three views, save reload and undo.
+- Then the prompt for supplementary definition source code editing is refreshed and rebuilt; `npx playwright test tests/e2e/product-syntax.spec.ts` and finally all 6 items are passed. A full 46 run occurred before this minor fix, and the final set of test files totaled 47.
+- The first round of regression found that directly modifying the title DOM during directory refresh would interfere with the editor state, and the modification path has been removed. The existing Notion column test reoccurred with the occasional problem that the input fell into the title after clicking on the blank area; instead, the entire set passed after clicking on the text position, and it did not claim to fix all the clicking behaviors in the Chrome blank area.
+- Viewed the MMD page screenshot, checked the metadata preview/source code input, table of contents and text layout; complex table spans and captions, charts SVG and isolation iframe, and browser DOM assertions. Tests are not written to the user vault. Development services reverted to 4317/4318.
 
-- `npm ci` 完成；新增 CodeMirror commands 的直接依赖，锁文件同步。
-- `npm test`：166 项，165 通过，0 失败，1 项 Windows 符号链接权限跳过。原生 codec 测试覆盖真实开关、代码围栏、Notion 容器、公式、双链、颜色与粗体组合、软/硬换行、管道表格对齐编辑、原文/引用定义/CRLF、未知配置以及 CAS 冲突恢复与配置移除。
-- `npm run build`：TypeScript/Vite 通过，仍有共享渲染包超过 500 KB 的体积提示。
-- 独立临时知识库 / Chrome 完整 E2E：31 项通过。新增源码→页面及反向输入、三视图切换、共同撤销/重做、真实扩展开关、配置保存/刷新、未知开关保留、快速源码替换、合成 IME 输入、双向滚动及关闭同步；明确拦截 Pandoc API 并断言主编辑器没有请求它。
-- 现有 Slash、单项/子树拖动、嵌套、目录、Notion 标签、表格和 Lab 测试继续执行。旧页断言已改为保留原 CommonMark 源码，不再要求切换视图自动迁移到 Notion。
-- 已查看 `test-results/native-workspace.png`；双栏宽度和视口高度按当前窗口计算。测试始终使用临时知识库，没有在用户 vault 中添加测试页。
+<a id="上一轮62-条用户语法核对与列表修复"></a>
 
-日志：`.run/native-unit.log`、`.run/native-build.log`、`.run/native-e2e.log`；模型性能样例：`.run/native-benchmark.json`。初步测量不包含 DOM/绘制；未验收真实系统 IME、大文档端到端延迟、全部 Pandoc 扩展一致性、第三方扩展和完整 Pandoc AST 往返。
+# Previous round: 62 user syntax check and list repair
 
-# 前一次补充：全部 Pandoc Markdown 方言
+2026-09-15. Run the user's 62 syntax sample item by item, recording the round trip between the actual node and the unmodified source code; check the functional boundaries by combining the display and navigation code. See the [ verification report ](../audits/SYNTAX-AUDIT-2026-09-15.md) and its machine records for details. This does not mean that all 62 functions are supported or visual acceptance is completed.
 
-2026-09-15。补齐 MultiMarkdown、PHP Markdown Extra、Markdown Strict 和旧版 GitHub Markdown；与原有四种 Pandoc 方言及 Notion 合计九种。旧版 GitHub 方言标注已弃用；书签卡片明确标为显示示例。
+- Fixed an issue where the `lists_without_preceding_blankline` limit was misapplied to sibling list boundaries; consecutively numbered items are no longer swallowed into the previous item. The new unit use cases cover six presets, continuous ordered/unordered lists, edit writeback and paragraph break restrictions; the six native dialect browser use cases add three numbered list checks.
+- `npm test`: 185 item, 184 passed, 1 item Windows symbolic link permission skipped; TypeScript/Vite build passed.
+- The full set of browser tests passed 40 and failed 1; the failure was caused by the existing Notion column input falling into the top title of the page, not a new dialect use case. Without modifying the product or test code, rerun the project alone to pass. It is recorded as an occasional input positioning failure, and the cause cannot be claimed to have been fixed simply by re-running it.
+- Functions such as charts, attributes, citations, annotations, etc. that are missing in the report are not implemented this time. README clearly differentiates between default optional and full syntax compatibility; not written into the user vault.
 
-- `npm test`：160 项，159 通过、0 失败，1 项 Windows 符号链接权限跳过。对照本机 `--list-input-formats` 验证没有遗漏 Markdown reader，逐项比较八种方言的扩展名称及默认值。
-- 新增四种方言实际调用 Pandoc，验证 `blank_before_header` 开启/关闭后的段落和标题差异，以及原生行号缺失时使用块位置估算。
-- `npm run test:e2e`（含 TypeScript/Vite 构建）：27 项全部通过。新增浏览器测试逐个选择四种方言、操作扩展开关、验证渲染与源码不变、弃用提示和刷新恢复。
-- 同步定位由 reader 能力探测决定，避免对不支持的 reader 传入 `+sourcepos`。本机运行服务已更新，能力接口确认八种 Pandoc 方言各自扩展可用。
+<a id="前一次补充六个原生-markdown-方言"></a>
 
-# 前一次补充：Markdown Lab 双栏预览
+# Previous addition: six native Markdown dialects
 
-2026-09-15，Windows / 本机 Pandoc 3.11 / 独立 Chrome。
+2026-09-15。New growthPandoc Markdown、CommonMark X、Markdown Strict、PHP Markdown Extra、MultiMarkdown、oldGitHub Markdown The core ofreader/writer；Nine pre-set options are available, and the registry43 Item 6. Actual scope and incomplete items[NATIVE-DIALECTS.md](../reference/NATIVE-DIALECTS.md)。
 
-- `npm ci` 安装依赖；新增 CodeMirror 与语言高亮依赖，lockfile 一并更新。
-- `npm test`：158 项，157 通过、0 失败、1 项普通文件符号链接因 Windows 权限跳过。
-- `npm run build`：TypeScript 和 Vite 多页面构建通过。Lab 独立 JS 约 658 KB（gzip 229 KB），当前保留构建体积提示。
-- `npm run test:e2e`：26 项全部通过，使用临时知识库和独立 Chrome；最后的预览 DOM 锚点隔离及非法行号处理修改后，重新构建并复测 Lab 全部 6 项，再次通过。
-- 新增模型测试覆盖实际 Pandoc 扩展读取、原生行号、Notion 分栏/未知内容、插件停用与无效载荷、嵌套代码围栏保护、请求参数限制、取消请求、YAML 元信息边界与双向位置插值。
-- Lab 浏览器测试覆盖实时输入/高亮/公式、扩展开关后源码不变、刷新恢复、Notion 方言与书签插件、双向滚动的块位置对齐及停用、延迟旧响应、合成输入事件、原始 HTML 清理、应用/文档 ID 隔离、非法行号、失败后源码恢复、UTF-8 文件导入下载与知识库不变、600px 窄屏。
-- 已人工检查页面截图：[桌面](../../test-results/markdown-lab-desktop.png)、[Notion](../../test-results/markdown-lab-notion.png)、[窄屏](../../test-results/markdown-lab-narrow.png)。修正 Notion 待办首段换行和普通子块缩进后重新截图。
-- 正式本机服务入口 `/markdown-lab.html` HTTP 200，能力接口返回 `pandoc 3.11`。测试始终使用临时知识库；启动正常应用后，Lab 预览请求不调用知识库读写接口。
+- `npm ci` The following are the results of the survey:Emoji ofmarkdown-it Plugins, locking files sync.
+- `npm test`: 184 entry, 183 passed, 0 failed, 1 entry Windows symbolic link permission skipped. Contains a block structure comparison of 60 groups against native Pandoc 3.11; this is not a full dialect conformance certification.
+- `npm run build`: TypeScript/Vite passed; there are still shared package build prompts exceeding 500 KB.
+- `npm run test:e2e`: The entire set of 41 items passed. Six new items are added to cover the actual rule switch, default reset, page editing, source code blank line, save and reload, switch dialects to retain source code, unknown switch retention, and intercept Pandoc API to verify that there is no call for daily editing.
+- The existing HTML, definition list, footnote, line block, Div, Slash, dragging, Notion blank line retention, three views, common undo and synchronous scrolling tests continue to pass.
+- End-fill completion of normal text writeback when "metadata is on but generalized escaping is off", and closure recognition when code fencing is disabled in Div. Then again passed the full 184 unit test (183 passed, 1 skipped), build and related 9 browser regressions.
+- Tested using only temporary vault with standalone Chrome . The extensions to be implemented are listed separately in the panel, and their configuration is not performed; the metadata is only recognized and retained, and the page attributes are not written. No claims are made for full Pandoc syntax, Meta or AST bidirectional compatibility.
 
-尚未验收完整系统中文 IME、大文档性能及逐项 Pandoc 扩展的全部组合。Pandoc Markdown 的源码位置是估算；第三方插件安装、右侧编辑、知识库保存与完整多格式导出未实现。详细边界见 [MARKDOWN-LAB.md](../features/MARKDOWN-LAB.md)。
+<a id="前一次补充notion-markdown-空行保留"></a>
 
-# 前一次补充：Notion Enhanced Markdown 正文格式
+# Previous addition: Notion Markdown blank lines are reserved
 
-2026-09-12。按 Notion 官方 Enhanced Markdown 与 Working with markdown content 两份文档实现 FORMAT v0.3；格式约定、迁移和功能边界见 [FORMAT.md](../FORMAT.md)。
+2026-09-15. Notion reader records the space before the top-level block and the space at the end of the file, and writer reuses the existing original text retention mechanism. Editors no longer need to re-assemble the entire article with a single line break; new/rewritten boundaries and sibling blocks within containers are separated by blank lines by default, and list items remain compact. Modifications within a compound block may normalize its spacing.
 
-- `npm test`：152 项，151 通过、0 失败、1 项 Windows 普通文件符号链接权限跳过；junction 逃逸检查通过。
-- TypeScript 检查与 Vite 生产构建通过。当前主入口压缩后约 517 KB，构建保留体积提示；本地 KaTeX 及字体随应用打包。
-- 独立临时知识库与 Chrome 的完整 E2E：19 项全部通过，包含此前的目录、退格、嵌套、父子拖动、页面链接和 Slash 回归，以及新增的官方标签、表格、旧格式迁移检查。
-- 新格式模型检查覆盖实际序列化后重读：单换行块、Tab 子树、`<br>`、空块、多列与嵌套分栏、代码围栏中的字面标签、提示/折叠、表格、颜色优先级、公式、提及、中文页面名、相对/外部 URL、未知内容、CRLF 及 HTML 导出。
-- 持久化检查覆盖正文与 `bodyFormat` 一起写入、旧版本冲突保留与合并、拒绝仅修改格式而不提交完整正文，以及新示例的格式。未遍历改写用户知识库。
+- `npm test`: 176 entries, 175 passes, 1 entries, Windows symbolic link permissions skipped. Newly added semantic round-trips covering consecutive blank lines, leading and trailing blanks, CRLF, original code/unknown blocks, insertion/movement, and editing within the container.
+- `npm run test:e2e`Completed the build and 35 browser test cases, of which 34 passed; the only failure was that the old test still required no blank lines between paragraphs and lists. After changing the assertion to two newlines according to the new explicit output rules, the item passed independently by re-running it. The product code has not changed after this assertion adjustment.
+- The new browser use case confirms that Notion page editing retains three consecutive line breaks, and that there are blank lines in the source code after creating a new paragraph in Enter. The saving and reopening are consistent, the formatting of blank lines does not generate additional nodes, and the internal blank lines of the code remain unchanged.
+- The test uses a temporary vault and independent Chrome, and does not rewrite user texts in batches. README and FORMAT have updated writeback rules.
 
-浏览器实际编辑分栏内容并按 Shift+Enter，编辑表格后从末格 Tab 新增行，保存、切换源码并刷新；折叠内容可展开/收起，颜色优先级在刷新后保持。截图 [notion-format.png](../../test-results/notion-format.png) 已实际查看，显示分栏、提示、折叠、彩色表格、下划线、公式及目录。浏览器 pageerror 检查通过。
+<a id="前一次补充html-与-markdown-复合块"></a>
 
-本轮修复了折叠按钮被悬停拖动手柄遮挡、原生 Home 后紧接退格时编辑器选区尚未同步，以及 HTML 导出中嵌套 DOM 内容槽未接收正文的问题。前一轮并行验证中记录的 7 个浏览器失败已在本轮完整回归中通过；旧测试的格式断言已按 v0.3 更新。
+# Previous addition: HTML and Markdown compound blocks
 
-日志：`.run/notion-tests.log`、`.run/notion-browser.log`、`.run/notion-build.log`。测试与浏览器均使用临时知识库，未向上游 clone 或 MyBase 主库写入。未调用 Notion 云端 API 验证工作区导入；数据库执行、同步块跨页联动、自定义 emoji 资源及会议转录仍按格式文档所列边界处理。
+2026-09-15. Added `raw_html`, `definition_lists`, `footnotes`, `line_blocks`, `fenced_divs`, totaling 24 entries in the registry; see [ BLOCKS.md ](../reference/BLOCKS.md) for complete dialect ownership, block list and boundaries.
 
-# 前一次补充：目录点击定位
+- `npm ci`Completed; add HTML5 parser `parse5` and definition list syntax plug-in `markdown-it-deflist`, lock file synchronization.
+- `npm test`: 173 entry, 172 passed, 0 failed, 1 entry Windows symbolic link permission skipped. New test coverage parsing/editing/reopening, original text preservation, disabling extensions, code fences and indented code, nested Div, unclosed input, footnote tags and continuations, pipeline table priority, inline HTML, overall container movement and HTML cleanup/export.
+- `npm run build`: TypeScript/Vite passed; the shared package still has build prompts exceeding 500 KB.
+- `npm run test:e2e`：The Independent Temporary Knowledge Base andChrome The whole set.34 Adopted. Subsequently supplementedHTML The focus is on the re-use of the source box.GFM The default value is marked with a footnote, and the new blocks and three views are reconstructed and replicated.7 The browser usage example.
+- The browser adds real Slash insertion covering five types of blocks, HTML whole block dragging, terminology/definition/footnote/poem line/Div editing, two-way source code update, save/reopen, text unchanged before and after the expansion switch, and HTML event/script/application operation attribute isolation.
+- I've seen it. `test-results/markdown-blocks.png`Repair the HTML preview inheritance editor to retain the residual spacing caused by the blank style; the HTML source field uses shared history and remains open and focused after reworking.
 
-2026-09-12。使用独立临时知识库与 Chrome，新增测试启用正常滚动动画。修复前复现两项失败：折叠章节内的标题点击后仍隐藏；页尾点击其他标题后仍高亮最后一项。连续快速点击的基线通过。
+The test did not change user vault; it did not access the full set of Pandoc AST conversions. There are still clear boundaries for HTML elements and styles, footnote layout, Div attribute execution, cross-container reference definitions, complex tables, and Notion codec's new extended adaptations. See the block documentation for details.
 
-修复后目录专项 **5 项通过**：层级/阅读跟随、73 条标题的长目录与键盘操作、多层折叠自动展开、页尾保持点击项、编辑后的连续平滑跳转。目录项直接关联渲染出的标题，手动滚动或编辑时恢复位置跟随。章节展开不修改 Markdown 正文或撤销历史；测试检查了点击前后的磁盘正文一致。
+<a id="前一次补充原生-markdown-编辑核心"></a>
 
-本轮 TypeScript 与 Vite 构建通过，`npm test` 执行时为 134 项、133 通过、1 项 Windows 符号链接权限跳过。完整 Chrome 回归为 **9 通过、7 失败**，不能宣称全量通过。失败均为不包含标题的正文/列表用例：列表退格、普通文本嵌套、硬换行、子项/父项拖动、复制及类型转换。运行时工作区另有正文格式迁移改动：新建页面默认使用 `notion-markdown`，编辑后写出 Tab 嵌套与 `<br>`；旧测试仍使用普通 Markdown 的输入和部分输出断言，此外仍有列表 DOM 层级断言失败。此处记录验证边界，没有回退这些格式改动。
+# Previous addition: Native Markdown editing core
 
-日志：`.run/toc-navigation-before.log`（复现）、`.run/toc-navigation-after.log`（专项）、`.run/toc-navigation-full.log`（完整回归）、`.run/toc-navigation-unit.log`（单元测试）。本地开发服务返回的界面及编辑器模块已确认包含修复。
+2026-09-15. The main application has access to the unified source code draft, three views, 3 native presets and 19 built-in extensions; see [ architecture and actual boundaries of ](../architecture/MARKDOWN-ENGINE.md).
 
-# 前一次补充：退格、普通文本嵌套与块内换行
+- `npm ci`Completed; add direct dependency of CodeMirror commands and lock file synchronization.
+- `npm test`: 166 entry, 165 passed, 0 failed, 1 entry Windows symbolic link permission skipped. Native codec tests cover real switches, code fences, Notion containers, formulas, double chains, color and bold combinations, soft/hard line breaks, pipeline table alignment editing, source/reference definitions/CRLF, unknown configurations, and CAS conflict recovery and configuration removal.
+- `npm run build`: TypeScript/Vite passed, but there is still a prompt that the size of the shared rendering package exceeds 500 KB.
+- Standalone Temporary vault / Chrome Complete E2E: 31 items passed. Added source code → page and reverse input, three-view switching, common undo/redo, real expansion switch, configuration save/refresh, unknown switch retention, fast source code replacement, synthetic IME input, two-way scrolling and turning off synchronization; explicitly intercept Pandoc API and assert that the main editor did not request it.
+- Existing Slash, single item/subtree drag, nested, directory, Notion tag, table and Lab tests continue to execute. The old page assertion has been changed to retain the original CommonMark source code and no longer requires automatic migration to Notion when switching views.
+- Viewed `test-results/native-workspace.png`; double column width and viewport height are calculated based on the current window. The test always uses a temporary vault and does not add a test page in user vault.
 
-2026-09-12。`npm test` 共 134 项，133 通过、1 项 Windows 符号链接权限跳过、0 失败。Chrome E2E 扩充为 11 项，包含普通文本父子拖动及刷新、结束列表后退格、段落/待办 Shift+Enter 的硬换行及源码往返。日志为 `.run/nesting-tests.log`、`.run/nesting-browser.log`。
+Log: `.run/native-unit.log`, `.run/native-build.log`, `.run/native-e2e.log`; model performance example: `.run/native-benchmark.json`. Preliminary measurements do not include DOM/ rendering; real system IME, large document end-to-end latency, full Pandoc extension conformance, third-party extensions, and full Pandoc AST round-trips are not accepted.
 
-新增命令测试覆盖空嵌套列表逐级退出、普通文本提升时后续兄弟跟随为子项、空父块/子块、字面扩展标记及原文保留。普通文本层级使用 FORMAT v0.2 的 `:::nest` / `:::children` / `:::endnest`，标准列表仍用 Markdown 缩进。
+<a id="前一次补充全部-pandoc-markdown-方言"></a>
 
-# 前一轮验证记录：连续块编辑器
+# Previous addition: All Pandoc Markdown dialects
+
+2026-09-15. Complete MultiMarkdown, PHP Markdown Extra, Markdown Strict and the old version of GitHub Markdown; together with the original four Pandoc dialects and Notion, there are nine languages ​​in total. Legacy GitHub dialect annotations are deprecated; bookmark cards are explicitly marked to show examples.
+
+- `npm test`: 160 item, 159 passed through, 0 failed, 1 item, Windows symbol linking permissions were skipped. `--list-input-formats` Verify that Markdown reader is not omitted, each comparing the extension names and default values of eight languages.
+- Added four new dialects to actually call Pandoc, verify paragraph and title differences when `blank_before_header` is turned on/off, and use block position estimation when native line numbers are missing.
+- `npm run test:e2e`(Including TypeScript/Vite build): All 27 items passed. Added browser tests to select four dialects one by one, operate extension switches, verify rendering and source code unchanged, deprecation prompts and refresh recovery.
+- Synchronous positioning is determined by reader capability detection to avoid passing unsupported reader into `+sourcepos`. The native runtime service has been updated, and the capabilities interface confirms that extensions are available for each of the eight Pandoc dialects.
+
+<a id="前一次补充markdown-lab-双栏预览"></a>
+
+# Previous supplement: Markdown Lab double column preview
+
+2026-09-15, Windows/native Pandoc 3.11/standalone Chrome.
+
+- `npm ci`Install dependencies; add CodeMirror and language highlighting dependencies, and update lockfile together.
+- `npm test`: 158 item, 157 passed, 0 failed, 1 item ordinary file symbolic link skipped due to Windows permissions.
+- `npm run build`: TypeScript and Vite multi-page build passes. Lab stands alone JS approximately 658 KB (gzip 229 KB), currently retaining build volume hints.
+- `npm run test:e2e`: All 26 items passed, using the temporary vault and independent Chrome; after the final preview DOM anchor point isolation and illegal line number processing were modified, Lab was rebuilt and retested and all 6 items passed again.
+- New model tests cover actual Pandoc extended reading, native line numbers, Notion column/unknown content, plug-in deactivation and invalid payloads, nested code fence protection, request parameter restrictions, request cancellation, YAML meta information boundaries and bidirectional position interpolation.
+- Lab browser test covers real-time input/highlighting/formula, source code unchanged after expansion switch, refresh recovery, Notion dialect and bookmark plug-in, block position alignment and deactivation of two-way scrolling, delayed old response, synthetic input events, original HTML cleanup, application/document ID isolation, illegal line number, source code recovery after failure, UTF-8 file import download and vault unchanged, 600px narrow screen.
+- The page screenshots have been manually checked: [ desktop ](../../test-results/markdown-lab-desktop.png), [ Notion ](../../test-results/markdown-lab-notion.png), [ narrow screen ](../../test-results/markdown-lab-narrow.png). Corrected the problem of line wrapping in the first paragraph of Notion to-do and re-screenshot after indenting common sub-blocks.
+- The official local service entrance is `/markdown-lab.html` HTTP 200, and the capability interface returns `pandoc 3.11`. The test always uses the temporary vault; after starting the normal application, the Lab preview request does not call the vault read and write interface.
+
+All combinations of the complete system Chinese IME, large document performance, and itemized Pandoc expansion have not yet been accepted. The source code location of Pandoc Markdown is an estimate; third-party plug-in installation, right-side editing, vault saving and complete multi-format export have not been implemented. See [ MARKDOWN-LAB.md ](../features/MARKDOWN-LAB.md) for detailed boundaries.
+
+<a id="前一次补充notion-enhanced-markdown-正文格式"></a>
+
+# Previous supplement: Notion Enhanced Markdown text format
+
+2026-09-12。byNotion officialEnhanced Markdown withWorking with markdown content Two documents implementedFORMAT v0.3；Format settings, migration and functional boundaries[FORMAT.md](../FORMAT.md)。
+
+- `npm test`: 152 item, 151 passed, 0 failed, 1 item Windows ordinary file symbolic link permission skipped; junction escape check passed.
+- TypeScript checks pass with Vite production build. The current main entrance is about 517 KB after compression, and the construction retains the volume prompt; local KaTeX and fonts are packaged with the application.
+- The Independent Temporary Knowledge Base andChrome of completeE2E：19 All items are accepted, including previous directories, backlinks, nestings, parent-dragging, page links andSlash Returns, as well as new official labels, tables, and old-form migration checks.
+- New format model checks cover rereading after actual serialization: single newline blocks, Tab subtrees, `<br>`, empty blocks, multiple columns and nested columns, literal labels in code fences, prompts/collapses, tables, color precedence, formulas, mentions, Chinese page names, relative/external URL, unknown content, CRLF and HTML exports.
+- Persistence checks cover writing the body with `bodyFormat`, retaining and merging old version conflicts, rejecting format modifications only without committing the full body, and formatting of new examples. The user vault has not been traversed or rewritten.
+
+The browser actually edits the column content and presses Shift+Enter. After editing the table, add a new row from the last column Tab, save, switch the source code and refresh; the folded content can be expanded/collapsed, and the color priority is maintained after refreshing. Screenshot [ notion-format.png ](../../test-results/notion-format.png) has been actually viewed, showing columns, prompts, folds, colored tables, underlines, formulas and directories. Browser pageerror check passed.
+
+This wheel repaired the folding button suspended to pull the handle shade, originalHome The following is a list of the most commonly used methods for the synchronization of the editor.HTML Exporting embeddedDOM The problem of the content slot not receiving the correct answer.7 A browser failure has been passed in this round of complete regression; the old test format claims to have beenv0.3 Updated
+
+Log: `.run/notion-tests.log`, `.run/notion-browser.log`, `.run/notion-build.log`. Both the test and the browser use a temporary vault and do not write to the upstream clone or MyBase main library. Notion cloud API verification workspace import is not called; database execution, synchronization block cross-page linkage, custom emoji resources and meeting transcription are still processed according to the boundaries listed in the format document.
+
+<a id="前一次补充目录点击定位"></a>
+
+# Previous supplement: Directory click positioning
+
+2026-09-12. Using a standalone temporary vault with Chrome, add a new test to enable normal scrolling animation. Two failures occurred before the repair: the title within the collapsed chapter was still hidden after being clicked; the last item was still highlighted after clicking on other titles at the end of the page. A baseline of rapid succession of clicks passes.
+
+After the repair, the special **5 items in the table of contents passed**: level/reading following, long table of contents with 73 titles and keyboard operations, automatic expansion of multi-layer folds, keeping clicked items at the end of the page, and continuous smooth jumps after editing. Table of contents items are directly associated with the rendered title, and position following is restored when manually scrolling or editing. Chapter expansion does not modify the Markdown text or undo history; the test checked that the disk text before and after the click is consistent.
+
+The first round of the project was built on the basis of the TypeScript and Vite protocols.`npm test` The execution is134 The neck133 I'm going to go through this.1 The following:Windows The symbol linking permission has been skipped.Chrome Return to the**9 passed, 7 failed**The default is for non-title-containing text/list uses: list regression, common text nesting, hard-to-order, sub-item/parent drag, copy and type conversion. `notion-markdown`The code is written in a Tab nested and edited form. `<br>`The old test still uses the input and partial output statements of normal Markdown, and there are also lists of DOM level statements that fail.
+
+Log: `.run/toc-navigation-before.log` (recurrence), `.run/toc-navigation-after.log` (special project), `.run/toc-navigation-full.log` (complete regression), `.run/toc-navigation-unit.log` (unit test). The interface and editor modules returned by the local development service have been confirmed to contain fixes.
+
+<a id="前一次补充退格普通文本嵌套与块内换行"></a>
+
+# Previous addition: backspace, normal text nesting, and line breaks within blocks
+
+2026-09-12. `npm test` has a total of 134 items, 133 passed, 1 items Windows symbolic link permission skipped, 0 failed. Chrome E2E has been expanded to 11 items, including parent-child dragging and refreshing of ordinary text, backspace at the end of the list, hard line wrapping of paragraph/to-do Shift+Enter, and source code round-trip. The logs are `.run/nesting-tests.log` and `.run/nesting-browser.log`.
+
+New commands to test the empty nested lists are phased out, the normal text is upgraded and the next brother follows the sub-clause, the empty parent block/Sub-block, literally extended markup and original preservation. Common text-level useFORMAT v0.2 of`:::nest` / `:::children` / `:::endnest`The standard list is still shortened with Markdown.
+
+<a id="前一轮验证记录连续块编辑器"></a>
+
+# Previous round of verification records: Continuous block editor
 
 2026-09-12，Windows / Node.js 24 / Chrome 153 / ProseMirror。
 
-- `npm test`：124 项，123 通过、0 失败、1 跳过。跳过项为 Windows 不允许创建普通文件符号链接；junction 逃逸验证通过。
-- TypeScript 检查及 Vite 生产构建通过。
-- 独立 Chrome E2E 覆盖 8 项，见下表；完整最终批次日志在 `.run/latest-browser-tests.log`。
-- 所有测试使用临时 vault，不操作用户知识库、上游 clone 或 MyBase。
+- `npm test`: 124 item, 123 passed, 0 failed, 1 skipped. The skipped items are that Windows does not allow the creation of ordinary file symbolic links; junction escape verification is passed.
+- TypeScript check and Vite production build passed.
+- Standalone Chrome E2E covers the 8 entries, see table below; the complete final batch log is in `.run/latest-browser-tests.log`.
+- All tests use temporary vault and do not operate on the user vault, upstream clone or MyBase.
 
-| 浏览器测试 | 验证内容 |
+| Browser testing | Verify content |
 | --- | --- |
-| Slash autocomplete | 输入单个 / 立即显示菜单、保留正文焦点、继续键入 h2 筛选、Enter 插入标题 |
-| Markdown/nesting | 标题与列表语法、Enter 独立项、Tab/Shift+Tab、Ctrl+E 源码一致 |
-| Todos | 先输入 - 再 [ ] 生成待办，逐项复选框，Enter 新项未勾选，保存成功 |
-| Child drag | 真鼠标事件拖动子项、保留孙项、源码保存并刷新 |
-| Parent drag | 快速原生 dragTo 整体移动父项与子树、单步撤销 |
-| Page links | 行内提及与页面入口含图标/名称，光标移动不暴露 Markdown |
-| Nested menu | 嵌套项复制/删除，其他块不变 |
-| Single-item conversion | 转换当前项为编号，保留其他兄弟原类型和子项 |
+| Slash autocomplete | Enter single/display menu immediately, keep text focus, continue typing h2 filter, Enter insert title |
+| Markdown/nesting | The title is consistent with the list syntax, Enter independent item, Tab/Shift+Tab, Ctrl+E source code |
+| Todos | First enter - and then [ ] to generate a to-do, item-by-item checkbox, Enter new item is unchecked, and the save is successful. |
+| Child drag | Real mouse event drags children, retains grandchildren, saves and refreshes source code |
+| Parent drag | Fast native dragTo moves parent and subtree as a whole, single-step undo |
+| Page links | Inline mentions and page entries contain icons/names, and cursor movement does not expose Markdown |
+| Nested menu | Nested items copied/deleted, other blocks unchanged |
+| Single-item conversion | Convert the current item to a number, retaining the original types and sub-items of other siblings |
 
-截图 `test-results/slash-menu.png`、`test-results/page-links.png` 已实际查看；测试捕获 browser pageerror，全部为空。Computer Use 只读查看了实际 Notion 窗口作界面参考。
+The screenshots `test-results/slash-menu.png` and `test-results/page-links.png` have been actually viewed; the test captures browser pageerror, all of which are empty. Computer Use Read-only view of the actual Notion window for interface reference.
 
-模型测试额外覆盖：引用定义/未知语法/CRLF保留、超过100种嵌套拖动组合、循环拒绝、统一撤销、inline marks/页面原子保留、完整链接范围、代码转换保留附件和页面标识、本地音视频往返、输入组合状态。系统级中文输入法未以真实 IME 完成验收；状态/输入规则测试不等同于真实 IME。
+Model testing additional coverage: reference definitions/unknown syntax/CRLF retention, more than 100 nested drag combinations, loop rejection, unified undo, inline marks/ page atomic retention, full link range, transcoding retaining attachments and page identifiers, local audio and video round-trips, input combination status. The system-level Chinese input method has not completed acceptance with real IME; the status/input rule test is not equivalent to real IME.
 
-本轮真实测试发现并修复：手柄取消 mousedown 阻止原生拖动、快速拖动时 hover 挪走手柄、todo 输入复用另一事务选区造成异常、Windows 短暂文件占用造成 rename 失败。文件替换现在有限重试，重试前确认原文件未被外部修改；不删除原文件绕过占用，不强制重试 revision 冲突。
+This round of real testing discovered and fixed: handle cancellation in mousedown prevents native dragging, hover removes the handle when dragging quickly, todo input reuses another transaction selection causing an exception, and Windows's temporary file occupation causes rename to fail. File replacement now has limited retries. Before retrying, confirm that the original file has not been modified externally; the original file is not deleted to bypass occupation, and revision conflicts are not forced to be retried.
 
-以下全部为旧版历史，不代表当前编辑器。
+All the following are old version history and do not represent the current editor.
 
 ---
-# 旧版验证记录（历史）
+<a id="旧版验证记录历史"></a>
 
-## 本轮：阅读、编辑与块整理合一
+# Old version verification record (history)
 
-记录日期：2026-09-12。下面明确区分自动检查、代码审查和真实 UI 验收；文末前一版记录保留作历史证据。
+<a id="本轮阅读编辑与块整理合一"></a>
 
-- 最终测试批次：`npm test` 共 37 项，36 通过、0 失败、1 跳过。跳过项仍是 Windows 当前权限不允许创建普通文件符号链接；目录 junction 逃逸测试通过。
-- `npm run typecheck` 已通过。
-- `npm run build`：本轮 TypeScript 检查与 Vite 生产构建通过。
-- 本地预览入口、API、前端模块、CSS 和 Lute 资源均返回 HTTP 200；后台服务在构建后仍保持运行。
-- 测试在独立临时知识库中运行；本轮没有修改用户 `vault/`、上游 clone 或 MyBase 主库。
+## This round: reading, editing and block sorting in one
 
-新增自动覆盖包括：单块替换/插入/删除/复制、安全合并相邻段落、CRLF 与无结尾换行、隐藏引用定义、代码/表格/列表/两栏/未知扩展原文保留、待办复选框按真实渲染顺序定位并仅修改单字符，以及搜索的中文匹配、引号短语、标题排序和最近访问。已有存储、冲突、MCP 和 MyBase 测试继续运行。纯函数测试不能替代浏览器中的光标、拖放和中文输入法验收。
+Recording date: 2026-09-12. The following clearly distinguishes automatic inspection, code review and real UI acceptance; at the end of the article, the previous version of the record is retained as historical evidence.
 
-本轮代码审查检查了：活动块多次输入捕获、切换视图前收取源码、菜单/拖动前结束活动编辑、插入位置保留、斜杠查询与选区失效、组合输入期间的菜单行为及事件清理。统一视图、左侧悬停六点手柄、页内斜杠菜单、键盘搜索与页面菜单均已实现；**这些是实现及代码审查记录，不是浏览器实测通过声明**。
+- Final test batch: `npm test`, total 37 items, 36 passed, 0 failed, 1 skipped. The skipped item is still Windows. The current permissions do not allow the creation of ordinary file symbolic links; the directory junction escape test passes.
+- `npm run typecheck`Passed.
+- `npm run build`: This round of TypeScript inspection and Vite production build passed.
+- The local preview portal, API, front-end module, CSS and Lute resources all return HTTP 200; the background service remains running after the build.
+- The test is run in an independent temporary repository; no user `vault/`, upstream clone or MyBase main repositories were modified in this round.
 
-### 浏览器控制受阻，尚未完成本轮真实 UI 验收
+New automatic overrides include: single block replacement/insertion/deletion/copy, safe merging of adjacent paragraphs, CRLF with no trailing line breaks, hidden reference definitions, code/table/list/two-column/unknown extension original text retention, to-do checkboxes positioned in true rendering order and modifying only single characters, and Chinese matching for searches, quoted phrases, title sorting, and recent visits. Existing storage, conflict, MCP and MyBase tests continue to run. Pure function testing cannot replace the cursor, drag and drop, and Chinese input method acceptance in the browser.
 
-本轮尝试使用浏览器控制通道验证本机页面，但遇到以下工具级故障：
+This round of code review checked: multiple input capture in active blocks, source code collection before switching views, ending active editing before menu/drag, insertion position preservation, slash query and selection invalidation, menu behavior and event cleanup during combined input. Unified view, left-hover six-dot handle, in-page slash menu, keyboard search and page menu have all been implemented; **these are implementation and code review records, not the browser actual test statement**.
 
-- 内置浏览器调用在约 30 秒后超时。
-- Chrome 控制调用返回 `fetch failed`。
-- 浏览器状态读取 `getState` 返回 `fetch failed`。
+<a id="浏览器控制受阻尚未完成本轮真实-ui-验收"></a>
 
-因此没有获取本轮修改后的真实 UI 截图，也没有完成拖动、连续编辑、输入法或像素布局的人工浏览器验收。工具连接失败本身不能证明应用页面正常或异常；即使 HTTP 服务可访问，也不能替代这些交互检查。不得把下方前一版的截图尺寸、控制台状态或成功操作当成本轮结果。
+### Browser control is blocked and the current round of real UI acceptance has not been completed.
 
-恢复浏览器控制后，首先验证：
+This round attempted to use the browser control channel to validate the native page, but encountered the following tool-level failure:
 
-1. 在页面内连续阅读和编辑，拖动左侧六点手柄重排、复制、删除块，再用 `Ctrl+E` 检查 Markdown 与磁盘结果；确认没有块旁加号，正文悬停不额外显示手柄。
-2. `/`、`、` 在正文中打开菜单并继续输入查询；英文/中文 IME、空结果、Escape、Enter、方向键、鼠标点选、失效选区和切换页面不误改正文或遗留事件监听。
-3. 键盘搜索：最近访问、中文/引号短语、标题优先、方向键选择、Enter 打开、Escape 关闭后的焦点恢复。
-4. 右上角页面菜单切换页面/大纲/脑图/源码；属性展开、目录、标题折叠、媒体和两栏；桌面与窄屏布局。
-5. 活动块文字撤销、块操作撤销、跨块选区和键盘导航的实际边界，避免将当前每块编辑模型误认为完整 Notion 编辑模型。
+- The built-in browser call times out after approximately 30 seconds.
+- The Chrome control call returns `fetch failed` .
+- Browser status reads `getState` and returns `fetch failed` .
 
-## 前一版：第一阶段验证记录（历史）
+Therefore, no actual UI screenshots after this round of modifications were obtained, and no manual browser acceptance of dragging, continuous editing, input method, or pixel layout was completed. Tool connection failure itself does not prove that the application page is normal or abnormal; even if the HTTP service is accessible, it cannot replace these interactive checks. The screenshot size, console status or successful operation of the previous version below may not be regarded as the result of this round.
 
-以下保留前一版记录。其「直接操作真实 UI」及启动验证只对应当时编辑、阅读和整理分开的版本，**不代表本轮统一编辑器已验收**。
+After restoring browser control, first verify:
 
-验证日期：2026-09-12。环境：Windows、Node.js 24.19.0、Vditor 4.0.0、Vite 7.3.6。此文件记录实测结果，不把计划中的能力标为完成。
+1. Continuously read and edit within the page, drag the six-point handle on the left to rearrange, copy, and delete blocks, and then use `Ctrl+E` to check the Markdown and disk results; confirm that there is no plus sign next to the block, and no additional handle is displayed when hovering the text.
+2. `/`, `、` Open the menu in the text and continue to enter the query; English/Chinese IME, empty results, Escape, Enter, arrow keys, mouse clicks, invalid selections and switching pages will not correct the text or legacy event monitoring.
+3. Keyboard search: recent visits, Chinese/quoted phrases, title priority, arrow key selection, focus recovery after Enter is opened, Escape is closed.
+4. The page menu in the upper right corner switches page/outline/mind map/source code; attribute expansion, table of contents, title collapse, media and two columns; desktop and narrow screen layout.
+5. Actual boundaries for active block text undo, block operation undo, cross-block selections, and keyboard navigation to avoid mistaking the current per-block edit model for the full Notion edit model.
 
-### 自动检查（前一版）
+<a id="前一版第一阶段验证记录历史"></a>
 
-- `npm run typecheck` 通过。
-- `npm test`：25 项测试，24 项通过、0 失败、1 跳过。跳过项为 Windows 当前权限不允许创建普通文件符号链接；目录 junction 逃逸测试已经通过。
-- `npm run build`：TypeScript 检查与 Vite 生产构建通过。
-- 测试创建独立临时知识库；MCP 测试启动真实 SDK 客户端与 stdio 服务进程，并实际调用列页、建页、读页、成功更新和陈旧 revision 更新。
-- MyBase 导出的 MBN 经过现有项目 parser 与 EntityJsonBuilder 的内存验证，没有写入该项目知识库或注册表。
+## Previous version: Phase 1 Verification Records (History)
 
-### 浏览器验收（前一版）
+The previous version of the record is retained below. Its "direct operation of real UI" and startup verification only correspond to the separate versions for editing, reading and sorting at that time. **does not mean that the unified editor of this round has accepted**.
 
-在本机浏览器访问 `http://127.0.0.1:4317`，直接操作真实 UI：
+Verification date: 2026-09-12. Environment: Windows, Node.js 24.19.0, Vditor 4.0.0, Vite 7.3.6. This document records actual measurement results and does not mark planned capabilities as completed.
 
-1. 新建「我的第一篇笔记」，磁盘出现对应 UUID 的 `.md` 文件。
-2. 源码输入标题、待办列表、双栏、页面双链；阅读视图正确展示结构，脑图从相同正文生成。
-3. 在即时编辑器输入后立刻切换源码视图，刚输入的文字仍存在。发现并修复 Vditor 延迟回调与销毁之间的数据遗漏窗口，并增加实例隔离。
-4. `/` 打开插入菜单，插入引用与行内代码；保存光标范围，使对话框关闭后仍在指定位置插入。
-5. 两个浏览器窗口基于同一版本分别修改同一页；第一个写入成功，第二个显示 409 冲突对照；显式合并后，磁盘正文同时包含两个窗口的补充。
-6. 核对 `.history/conflicts/resolved/` 保留已合并 proposal，正文未被较旧版本静默覆盖。
-7. 画廊、属性列表和页面关系图可切换，显示实际页面/属性/引用。
-8. 在 1280 × 720 和 390 × 844 检查布局；窄屏侧栏收起、画廊堆叠，已修正说明字号造成的横幅高度异常。
-9. 浏览器未记录应用控制台错误。
+<a id="自动检查前一版"></a>
 
-UI 实测创建的示例页保留在本轮新建的默认 vault 中，供继续体验；默认 vault 不纳入源代码管理。生产构建产物及源文件均保留，开发服务运行在本机地址。
+### Automated checks (previous version)
 
-### 本地启动故障修复（前一版）
+- `npm run typecheck` passed.
+- `npm test`: 25 test, 24 passed, 0 failed, 1 skipped. The skipped item is Windows. The current permissions do not allow the creation of ordinary file symbolic links; the directory junction escape test has passed.
+- `npm run build`: TypeScript check passes with Vite production build.
+- The test creates an independent temporary vault; the MCP test starts the real SDK client and stdio service process, and actually calls column page, page creation, page reading, successful update and stale revision update.
+- MyBase ExportedMBN The current projectsparser withEntityJsonBuilder The project is not written in the knowledge library or register.
 
-同日根据浏览器 `ERR_CONNECTION_REFUSED` 排查，原开发进程日志确认根因是 Vite 对 `public/vendor/vditor` 的监听触发 Windows `EBUSY`，随后 `concurrently -k` 结束后端。已排除生成资源目录的监听，并让资源准备在完整缓存有效时跳过复制，变化时仅更新必要文件。
+<a id="浏览器验收前一版"></a>
 
-新增 `start.cmd` / `scripts/start.ps1`，以固定项目工作目录启动两个独立隐藏后台进程。启动入口检查知识库身份、网页、API 代理和 Lute 资源，重复启动复用现有服务。已验证启动脚本退出后服务继续运行、二次启动成功、服务运行期间执行生产构建后仍能访问；网页、API、前端入口和 Lute 资源均返回 HTTP 200，后台错误日志为空。此次再次执行测试为 24 通过、1 个系统权限相关跳过，生产构建通过。
+### Browser acceptance (previous version)
 
-## 尚未完成的整体能力与验收
+Access `http://127.0.0.1:4317` in the local browser and directly operate the real UI:
 
-跨设备网络同步、断电/磁盘满的故障注入、系统原生中文 IME 组合输入矩阵、触控拖动、超大库性能、完整屏幕阅读器流程、音视频跨浏览器兼容、HTML 附件打包和完整 MyBase Query 尚未做端到端验收。应用层 CAS 不能阻止任意外部进程在最后一次检查和原子替换之间强行写入；MCP/API 写入是当前受控的冲突保护入口。
+1. The newly created "My First Note" discs are compatible with UUID. `.md` The files.
+2. The source code input title, to-do list, double columns, and page double links; the reading view displays the structure correctly, and the brain map is generated from the same text.
+3. Immediately switch to the source code view after typing in the instant editor, and the text just entered will still exist. Discovered and fixed the data missing window between Vditor delayed callback and destruction, and increased instance isolation.
+4. `/`Open the Insert menu to insert references and inline code; save the cursor range so that it can still be inserted at the specified position after the dialog box is closed.
+5. The two browser windows modify the same page based on the same version; the first one is written successfully, and the second one displays the 409 conflict comparison; after explicit merging, the disk text contains the additions of both windows.
+6. Check that `.history/conflicts/resolved/` retains merged proposal and the body is not silently overwritten by an older version.
+7. Galleries, property lists and page diagrams can be toggled to show actual pages/properties/references.
+8. Check the layout in 1280 × 720 and 390 × 844; narrow screen sidebar is collapsed, galleries are stacked, and abnormal banner height caused by caption font size has been corrected.
+9. The browser does not log app console errors.
+
+The sample page created by UI actual measurement is retained in the default vault created in this round for continued experience; the default vault is not included in source code management. The production build products and source files are retained, and the development service runs at the local address.
+
+<a id="本地启动故障修复前一版"></a>
+
+### Local startup failure fix (previous version)
+
+On the same day, according to the browser `ERR_CONNECTION_REFUSED` investigation, the original development process log confirmed that the root cause was Vite's monitoring of `public/vendor/vditor` triggering Windows `EBUSY`, and then `concurrently -k` terminated the backend. Excluded listening for generated resource directories, and made resource preparation skip copying when the full cache is valid, and only update necessary files when they change.
+
+Added `start.cmd` / `scripts/start.ps1` to start two independent hidden background processes with a fixed project working directory. Start the portal to check the vault identity, web page, API agent and Lute resources, and repeat the startup to reuse the existing service. It has been verified that the service continues to run after the startup script exits, the second startup is successful, and it can still be accessed after the production build is executed during service running; web pages, API, front-end portals and Lute resources all return HTTP 200, and the background error log is empty. This time the test was executed again and 24 passed, 1 system permissions were skipped, and the production build passed.
+
+<a id="尚未完成的整体能力与验收"></a>
+
+## Overall capability and acceptance yet to be completed
+
+Cross-device network synchronization, power outage/disk full fault injection, system native Chinese IME combined input matrix, touch drag, super large library performance, complete screen reader process, audio and video cross-browser compatibility, HTML attachment packaging and complete MyBase Query have not yet undergone end-to-end acceptance. Application layer CAS cannot prevent arbitrary external processes from forcing writes between the last check and the atomic replacement; MCP/API writes are the currently controlled conflict protection entry.

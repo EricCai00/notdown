@@ -1,3 +1,4 @@
+import { setUIAttribute } from "../../shared/i18n";
 import { createEditorNode, isEditorKind } from "../../document/node-identity";
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { closeHistory } from "prosemirror-history";
@@ -51,7 +52,7 @@ export function linkPaste(canUse: () => boolean, canBookmark: () => boolean = ()
       const menu = document.createElement("div");
       menu.className = "pm-link-paste-menu";
       menu.setAttribute("role", "menu");
-      menu.setAttribute("aria-label", "Paste link as");
+      setUIAttribute(menu, "aria-label", "Paste link as");
       menu.hidden = true;
       document.body.append(menu);
       const dismiss = () => {

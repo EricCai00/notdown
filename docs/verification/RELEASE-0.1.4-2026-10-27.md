@@ -1,42 +1,54 @@
-# Windows 0.1.4 发布验证（2026-10-27）
+<a id="windows-014-发布验证2026-10-27"></a>
 
-## 范围
+# Windows 0.1.4 release validation (2026-10-27)
 
-汇总此前未提交的 Notion v2 导入兼容、文字／背景双颜色、可验证的桌面缓存日期补充、外部引用库、行内对象菜单及附件命名／清理改动。新增的代码语言恢复只对语言注册表无法识别的非空标签触发 Block API 核对，保留唯一完整代码匹配、原始归档和歧义保护；已知语言、别名、空标签和 Mermaid 不增加语言核对请求。
+**English** · [简体中文](RELEASE-0.1.4-2026-10-27.zh-CN.md)
 
-版本从 0.1.3 升至 0.1.4；程序仍为 Windows x64 Electron + NSIS 安装包。产物、日志、用户数据和安装备份不进入 Git。
+<a id="范围"></a>
 
-## 验证结果
+## range
 
-| 检查 | 结果 |
+Summary of previously uncommitted Notion v2 import compatibility, text/background dual colors, verifiable desktop cache date addition, external reference library, inline object menu and attachment naming/cleaning changes. The new code language recovery only triggers Block API verification for non-empty tags that are not recognized by the language registry, retaining unique complete code matching, original archiving, and ambiguity protection; known languages, aliases, empty tags, and Mermaid do not increase language verification requests.
+
+The version has been upgraded from 0.1.3 to 0.1.4; the program is still a Windows x64 Electron + NSIS installation package. Product, log, user data and installation backups do not enter Git.
+
+<a id="验证结果"></a>
+
+## Verification results
+
+| Check | result |
 | --- | --- |
-| `npm test` | 1,118 通过、5 跳过、0 失败 |
-| `npm run test:e2e -- tests/e2e/notion-v2-import.spec.ts tests/e2e/code-languages.spec.ts` | 构建通过，13 项浏览器测试通过 |
-| 附件、日期、外部引用、行内菜单、会议日期、联系人与选区菜单的扩展浏览器回归 | 46 通过、1 失败，非全绿 |
-| `npm run desktop:dist` | 生成 `Notdown-Setup-0.1.4-x64.exe` |
-| `NOTDOWN_PACKAGED_EXE` 指向 `win-unpacked/Notdown.exe` 的桌面测试 | 首轮 8 通过、1 失败；失败的单实例恢复用例单独复跑通过 |
-| 本机安装 | NSIS 正常结束，退出码 0，安装后产品版本为 `0.1.4.0` |
-| 安装文件校验 | `Notdown.exe` 和 `resources/app.asar` 的 SHA-256 与测试过的打包产物一致；知识库选择设置保持不变 |
+| `npm test` | 1, 118 passed, 5 skipped, 0 failed |
+| `npm run test:e2e -- tests/e2e/notion-v2-import.spec.ts tests/e2e/code-languages.spec.ts` | The build passed and 13 browser tests passed. |
+| Extension browser returns for attachments, dates, external references, inline menus, meeting dates, contacts and selection menus | 46 passed, 1 failed, not all green |
+| `npm run desktop:dist` | generate`Notdown-Setup-0.1.4-x64.exe` |
+| `NOTDOWN_PACKAGED_EXE` pointing to `win-unpacked/Notdown.exe` The test is a desktop test. | The first round of 8 passed and 1 failed; the failed single-instance recovery use case passed separately when re-run. |
+| Native installation | NSIS ends normally, exit code is 0, and the product version after installation is`0.1.4.0` |
+| Installation file verification | `Notdown.exe` and `resources/app.asar` The SHA-256 is consistent with the packaging products tested; the library selection settings remain unchanged |
 
-浏览器和桌面测试均使用独立临时知识库；桌面测试也使用独立用户配置。安装前备份旧程序，安装未替换知识库目录。
+Browser and desktop tests both use independent temporary vaults; desktop tests also use independent user configurations. Back up the old program before installation, and the installation does not replace the vault directory.
 
-## 未通过项与边界
+<a id="未通过项与边界"></a>
 
-- 联系人测试 `people.spec.ts` 的 `slash Mention person opens a real chooser and preserves pending text` 等待 People 对话框中的搜索框超时。联系人 CRUD、`@` 补全、冲突与外部用户测试通过；本记录不把该斜杠菜单路径写为已通过。
-- 桌面单实例恢复首轮在第二次唤起后检测到额外窗口；单独复跑通过，保留首轮失败记录，不宣称多轮稳定性已经完成验证。
-- 扩展浏览器回归在全部 47 项结果输出后停留于测试服务器退出阶段；停止已确认身份的临时测试服务器后生成最终报告。未终止用户程序或操作用户知识库。
-- 本次未重跑全部浏览器、Android、真实云同步或真实 Notion token 的端到端验收，不扩大既有能力保证。安装包仍未签名。
+## Fails and Boundaries
 
-本机详细记录在 `.run/logs/release-0.1.4-*`；代码语言专项结果另见 `.run/logs/code-language-unknown-only-*`。这些路径是开发环境记录，不作为发布所需文件。
+- Contact test `people.spec.ts` for `slash Mention person opens a real chooser and preserves pending text` Waiting for search box in People dialog to time out. Contact CRUD, `@` completion, conflict and external user testing passed; this record does not write the slash menu path as passed.
+- In the first round of desktop single instance recovery, an additional window was detected after the second resumption; the single rerun passed, and the first round failure record was retained, and it was not claimed that the multi-round stability verification had been completed.
+- The extension browser regression stays in the test server exit phase after all 47 results are output; the final report is generated after stopping the identified temporary test server. The user program is not terminated or the user vault is operated.
+- This time, we did not rerun the end-to-end acceptance of all browsers, Android, real cloud synchronization or real Notion token, and did not expand existing capability guarantees. The installation package is still not signed.
 
-## 0.1.5 空代码正文补丁（同日）
+The detailed records of this machine are in `.run/logs/release-0.1.4-*`; the code language special results are also in `.run/logs/code-language-unknown-only-*`. These paths are for development environment records and are not required for release.
 
-0.1.4 的未知语言核对已读取空代码块，但匹配步骤错误跳过空字符串。0.1.5 允许 Markdown 和 Block API 在该页各只有一个空代码块时恢复未知标签；多个空块、缺失或歧义继续保留原文。空正文仍为空，空行、未知属性及原始归档不变；未指定语言的围栏仍不触发核对。
+<a id="015-空代码正文补丁同日"></a>
 
-- `npm test`：1,120 通过、5 跳过、0 失败；增加空正文、空 rich-text 数组、嵌套、CRLF 与多空块歧义回归。
-- TypeScript、Vite 与代码语言／Notion v2 的 13 项浏览器测试通过；两种导入方言均验证空 Shell 块的预览、提交、保存和重开。
-- 0.1.5 Windows 安装包构建通过，打包程序的知识库启动、关闭保存与托盘恢复两项桌面测试通过。
-- 当前报告页面的唯一空块依据同批归档的 Block API 恢复为 Shell；通过应用界面保存，并核对文件只有一个语言标签发生变化。未扫描改写其他页面。
-- 本轮仅运行补丁相关回归；0.1.4 扩展验收中记录的联系人菜单失败与桌面单实例首轮失败不因本补丁改写为已解决。
+## 0.1.5 empty code-body patch (same day)
 
-本机日志为 `.run/logs/empty-code-language-*` 和 `.run/logs/release-0.1.5-*`。
+The unknown language check for 0.1.4 read the empty code block, but the matching step incorrectly skipped the empty string. 0.1.5 allows Markdown and Block API to restore unknown tags when the page has only one empty code block each; multiple empty blocks, missing or ambiguous text remains intact. Empty text remains empty, blank lines, unknown attributes, and the original archive remain unchanged; fences with no specified language still do not trigger verification.
+
+- `npm test`: 1, 120 passed, 5 skipped, 0 failed; added empty text, empty rich-text array, nesting, CRLF and multi-empty block ambiguity regression.
+- TypeScript、Vite Code languageNotion v2 of13 The browser test is passed; both imported dialects are validated.Shell Preview, submit, save and reopen the block.
+- The construction of the 0.1.5 Windows installation package passed, and the two desktop tests of the packager's vault startup, shutdown and save, and tray recovery passed.
+- The only blank sections on the current reporting page are those that are archived in the same batchBlock API The recovery isShell；Only one language tag changes through application interface savings and verification of files. Other pages are not scanned.
+- This round only runs patch-related regressions; the failure of the contact menu recorded in the 0.1.4 extension acceptance and the failure of the desktop single instance in the first round will not be rewritten as resolved by this patch.
+
+The native logs are `.run/logs/empty-code-language-*` and `.run/logs/release-0.1.5-*`.

@@ -1,80 +1,94 @@
-# Block Explorer 语法说明与对应关系核对
+<a id="block-explorer-语法说明与对应关系核对"></a>
 
-2026-09-22。来源为桌面 `markdown & notion.xlsx` 的 **markdown 70 条、extended 84 条**，以及项目的 Pandoc 3.11 手册扩展清单 **89 项（77 项 Markdown 范围、12 项其他格式）**。本次共补入 243 条可检索说明；Excel 原文件未改动。
+# Block Explorer syntax descriptions and mappings
 
-## 已写入 Explorer
+**English** · [简体中文](SYNTAX-CATALOG-AUDIT-2026-09-22.zh-CN.md)
 
-Content objects、Markdown variants、Extensions 的详情页都有 **Syntax guide**。每条含原始语法、Excel sheet/行范围或 Pandoc 扩展名、所属方言、相关扩展/内容对象、官方来源，以及适用时的 Correction / Implementation boundary。可以搜索 `extended!A53:E53` 等位置。原始错误示例保留，更正另列，不静默改写表格证据。
+2026-09-22. Sources are the desktop `markdown & notion.xlsx`, with **70 markdown items and 84 extended items**, and the project's Pandoc 3.11 manual extension inventory of **89 items (77 for Markdown and 12 for other formats)**. This change adds 243 searchable descriptions; the original Excel file is unchanged.
 
-普通块语法不伪造插件；GitHub 平台功能和 R Markdown 运行时不伪造已实现扩展。Notion `<database>` 指向 Unsupported；`<empty-block/>` 不对应 Pandoc `empty_paragraphs`。Pandoc 的 `sourcepos`、`gutenberg`、相对路径选项写明其行为，不当作新的可插入块。
+<a id="已写入-explorer"></a>
 
-补全了 Pandoc 语法与对象的说明关联，包括行内/块数学、行内代码属性、原始 TeX、表格与标题修饰等。**说明关联不代表运行时适配器或插入命令已修好**，后者的缺漏见下文。
+## Included in Explorer
 
-## 表格中应更正或限定的关系
+The detail pages of Content objects, Markdown variants and Extensions all have **Syntax guide**. Each entry contains the original syntax, Excel sheet/ line range or Pandoc extension, dialect, associated extension/content object, official source, and Correction / Implementation boundary when applicable. You can search for locations like `extended!A53:E53`. The original error example is retained, the correction is listed separately, and the table evidence is not silently rewritten.
 
-| 来源位置 | 核对结论 |
+Normal block syntax does not fake plugins; GitHub platform functionality and R Markdown runtime non-fake extensions have been implemented. Notion `<database>` points to Unsupported; `<empty-block/>` does not correspond to Pandoc `empty_paragraphs`. Pandoc's `sourcepos`, `gutenberg`, and relative path options specify their behavior and are not treated as new insertable blocks.
+
+Completed the description association between Pandoc syntax and objects, including inline/block mathematics, inline code attributes, original TeX, table and title modification, etc. The **description association does not imply that the runtime adapter or insert command has fixed** , the latter's lack of which is described below.
+
+<a id="表格中应更正或限定的关系"></a>
+
+## Relationships in the table requiring correction or qualification
+
+| source location | Check conclusion |
 | --- | --- |
-| `markdown!D20` | 空行是分隔规则，不是 CommonMark AST 中独立的叶块。Notdown 的可编辑空段落是编辑器行为。 |
-| `markdown!C31:G31` | 列表语法支持关系基本正确，但首项 `3.` 的显示语义不同：Original 忽略起始数字，CommonMark/GFM 保留。后面的 `1.`、`8.` 不决定显示序列。 |
-| `markdown!C54:G54` | 快捷引用在 Markdown.pl 中可用，这个备注合理；不能从语法网页没有单列就判为原始实现不支持。 |
-| `markdown!C64:G64` | “不支持”指 GFM 特有过滤规则，而非 Original/CommonMark 不识别那些 HTML 标签。过滤同时涉及块和行内 HTML。 |
-| `extended!A2:E2` | 脚注含行内引用和块定义，不宜只标 block。“Markdown Guide”是教程网站，不是方言。 |
-| `extended!A3:E3` | MMD 接受该简单键值例及可选 `---`，但不支持完整 YAML。应对应 `mmd_title_block`，不能等同完整 `yaml_metadata_block`。 |
-| `extended!A7:E7` | 更正此前审计：Notion Enhanced Markdown 明确定义 `:emoji_name:` 自定义表情，不能否认它的冒号语法。自定义名称与通用 shortcode 字典不等价，不属于 Notion mentions；本地尚未接入 Notion 工作区表情解析。 |
-| `extended!A23:D23` | PHP Extra 的章节名叫 Inline HTML，但 `<div>` 示例应关联 HTML block。 |
-| `extended!D36:D37` | 两例引用键是 `Doe:2006`，定义键却是 `Doe2006`。统一键后才能解析到对应书目。 |
-| `extended!A62:D70` | 自定义锚点是原始 HTML；团队/Issue/PR/JIRA/SHA 自动链接是 GitHub 平台功能，不是 GFM Spec 的裸 URL 自动链接。`@github/support` 是团队提及，不是单个用户。JIRA 还需仓库自定义 autolink 配置。 |
-| `extended!A72:D73` | R Markdown/knitr 的执行语义不属于普通代码围栏/代码段；语法保留不能算作支持 R 运算。 |
-| `extended!A77:D77` | `text {color="blue"}` 是 Notion 块颜色属性；行内文字色应使用 `<span color="blue">…</span>`。 |
-| `extended!A78:E78` | 折叠标题的交互语义属于 Notion。PHP Extra 可接收自定义属性，但不会因此产生 toggle heading。 |
-| `extended!D80:D82` | Notion 的官方嵌套示例使用 tab。表中单空格缩进可作为本地宽松输入，不能当作官方缩进规范。 |
+| `markdown!D20` | Empty lines are delimiting rules, not independent leaf blocks in CommonMark AST. Notdown's editable empty paragraph is an editor behavior. |
+| `markdown!C31:G31` | The list syntax support relationship is basically correct, but the display semantics of the first item `3.` are different: Original ignores the starting number, and CommonMark/GFM retains it. The following `1.` and `8.` do not determine the display sequence. |
+| `markdown!C54:G54` | Shortcut references are available in Markdown.pl, and this remark is reasonable; it cannot be judged that the original implementation does not support it just because there is no single column on the syntax page. |
+| `markdown!C64:G64` | "Not supported" refers to GFM-specific filtering rules, not Original/CommonMark which does not recognize those HTML tags. Filtering involves both block and inline HTML. |
+| `extended!A2:E2` | Footnotes contain inline references and block definitions, and should not be marked with just block. "Markdown Guide" is a tutorial website, not a dialect. |
+| `extended!A3:E3` | MMD accepts this simple key-value example and optional `---` , but does not support the full YAML . Should correspond to `mmd_title_block` and cannot be equivalent to complete `yaml_metadata_block`. |
+| `extended!A7:E7` | Correction to previous audit: Notion Enhanced Markdown clearly defines `:emoji_name:` custom expression, its colon syntax cannot be denied. The custom name is not equivalent to the general shortcode dictionary and does not belong to Notion mentions; the local computer has not yet been connected to the Notion workspace expression analysis. |
+| `extended!A23:D23` | The chapter for PHP Extra is named Inline HTML , but the `<div>` examples should be associated with HTML block . |
+| `extended!D36:D37` | In both examples, the reference key is `Doe:2006`, but the definition key is `Doe2006`. Only after unifying the key can the corresponding bibliography be parsed. |
+| `extended!A62:D70` | The customization of the focal point is originalHTML；Team/Issue/PR/JIRA/SHA Automated links areGitHub The platform functions, notGFM Spec nakedURL Automated links.`@github/support` It's a team mention, not an individual user. JIRA also requires the warehouse to customize autolink configuration. |
+| `extended!A72:D73` | The execution semantics of R Markdown/knitr do not belong to ordinary code fences/code segments; syntax preservation does not count as supporting R operations. |
+| `extended!A77:D77` | `text {color="blue"}`Is a Notion block color attribute; inline text color should use `<span color="blue">…</span>`. |
+| `extended!A78:E78` | The interactive semantics of collapsing titles belong to Notion. PHP Extra can receive custom properties, but will not produce toggle heading as a result. |
+| `extended!D80:D82` | The official nesting example for Notion uses tab . The single-space indentation in the table can be used as a local loose input and cannot be regarded as an official indentation specification. |
 
-一些容易被误判、但表格写得正确的内容也保留了：MMD v6 的行内链接属性和 `{=html}/{=latex}` raw source 都有官方依据；MMD 6.5 的 `{{TOC:2}}` 只取二级，`{{TOC:2-3}}` 取级别区间；`markdown!G62` 的 `mailto:` 属于 GFM extended protocol autolink。
+Some contents that are easy to be misjudged but written correctly in the table are also retained: the inline link attribute of MMD v6 and `{=html}/{=latex}` raw source have official basis; MMD 6.5's `{{TOC:2}}` only takes the second level, and `{{TOC:2-3}}` takes the level range; `markdown!G62`'s `mailto:` belongs to GFM extended protocol autolink.
 
-## 已复现的实现偏差与缺漏
+<a id="已复现的实现偏差与缺漏"></a>
 
-这些是此次审计发现的现有问题。本次修改说明与关联数据，没有扩写 Markdown codec 或修改正文存储。
+## Reproduced implementation deviations and omissions
 
-| 项目 | 最小复现与实际结果 | 判断 |
+These are the existing issues identified by this audit. This modification of the description and associated data does not extend Markdown codec or modify the text storage.
+
+| Project | Minimal reproduction and actual result | judge |
 | --- | --- | --- |
-| 数学的能力映射 | 关闭 `tex_math_dollars`，单开 `tex_math_single_backslash`、`tex_math_gfm` 或 `tex_math_double_backslash`：相应行内样例生成 `inline_math`，但 `getContentCapabilities("inline.inline_math", config).available` 为 false。单反斜杠/GFM 块公式也出现对应问题。 | **映射缺漏**。双反斜杠块公式已有适配器，不能一起判缺失。 |
-| 简写上下标的能力映射 | 关闭成对 `subscript/superscript`，单开 `short_subsuperscripts`：`x^2` 产生 superscript，但内容对象能力显示不可用。 | **映射缺漏**。上下标的独立简写入口未登记。 |
-| Pandoc `mark` 的能力映射 | 关闭产品 `highlight`，单开 `mark`：`==x==` 产生 highlight，但对象只登记 highlight/CriticMarkup 入口。 | **映射缺漏**。语法不是未实现。 |
-| 数学插入命令 | `commandEnabled(config, "equation")` 只检查 `tex_math_dollars/display_math`。 | **交互门控不完整**。有其他数学解析入口不代表菜单可以按该编码创建。 |
-| HTML 自定义锚点 | `renderRawHtml('<a name="custom-anchor-point"></a>')` 得到 `<a></a>`，ID 同样被清理。 | **输出语义未实现**。表格第 62 行目标锚点丢失，源码仍保存。不能当作可用的自定义锚点。 |
-| GFM tagfilter | `renderRawHtml('<textarea>text</textarea>')` 保留只读 textarea；其他标签可能被丢弃。GFM 要求对指定标签作字面转义。 | **兼容性差异**。本地通用清理策略不是 GFM tagfilter 的精确实现。 |
-| `literate_haskell` | `markdown+literate_haskell` 下，`\begin{code}…\end{code}` 在本地是 Raw TeX，`= A heading` 是普通段落；实跑 Pandoc 3.11 分别得到 Haskell CodeBlock 和一级 Heading。 | **实现不完整**。Bird-track 已有解析，不能据此宣称整个扩展完整兼容。 |
-| `sourcepos` | 本地只记录块级行范围，没有 Pandoc 那样的行内字符位置映射。 | **部分实现**，现有描述已限定。 |
-| `markdown_in_html_blocks`、复杂表格、TeX | 本地主要实现 Div 路径；表格采用受限单元格模型；公式依赖 KaTeX，原始 TeX 不执行。 | **实现边界**，不能从同名开关推断完整 Pandoc 兼容。 |
+| Math capability mapping | Turn off `tex_math_dollars` and turn on `tex_math_single_backslash`, `tex_math_gfm` or `tex_math_double_backslash`: the corresponding inline example generates `inline_math`, but `getContentCapabilities("inline.inline_math", config).available` is false. Correspondence issues also occur with single backslash/GFM block formulas. | **Mapping missing**. The double backslash block formula already has an adapter and cannot be judged missing together. |
+| Shorthand superscript/subscript capability mapping | Turning off the paired `subscript/superscript` and turning on the single `short_subsuperscripts`: `x^2` produces superscript, but the content object capability appears unavailable. | **Mapping missing**. The independent abbreviation entry for superscript and subscript is not registered. |
+| Pandoc `mark` Capability mapping | Close the product `highlight` and open `mark`: `==x==` produces highlight, but the object only registers the highlight/CriticMarkup entry. | **Mapping missing**. The syntax is not unimplemented. |
+| Math insertion command | `commandEnabled(config, "equation")`Only `tex_math_dollars/display_math` is checked. | **Incomplete interaction gating**. The existence of other mathematical parsing entries does not mean that the menu can be created according to this encoding. |
+| Custom HTML anchors | `renderRawHtml('<a name="custom-anchor-point"></a>')` I got it. `<a></a>`The ID was also cleared. | **Output semantics are not implemented**. The target anchor point in row 62 of the table is lost, but the source code is still saved. Cannot be used as a usable custom anchor. |
+| GFM tagfilter | `renderRawHtml('<textarea>text</textarea>')`Read-only textarea is reserved; other tags may be discarded. GFM requires literal escaping of the specified label. | **Compatibility differences**. The local universal cleanup strategy is not an exact implementation of GFM tagfilter. |
+| `literate_haskell` | `markdown+literate_haskell`Below, `\begin{code}…\end{code}` is Raw TeX locally, and `= A heading` is an ordinary paragraph; running Pandoc and 3.11 will get Haskell CodeBlock and first-level Heading respectively. | **Implementation is incomplete**. Bird-track has been resolved, and we cannot claim that the entire extension is fully compatible based on this. |
+| `sourcepos` | Only block-level line ranges are recorded locally, and there is no intra-line character position mapping like Pandoc. | **partially implemented**, the existing description is qualified. |
+| `markdown_in_html_blocks`, complex tables, TeX | The local implementation mainly implements the Div path; the table uses a restricted cell model; the formula depends on KaTeX, and the original TeX is not executed. | **Implementation boundaries**, full Pandoc compatibility cannot be inferred from switches of the same name. |
 
-另有明确未实现的运行时：GitHub 团队通知、Issue/PR/JIRA/SHA 短引用解析；R/knitr 代码执行；Notion 数据库引擎与 Notion 云同步；跨设备同步。数据库标签目前仅保留为 Unsupported。同步块已实现本地快照、刷新、CAS 发布，因此不能笼统说同步块全未实现。
+There are also runtimes that are clearly not implemented: GitHub team notification, Issue/PR/JIRA/SHA short reference resolution; R/knitr code execution; Notion database engine and Notion cloud synchronization; cross-device synchronization. Database labels are currently only reserved for Unsupported . The synchronization block has implemented local snapshot, refresh, and CAS publishing, so it cannot be generally said that the synchronization block has not been implemented at all.
 
-**没有默认启用不等于未实现。** 当前 Typora 的行内数学、上下标、高亮、alerts、diagrams 等需打开对应选项；GFM 预设将数学、脚注、emoji、alerts 等 GitHub Docs 功能保留为可选。PHP Extra 的代码属性和 `startnum` 目前已经默认开启；历史 `PRODUCT-SYNTAX.md` 的旧表仍写“需开启”，本次应以当前注册表与 Explorer 状态为准。
+**Not being enabled by default does not mean it is not implemented.** currentTypora The first is the linear mathematics, the upper, lower, high brightness, thealerts、diagrams The following is a list of the most commonly used methods of calculating the value of a currency.GFM The first thing that I'm going to do is set up math, footnotes,emoji、alerts I'm going to wait.GitHub Docs Functional options are retained.PHP Extra The code properties and`startnum` Currently enabled by default; history `PRODUCT-SYNTAX.md` The old table still says "need to be opened", this time the current registry and Explorer status should prevail.
 
-## 验证方法与范围
+<a id="验证方法与范围"></a>
 
-`node --import tsx scripts/audit-catalog-syntax.ts` 对说明中具有已注册目标方言的源码运行默认配置及相关开关配置，调用 `doc.check()` 和原文往返比较。最新为 **1,381 组配置，无异常、无未编辑源码往返差异**；完整机器输出在忽略的 `test-results/catalog-syntax-audit.json`。R Markdown 无本地方言，不纳入这些配置数。
+## Validation method and scope
 
-这个审计只证明结构有效和未编辑原文保留，不自动证明显示、实际文件资源、所有编辑路径或完整语义正确；上述问题来自额外的语义检查。空图表围栏、占位 URL、缺少 bibliography 的样例不能用于宣称外部功能通过。
+`node --import tsx scripts/audit-catalog-syntax.ts`Run the default configuration and related switch configurations on the source code with the registered target dialect in the description, and call `doc.check()` to compare round-trip with the original text. The latest is the **1, 381 group configuration, no exceptions, no unedited source code round-trip differences to**; the complete machine output is ignored in `test-results/catalog-syntax-audit.json`. R Markdown has no local dialect and is not included in these configuration numbers.
 
-目录测试核对全部工作簿条目和 89 个手册标识符的覆盖、有效关联、错误样例保留及浏览器内链接/检索/窄屏显示；浏览器使用独立临时知识库与 Chrome，不连接用户浏览器。
+This audit only proves that the structure is valid and the unedited original text is preserved, it does not automatically prove that the display, actual file resources, all edit paths, or complete semantics are correct; the above issues arise from additional semantic checks. Empty chart fences, placeholder URL, and examples with missing bibliography cannot be used to claim external functionality.
 
-本次验证结果：
+The directory test checks the coverage, effective association, error sample retention, and in-browser linking/retrieval/narrow screen display of all workbook entries and 89 manual identifiers; the browser uses an independent temporary vault and Chrome and does not connect to the user's browser.
 
-- `npm run build`：通过（由最终 `npm run test:e2e -- tests/e2e/block-catalog.spec.ts tests/e2e/catalog-syntax.spec.ts` 执行）。
-- 上述目录 Chrome 浏览器测试：8/8 通过，已检查桌面和 390px 窄屏截图。
-- 目录数据及关联专项单测：8/8 通过。
-- 最后一次 `npm test`：424 项中 422 通过、1 失败、1 跳过。失败为 `tests/unit/notdown-union.test.ts` 的 Notion 颜色与 Markdown 标记混合编辑后重开：写出的 `~<span …>sub</span>~` 未恢复 subscript。该失败在本次未改动的 codec/序列化路径，不是目录数据覆盖测试失败；本次未修复。工作区同时有其他编辑器改动，结果以该轮日志为时间快照，不将早先已失效的方言断言失败当作当前缺口。
+The results of this verification:
 
-可复查日志：`test-results/catalog-unit-final.log`、`test-results/catalog-e2e-final.log`。这些是本地验证产物，不写入用户知识库。
+- `npm run build`: Passed (executed by final `npm run test:e2e -- tests/e2e/block-catalog.spec.ts tests/e2e/catalog-syntax.spec.ts`).
+- Chrome browser test in the above directory: 8/8 passed, desktop and 390px narrow screen screenshots have been checked.
+- Catalog data and related special single test: 8/8 passed.
+- last time `npm test`: In the 424 item, 422 passes, 1 fails, and 1 skips. failed as `tests/unit/notdown-union.test.ts` The Notion color is mixed with the Markdown markup and reopened after editing: written `~<span …>sub</span>~` subscript was not restored. This failure is in the codec/ serialization path that has not been changed this time, and is not a failure in the directory data coverage test; it has not been repaired this time. If there are other editor changes in the workspace at the same time, the result is based on this round of logs as a time snapshot, and the earlier invalid dialect assertion failure is not regarded as the current gap.
 
-## 官方核对来源
+Logs that can be reviewed: `test-results/catalog-unit-final.log`, `test-results/catalog-e2e-final.log`. These are local validation artifacts and are not written to the user vault.
 
-- [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/) 与 [GFM Spec](https://github.github.com/gfm/)：基础语法、自动链接、HTML 过滤。
-- [PHP Markdown Extra](https://michelf.ca/projects/php-markdown/extra/)：HTML、属性、围栏、定义列表、缩写。
-- [MultiMarkdown 6 syntax](https://fletcher.github.io/MultiMarkdown-6/syntax/)：元数据、引文、raw source、链接属性与目录。
-- [Typora reference](https://support.typora.io/Markdown-Reference/) 与 [Strict Mode](https://support.typora.io/Strict-Mode/)：产品选项和宽松输入。
-- [Notion Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)：颜色、折叠标题、扩展标签。
-- [GitHub autolinked references](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls)：仓库上下文中的引用功能。
-- [R Markdown code chunks](https://rmarkdown.rstudio.com/lesson-3.html)：代码运行与输出。
-- [Pandoc manual](https://pandoc.org/MANUAL.html#pandocs-markdown) 与 [Literate Haskell](https://pandoc.org/MANUAL.html#extension-literate_haskell)：扩展语义；本机对照版本为 3.11。
+<a id="官方核对来源"></a>
+
+## Official verification sources
+
+- [CommonMark 0.31.2 ](https://spec.commonmark.org/0.31.2/) and [ GFM Spec ](https://github.github.com/gfm/): basic syntax, automatic linking, HTML filtering.
+- [PHP Markdown Extra ](https://michelf.ca/projects/php-markdown/extra/): HTML, attributes, fences, definition lists, abbreviations.
+- [MultiMarkdown 6 syntax ](https://fletcher.github.io/MultiMarkdown-6/syntax/): Metadata, citations, raw source, link attributes and table of contents.
+- [Typora reference ](https://support.typora.io/Markdown-Reference/) and [ Strict Mode ](https://support.typora.io/Strict-Mode/): Product options and relaxed input.
+- [Notion Enhanced Markdown ](https://developers.notion.com/guides/data-apis/enhanced-markdown): Color, folding title, expansion tag.
+- [GitHub autolinked references ](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls): Reference function in the warehouse context.
+- [R Markdown code chunks ](https://rmarkdown.rstudio.com/lesson-3.html): Code execution and output.
+- [Pandoc manual ](https://pandoc.org/MANUAL.html#pandocs-markdown) and [ Literate Haskell ](https://pandoc.org/MANUAL.html#extension-literate_haskell): extended semantics; the native version is 3.11.

@@ -1,3 +1,4 @@
+import { setUIText } from "../../shared/i18n";
 import { escape as e, type Page } from "../../shared/types";
 import { vaultAssetUrl } from "../../shared/vault-url";
 import { pageIconElement } from "../../shared/page-icons";
@@ -48,7 +49,7 @@ function card(page: Page, source: DatabaseDataSource, fields: DatabaseProperty[]
   const name = document.createElement("span"); name.textContent = page.title; open.append(name); el.append(open);
   const properties = document.createElement("div"); properties.className = "database-card-properties";
   for (const field of fields.filter(field => field.type !== "title")) {
-    const value = fieldValue(page, field); if ((value == null || value === "") && view.type !== "list") continue;
+    const value = fieldValue(page, field); if (value == null || value === "" || (Array.isArray(value) && !value.length)) continue;
     const prop = document.createElement("span"); prop.className = "database-card-property"; prop.title = field.name; prop.classList.toggle("database-wrap-property", !!view.layout?.wrapContent || !!view.layout?.wrapPropertyIds?.includes(field.id));
     if (["select", "status", "multi_select"].includes(field.type)) {
       for (const id of value == null || value === "" ? [] : Array.isArray(value) ? value : [value]) { const option = field.options?.find(option => option.id === id); const tag = document.createElement("span"); tag.className = "database-tag"; tag.dataset.color = option?.color ?? "gray"; tag.textContent = option?.name ?? String(id); prop.append(tag); }
@@ -56,7 +57,7 @@ function card(page: Page, source: DatabaseDataSource, fields: DatabaseProperty[]
     properties.append(prop);
   }
   el.append(properties);
-  if (view.type === "list") el.style.gridTemplateColumns = `minmax(180px,1.2fr) repeat(${fields.filter(field => field.type !== "title").length}, minmax(70px,1fr))`;
+  if (view.type === "list") el.addEventListener("click", event => { if (!(event.target as Element).closest("button, a, input")) actions.open(page); });
   el.addEventListener("dblclick", event => { if (!(event.target as Element).closest("button")) actions.open(page); });
   return el;
 }
@@ -90,7 +91,7 @@ export function renderDatabaseLayout(host: HTMLElement, source: DatabaseDataSour
     if (view.type === "board" && groupField) dropZone(section, rows, groupField, () => initial[groupField.key], actions);
     host.append(section);
   }
-  if (!rows.length) { const hint = document.createElement("p"); hint.className = "database-layout-hint"; hint.textContent = "No pages match this view."; host.append(hint); }
+  if (!rows.length) { const hint = document.createElement("p"); hint.className = "database-layout-hint"; setUIText(hint, "No pages match this view."); host.append(hint); }
 }
 function calendar(host: HTMLElement, source: DatabaseDataSource, rows: Page[], fields: DatabaseProperty[], view: DatabaseView, actions: LayoutActions) {
   const field = source.properties.find(field => field.id === view.layout?.datePropertyId && field.type === "date");
@@ -114,5 +115,5 @@ function calendar(host: HTMLElement, source: DatabaseDataSource, rows: Page[], f
   }
   host.append(grid);
   const undated = rows.filter(page => !calendarDate(fieldValue(page, field)));
-  if (undated.length) { const section = document.createElement("section"); section.className = "database-calendar-undated"; section.innerHTML = `<h3>No date · ${undated.length}</h3>`; for (const page of undated) section.append(card(page, source, fields, { ...view, layout: { ...view.layout, preview: "none" } }, actions)); host.append(section); }
+  if (undated.length) { const section = document.createElement("section"); section.className = "database-calendar-undated"; section.innerHTML = `<h3><span data-i18n="No date ·">No date ·</span> ${undated.length}</h3>`; for (const page of undated) section.append(card(page, source, fields, { ...view, layout: { ...view.layout, preview: "none" } }, actions)); host.append(section); }
 }

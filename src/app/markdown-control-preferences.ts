@@ -1,3 +1,4 @@
+import { setUIText } from "../shared/i18n";
 const key = "notdown-markdown-controls";
 const controls = [
   ["view", "Show view switcher", ".editing-modes"],
@@ -36,13 +37,13 @@ export function applyMarkdownControlPreferences() {
 export function mountMarkdownControlPreferences(dialog: HTMLElement) {
   const section = document.createElement("section");
   section.className = "settings-section markdown-control-preferences";
-  section.innerHTML = '<h3>Markdown controls</h3><p>Choose which controls appear above the editor. Shown by default. View switching is also available in Page options and with Ctrl/⌘ E. Saved in this browser.</p>';
+  section.innerHTML = `<h3 data-i18n="Markdown controls">Markdown controls</h3><p data-i18n="Choose which controls appear above the editor. Shown by default. View switching is also available in Page options and with Ctrl/⌘ E. Saved in this browser.">Choose which controls appear above the editor. Shown by default. View switching is also available in Page options and with Ctrl/⌘ E. Saved in this browser.</p>`;
   const selected = preferences();
   for (const [id, name] of controls) {
     const row = document.createElement("label");
     row.className = "switch-row";
     const label = document.createElement("span");
-    label.textContent = name;
+    setUIText(label, name);
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = selected[id];

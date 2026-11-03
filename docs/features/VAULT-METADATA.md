@@ -1,40 +1,50 @@
-# Vault 级元数据
+<a id="vault-级元数据"></a>
 
-2026-09-24：本契约替代早期“每页应用 YAML + 隐藏头部”的存储规则。
+# Vault metadata
 
-`pages/*.md` 保存完整 Markdown；API `body`、源码模式和源文件端点对应同一份内容。新建和普通属性保存不生成应用 YAML。旧应用头部使用下面的显式迁移流程移入统一 JSON；文档自己的 YAML / Pandoc title block 保留为覆盖值。联系人 `people/*.yaml` 不受本次页面存储调整影响。
+**English** · [简体中文](VAULT-METADATA.zh-CN.md)
 
-数据库是独立资源，逐个保存为 `databases/<database-id>.json`，其中包含自有数据源、成员页面 ID 和视图；普通数据库没有空 Markdown 宿主。Wiki 的 `homePageId` 指向真实 Markdown。数据库的展示信息与成员关系由所属文件管理，页面 API 的宿主／成员字段为兼容投影，通用页面属性仍在 `metadata.json`。旧数据库格式保持可读，迁移须显式执行；结构与命令见[独立数据库文件](DATABASES.md#独立数据库文件)。备份需包含整个知识库。
+2026-09-24: This contract replaces the earlier storage rule of "apply YAML + hidden header per page".
 
-## 迁移旧应用 YAML
+`pages/*.md`Save the complete Markdown; API `body`, source code mode and source file endpoint corresponding to the same content. New and normal attribute saves do not generate application YAML. Old application headers are moved into unified JSON using the explicit migration process below; the document's own YAML/Pandoc title block are retained as override values. Contact `people/*.yaml` is not affected by this page storage adjustment.
+
+The database is an independent resource and is saved one by one as `databases/<database-id>.json`, which contains its own data sources, member pages ID and views; ordinary databases do not have empty Markdown hosts. Wiki's `homePageId` Points to the real Markdown . The display information and member relationships of the database are managed by the associated files. The host/member field of page API is a compatible projection, and the common page attributes are still there. `metadata.json`. The old database format remains readable and migration must be performed explicitly; see the structure and commands[Individual database files](DATABASES.md#individual-database-files). The backup needs to contain the entire vault.
+
+<a id="迁移旧应用-yaml"></a>
+
+## Migrating legacy application YAML
 
 ```powershell
 node --import tsx scripts/migrate-vault-metadata.ts ./vault
 node --import tsx scripts/migrate-vault-metadata.ts ./vault --apply
 ```
 
-第一条只预览，第二条执行。迁移通过 `createVault`、本地进程锁和逐页 `baseRevision` 校验完成：识别含稳定 `id`、`title`、`parent`、`icon`、`properties` 及 `updated` 或 `bodyFormat` 的旧应用头部，将其全部字段（含未知字段）移入同一份 `metadata.json`，再仅删除第一段应用头部。最早没有 `bodyFormat` 的文件也支持。头部后的正文逐字节保留，包括文档自己的 YAML / Pandoc 标题块。
+The first one is only previewed, the second one is executed. The migration is completed through `createVault`, local process lock and page-by-page `baseRevision` verification: identify the old application header containing stable `id`, `title`, `parent`, `icon`, `properties` and `updated` or `bodyFormat`, move all its fields (including unknown fields) into the same `metadata.json`, and then delete only the first application header. The earliest files without `bodyFormat` are also supported. The body after the header is preserved byte-for-byte, including the document's own YAML / Pandoc header block.
 
-原始 Markdown（包括 YAML 注释）、原有 JSON 与迁移清单在任何页面改写前全部备份到 `.history/migrations/yaml-to-json-<uuid>/`。同名旧头部字段优先于先前的 JSON 默认值，JSON 中其他字段保留。迁移标记防止重复执行时继续删除正文内的 YAML。规划后页面版本变化会中止，不强制重试；已有两文件事务记录支持安全恢复，未完成批次可以重新规划剩余页面。
+Original Markdown (including YAML comments), original JSON and migration list are all backed up to `.history/migrations/yaml-to-json-<uuid>/` before any page is rewritten. Old header fields with the same name take precedence over previous JSON defaults, other fields in JSON are retained. The migration mark prevents YAML in the body from being deleted during repeated executions. After planning, page version changes will be aborted and retry will not be forced; two file transaction records support safe recovery, and unfinished batches can be re-planned for the remaining pages.
 
-## 页面 UUID 迁移
+<a id="页面-uuid-迁移"></a>
 
-页面身份统一为标准 UUID。新建／复制使用 UUIDv4，Notion 与文件夹导入使用 UUIDv5，稳定派生的名字包含批次和条目，因此同一快照重试仍幂等，不同副本不会覆盖。普通外部 Markdown 没有显式身份时也派生 UUID；已有 metadata 或 YAML 中的旧 ID 保持可读，直到显式迁移。
+## Page UUID migration
+
+Page identities unified into standardsUUID。Create new/copy for useUUIDv4，Notion Used with folder importUUIDv5，Stably derived names contain batches and entries, so retries of the same snapshot remain idempotent and will not be overwritten by different replicas. Ordinary externalMarkdown Also derived when there is no explicit identityUUID；Alreadymetadata orYAML old inID Remain readable until explicitly migrated.
 
 ```powershell
 node --import tsx scripts/migrate-page-ids.ts ./vault
 node --import tsx scripts/migrate-page-ids.ts ./vault --apply
 ```
 
-预览记录全库页面的 `baseRevision`、文件名及 metadata／导入清单／冲突记录指纹；应用前及备份后都校验，发生变更即停止，不强制重试。执行经 `createVault` 与现有进程锁，更新页面文件名、JSON 身份与父关系、文首 YAML 的 id/parent、可识别的 Markdown／Wiki／页面标签引用及导入清单。只替换引用目标的源码片段；代码、标签中的未知语法、未知 metadata 字段及未改动的正文保持原样。来源记录存于 metadata，不从 UUID 推断来源。
+The entire library page is previewed `baseRevision`File name and metadata / Import list/ Conflicts record fingerprint; pre-application and post-backup checks, changes are stopped and no re-testing is required. `createVault` The following pages are linked to the following:JSON Identity and fatherhood, lyricsYAML ofid/parent、IdentifiableMarkdown／Wiki／List of page tags referenced and imported. Only source snippets that replace the reference target; code, unknown grammar in the tag, unknownmetadata The fields and unaltered text remain the same.metadata，Not fromUUID The source of the inference.
 
-`.history/migrations/page-ids-<uuid>/manifest.json` 保存所有被触及文件的完整前后内容和旧／新 ID 映射。原有历史目录与原始 API 归档不改写；可通过映射查回。`.history/page-id-migration.json` 为中断恢复日志，服务下次读取时仅在每个文件仍精确匹配迁移前或迁移后内容时继续，否则保留磁盘版本与备份并停止。旧地址通过 `pageIdMigration.previousIds` 兼容读取，返回的页面 ID 始终为迁移后的 UUID；旧窗口提交仍执行版本校验，过期草稿保留为冲突副本，不覆盖新页面。复制页面不会继承旧地址别名。
+`.history/migrations/page-ids-<uuid>/manifest.json`Save the complete context and old/new ID mappings of all touched files. The original historical directory and original API archive will not be overwritten; they can be retrieved through mapping. `.history/page-id-migration.json` is a break recovery log, the next time the service reads it it only continues if each file still exactly matches the pre-migration or post-migration content, otherwise it retains the disk version and backup and stops. The old address is read through `pageIdMigration.previousIds` compatibility, and the returned page ID is always the migrated UUID; the old window submission still performs version verification, and the expired draft is retained as a conflict copy, and the new page is not overwritten. Copied pages will not inherit the old address alias.
 
-页面的可选布尔字段 `fullWidth` 保存普通页面的宽度偏好，缺省为窄版；它不是数据库属性。宽度修改同样经 `createVault` 和 `baseRevision` 校验，不改写正文，文档 YAML 中同名布尔值优先于 JSON 默认值。Wiki Home 的默认全宽由容器布局决定，转换及 Undo 不改动原页面的宽度偏好。
+Optional boolean field `fullWidth` of the page holds the width preference for normal pages, which defaults to narrow; it is not a database property. Width modification is also verified by `createVault` and `baseRevision` and does not rewrite the text. The Boolean value of the same name in the document YAML takes precedence over the default value of JSON. The default full width of Wiki Home is determined by the container layout, and conversion to Undo does not change the width preference of the original page.
 
-## JSON 结构
+<a id="json-结构"></a>
 
-每个 vault 使用一个 `metadata.json`：
+## JSON structure
+
+Each vault uses one `metadata.json`：
 
 ```json
 {
@@ -53,40 +63,48 @@ node --import tsx scripts/migrate-page-ids.ts ./vault --apply
 }
 ```
 
-`syntax`、收藏、回收站、排序和更新时间也保存在对应记录中。未知顶层及页面字段保留。应用维护 `sourceHash` 辅助识别唯一的、内容未改变的外部文件重命名；同时改名和改正文不能可靠匹配旧身份。JSON 丢失时不能恢复只保存在其中的属性，因此备份和复制知识库时应同时包含 JSON 与 Markdown。
+`syntax`, collection, recycle bin, sorting and update time are also saved in the corresponding records. Unknown top-level and page fields are reserved. Application Maintenance `sourceHash` assists in identifying unique external file renames whose content has not changed; at the same time, the rename and text cannot reliably match the old identity. If JSON is lost, only the attributes saved in it cannot be recovered, so backups and copies of the vault should include both JSON and Markdown.
 
 The top-level `externalEntities` registry stores Notion names, URLs, available user data, import batches and explicit local bindings by provider, kind and original ID. Reference locations and availability are derived from current Markdown/properties and local objects. Later imports change resolution without rewriting old note bodies. `createVault.externalEntities` owns registry writes and uses CAS, preserving unknown fields and conflict proposals. See [External references](NOTION-IMPORT.md#external-references-and-users) and the [API](../reference/API.md#external-entity-library).
 
-新上传的附件使用顶层 `assets` 映射登记：键为稳定的 `assets/…` 相对路径，值包含原文件名 `name`、`contentType`、字节数 `size` 和登记时间 `addedAt`。文件字节仍保存在 `assets/`，引用关系从页面正文与有效属性计算，不写成第二份正文。浏览已有附件不迁移或补写登记信息；没有记录的原文件名不能推断恢复。上传只追加附件记录，不改变已有页面 revision。共享 JSON 使用原值校验写入；并发修改导致失败时，新文件和提议的元数据保存在原附件路径及 `.history/asset-conflicts/`，不覆盖外部修改、不自动强制重试。操作入口见[附件库](MEDIA-AND-EMBEDS.md#附件库)。
+New uploaded attachments using top layer `assets` Map of the registry: key is stable `assets/…` Relative path, value containing the original file name `name`、`contentType`The number of bytes `size` and registration time `addedAt`The file bytes are still preserved `assets/`Reference relationships are calculated from the page's original and valid properties, not written in the second original. Browsing already has attachments does not migrate or supplement registration information; no original file names recorded cannot infer recovery. Uploading only adds attachment records, without changing the existing pages revision . Share JSON using the original value check to write; while modifying the resulting failures, new files and proposed metadata retain the original attachment path and `.history/asset-conflicts/`The system does not cover external modifications, does not automatically require retesting.[Attachment library](MEDIA-AND-EMBEDS.md#attachment-library)。
 
-## 覆盖规则
+<a id="覆盖规则"></a>
 
-读取顺序为文件名/应用缺省值 → JSON 页面记录 → 文首 YAML 或 Pandoc title block。YAML 支持 `---` 开始、`---` 或 `...` 结束；Pandoc 支持标题、作者、日期及缩进续行。覆盖在存储层计算，不依赖渲染方言开关；方言仍决定正文的解释方式。不会读取代码围栏内的元数据，也不新增 MMD 覆盖规则。
+## Override rules
 
-YAML 中已知页面字段覆盖对应 JSON 字段；`properties` 按属性键合并，同名文档属性优先，未声明的 JSON 属性仍有效。YAML 其他字段及 Pandoc 的 `author` / `date` 进入有效页面属性。移除文档内覆盖后恢复 JSON 默认值；保存完整页面草稿不会把未修改的文档覆盖反写为 JSON 默认值。JSON 管理的稳定页面 ID 不随正文中的 `id` 改变；旧文件未登记时兼容读取 YAML ID。
+The reading order is file name/application default value → JSON page record → beginning of text YAML or Pandoc title block. YAML supports the beginning of `---` and the end of `---` or `...`; Pandoc supports title, author, date and indented continuation lines. The calculation is covered in the storage layer and does not rely on the rendering dialect switch; the dialect still determines how the text is interpreted. Metadata within code fences will not be read, and MMD coverage rules will not be added.
 
-页面属性界面写 JSON。被文档覆盖的字段仍以文档为准，应编辑 Metadata details 或源码中的对应字段。已识别的 YAML / Pandoc 标题也可通过页面标题编辑。旧应用头部迁移后，其中的父级、收藏、回收站等字段由 JSON 管理；文档自己显式声明的字段仍优先。
+The known page fields in YAML cover the corresponding JSON fields;`properties` Priority to attribute key merger, attribute of the same document, undeclaredJSON The attribute is still valid.YAML Other fields andPandoc of`author` / `date` Access to the valid page property. Retrieved after removing the coverage from the documentJSON Default; save the full page draft does not overwrite the unmodified document cover asJSON The default value.JSON Stable pages managedID It is not in the correct language.`id` Changes; YAML ID read compatibility when old files are not registered.
 
-普通外部 Markdown 不再需要应用 YAML：未登记文件使用文件名标题和稳定推导的 ID，实际编辑后登记 JSON。导入文件夹将应用属性写入 JSON，保留原文首 metadata；链接仍按原有解析规则重定位，原始文件继续归档。
+Write JSON in the page property interface. Fields covered by the document are still subject to the document, and the corresponding fields in Metadata details or source code should be edited. Recognized YAML / Pandoc titles can also be edited via the page title. After the old application header is migrated, fields such as parent, collection, and recycle bin are managed by JSON; fields explicitly declared by the document itself still take precedence.
 
-## 版本、冲突与恢复
+Ordinary external Markdown no longer needs to be applied to YAML : unregistered files use filename headers and stable derivation of ID , and register JSON after actual editing. Import the folder and write the application attributes to JSON, retaining the original metadata; the link will still be relocated according to the original parsing rules, and the original file will continue to be archived.
 
-页面的 `baseRevision` 同时包含完整 Markdown 与该页有效 JSON metadata，JSON 对象键顺序不影响版本；修改其他页不会让本页版本失效。所属数据源改变会影响成员页面版本。历史快照成对保存 `.md` 和 `.json`，冲突也保留各自的正文与属性。数据库 JSON 通过独立资源版本和文件原值校验保存。过期版本不强制重试。
+<a id="版本冲突与恢复"></a>
 
-### 自动历史与版本恢复
+## Revisions, conflicts and recovery
 
-自动保存继续及时写入正文和 JSON；历史不再逐次累积。默认每页自动快照间隔为 5 分钟，该页停止编辑 120 秒后补一个最终检查点；在其他页面继续写作不会推迟它的检查点。重新打开后首次编辑前，也会保留上次会话的最终状态。只有实际内容或属性变化才产生历史；仅 `updated` 不同不算新的历史内容。无实质变化的普通页面保存保留原 revision 和更新时间，版本冲突仍在去重前检查。
+The `baseRevision` of the page contains both the complete Markdown and the valid JSON metadata of the page. The order of the JSON object keys does not affect the version; modifying other pages will not invalidate the version of this page. Changes to the data source will affect the member page version. Historical snapshots save `.md` and `.json` in pairs, and conflicts also retain their respective texts and attributes. Database JSON is saved through independent resource version and file original value verification. Expired versions do not force retries.
 
-新生成的自动快照默认保留 30 天、每页最多 100 个，至少保留最新恢复点。索引在 `.history/checkpoints/<page-id>.json`；生成新检查点时执行清理，只处理索引中由应用生成、字节仍匹配的自动快照。旧历史、未知文件、外部改动的恢复副本和保护版本保留。冲突、迁移、删除及恢复操作所需的检查点不按普通自动历史清理。历史设置位于本库 `.notdown/history.json`，使用独立 revision 校验，未知字段保留。
+<a id="自动历史与版本恢复"></a>
 
-桌面／浏览器的页面菜单 **Page history** 列出本地快照与可用的 Git 版本，可预览完整 Markdown、属性和正文差异，再用 **Restore this version** 恢复。恢复经过 `createVault`，要求当前页的 `baseRevision`；预览期间发生外部修改会拒绝恢复并保留提议。恢复前保护当前版本，只更新目标页的正文与属性，不回退其他页或整个 `metadata.json`。数据库记录按当前 schema 校验并保持当前集合身份；旧父页面不存在等无效结构会阻止恢复。原页面 ID 迁移前的历史通过已有别名继续读取。
+### Automatic history and version recovery
 
-### 可选本地 Git 历史
+Autosave continues to write the text and JSON in time; history no longer accumulates one by one. The default automatic snapshot interval for each page is 5 minute, and a final checkpoint will be added after 120 seconds of stopping editing on the page; continuing to write on other pages will not delay its checkpoint. The final state of the last session will also be retained until the first edit after reopening. Only actual content or attribute changes generate history; differences only in `updated` do not count as new historical content. Ordinary pages that have no substantial changes are saved and retain the original revision and update time, and version conflicts are still checked before deduplication.
 
-在 **Settings - History** 中启用 **Local Git history**。Node／Windows 桌面环境需要可运行的 Git；Android 不依赖 Git，继续使用共用的自动快照。Git 功能默认关闭。首次启用记录当前文本基线，此后按设置的间隔、停止编辑和正常服务关闭生成检查点；也可以命名一个手动检查点。Git 历史不套用自动快照的 30 天／100 个限制。
+Newly generated automatic snapshots retain 30 days by default, a maximum of 100 per page, and at least the latest recovery point. Indexes in `.history/checkpoints/<page-id>.json`; cleanup is performed when a new checkpoint is generated, and only automatic snapshots in the index that were generated by the application and whose bytes still match are processed. Old history, unknown files, recovery copies of external changes, and protected versions are retained. Checkpoints required for conflict, migration, delete, and restore operations are not subject to normal automatic history cleanup. The historical settings are located in `.notdown/history.json` of this library, using independent revision verification, and unknown fields are retained.
 
-每个知识库独立使用 `.notdown/git-history.git/`，与 Notdown 源码仓库无关，不配置远端、不执行 pull 或 push。提交内容是可独立恢复的文本投影：`pages/<page-id>.md`、`page-metadata/<page-id>.json`、`vault-metadata.json`（其他顶层元数据）与 `people/*.yaml`。页面属性按页分开记录，正文真相仍是知识库的 `pages/*.md`，不会迁入 Git 对象库或缓存。
+The page menu of the desktop/browser **Page history** lists local snapshots and available Git versions. You can preview the complete Markdown, attributes and text differences, and then use **Restore this version** to restore. Restoring past `createVault` requires `baseRevision` of the current page; external modifications during preview will reject the restore and keep the proposal. Protect the current version before recovery, only update the text and attributes of the target page, and do not roll back other pages or the entire `metadata.json`. Database records are verified against the current schema and maintain the current collection identity; invalid structures such as the old parent page not existing will prevent recovery. The history of the original page ID before migration continues to be read through the existing alias.
 
-附件字节、服务配置、同步凭据、临时事务和既有 `.history/` 不进入 Git 提交；Git 历史不是完整知识库备份。完整备份仍需包含附件、metadata 和所需历史。ZIP 导出保留 Git 对象库，但排除运行中的锁文件。Git 操作失败会显示错误并保留已保存笔记；可停用 Git 后继续编辑。受应用管理的 Git 配置、目录与标记被修改时停止 Git 操作，保留原文件；不执行仓库 hooks 或读取用户的 Git 配置。强制结束进程不能保证最后一次检查点已完成，正文保存的事务保护继续独立工作。
+<a id="可选本地-git-历史"></a>
 
-同一 vault 的服务读写串行化，并以本地进程锁协调服务与 MCP。两文件保存前先写 `.history/pending-<id>.json` 恢复记录，单文件使用原子替换。中断后仅在正文和 JSON 仍精确匹配事务的旧值或新值时完成保存；如有第三方改动，则停止并保留磁盘版本及恢复记录供人工合并，不强制覆盖。任意外部编辑器并不遵守应用锁；这不是跨端同步或分布式事务保证。
+### Optional local Git history
+
+in **Settings - History** Activated **Local Git history**Node / Windows Desktop environment requires running Git; Android does not rely on Git to continue using shared automatic snapshots. Git functions are default-shutdown. First enable the current text baseline to record, then stop editing and shut down the normal service generating checkpoints at the set interval. A manual checkpoint can also be named. Git has historically been exempt from the 30 days/100 limitations for automatic snapshots.
+
+Each vault uses `.notdown/git-history.git/` independently and has nothing to do with the Notdown source code warehouse. It does not configure the remote end and does not execute pull or push. Submissions are independently recoverable text projections: `pages/<page-id>.md` , `page-metadata/<page-id>.json` , `vault-metadata.json` (additional top-level metadata), and `people/*.yaml` . Page attributes are recorded separately by page, and the text content is still the `pages/*.md` of the vault and will not be moved to the Git object library or cache.
+
+Attachment bytes, service configuration, sync credentials, temporary transactions, and existing `.history/` do not enter Git commits; Git history is not a full vault backup. A full backup still needs to contain attachments, metadata and required history. ZIP export preserves the Git object library but excludes running lock files. If the Git operation fails, an error will be displayed and the saved notes will be retained; you can disable Git and continue editing. When the Git configuration, directory and tags managed by the application are modified, the Git operation is stopped and the original files are retained; the warehouse hooks is not executed or the user's Git configuration is not read. Forcing a process to end does not guarantee that the last checkpoint has been completed and that the body-saved transaction protection continues to work independently.
+
+The service reads and writes of the same vault are serialized and the service is coordinated with MCP using a local process lock. Write the `.history/pending-<id>.json` recovery record before saving the two files, and use atomic replacement for the single file. After an interruption, the save is only completed when the text and JSON still accurately match the old or new value of the transaction; if there are third-party changes, the disk version and recovery record are stopped and retained for manual merging without forcing overwriting. Any external editor does not respect application locks; this is not a cross-end synchronization or distributed transaction guarantee.

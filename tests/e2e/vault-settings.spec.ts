@@ -92,6 +92,7 @@ test("browser creates a vault in another tab after saving; tabs keep separate co
   await page.goto(`/#page/${note.id}`); await expect(page.locator("#page-title")).toHaveValue(note.title);
   await page.locator(".page-pane .ProseMirror").fill("Pending before vault switch");
   await page.locator(".workspace-switch").click();
+  await page.locator("[data-create-panel] > summary").click();
   await expect(page.locator("[data-vault-create]")).toBeVisible();
   await page.screenshot({ path: ".run/logs/browser-vault-manager.png" });
   await page.locator("[data-new-tab]").check();
@@ -127,6 +128,7 @@ test("a save conflict prevents creating or switching a browser vault", async ({ 
   await request.put(`/api/pages/${note.id}`, { data: { body: "External edit", baseRevision: note.revision } });
   // Keep the draft pending while the modal is open, bypassing the ordinary autosave timer.
   await page.evaluate(() => { const editor = document.querySelector('.page-pane .ProseMirror')!; editor.textContent = "Pending conflicting draft"; });
+  await page.locator('[data-create-panel] > summary').click();
   await page.locator('[data-vault-create] input[name="name"]').fill(`Must not create ${Date.now()}`);
   let opened = false; page.on("request", req => { if (req.url().endsWith("/api/vaults/open")) opened = true; });
   await page.getByRole("button", { name: "Create vault", exact: true }).click();
@@ -139,6 +141,7 @@ test("settings opens an existing vault in this tab without changing the root vau
   const root = await (await request.get("/api/status")).json();
   await page.goto("/"); await page.locator('#sidebar [data-action="settings"]').click();
   await page.getByRole("button", { name: "Manage knowledge bases" }).click();
+  await page.locator('[data-open-panel] > summary').click();
   await page.locator('[data-vault-open] input[name="path"]').fill(entry.path);
   await page.getByRole("button", { name: "Open vault", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(entry.url));

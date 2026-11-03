@@ -1,143 +1,161 @@
-# 块的语义模型与 Notdown 实现对应
+<a id="块的语义模型与-notdown-实现对应"></a>
 
-> 本文保留为 2026-09-20 的设计讨论快照。2026-09-21 用户新表已确定保留 Toggle heading、三类列表项、PDF 等分别可辨认的对象；最新边界、P0–P4 本地实现与服务执行范围以 [对象 Roadmap](./CONTENT-OBJECT-ROADMAP.md) 和代码注册表为准。下文“建议合并”和旧节点数量不是当前实现状态。
+# Block semantics and their Notdown implementation
 
-核对日期：2026-09-20。依据用户修订表中 46 个 block 项和 2 个 metadata block 项，以及当前工作区源码。本文讨论内容本质，**不以 Markdown 写法、扩展开关名或 ProseMirror 节点名决定语义类型**。建议名称是设计建议，不表示代码已经迁移。
+**English** · [简体中文](BLOCK-MODEL-REVIEW.zh-CN.md)
 
-2026-09-21 实施更正：三类列表项现已按用户要求拆成三种底层节点；Heading 共用节点；Table 的 MMD 源码载体已移除，统一使用结构化表格及可编辑题注。Child structures 单列所属子结构，2026-09-22 已清理表外既有格式并移除 Existing content；Inline raw source 纳入正式清单，文件引入共享块级与行内位置。strong 是粗体，highlight 是高亮；mark 是 ProseMirror 的格式机制统称。下文关于 list_item 共用及 syntax:table 的描述仅为历史记录。
+> This article remains a snapshot of the design discussion for 2026-09-20. The new 2026-09-21 user table has been determined to retain Toggle heading, three types of list items, PDF and other separately identifiable objects; the latest boundary, P0 – P4 local implementation and service execution scope are subject to the [ object Roadmap ](CONTENT-OBJECT-ROADMAP.md) and the code registry. The "recommended merges" and number of old nodes below are not current implementation status.
 
-这版分类可以作为语义模型的基础。最需要调整的是：把内容类型、表现方式、资源与引用、实现状态分开。同一种内容可以有多个编码形式，也可以暂时由多个编辑器节点承载。
+Check date: 2026-09-20. Based on the 46 block items and 2 metadata block items in the user revision table, as well as the current workspace source code. This article discusses the essence of the content,**The semantic type is not determined by the Markdown writing method, extended switch name or ProseMirror node name.**. Suggested names are design suggestions and do not indicate that the code has been migrated.
 
-## 命名和合并原则
+2026-09-21 Correction: Three categories of list items have been broken down into three sub-nodes at the user's request;Heading Shared nodes;Table ofMMD The source code carrier has been removed, unified using structured tables and editable query notes.Child structures The sub-structure belonging to the single class,2026-09-22 Both formats have been cleared and removed from the tableExisting content；Inline raw source The document is included in the official list, and the document is introduced to the shared block level and inline location.strong It's a rough one.highlight and bright,mark YesProseMirror The format mechanism is called the "System of Formatting".list_item Common use andsyntax:table The description is historical.
 
-- 规范 ID 使用 `lower_snake_case`；显示名称用自然语言。所在字段已经表示 block 时，不必重复 `_block`。
-- `level`、是否折叠、行内/块级展示、编号方式等放属性；语法来源和原文另存 codec/provenance 信息。
-- 合并意味着共用语义类型，**不意味着删除差异字段**。例如 callout 的类型、标题、图标、颜色和折叠状态都应保留。
-- 语义模型可以统一，而当前 ProseMirror 节点暂时分开；不必为了统一命名立即修改解析器、编辑器及序列化器。
-- 资源模型与正文节点分别建模。`page` 是资源；正文里指向它的是 `page_reference`。数据库及其视图也采用这个区分。
+This version of the taxonomy can serve as the basis for semantic models. What needs to be adjusted most is: separating content types, presentation methods, resources from references, and implementation status. The same content can have multiple encoding forms, and can also be temporarily hosted by multiple editor nodes.
 
-## 对修订表逐项对应
+<a id="命名和合并原则"></a>
 
-状态：**结构化**＝有专用节点及内容/属性；**源码载体**＝通过原文、预览等承载，不能等同于完整结构化编辑；**引用**＝仅保存目标及展示信息；**未实现**＝无对应专用能力。不同方言的开启条件仍见已有扩展矩阵；本表不把“未默认开启”写成“未实现”。
+## Naming and consolidation principles
 
-`syntax:xxx` 是 `syntax_block.kind = xxx` 的缩写。下列顺序与用户修订表一致。
+- Specification ID uses `lower_snake_case`; the display name is in natural language. When the field already represents block, there is no need to repeat `_block`.
+- `level`, whether to fold, inline/block-level display, numbering method and other attributes; the syntax source and original text are saved as codec/provenance information.
+- Merging means sharing semantic types, **does not mean removing the difference field** . For example, the type, title, icon, color, and collapsed state of callout should be preserved.
+- The semantic model can be unified while the current ProseMirror node is temporarily separated; there is no need to immediately modify the parser, editor, and serializer for unified naming.
+- Resource models and text nodes are modeled separately. `page` is the resource; the reference to it in the text is `page_reference`. Databases and their views also use this distinction.
 
-| # | 用户名称 | 建议语义名称 / 归并 | 当前 Notdown 对应与边界 |
+<a id="对修订表逐项对应"></a>
+
+## Mapping the revised table item by item
+
+Status: **structured** = has dedicated nodes and content/attributes; **source code carrier** = carried through original text, preview, etc., cannot be equivalent to complete structured editing; **reference** = only saves target and display information; **not implemented** = no corresponding dedicated capabilities. There are still existing expansion matrices for the opening conditions of different dialects; this table does not write "not enabled by default" as "not implemented".
+
+`syntax:xxx`Is the abbreviation of `syntax_block.kind = xxx`. The following sequence is consistent with the user revision table.
+
+| # | Username | Suggest semantic names/merges | The current Notdown corresponds to the boundary |
 |---|---|---|---|
-| 1 | divider | `divider` | 结构化：`horizontal_rule`；thematic break 可保留为别名。 |
-| 2 | heading | `heading`，属性 `level` | 结构化：`heading`；层级不拆类型。 |
-| 3 | code block | `code`，属性 `language` | 结构化：`code_block`；表示供阅读的代码文本。 |
-| 4 | HTML block | `raw_content(format=html)` | `html_block` 与 `syntax:raw(format=html)` 属同一语义家族；保存 HTML，预览受到清理规则约束。不是独立网页环境。 |
-| 5 | paragraph | `paragraph` | 结构化：`paragraph`；带块子内容时由 `nested_block` 包装。包装不是新的内容本质。 |
-| 6 | table | `table` | 结构化 `table/table_row/table_cell`，以及源码载体 `syntax:table`；应统一语义，但复杂 MMD 表格当前不等同于原生表格编辑能力。 |
-| 7 | quote | `quote` | 结构化：`blockquote`；保留引述语义，不因外观接近而并入 callout。 |
-| 8 | bullet list item | `list_item`，标记 `bullet` | 结构化：`bullet_list > list_item`。 |
-| 9 | numbered list item | `list_item`，标记 `ordered` | 结构化：`ordered_list > list_item`；起始编号在列表上。 |
-| 10 | task list item | `list_item`，附加 `task_state` | 结构化：`list_item.checked`；任务状态与有序/无序可以正交，不必成为第三种互斥列表。 |
-| 11 | empty block | 空的 `paragraph` | 已实现：Notion `<empty-block/>` 解析为空段落。无需独立类型；源文件分隔空行不因此变成内容对象。 |
-| 12 | math block | `math`，`display=block` | 结构化：`equation`；可与行内 `inline_math` 共用数学内容模型。 |
-| 13 | image block | `image`，`display=block` | `image` 目前是行内节点，由段落承载；带题注路径为源码载体 `syntax:figure`。存在图片能力，但无独立 `image_block` 节点。 |
-| 14 | diagram | `diagram` | 源码载体：`syntax:diagram`，保存语言与代码；不是所有代码围栏都具有图示语义。 |
-| 15 | table of contents | `table_of_contents` | 专用 `table_of_contents` 与源码载体 `syntax:toc`；应统一，保留标题层级范围等属性。 |
-| 16 | link to page | `page_reference`，块级展示 | 引用：`child_page`；另有行内 `page_link`。可以共用目标模型。 |
-| 17 | embed web contents | `embed`，来源为 URL | 源码载体：`syntax:embed`，iframe 预览；不是完整第三方服务集成。 |
-| 18 | HTML embed | `embed`，来源为 HTML 文档 | 可与上一项合并，来源类型另记。当前 iframe URL 路径只覆盖部分需求；没有 Notion HTML 文件上传/导入专用链路。 |
-| 19 | database - inline | `database_reference` / `database_view`，行内页面布局 | 当前只有引用节点 `database(inline=true)`；未实现数据库引擎或视图。完整语义应分资源和视图，不按展示位置分数据库类型。 |
-| 20 | linked view of data source | `database_view`，带数据源引用 | 未实现。普通 `database` 链接不含筛选、排序、视图布局等语义，不能算等价实现。 |
-| 21 | button | `button` | 未实现动作按钮模型。 |
-| 22 | breadcrumb | `breadcrumb` | 无正文节点；应用页面导航中的面包屑不等于可插入的正文块。 |
-| 23 | video | `video`，归属媒体家族 | 结构化属性：`media_block(type=video)`；有播放展示。 |
-| 24 | audio | `audio`，归属媒体家族 | 结构化属性：`media_block(type=audio)`；有播放展示。 |
-| 25 | file | `file`，归属附件家族 | 结构化属性：`media_block(type=file)`；主要是文件链接。 |
-| 26 | web bookmark | `link`，`presentation=bookmark` | 无专用书签卡片模型；普通链接不等于含摘要、封面等的书签卡片。 |
-| 27 | PDF | `file(media_type=application/pdf)` | `media_block(type=pdf)`；当前渲染是文件链接，不是完整 PDF 阅读器。可把 PDF 作为文件子类型与呈现选项。 |
-| 28 | link preview | `link`，`presentation=preview` | 无专用外部预览/解析服务模型。可与书签共享链接及预览数据，保留 provider 和展示属性。 |
-| 29 | unsupported | `unknown_content` | `unknown_block` 保存 URL/替代说明，`opaque_block` 保存原文。统一为回退家族，但必须区分“有原文”与“仅有占位引用”。 |
-| 30 | callout | `callout` | 结构化：`callout` 与 `alert`；应合并语义。alert/admonition 可为别名或子类型，保留 kind/title/icon/color/collapsible 等。 |
-| 31 | page | 资源 `page`；正文使用 `page_reference` | 应用已有 `Page` 资源与父子关系。编辑器 `child_page` 只是引用；资源归属与普通链接仍须区分。 |
-| 32 | database - full page | 资源 `database`；正文使用引用/视图 | 当前 `database(inline=false)` 仅引用；可与第 19 项共用资源类型，不能据此声称完整数据库已实现。 |
-| 33 | meeting notes | `meeting_notes` | 无专用功能；原文回退不表示已经实现会议记录/转录服务。 |
-| 34 | toggle | `collapsible_section` | 结构化：`toggle_block`，第一段为摘要，其余为内容。表示通用可折叠区段。 |
-| 35 | toggle heading | `heading` + 折叠及子内容属性 | `heading(toggle=true)`，子内容由 `nested_block` 承载；无需独立 heading 类型。与通用 toggle 共享折叠能力，但保留标题语义。 |
-| 36 | tabs | `tab_group`，内部 `tab` | 未实现专用标签页结构；未知源码保留不是交互标签页支持。 |
-| 37 | synced block | `synced_content`；当前状态为 snapshot | 当前 `synced_block` 是本地内容快照/引用信息，无跨实例实时同步。类型语义可保留，但实现状态必须标明。 |
-| 38 | columns | `column_layout`，内部 `column` | 结构化：`columns > column`；布局与内部栏目不是别名关系。 |
-| 39 | YAML front matter | `document_metadata` | 源码载体 `syntax:metadata` 等元数据处理；格式来源保留在编码层。不要把原文元数据节点与页面属性存储直接视为同一个对象。 |
-| 40 | Pandoc title block | `document_metadata` | 同上；与 YAML、MMD 元数据共享语义容器，但字段类型、值及原文编码都要保留。 |
-| 41 | file transclusion | `transclusion` | 源码载体 `syntax:transclusion`，解析文件内容引用；当前面向限定文本类型，不支持任意媒体文件转引。 |
-| 42 | block comment | `content_comment`，块级范围 | 源码载体 `syntax:comment`；可与行内内容注释共享模型，不等于协作评论线程。 |
-| 43 | definition list | `definition_list` | 结构化：`definition_list > definition_term/definition_description`；释义可有多个正文块，不应定义为无内部结构的 leaf。 |
-| 44 | raw source | 若指原样交给输出格式：`raw_content` | `syntax:raw`。若指“供阅读的源码”，应归 `code`；若指无法解析但保留的源码，应归 `unknown_content`。建议删除 raw source 这个含糊的规范名。 |
-| 45 | line block | `line_group` | 结构化：`line_block > line`；语义是保留有意义的逐行分组，不只是某个前缀写法。 |
-| 46 | native div | `container` | 已有 `fenced_div` 结构化容器；不能因此算 `native_divs` 解析已实现。`syntax:html-markdown` 是另一条源码/预览路径。语义可统一，转换能力分别标注。 |
-| 47 | raw TeX | `raw_content(format=tex)` | 显式 raw-format 路径可保留 TeX；没有独立裸 `raw_tex` 识别能力。不能与 `math` 无条件合并，TeX 可包含非数学指令。 |
-| 48 | example list | `list_item` / `list`，编号模式 `example` | 无专用示例列表标签、连续编号和引用实现。可共用列表基础模型，但要增加标签/编号序列语义，不只是普通 ordered list 改名。 |
+| 1 | divider | `divider` | Structured: `horizontal_rule`; thematic break may be retained as an alias. |
+| 2 | heading | `heading`, attributes `level` | Structural: `heading`; hierarchy does not split types. |
+| 3 | code block | `code`, attributes `language` | Structured: `code_block`; represents code text for human reading. |
+| 4 | HTML block | `raw_content(format=html)` | `html_block`Belongs to the same semantic family as `syntax:raw(format=html)`; when saving HTML, the preview is subject to cleaning rules. It is not an independent web environment. |
+| 5 | paragraph | `paragraph` | Structured: `paragraph`; wrapped by `nested_block` with block sub-content. Packaging is not the new content essence. |
+| 6 | table | `table` | Structured `table/table_row/table_cell`, and source code carrier `syntax:table`; the semantics should be unified, but complex MMD tables are currently not equivalent to native table editing capabilities. |
+| 7 | quote | `quote` | Structured: `blockquote`; retains quotation semantics and is not merged into callout due to similar appearance. |
+| 8 | bullet list item | `list_item`, mark `bullet` | Structured: `bullet_list > list_item`. |
+| 9 | numbered list item | `list_item`, mark `ordered` | Structured: `ordered_list > list_item`; the starting number is on the list. |
+| 10 | task list item | `list_item`, additional `task_state` | Structured: `list_item.checked`; task status and ordered/unordered can be orthogonal and do not have to become the third mutually exclusive list. |
+| 11 | empty block | empty `paragraph` | Implemented: Notion `<empty-block/>` resolves to an empty paragraph. No separate types are required; the source file delimited by blank lines does not therefore become a content object. |
+| 12 | math block | `math`，`display=block` | Structured: `equation`; can share mathematical content models with inline `inline_math`. |
+| 13 | image block | `image`，`display=block` | `image`Currently it is an inline node, carried by a paragraph; the path with caption is the source code carrier `syntax:figure`. Image capabilities exist, but there is no independent `image_block` node. |
+| 14 | diagram | `diagram` | Source code carrier: `syntax:diagram`, saves language and code; not all code fences have graphical semantics. |
+| 15 | table of contents | `table_of_contents` | Special `table_of_contents` and source code carrier `syntax:toc` should be unified and retain attributes such as title level range. |
+| 16 | link to page | `page_reference`, block-level presentation | Quote: `child_page`; also inline `page_link`. Target models can be shared. |
+| 17 | embed web contents | `embed`, sourced from a URL | Source code carrier: `syntax:embed`, iframe preview; not a complete third-party service integration. |
+| 18 | HTML embed | `embed`, sourced from an HTML document | Can be combined with the previous item, the source type is recorded separately. The current iframe URL path only covers part of the requirements; there is no dedicated link for Notion HTML file upload/import. |
+| 19 | database - inline | `database_reference`/`database_view`, inline page layout | Currently only node `database(inline=true)` is referenced; no database engine or view is implemented. The complete semantics should be divided into resources and views, not database types according to placement. |
+| 20 | linked view of data source | `database_view`, with a data source reference | Not implemented. Ordinary `database` links do not contain semantics such as filtering, sorting, and view layout, and cannot be considered equivalent implementations. |
+| 21 | button | `button` | The action button model is not implemented. |
+| 22 | breadcrumb | `breadcrumb` | No body node; breadcrumbs in app page navigation are not equivalent to insertable body blocks. |
+| 23 | video | `video`, in the media family | Structural attributes: `media_block(type=video)`; with playback display. |
+| 24 | audio | `audio`, in the media family | Structural attributes: `media_block(type=audio)`; with playback display. |
+| 25 | file | `file`, in the attachment family | Structural attributes: `media_block(type=file)`; mainly file links. |
+| 26 | web bookmark | `link`，`presentation=bookmark` | There is no dedicated bookmark card model; ordinary links are not equivalent to bookmark cards containing abstracts, covers, etc. |
+| 27 | PDF | `file(media_type=application/pdf)` | `media_block(type=pdf)`;The current rendering is a file link, not a full PDF reader. PDF is available as a file subtype and rendering option. |
+| 28 | link preview | `link`，`presentation=preview` | No dedicated external preview/parse service model. Links and preview data can be shared with bookmarks, provider and display attributes preserved. |
+| 29 | unsupported | `unknown_content` | `unknown_block`Save URL/ to replace the description, and `opaque_block` to save the original text. Unified into a fallback family, but a distinction must be made between "with original text" and "only placeholder references". |
+| 30 | callout | `callout` | Structured: `callout` and `alert`; semantics should be merged. alert/admonition can be an alias or subtype, kind/title/icon/color/collapsible is reserved, etc. |
+| 31 | page | Resource `page`; used in the text`page_reference` | The application already has a `Page` resource and a parent-child relationship. Editor `child_page` is just a reference; resource ownership and ordinary links must still be distinguished. |
+| 32 | database - full page | Resource `database`; body uses reference/view | Currently `database(inline=false)` is a reference only; the resource type can be shared with item 19 and cannot be used to claim that the full database is implemented. |
+| 33 | meeting notes | `meeting_notes` | There is no dedicated function; the original text rollback does not mean that the meeting recording/transcription service has been implemented. |
+| 34 | toggle | `collapsible_section` | Structured: `toggle_block`, the first paragraph is the summary, and the rest is the content. Represents a universal collapsible section. |
+| 35 | toggle heading | `heading`+ Collapse and sub-content attributes | `heading(toggle=true)`, the sub-content is carried by `nested_block`; no independent heading type is required. Shares folding capabilities with generic toggle but retains title semantics. |
+| 36 | tabs | `tab_group`, internal `tab` | Private tab structure is not implemented; unknown source code retention is not supported by interactive tabs. |
+| 37 | synced block | `synced_content`; currently a snapshot | The current `synced_block` is local content snapshot/reference information, without cross-instance real-time synchronization. Type semantics may be preserved, but implementation status must be noted. |
+| 38 | columns | `column_layout`, internal `column` | Structural: `columns > column`; layout and internal columns are not alias relationships. |
+| 39 | YAML front matter | `document_metadata` | Source code carrier `syntax:metadata` and other metadata are processed; the format source is retained at the encoding layer. Do not treat the original metadata node and page attribute storage directly as the same object. |
+| 40 | Pandoc title block | `document_metadata` | Same as above; it shares the semantic container with YAML and MMD metadata, but the field type, value and original encoding must be retained. |
+| 41 | file transclusion | `transclusion` | Source code carrier `syntax:transclusion`, parses file content references; currently it is for limited text types and does not support arbitrary media file references. |
+| 42 | block comment | `content_comment`, block-level scope | Source code carrier `syntax:comment`; can share models with inline content comments, not equal to collaborative comment threads. |
+| 43 | definition list | `definition_list` | Structured: `definition_list > definition_term/definition_description`; paraphrasing can have multiple text blocks and should not be defined as leaf without internal structure. |
+| 44 | raw source | If you want to pass it to the output format as is:`raw_content` | `syntax:raw`. If it refers to "source code for reading", it should be classified as `code`; if it refers to source code that cannot be parsed but is retained, it should be classified as `unknown_content`. It is recommended to delete the ambiguous canonical name raw source. |
+| 45 | line block | `line_group` | Structured: `line_block > line`; the semantics are to retain meaningful line-by-line groupings, not just a certain prefix writing method. |
+| 46 | native div | `container` | There is a structured container for `fenced_div`; this does not mean that `native_divs` parsing has been implemented. `syntax:html-markdown` is another source/preview path. The semantics can be unified, and the conversion capabilities are marked separately. |
+| 47 | raw TeX | `raw_content(format=tex)` | The obvious raw-format path can be retained for TeX; no independent nudity `raw_tex` The ability to identify. `math` Unconditionally, TeX can contain non-mathematical instructions. |
+| 48 | example list | `list_item`/`list`, numbering mode`example` | No dedicated example list labels, sequential numbering, and reference implementations. The list base model can be shared, but label/number sequence semantics need to be added, not just ordinary ordered list renaming. |
 
-## 建议优先合并的内容
+<a id="建议优先合并的内容"></a>
 
-| 合并组 | 保留的差异 |
+## Recommended consolidation priorities
+
+| Merge group | retained differences |
 |---|---|
-| callout / alert / admonition | 提示类型、标题、图标、颜色、折叠；来源语法不决定类型。 |
-| heading / toggle heading | level、collapsible、collapsed、children；折叠不是新标题种类。 |
-| paragraph / empty block | 空内容也是合法段落；原文空行仍属于排版/编码信息。 |
-| bullet / numbered / task list item | 列表标记、起始编号、任务状态；任务不是编号方式。 |
-| YAML / Pandoc title / MMD metadata | 属性值、字段类型及来源编码；名称不要绑定序列化格式。 |
-| database inline / full page | 数据库资源身份、视图身份、显示位置、归属关系分别保存。 |
-| web embed / HTML document embed | 都是嵌入外部文档；URL/文件来源、媒体类型及运行权限分别记录。 |
-| 原生 table / MMD table；两种 TOC | 内容语义相同；结构化编辑和源码预览的实现等级不同。 |
-| block/inline image；block/inline math | 内容数据共享，display 单独记录。 |
+| callout / alert / admonition | Prompt type, title, icon, color, fold; source syntax does not determine type. |
+| heading / toggle heading | level, collapsible, collapsed, children; folding is not a new title type. |
+| paragraph / empty block | Empty content is also a legal paragraph; empty lines in the original text are still typesetting/encoding information. |
+| bullet / numbered / task list item | List mark, starting number, task status; tasks are not numbered. |
+| YAML / Pandoc title / MMD metadata | Attribute value, field type and source encoding; do not bind the name to the serialization format. |
+| database inline / full page | Database resource identity, view identity, display position, and ownership relationship are saved separately. |
+| web embed / HTML document embed | They are all embedded in external documents; URL/ file sources, media types and run permissions are recorded separately. |
+| Native table / MMD table; two kinds of TOC | The content semantics are the same; the implementation levels of structured editing and source code preview are different. |
+| block/inline image；block/inline math | Content data sharing, display recorded separately. |
 
-媒体建议采用共同的附件数据结构，但保留 image/audio/video 等可辨认子类型。共用 `src` 并不足以把所有媒体强行变成同一种无差别内容。类似地，书签和预览可共享链接对象，而页面引用还需要内部资源身份。
+The media recommends adopting a common attachment data structure but retaining identifiable subtypes such as image/audio/video. Sharing `src` is not enough to force all media into the same undifferentiated content. Similarly, bookmarks and previews can share link objects, while page references also require internal resource identities.
 
-## 不建议因相似外观而直接合并
+<a id="不建议因相似外观而直接合并"></a>
 
-1. **raw HTML 与 HTML embed**：前者是文档中的原始内容片段，后者是嵌入独立文档。区别是内容归属和运行方式，不是标签写法。可以同属 HTML 能力家族，不能丢掉这个区别。
-2. **code 与 diagram**：一个展示代码，一个表达图示。可共享源码字段，但须保留渲染意图；同理 raw TeX 不等于数学公式。
-3. **quote 与 callout**：引述与提示具有不同语义，样式接近不等于同类。
-4. **transclusion 与 synced content**：可以共用内容引用基础结构，但引用范围、读写方向、刷新和同步策略不同。Notdown 的 synced snapshot 尤其不能宣称是 live sync。
-5. **page 与 page reference**：前者拥有正文、属性与身份，后者指向资源。child page 的归属关系也不能用一个普通链接默默替代。
-6. **内容注释与协作评论**：前者是文档内容/标注，后者还涉及作者、线程、时间及状态。可以共享锚点，不等于共享完整实体。
+## Similar appearance alone does not justify consolidation
 
-## 用户表外的现有实现如何归位
+1. **raw HTML and HTML embed**: The former is the original content fragment in the document, and the latter is embedded in an independent document. The difference is the content ownership and operation method, not the way the tags are written. They can both belong to the HTML ability family, but this difference cannot be lost.
+2. **code and diagram**: One display code and one expression diagram. Source code fields can be shared, but the rendering intent must be preserved; similarly, raw TeX is not equal to a mathematical formula.
+3. **quote and callout**: Quotes and prompts have different semantics, and the styles are close but not the same.
+4. **transclusion and synced content**：Shared content can refer to infrastructure, but the scope of reference, reading direction, refresh and sync strategies are different.Notdown ofsynced snapshot It is not possible to claim thatlive sync。
+5. **page and page reference**: The former has text, attributes and identity, and the latter points to resources. The ownership relationship of child page cannot be silently replaced by an ordinary link.
+6. **Content annotations and collaborative comments**: The former is the document content/annotation, and the latter also involves the author, thread, time and status. Anchors can be shared, which does not mean sharing complete entities.
 
-以下内容不是建议全部增加为顶层 block 类型，而是确保现有实现没有在合并时丢失。
+<a id="用户表外的现有实现如何归位"></a>
 
-| 现有节点/载体 | 建议归位 |
+## Classifying existing implementations absent from the user's table
+
+The following is not a recommendation to add all to the top-level block type, but to ensure that existing implementations are not lost in the merge.
+
+| Existing nodes/carriers | Recommended to return |
 |---|---|
-| `footnote` + 行内 `footnote_reference` | 可以是一个脚注实体：`id + body`，正文存引用。不是因为定义/引用语法不同就拆成两个内容种类，但两者在模型中承担的角色不能丢失。修订表仅列行内 footnote，需补充脚注正文存放位置。 |
-| `syntax:definition` | 缩写、文献、术语定义表；归文档的 reference definitions / annotations。不是正文中的 definition list。 |
-| `syntax:figure` | 有题注的图示内容。当前只有图片路径，可建模为 `image.caption`；若未来允许图、表等组合并独立编号，再引入通用 `figure` 容器。alt 与 caption 不应混为一个字段。 |
-| `nested_block` | 段落/标题挂载子块的编辑器适配结构；无需成为用户语义类型。 |
-| `bullet_list` / `ordered_list` | 列表分组实体 `list`，保存编号/分组语义；不是新的 list item 类型。 |
-| `table_row` / `table_cell` | 表格内部结构。 |
-| `definition_term` / `definition_description` | 术语与释义内部结构。 |
-| `line` | `line_group` 内部结构。 |
-| `column` | `column_layout` 内部结构。 |
-| `syntax_block` | 扩展内容的实现载体；应按 kind 映射到语义类型，不把“extension block”作为内容本质。 |
-| `opaque_block` / `unknown_block` | 回退表示；分别保留 raw 或 reference，注明可恢复程度。 |
-| `doc` | 文档根；不是一种可插入块。 |
+| `footnote` + inline `footnote_reference` | Can be a footnote entity: `id + body`, the text stores the reference. It is not necessary to split it into two content types just because the definition/reference syntax is different, but the roles they play in the model cannot be lost. The revised table only contains footnote in the column row, and the footnote text storage location needs to be added. |
+| `syntax:definition` | Glossary of abbreviations, documentation, terminology; classified as reference definitions / annotations of the document. Not definition list as in the text. |
+| `syntax:figure` | Illustrated content with captions. Currently, there is only the image path, which can be modeled as `image.caption`; if combinations of figures, tables, etc. are allowed to be combined and independently numbered in the future, the general `figure` container will be introduced. alt and caption should not be mixed into one field. |
+| `nested_block` | Editor adaptation structure for paragraph/heading mounting subblocks; no need to be a user semantic type. |
+| `bullet_list` / `ordered_list` | List grouping entity `list` , holds numbering/grouping semantics; not new list item type. |
+| `table_row` / `table_cell` | Table internal structure. |
+| `definition_term` / `definition_description` | Internal structure of terms and definitions. |
+| `line` | `line_group` internal structure. |
+| `column` | `column_layout` internal structure. |
+| `syntax_block` | The implementation carrier of extended content; it should be mapped to semantic types according to kind, and "extension block" should not be regarded as the essence of the content. |
+| `opaque_block` / `unknown_block` | Rollback representation; keep raw or reference respectively to indicate the degree of recovery. |
+| `doc` | Document root; not an insertable block. |
 
-## leaf / container 建议换一种记录方式
+<a id="leaf--container-建议换一种记录方式"></a>
 
-不要仅用一个布尔值表达所有“包含”。至少分成：
+## A different way to record leaf / container relationships
 
-| 维度 | 例子 |
+Don't express all "contains" in just one boolean value. At least divided into:
+
+| Dimensions | Example |
 |---|---|
-| 行内内容 `inline_content` | paragraph、heading、表格单元格中的文字。 |
-| 通用子块 `block_children` | quote、callout、toggle、带子内容的 paragraph。 |
-| 专用内部结构 `structured_children` | table 的行/单元格、columns 的 column、definition list 的术语/释义、tabs 的 tab。 |
-| 外部资源/内容引用 `reference` | page reference、database view、transclusion。 |
+| inline content `inline_content` | paragraph, heading, text in table cells. |
+| generic child blocks `block_children` | quote, callout, toggle, paragraph with sub-content. |
+| dedicated internal structure `structured_children` | table of rows/cell,columns ofcolumn、definition list terminology/Interpretation,tabs oftab。 |
+| external resource/content references `reference` | page reference、database view、transclusion。 |
 
-这些维度可以同时存在。`table` 有内部结构不意味着可任意嵌入所有块；`database` 指向有记录的资源不意味着正文引用节点是内容容器。ProseMirror 的 `atom/isLeaf` 描述编辑器存储和交互，不能直接拿来决定本模型中的内容本质。
+These dimensions can exist simultaneously. The internal structure of `table` does not mean that all blocks can be embedded arbitrarily; the fact that `database` points to a recorded resource does not mean that the text reference node is a content container. ProseMirror's `atom/isLeaf` describes editor storage and interaction and cannot be directly used to determine the nature of the content in this model.
 
-## 源码依据与覆盖范围
+<a id="源码依据与覆盖范围"></a>
 
-- [编辑器 schema](../../src/document/editor-schema.ts)：35 个 `isBlock` 节点（含文档根），即 34 个非根块形节点；其中包含表格行/单元格等内部结构，不代表 34 个独立用户语义类型。
-- [块目录及标签](../../src/catalog/block-catalog-data.ts)：列出节点名称，以及 11 个 `syntax_block.kind`；目录名称是当前实现标签。
-- [产品扩展解析](../../src/markdown-engine/products.ts)：diagram、raw、table、embed、html-markdown、figure、comment、toc、transclusion、metadata、definition 共 11 个载体种类均已在本文归位。
-- [Notion Markdown 适配](../../src/document/notion-markdown.ts)：空段落、嵌套、媒体、页面/数据库引用和同步快照等映射。
-- [页面资源](../../src/shared/types.ts)、[Notion 节点视图](../../src/editor/notion-nodeviews.ts)、[扩展节点视图](../../src/markdown-engine/product-view.ts)、[HTML 清理](../../src/markdown-engine/html.ts)、[转引文件解析](../../server/syntax-files.ts)：资源和显示/解析能力的实际边界。
+## Source evidence and coverage
 
-34 个非根块形节点的反向覆盖：paragraph、syntax_block、alert、nested_block、heading、blockquote、horizontal_rule、code_block、bullet_list、ordered_list、list_item、columns、column、child_page、opaque_block、html_block、definition_list、definition_term、definition_description、footnote、line_block、line、fenced_div、callout、toggle_block、synced_block、database、table_of_contents、unknown_block、media_block、equation、table、table_row、table_cell。
+- [Editor schema ](../../src/document/editor-schema.ts): 35 `isBlock` nodes (including document root), that is, 34 non-root block nodes; which contain internal structures such as table rows/cells, and do not represent 34 independent user semantic types.
+- [Block directory and label ](../../src/catalog/block-catalog-data.ts): Lists node names, and 11 `syntax_block.kind`; directory name is the current implementation label.
+- [Product expansion analysis ](../../src/markdown-engine/products.ts): diagram, raw, table, embed, html-markdown, figure, comment, toc, transclusion, metadata, definition, a total of 11 carrier types have been returned to this article.
+- [Notion Markdown adapts to ](../../src/document/notion-markdown.ts): mappings such as empty paragraphs, nesting, media, page/database references and synchronization snapshots.
+- [Page resources ](../../src/shared/types.ts), [ Notion node view ](../../src/editor/notion-nodeviews.ts), [ extended node view ](../../src/markdown-engine/product-view.ts), [ HTML cleanup ](../../src/markdown-engine/html.ts), [ reference file parsing ](../../server/syntax-files.ts): the actual boundaries of resources and display/parsing capabilities.
 
-本文只作模型核对和命名建议，没有修改 schema、解析行为、默认扩展开关或用户内容。此前[方言能力对照](../reference/CONTENT-CAPABILITIES.md)按旧版表记录的具体语法差异，不应理解为本语义模型必须拆出独立类型。
+Reverse coverage of 34 non-root block nodes: paragraph , syntax_block , alert , nested_block , heading , blockquote , horizontal_rule , code_block , bullet_list , ordered_list , list_item , columns , column , child_page , opaque_block , html_block , definition_list , definition_term , definition_description , footnote, line_block, line, fenced_div, callout, toggle_block, synced_block, database, table_of_contents, unknown_block, media_block, equation, table, table_row, table_cell.
+
+This article only provides model verification and naming suggestions, and does not modify schema, parsing behavior, default extension switches or user content. The previous specific syntax differences between [ dialect capabilities and ](../reference/CONTENT-CAPABILITIES.md) recorded in the old version table should not be understood to mean that this semantic model must separate independent types.

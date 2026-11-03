@@ -12,13 +12,13 @@ test("inline source title, wide data, searchable overflow views, inline search a
   const parent = await post(request, "/api/pages", { title: "Normal page width", syntax: { version: 1, variant: "notdown", extensions: {} }, body: `Prose keeps its normal width\n\n<database url="#page/${db.database.id}" inline="true"></database>\n\nAfter the table\n` });
   await page.goto(`/#page/${parent.id}`);
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
-  await expect(inline.locator(".database-source-title")).toHaveText("Actual source title");
+  await expect(inline.getByLabel("Data source title", { exact: true })).toHaveValue("Actual source title");
   await inline.getByRole("tab", { name: "Table", exact: true }).click();
   await page.getByRole("button", { name: "Hide data source titles", exact: true }).click();
   await expect(inline.locator(".database-source-title")).toHaveCount(0);
   await inline.getByRole("tab", { name: "Table", exact: true }).click();
   await page.getByRole("button", { name: "Show data source titles", exact: true }).click();
-  await expect(inline.locator(".database-source-title")).toHaveText("Actual source title");
+  await expect(inline.getByLabel("Data source title", { exact: true })).toHaveValue("Actual source title");
   await expect(inline.locator(".database-heading")).toBeHidden();
   await expect(inline.getByLabel("Database options", { exact: true })).toHaveCount(0);
   const prose = page.locator(".pm-document > p").filter({ hasText: "Prose keeps its normal width" });

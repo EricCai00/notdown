@@ -1,48 +1,58 @@
-# 上游 Markdown 方言语料与 HTML 对照审计
+<a id="上游-markdown-方言语料与-html-对照审计"></a>
 
-日期：2026-09-23。范围：当前注册的 11 个上游方言，排除自定义 `notdown`。本次新增测试文档、可复现运行器和结果记录，没有修改解析器、编辑器或用户知识库。
+# Upstream Markdown dialect corpus and HTML comparison audit
 
-**结果：生成 11 份 Markdown 文档，包含 2,179 个独立输入；其中 1,954 个取得逐例官方 HTML 对照。** 另有文档扩展开启、关闭和文件路径上下文配置。发现真实的解析/导出缺口，也有安全策略、页面包装、产品上下文造成的差异，不能把所有 HTML 不同都解释为不支持语法。
+**English** · [简体中文](DIALECT-HTML-AUDIT-2026-09-23.zh-CN.md)
 
-## 交付物与阅读方法
+Date: 2026-09-23. Scope: currently registered 11 upstream dialects, excluding custom `notdown` . This time, new test documents, reproducible runners and result records have been added, without modifying the parser, editor or user vault.
 
-- [11 份文档入口、覆盖范围和复现命令](../fixtures/dialect-audit/README.md)。每个 `CASE` 都有稳定 ID。
-- [语料清单与来源哈希](../fixtures/dialect-audit/cases.json)：原文偏移、行号、文档链接、开关、规范预期。
-- [汇总快照](../data/dialect-audit-2026-09-23/summary.json)和[逐例差异索引](../data/dialect-audit-2026-09-23/differences.json)。缺少官方基线的条目 `comparison: null`，不是失败或通过。
-- 本机 `.run/dialect-audit/results/index.html`：可按方言、配置、差异类型、用例 ID 搜索，同时展示 HTML 渲染结果和代码。官方就是 Pandoc 时合并列，缺少输出时隐藏该解析器。渲染在禁用脚本及外部资源的隔离 iframe 内进行；原始 HTML 代码原样保留。
-- 同目录 `results.json` / `*.cases.json` 保存完整逐例 Markdown、Notdown、官方、Pandoc 输出；`*.html` 保存整篇输出。原文档缓存和来源清单位于 `.run/dialect-audit/sources/`，日志位于 `.run/logs/`。
+**Result: 11 Markdown documents were generated, including 2 and 179 independent inputs; among them, 1 and 954 obtained case-by-case official HTML comparisons.** There are also document extension opening, closing and file path context configuration. It was found that there are real parsing/export gaps, and there are also differences caused by security policies, page packaging, and product context. All HTML differences cannot be interpreted as unsupported syntax.
 
-**以独立用例为兼容性证据。** 拼成一篇的文档适合浏览和导入，但未闭合围栏、同名链接定义、只在文首有效的元数据会互相影响。运行器按 `cases.json` 的原始字符偏移取片段，分隔注释不送入逐例解析。测试验证源文件和片段哈希，不改写 Tab、代码围栏或尾随空格。
+<a id="交付物与阅读方法"></a>
 
-## 官方依据与参照实现
+## Deliverables and how to read them
 
-| 方言 | 官方文档 | 本次 HTML 权威来源 |
+- [11 document entry, coverage and replication command ](../fixtures/dialect-audit/README.md). For every `CASE` there is a stable ID.
+- [Corpus list and source hash ](../fixtures/dialect-audit/cases.json): original text offset, line number, document link, switch, specification expectation.
+- [Summary snapshot ](../data/dialect-audit-2026-09-23/summary.json) and [ case-by-case difference index ](../data/dialect-audit-2026-09-23/differences.json) . Entries missing the official baseline for `comparison: null` are not fail or pass.
+- Native `.run/dialect-audit/results/index.html`: Searchable by dialect, configuration, difference type, use case ID, showing both HTML rendering results and code. Officially, columns are merged when Pandoc is used, and the parser is hidden when output is missing. Rendering takes place within an isolated iframe with scripts and external resources disabled; the original HTML code remains intact.
+- In the same directory, `results.json` / `*.cases.json` saves the complete output of Markdown, Notdown, official and Pandoc case by case; `*.html` saves the entire output. The original document cache and source manifest are located in `.run/dialect-audit/sources/`, and the logs are located in `.run/logs/`.
+
+**Use independent use cases as evidence of compatibility.** Documents assembled into one piece are suitable for browsing and importing, but unclosed fences, link definitions with the same name, and metadata that are only valid at the beginning of the text will affect each other. Runner button `cases.json` The original character offset is taken as a fragment, and delimited comments are not sent to case-by-case parsing. The test verifies source file and fragment hashes and does not overwrite Tab , code fences, or trailing spaces.
+
+<a id="官方依据与参照实现"></a>
+
+## Official sources and reference implementations
+
+| Dialect | Official documentation | Authoritative HTML source for this audit |
 | --- | --- | --- |
-| CommonMark | [0.31.2 spec](https://spec.commonmark.org/0.31.2/) | 官方 commonmark.js 0.31.2；全部 652 个公布例子及其预期 |
-| GFM | [0.29-gfm spec](https://github.github.com/gfm/)；[GitHub 写作 Docs](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting) | 677 个 spec 例子用官方 cmark-gfm C 实现，经 cmarkgfm 2025.10.22 Python 绑定调用；28 个 `doc-*` 用例使用[官方 REST Markdown API](https://docs.github.com/en/rest/markdown/markdown?apiVersion=2022-11-28) |
-| markdown_strict | [John Gruber Syntax](https://daringfireball.net/projects/markdown/syntax) | 原作者 Markdown.pl 1.0.1 / Perl；旧实现的 quirks 与文档规则分开判断 |
-| markdown_phpextra | [PHP Markdown Extra](https://michelf.ca/projects/php-markdown/extra/) | 官方 michelf/php-markdown 2.0.0 Extra / PHP 8.4.26 |
-| markdown_mmd | [MultiMarkdown 6 Syntax](https://fletcher.github.io/MultiMarkdown-6/syntax/) | 官方 MultiMarkdown 6.7.0；使用实际输入文件及本地 include 文件 |
-| markdown / commonmark_x / markdown_github | [Pandoc manual](https://pandoc.org/MANUAL.html)，固定 [3.11 原文](https://github.com/jgm/pandoc/blob/3.11/MANUAL.txt) | Pandoc 3.11 各自同名 reader；`markdown_github` 已弃用，不能等同当前 GFM |
-| typora | [Markdown Reference](https://support.typora.io/Markdown-Reference/)、[图表](https://support.typora.io/Draw-Diagrams-With-Markdown/)、[Strict Mode](https://support.typora.io/Strict-Mode/) | 官方 Typora 0.9.58 原生无样式 HTML 整篇导出；旧版本，不作为当前文档的逐例权威基线 |
-| obsidian | 官方 [基础语法](https://help.obsidian.md/syntax)、[高级语法](https://help.obsidian.md/advanced-syntax)、[内链](https://help.obsidian.md/links)、[嵌入](https://help.obsidian.md/embeds)、[callouts](https://help.obsidian.md/callouts) | 安装的 1.13.7 已尝试临时 profile/vault + 官方 MarkdownRenderer，两次 90 秒均未返回 HTML，记为不可用 |
-| notion-markdown | [Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)、[Markdown API 使用](https://developers.notion.com/guides/data-apis/working-with-markdown-content) | 官方公开接口是页面 Markdown 读写，没有等价的 Markdown→HTML 接口；本次仅按官方文档检查 Notdown 输出 |
+| CommonMark | [0.31.2 spec](https://spec.commonmark.org/0.31.2/) | Official commonmark.js 0.31.2; all 652 published examples and their expectations |
+| GFM | [0.29-gfm spec ](https://github.github.com/gfm/); [ GitHub writing Docs](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting) | 677 spec examples are implemented using official cmark-gfm C and are called via cmarkgfm 2025.10.22 Python binding; 28 `doc-*` use cases use [ official REST Markdown API](https://docs.github.com/en/rest/markdown/markdown?apiVersion=2022-11-28) |
+| markdown_strict | [John Gruber Syntax](https://daringfireball.net/projects/markdown/syntax) | Original author Markdown.pl 1.0.1 / Perl; the old implementation of quirks is judged separately from the document rules. |
+| markdown_phpextra | [PHP Markdown Extra](https://michelf.ca/projects/php-markdown/extra/) | Official michelf/php-markdown 2.0.0 Extra / PHP 8.4.26 |
+| markdown_mmd | [MultiMarkdown 6 Syntax](https://fletcher.github.io/MultiMarkdown-6/syntax/) | Official MultiMarkdown 6.7.0; uses actual input files and local include files |
+| markdown / commonmark_x / markdown_github | [Pandoc manual ](https://pandoc.org/MANUAL.html), fixed [ 3.11 original text](https://github.com/jgm/pandoc/blob/3.11/MANUAL.txt) | Pandoc 3.11 each has the same name as reader; `markdown_github` has been deprecated and cannot be equivalent to the current GFM |
+| typora | [Markdown Reference ](https://support.typora.io/Markdown-Reference/), [ chart ](https://support.typora.io/Draw-Diagrams-With-Markdown/), [ Strict Mode](https://support.typora.io/Strict-Mode/) | Official Typora 0.9.58 Native unstyled HTML exports the entire article; old version, not used as the case-by-case authoritative baseline of the current document |
+| obsidian | Official [ basic syntax ](https://help.obsidian.md/syntax), [ advanced syntax ](https://help.obsidian.md/advanced-syntax), [ internal link ](https://help.obsidian.md/links), [ embedded ](https://help.obsidian.md/embeds), [ callouts](https://help.obsidian.md/callouts) | installed1.13.7 Tried temporaryprofile/vault + officialMarkdownRenderer，twice90 No seconds returnedHTML，Mark as unavailable |
+| notion-markdown | [Enhanced Markdown ](https://developers.notion.com/guides/data-apis/enhanced-markdown), [ Markdown API use](https://developers.notion.com/guides/data-apis/working-with-markdown-content) | The official public interface is page Markdown read and write, there is no equivalent Markdown → HTML interface; this time we only check the Notdown output according to the official document |
 
-另用 Pandoc 渲染其支持的 8 个 reader；它没有 typora、obsidian、notion-markdown 同名 reader，不拿其他 reader 冒充。引用、元数据、HTML 属性等实现差异以方言自己的官方实现为优先，Pandoc 只是辅助比较；三个 Pandoc 自有方言则以 Pandoc 为权威。
+Other usesPandoc The support of the8 areader；It doesn't.typora、obsidian、notion-markdown The same namereader，No otherreader I'm not going to say anything about it.HTML The official implementation of differences in attributes and dialects is prioritized.Pandoc Pandoc The language itself isPandoc For authority.
 
-GitHub API 使用 `mode: gfm` 和公开 `github/docs` 上下文，只发送合成语料；28 个用例及整篇请求均返回 200。仓库 mention、issue、SHA 和外部工单链接依赖上下文；REST 返回的数学/图表组件占位 HTML 不等于 GitHub 前端已完成渲染。GFM spec 的五项扩展与 GitHub Docs 的脚注、告警、数学、图表、折叠、颜色、引用等分别保留。
+GitHub API uses `mode: gfm` and public `github/docs` context, and only sends synthetic corpus; 28 use cases and the entire request return 200. Warehouse mention, issue, SHA and external work order links depend on the context; the math/chart component placeholder returned by REST HTML is not equal to GitHub and the front end has completed rendering. The five extensions of GFM spec are retained separately from the footnotes, warnings, mathematics, charts, folds, colors, references, etc. of GitHub Docs.
 
-CommonMark 当前实现与 652 项 spec 预期的规范化 DOM 全部相同；cmark-gfm 与 GFM 发布的 677 项预期有 **30 项不同**，见汇总 `specChecks`。包括代码语言包装、tagfilter、嵌套强调、数字实体及部分链接/HTML 边界。报告同时记录 `officialVsSpec`，不把当前实现与公布规范混成一个来源。cmark-gfm 启用 raw HTML 和其默认扩展；清理策略另外判断。
+The current implementation of CommonMark is all the same as the expected normalization of 652 item spec; DOM is expected to have the same cmark-gfm and GFM released 677 items. **30 items are different**, see summary `specChecks`. Includes code language wrapping, tagfilter, nested emphasis, numeric entities and partial link/HTML boundaries. The report records simultaneously `officialVsSpec`, do not mix current implementations with published specifications into one source. cmark-gfm enables raw HTML and its default extensions; the cleanup strategy is determined separately.
 
-在线文档是语义依据。缓存 Typora 直连失败时使用其官方支持站 GitHub 镜像；镜像与在线更新时间不同，实际 `retrievedFrom` 已记录，不宣称是同一字节快照。Obsidian 文档缓存来自其官方帮助仓库。完整来源 URL、时间、SHA-256 在语料清单内。
+Online documentation is a semantic basis. When the direct connection of cached Typora fails, its official support station GitHub image is used; the image and online update time are different, the actual `retrievedFrom` has been recorded, and is not claimed to be the same byte snapshot. Obsidian documentation cache comes from its official help repository. The complete source URL, time, SHA-256 are in the corpus list.
 
-## 测试范围与统计
+<a id="测试范围与统计"></a>
 
-Notdown 调用实际自有路径 `parseNative(source, {version: 1, variant, extensions}) → renderNotionMarkdown(source, [], {document})`，另检查 `serializeNative`。没有使用 Markdown Lab 的外部转换作为 Notdown 输出。**测量的是静态 HTML 导出，不是实时 ProseMirror 视图的最终 DOM 或点击行为。**
+## Test scope and statistics
 
-`default` 不额外启用开关；`documented` 逐例打开文档要求的可选扩展；三个 Pandoc 方言还逐项跑 `disabled`，并用 `file-path` 测试真实文件的路径上下文。构建语料时对 Pandoc `--list-extensions` 全部输出做覆盖检查，不能遗漏后续新增开关而默默通过。
+Notdown calls the actual own path `parseNative(source, {version: 1, variant, extensions}) → renderNotionMarkdown(source, [], {document})`, check separately `serializeNative`. There is no external conversion using Markdown Lab as Notdown output.**The measurement is static.HTML Export, not real timeProseMirror The final visionDOM Or click the action.**
 
-| 方言 | 独立输入 | 默认有官方对照 | DOM 相同 | 文本相同 | 文档扩展 / 关闭 / 路径配置 |
+`default`No additional switches are enabled; `documented` opens the optional extensions required by the document one by one; the three Pandoc dialects also run `disabled` one by one, and use `file-path` to test the path context of the real file. When constructing the corpus, perform a coverage check on all outputs of Pandoc and `--list-extensions`, and do not ignore subsequent new switches and pass them silently.
+
+| Dialect | Independent input | Official comparison available by default | Identical DOM | Text is the same | Document extension / close / path configuration |
 | --- | ---: | ---: | ---: | ---: | --- |
 | commonmark | 686 | 686 | 255 | 684 | 0 / 0 / 0 |
 | gfm | 750 | 750 | 257 | 723 | 11 / 0 / 0 |
@@ -56,80 +66,88 @@ Notdown 调用实际自有路径 `parseNative(source, {version: 1, variant, exte
 | obsidian | 103 | 0 | 0 | 0 | 0 / 0 / 0 |
 | notion-markdown | 52 | 0 | 0 | 0 | 0 / 0 / 0 |
 
-DOM 比较只消除属性顺序、等价实体编码与排版空白，保留 ID/class、URL、表头、列表包装、标记层级以及 pre/code 空白。`textEqual` 是折叠空白后的文本诊断，会忽略链接目标、结构和部分标签含义，不能作为通过率。DOM 相同也不证明交互可用。
+DOM comparison only eliminates attribute order, equivalent entity coding and typesetting blanks, leaving ID/class, URL, table headers, list packaging, tag levels and pre/code blanks. `textEqual` is a text diagnosis after folding blanks. It ignores link targets, structures and partial label meanings, and cannot be used as a pass rate. DOM is the same and does not prove that interaction is available.
 
-全部输入/配置没有出现 Notdown 异常，未编辑的序列化均保持原文；这只证明**原文可恢复**，不证明成功解析，也不证明结构化编辑后的正确性。逐例原始证据均保留。实际运行的引擎文件哈希前后一致；执行的是带用户现有未提交修改的工作区，`environment.json` 记录 HEAD、dirty 状态及引擎哈希，不能用 HEAD 单独代表本次代码。
+There are no Notdown exceptions in all input/configuration, and the unedited serialization maintains the original text; this only proves that the original text of **can be restored to**, but does not prove successful parsing, nor does it prove the correctness after structured editing. Original evidence is retained on a case-by-case basis. The hash of the actually running engine file is consistent; the workspace with the user's existing uncommitted modifications is executed. `environment.json` records the status of HEAD and dirty and the engine hash. HEAD cannot be used to represent this code alone.
 
-## 已确认的差异
+<a id="已确认的差异"></a>
 
-以下 ID 可直接粘贴到 HTML 对照页搜索。建议先处理内容/目标丢失和结构错误，再处理平台包装差异。
+## Confirmed differences
 
-| 优先级 | 方言 / 用例 | 官方与 Notdown 的实际差别 |
+The following ID can be directly pasted into the HTML comparison page for search. It is recommended to address missing content/targets and structural errors first, before handling platform packaging differences.
+
+| priority | Dialect/Use Case | The actual difference between the official and Notdown |
 | --- | --- | --- |
-| 高 | MMD `mmd-image-figure`；Pandoc `pandoc-implicit_figures` | 部分独立图片导出 `<img>` 丢失 `src`，caption 的 Markdown 也仍为字面量。普通行内图片及其他方言不能据此一概判为失败 |
-| 高 | `list-nesting`（Original / PHP Extra / MMD） | 官方生成嵌套列表；Notdown 把 `outer - middle 1. inner` 合并到段落，丢失列表层级 |
-| 高 | GFM `doc-collapse` | 官方 `<details>` 包住标题和正文；Notdown 提前关闭 details，后续内容跑到折叠容器外 |
-| 高 | PHP Extra `extra-fence-length` | Extra 要求结束围栏数量匹配；官方保留更长围栏为代码内容，Notdown 提前结束 |
-| 中 | GFM `gfm-example-491` / `gfm-example-493` | `~there~` 官方删除线，Notdown 字面量；三波浪包围的文字官方为字面量，Notdown 局部误作删除线 |
-| 中 | GFM `autolink-boundary` | `abcwww.example.com` 被错误自动链接；带 `&amp;` 的裸 URL 出现 href 实体处理/边界不同 |
-| 中 | GFM `table-align` 等 | 官方使用 `<thead>/<th>`；Notdown 以加粗背景样式的 `<td>` 代替，表头语义和可访问性不同 |
-| 中 | PHP Extra 定义列表、`extra-abbreviation` | 多个连续术语未形成多个 dt；空缩写定义没有生成 abbr，定义原文反而显示出来 |
-| 中 | PHP Extra `markdown="block"` 表格容器用例 | 官方 Markdown 子列表保留在单元格内；Notdown 列表脱离 table 容器 |
-| 中 | Pandoc `pandoc-fancy_lists` | a)、iv.、A.、自动编号等不同列表被合并，起始值与编号类型丢失 |
-| 中 | commonmark_x 属性、隐式标题链接 | 属性被保留为可见 `{...}` 原文；默认开启的隐式标题引用部分未解析；task list 默认边界也与 reader 不同 |
-| 中 | GFM `doc-math-dollar`，documented 配置 | `$` 包裹反引号的公式与普通 dollar math 同时启用时，反引号进入 KaTeX 内容，存在语法优先级问题 |
-| 中 | MMD 缩写、citation、table reference | 缩写首次展开和自动匹配不同；引文使用 key 标签/定义列表代替官方编号参考文献；表引用有未解析和 ID 归一化不同 |
-| 中 | MMD metadata / transclusion | Base Header Level 不生效；未知变量显示 `Undefined: missing`，官方保留变量；官方读取 include 文件，Notdown 静态导出仅输出 include 名称占位，不展开代码围栏/通配 include |
-| 边界 | CommonMark `cm-606` / `cm-632` | 两个反斜杠/畸形 HTML 边界被 Notdown 包为 opaque pre，与官方普通文本段落不同 |
-| 边界 | Original `reference-links`、超六级标题 | 旧 Markdown.pl 对 shortcut 引用/标题边界与现代解析器不同，应先确定兼容目标，不能盲目复刻旧实现 quirks |
+| High | MMD `mmd-image-figure`；Pandoc `pandoc-implicit_figures` | Part of the independent images are exported `<img>` Lost `src`，caption ofMarkdown The wording of the text is still the same. |
+| High | `list-nesting`（Original / PHP Extra / MMD） | Officially generate nested lists; Notdown merges `outer - middle 1. inner` into paragraphs, losing the list level |
+| High | GFM `doc-collapse` | Official `<details>` wraps the title and text; Notdown closes details early, and subsequent content runs outside the folding container. |
+| High | PHP Extra `extra-fence-length` | Extra requires the number of ending fences to match; the official reserves longer fences as code content, Notdown ends early |
+| Medium | GFM `gfm-example-491` / `gfm-example-493` | `~there~`Official strikethrough, Notdown is a literal value; text surrounded by three waves is officially a literal value, Notdown is mistakenly used as a strikethrough locally |
+| Medium | GFM `autolink-boundary` | `abcwww.example.com` Automatically linked by error; with `&amp;` Bare URL appears href entity handling/boundary is different |
+| Medium | GFM `table-align` etc. | Officially uses `<thead>/<th>`; Notdown is replaced by `<td>` with a bold background style. The header semantics and accessibility are different. |
+| Medium | PHP Extra definition list,`extra-abbreviation` | Multiple consecutive terms did not form multiple dt; the empty abbreviation definition did not generate abbr, and the original definition text was displayed instead. |
+| Medium | PHP Extra `markdown="block"` Table container use case | The official Markdown sublist remains within the cell; the Notdown list is detached from the table container |
+| Medium | Pandoc `pandoc-fancy_lists` | Different lists such as a), iv., A., and automatic numbering are merged, and the starting value and numbering type are lost. |
+| Medium | commonmark_x attribute, implicit title link | Properties are left visible `{...}` original text; implicit header references that are enabled by default are partially unresolved; task list default boundaries are also different from reader |
+| Medium | GFM `doc-math-dollar`, documented configuration | `$`When the formula wrapped in backticks is enabled at the same time as ordinary dollar math, the backticks enter the content of KaTeX, and there is a syntax priority issue. |
+| Medium | MMD abbreviation, citation, table reference | Abbreviation first expansion and automatic matching are different; citations use key label/definition list instead of official numbered references; table citations are unresolved and ID normalization is different |
+| Medium | MMD metadata / transclusion | Base Header Level does not take effect; unknown variables display `Undefined: missing`, and the official variables are reserved; the official reads the include file, and the static export of Notdown only outputs the include name placeholder, and does not expand the code fence/wildcard include |
+| Boundaries | CommonMark `cm-606` / `cm-632` | Two backslash/malformed HTML boundaries are wrapped by Notdown as opaque pre , unlike official normal text paragraphs |
+| Boundaries | Original `reference-links`, Level 6 super title | The old Markdown.pl to shortcut reference/title boundary is different from modern parsers. The compatibility target should be determined first and the old implementation of quirks cannot be blindly copied. |
 
-有些差异不能直接列为解析缺陷：
+Some differences cannot be directly listed as parsing defects:
 
-- Notdown 的 `md-` ID 命名空间、编辑器 class/data 属性、列表内 p 包装会产生很多 DOM 不同；标签结构、链接目标仍需单独核对。
-- GFM tagfilter 让禁用标签成为可见文本；Notdown sanitizer 删除 script/style 等内容。这是安全/导出策略差别，不应以恢复脚本执行作为修复。
-- Pandoc 非 HTML raw_tex / raw_attribute 在 HTML 输出中省略；Notdown 用 opaque 块保留原文。元数据也可能显示为 dl/pre，属于输出策略差别。
-- 静态脚注导出使用原标签、定义顺序，缺少官方数值编号和回链。这不等于实时编辑器脚注功能也相同。
-- GitHub Mermaid、GeoJSON、STL 的官方 REST 输出是后续渲染所需的结构；Notdown 静态输出保留源码。数学的 KaTeX HTML 与 GitHub math-renderer 包装不同本身不是失败。
-- GitHub 颜色预览、mention、工单和提交链接属于网站环境能力。REST 标题也不自动提供整个网站的 anchor 注入，因此没有仅凭 REST 就判定标题锚点失败。
+- Notdown's `md-` ID namespace, editor class/data attributes, and p packaging in the list will produce many DOM differences; the tag structure and link target still need to be checked separately.
+- GFM tagfilter makes the disabled label visible text; Notdown sanitizer deletes script/style and other contents. This is a security/export policy difference and should not be fixed by resuming script execution.
+- Pandoc non-HTML raw_tex/raw_attribute are omitted from HTML output; Notdown is preserved with opaque blocks. Metadata may also appear as dl/pre, which is an output policy difference.
+- The static footnote export uses the original label and definition sequence, and lacks official numerical numbers and back links. This is not the same as the Live Editor footnote functionality.
+- GitHub Mermaid、GeoJSON、STL officialREST The output is the structure needed for subsequent rendering;Notdown Static output retains source code. mathematicalKaTeX HTML withGitHub math-renderer Packaging differently is not a failure in itself.
+- GitHub color preview, mention, work orders and submission links belong to the website environment capabilities. REST headers also don't automatically provide anchor injection for the entire site, so there's no reason to fail a header anchor based on REST alone.
 
-## 无逐例官方 HTML 的三个方言
+<a id="无逐例官方-html-的三个方言"></a>
 
-这些仍已生成全套文档、Notdown 逐例和整篇 HTML；**没有伪造官方基线或通过率**。
+## Three dialects without official HTML for individual examples
 
-- **Typora**：70 个输入覆盖官方 Markdown Reference、YAML、脚注、TOC、数学、上下标、高亮、emoji、告警、HTML 媒体、三类图表及严格模式边界；12 项有文档开关配置。默认关闭的行内公式/高亮/上下标不能判成不支持。应用原生导出补验状态见本节末尾。
-- **Obsidian**：103 个输入覆盖属性、内链/块链接、各类嵌入、表格转义、注释、公式、脚注、任务和全部官方 callout 类型/别名。文档层面发现 `obs-block-links` 的块 ID 仍出现在可见正文、`obs-embed-note` 静态输出为 `!` 加普通页面链接，尚未展开笔记。`obs-comments` 行内注释输出可见编辑图标。fold callout 能生成 details/open 结构，但没有官方 DOM 或交互验收，不能标为兼容完成。
-- **Notion Enhanced Markdown**：52 个输入包含官方块类型、Tab 层级、XML table、列、同步块、所有颜色、五类对象 mention、日期、citation 和负向边界。当前官方文档明确列出 `<mention-agent>`，Notdown 却导出转义字面量，是可从文档直接确认的缺口；其他 mention 和多种结构已有 HTML 输出，但对象权限/同步内容不是静态转换能验证的。官方 complete example 自己含 pipe table，而表格格式章节主述 XML table，两个都保留，不自行删除文档不一致。`<tabs>`、`<web-bookmark>` 负向用例保持 opaque，没有越界启用 notdown 自定义协议。
+These have still produced the full set of documentation, case by case for Notdown and the entirety of HTML; **has not faked official baselines or pass rates for**.
 
-Notion API 若通过创建页面再导出 HTML，需要云端写入和额外导出路径，且不等价于公开官方解析器。本次没有修改任何云端页面，也没有把第三方 Notion 渲染库叫作官方。
+- **Typora**: 70 input covers official Markdown Reference, YAML, footnotes, TOC, mathematics, superscript and subscript, highlighting, emoji, alarm, HTML media, three types of charts and strict mode boundaries; 12 items have document switch configuration. Inline formulas/highlighting/superscripts and subscripts that are turned off by default cannot be judged as not supported. See the end of this section for the native export verification status of the application.
+- **Obsidian**: 103 inputs cover attributes, internal/block links, various embeds, table escapes, comments, formulas, footnotes, tasks and all official callout types/aliases. Document level discovery `obs-block-links` The block ID still appears in the visible body,`obs-embed-note` The static output is `!` Add a normal page link, but the note has not been expanded.`obs-comments` Inline comment output is visible with an edit icon. fold callout can generate the details/open structure, but there is no official DOM or interactive acceptance and cannot be marked as compatible.
+- **Notion Enhanced Markdown**: 52 input contains official block type, Tab level, XML table, column, sync block, all colors, five types of objects mention, date, citation and negative bounds. The current official documentation clearly lists `<mention-agent>`, Notdown exports escape literals, which is a gap that can be directly confirmed from the documentation; other mention and various structures have been output by HTML, but the object permissions/synchronization content cannot be verified by static conversion. The official complete example itself contains pipe table, and the tabular format chapter describes XML table. Both are retained, and the documents will not be deleted automatically if they are inconsistent.`<tabs>`、`<web-bookmark>` The negative use case remains opaque and does not enable the notdown custom protocol out of bounds.
 
-Typora 补验：从 `C:\Program Files\Typora\Typora.exe` 启动，文件版本确认 **0.9.58**，通过“文件 → 导出 → HTML (without styles)”生成 `.run/dialect-audit/results/typora.official.html`。应用在代码块空行自动补入空格；哈希检查发现后已恢复原测试文件，另保留 `typora.application-saved.md`，并对这份实际保存的输入重新生成 `typora.application-saved.notdown.html`，提取官方 body 后比较，DOM 和文本均不同。现有偏好未修改，但未逐项记录。此旧版本不能验证当前文档的新功能，且语料中的围栏边界影响后续内容，所以只保留整篇证据，不从中推导逐例通过率。版本、输入/输出哈希和比较状态记录于汇总 `info.typoraWhole`。
+If Notion API is exported by creating a page and then exporting HTML, cloud writing and additional export paths are required, and it is not equivalent to making the official parser public. This time, no cloud pages have been modified, and the third-party Notion rendering library has not been called official.
 
-## Excel 两个 sheet 的核对
+Typora supplementary test: from `C:\Program Files\Typora\Typora.exe` Start, file version confirmation **0.9.58**, generated through "File → Export → HTML (without styles)" `.run/dialect-audit/results/typora.official.html`. The application automatically fills in spaces in empty lines of code blocks; after the hash check is found, the original test file has been restored and retained. `typora.application-saved.md`, and regenerate this actual saved input `typora.application-saved.notdown.html`, after extracting official body and comparing, DOM and text are different. Existing preferences are not modified but not itemized. This old version cannot verify the new features of the current document, and the fence boundaries in the corpus affect subsequent content, so only the entire evidence is retained and the case-by-case pass rate is not derived from it. Versions, input/output hashes, and comparison status are logged in the rollup `info.typoraWhole`。
 
-读取 `C:\Users\Eric\Desktop\markdown & notion.xlsx` 的 `markdown`（71 行）与 `extended`（89 行），未改写原工作簿。基础分类大多可用，但工作表不能代替可执行例子及官方细节。下列为确认需要修订或补充条件的项目，不宣称逐单元格全部通过。
+<a id="excel-两个-sheet-的核对"></a>
 
-| Sheet / 单元格 | 问题及建议 |
+## Checking the two Excel sheets
+
+read `C:\Users\Eric\Desktop\markdown & notion.xlsx` of `markdown`(line 71) with `extended`(89 line), the original workbook is not overwritten. Basic classifications are mostly available, but worksheets are not a substitute for executable examples and official details. The following items are confirmed to require revision or supplementary conditions, and we do not claim that they have all been passed cell by cell.
+
+| Sheet/cell | Questions and suggestions |
 | --- | --- |
-| markdown C54 | shortcut `[text]` 的 “INCLUDED IN PERL CODE” 对本次 Markdown.pl 1.0.1 不成立；与文档中的 collapsed `[text][]` 分开 |
-| markdown F64 | “NOT SUPPORTED” 容易被理解为 CommonMark 不支持这些 raw HTML 标签；应写 GFM tagfilter 限制不适用，而非 raw HTML 不支持 |
-| markdown C31/F31/G31 | 编号列表虽同样书写，起始语义不同：Original 实现从 1 开始，CommonMark/GFM 保留 3 等起始值 |
-| markdown D20 | 空行不是会生成 HTML 的 leaf block；它承担块分隔作用 |
-| extended D36/D37 | citation 使用 `#Doe:2006`，定义却写 `#Doe2006`，标识不匹配，应统一 |
-| extended E3 | MMD metadata 不等于完整 YAML front matter；允许边界符不意味着支持完整 YAML 类型/结构 |
-| extended Typora 第 5、8–11、13–15 行 | 加上相关版本、偏好开关或图表渲染条件，避免表达成无条件默认支持 |
-| extended D13–D15 | 只有空围栏只能说明语法载体，不能验证 diagram parser；应加入合法图表正文 |
-| extended E7 | Notion `:emoji_name:` 包括 workspace custom emoji，不能笼统等同公共 `:smile:` 别名表 |
-| extended D40 | BibTeX 的用途和所需 metadata/LaTeX 输出上下文需要注明，HTML 结果不能证明 BibTeX 工作流 |
-| extended E78 | PHP Extra 支持某些属性写法不等于支持 Notion toggle 的块语义 |
-| extended D80/D82/D88 | 示例使用空格层级；Notion 官方 Enhanced Markdown 要求 Tab，应换为真正 Tab |
-| extended 第 62–71 行 | 应明确是 GitHub Docs/网站处理层扩展，不能全部归入 GFM spec；工单、SHA 等还有仓库上下文条件 |
-| extended 第 72/73 行 | R Markdown 不在当前注册的 11 个上游预设范围；没有额外创建一个假定已实现的方言 |
+| markdown C54 | shortcut `[text]` The INCLUDED IN PERL CODE code is not valid for this Markdown.pl 1.0.1; the collapsed in the document is not valid for this code. `[text][]` Separate |
+| markdown F64 | "NOT SUPPORTED" is easily understood to mean CommonMark does not support these raw HTML tags; it should be written GFM tagfilter restrictions do not apply, not raw HTML not supported |
+| markdown C31/F31/G31 | Although the numbered list is written in the same way, the starting semantics are different: Original starts from 1, and CommonMark/GFM retains starting values such as 3. |
+| markdown D20 | Empty lines are not generatedHTML ofleaf block；It assumes the role of block separation |
+| extended D36/D37 | citation uses `#Doe:2006`, but the definition is written as `#Doe2006`. The identifiers do not match and should be unified. |
+| extended E3 | MMD metadata is not equal to full YAML front matter; allowing boundary characters does not mean supporting full YAML types/structures |
+| extended Typora lines 5, 8 – 11, 13 – 15 | Add relevant versions, preference switches or chart rendering conditions to avoid expressing unconditional default support. |
+| extended D13–D15 | Only empty fences can only illustrate the syntax carrier and cannot verify diagram parser; legal chart text should be added |
+| extended E7 | Notion `:emoji_name:` includes workspace custom emoji and cannot be generally equated with the public `:smile:` alias table |
+| extended D40 | The purpose of BibTeX and the required metadata/LaTeX output context need to be noted, the HTML results do not prove the BibTeX workflow |
+| extended E78 | PHP Extra supports certain attribute writing methods, which is not equivalent to supporting the block semantics of Notion toggle. |
+| extended D80/D82/D88 | The example uses a white space hierarchy; Notion official Enhanced Markdown requires Tab and should be replaced with real Tab |
+| extended lines 62 – 71 | It should be clear that it is an extension of the GitHub Docs/ website processing layer and cannot all be classified into GFM spec; work orders, SHA, etc. also have warehouse context conditions. |
+| extended rows 72/73 | R Markdown is outside the scope of the currently registered 11 upstream presets; no additional dialect has been created assuming that it has been implemented |
 
-## 验证与剩余边界
+<a id="验证与剩余边界"></a>
 
-- `npm test`：497 项，496 通过、1 跳过、0 失败。新增两项检查对照归一化不会抹掉语义差异，以及语料哈希/全部预设/扩展开关覆盖。
-- `npm run build`：成功；保留现有 Vite 大 chunk 警告。
-- HTML 对照页以独立 headless Chrome 验证搜索、方言/配置筛选、无官方基线数量和分页，无页面脚本错误；截图保存在 `.run/dialect-audit/results/viewer.png`。
-- 本次未改编辑器交互，所以未运行编辑交互 e2e；没有连接用户 Chrome 或用户知识库做测试。
+## Validation and remaining limitations
 
-本套覆盖官方语法类别、两套规范的全部公布例子和 Pandoc 当前 reader 的全部扩展开关，但有限语料不能穷尽所有嵌套、错误输入、组合和平台状态。还需补齐三种产品方言的官方逐例渲染、媒体/笔记/云对象交互、MMD/Pandoc 非 HTML 目标和编辑后语义验证，才能进一步宣称完整兼容。本次先保留可复查差异基线，尚未修复上表问题。
+- `npm test`: 497 item, 496 passed, 1 skipped, 0 failed. Two new checks have been added: normalization does not erase semantic differences, and corpus hash/all presets/extended switch overrides.
+- `npm run build`:Success; retain existing Vite large chunk warning.
+- HTML control page with independent headless Chrome verification search, dialect/configuration filtering, no official baseline number and paging, no page script errors; screenshots are saved in `.run/dialect-audit/results/viewer.png`.
+- The editor interaction has not been changed this time, so the editing interaction e2e has not been run; user Chrome or user vault has not been connected for testing.
+
+This set covers the official grammar categories, all published examples of the two sets of specifications, and all extended switches of Pandoc and current reader, but the limited corpus cannot exhaust all nesting, incorrect input, combinations, and platform status. Official case-by-case rendering, media/note/cloud object interaction, MMD/Pandoc non-HTML targets and post-edit semantic verification of the three product dialects need to be completed to further claim complete compatibility. This time, we will keep the difference baseline that can be reviewed, and the problems in the table above have not yet been fixed.

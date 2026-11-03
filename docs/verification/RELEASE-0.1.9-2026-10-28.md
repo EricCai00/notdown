@@ -1,34 +1,44 @@
-# Windows 0.1.9 发布验证（2026-10-28）
+<a id="windows-019-发布验证2026-10-28"></a>
 
-## 范围
+# Windows 0.1.9 release validation (2026-10-28)
 
-按用户要求汇总当前全部未提交的更改，版本从已安装的 0.1.8 更新至 0.1.9：
+**English** · [简体中文](RELEASE-0.1.9-2026-10-28.zh-CN.md)
 
-- 本地 Wiki 数据库类型、单数据源约束、Home／页面集合视图、页面转换及 Undo、`/wiki` 插入和手机入口。
-- Wiki 转换保留 Markdown、页面身份、属性值与原有嵌套层级；子数据库保持独立，Undo 前归档字段和视图配置。
-- Notion Button 显式复制恢复支持在同一导入弹窗累积多个来源页及不同选区；重复选区使用较新的快照，读取失败保留已经加载的内容，并继续限制合计大小。
-- 来源、工作区、块身份及版本校验继续适用；仅恢复完整且受支持的静态插入动作，不迁移云端自动化。
+<a id="范围"></a>
 
-操作说明见 [Wiki](../features/DATABASES.md#wiki) 和 [Notion 导入](../features/NOTION-IMPORT.md)。
+## range
 
-## 验证结果
+Summarize all current uncommitted changes according to user requirements, and update the version from installed 0.1.8 to 0.1.9:
 
-| 检查 | 结果 |
+- Local Wiki database type, single data source constraints, Home/page collection view, page conversion and Undo, `/wiki` insertion and mobile portal.
+- Wiki conversion retains Markdown, page identity, attribute values, and original nesting levels; subdatabases remain independent, and Undo pre-archive fields and view configurations.
+- Notion Button explicit copy recovery supports the accumulation of multiple source pages and different selections in the same import pop-up window; repeated selections use newer snapshots, retain the loaded content upon read failure, and continue to limit the total size.
+- Source, workspace, block identity and version checking continue to apply; only full and supported static insert actions are restored, cloud automation is not migrated.
+
+For operating instructions, see [ Wiki ](../features/DATABASES.md#wiki) and [ Notion import ](../features/NOTION-IMPORT.md).
+
+<a id="验证结果"></a>
+
+## Verification results
+
+| Check | result |
 | --- | --- |
-| 单元测试 | 1,203 通过、5 跳过、0 失败 |
-| Wiki、数据库与页面操作浏览器回归 | 30 项通过 |
-| 多页面复制恢复浏览器回归 | 2 项通过 |
-| 手机 Wiki Chrome 预览 | 1 项通过 |
-| `npm run desktop:dist` | TypeScript、前端、主进程和 NSIS 构建通过 |
-| 实际打包程序测试 | 12 项通过，使用临时 profile 和临时知识库 |
-| 打包内容 | 版本 0.1.9，包含 Wiki／Undo 和多页面复制恢复；主进程与构建文件一致，不含用户 vault 和 Capacitor 原生目录 |
-| 本机安装 | NSIS 静默升级退出码 0，安装后产品版本 0.1.9.0 |
-| 安装文件与配置 | exe、app.asar 的 SHA-256 与已测试产物一致；`vaults.json` 哈希保持不变 |
+| Unit testing | 1, 203 passed, 5 skipped, 0 failed |
+| Wiki, database and page operation browser return | 30 items passed |
+| Multi-page copy recovery browser regression | 2 items passed |
+| Mobile Wiki Chrome preview | 1 items passed |
+| `npm run desktop:dist` | TypeScript, frontend, main process and NSIS build passed |
+| Actual packager testing | 12 item passed, using temporary profile and temporary vault |
+| Package content | Version 0.1.9, including Wiki/Undo and multi-page copy recovery; the main process is consistent with the build file, excluding user vault and Capacitor native directories |
+| Native installation | NSIS Silent upgrade exit code 0, product version after installation 0.1.9.0 |
+| Installation files and configuration | exe  app.asar  SHA-256 is consistent with the product tested;`vaults.json` Hash remains the same |
 
-桌面测试覆盖系统代理、知识库隔离、token 加密与重启恢复、显式剪贴板桥接、标题栏及标签页、关闭保存、托盘、单实例和退出失败／冲突保护。浏览器复制恢复测试以导入后的页面及父关系核对结果，避免在应用导航后读取已经失效的浏览器响应正文。
+Desktop testing covers system agents, vault isolation, token encryption and restart recovery, explicit clipboard bridging, title bar and tabs, close save, tray, single instance and exit failure/conflict protection. The browser copy recovery test checks the results with the imported page and parent relationship to avoid reading the expired browser response body after application navigation.
 
-安装前完整备份了原 0.1.8 程序目录到 `.run/desktop-backups/Notdown-0.1.8-before-0.1.9-2026-10-28T13-28-26Z/`。升级只替换程序文件，不执行用户知识库迁移。安装包为 `.run/desktop-release/Notdown-Setup-0.1.9-x64.exe`；构建、测试、安装哈希与备份记录位于 `.run/logs/release-0.1.9-*`。
+Before installation, the original 0.1.8 program directory was completely backed up to `.run/desktop-backups/Notdown-0.1.8-before-0.1.9-2026-10-28T13-28-26Z/`. The upgrade only replaces program files and does not perform user vault migration. The installation package is `.run/desktop-release/Notdown-Setup-0.1.9-x64.exe`; the build, test, installation hashes and backup records are in `.run/logs/release-0.1.9-*`.
 
-## 边界
+<a id="边界"></a>
 
-Notion 导入仍为单向复制，API 测试使用模拟响应，尚未完成真实 Wiki token 的在线端到端验收。Owner 当前用户筛选、Verification 工作流和通知不在本地模拟；旧共享 Wiki 来源的 Undo 会保护性停止。手机验证为 Chrome 预览，没有 Android 真机验收。Windows 安装包仍未签名，不扩大现有同步与外部服务保证。
+## Boundaries
+
+Notion The import is still one-way copying, and the import is still one-way copying.API The test uses a simulated response, but has not yet been completedWiki token The Internet is end-to-end receiving.Owner The current user is screeningVerification Workflows and notifications are not simulated locally; old sharedWiki The sourceUndo The phone is validated as a security stop.Chrome Preview, notAndroid The real machine is accepting.Windows The installation package is not yet signed and does not extend the existing synchronization with external service guarantee.

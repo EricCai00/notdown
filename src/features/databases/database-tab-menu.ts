@@ -1,3 +1,4 @@
+import { setUIText, setUIAttribute } from "../../shared/i18n";
 import { Pencil, PaintRoller, SlidersHorizontal, Database, Link, Eye, Copy, Trash2, Table2, Columns3, LayoutGrid, List, Calendar } from "lucide";
 import { DatabasePopover, menuButton, menuChoice, menuInput, menuSection } from "./database-popover";
 import { databaseViewTypes, type DatabaseView, type DatabaseDataSource } from "./database-model";
@@ -28,7 +29,7 @@ export function openTabMenu(anchor: HTMLElement, hooks: {
   const links = menuSection(panel);
   links.append(menuButton("Copy link to view", Link, async button => {
     const url = new URL(location.href); url.hash = routeHash({ kind: "database", id: draft.databaseId, viewId: draft.id });
-    try { await navigator.clipboard.writeText(url.href); button.querySelector(".database-popover-label")!.textContent = "Link copied"; }
+    try { await navigator.clipboard.writeText(url.href); setUIText(button.querySelector(".database-popover-label")!, "Link copied"); }
     catch { const child = pop.panel("Link to view", button, 1, 300), input = menuInput("View link", url.href, () => {}); input.querySelector("input")!.readOnly = true; child.append(input); input.querySelector("input")!.select(); }
   }));
   if (!hooks.wiki) links.append(menuButton(hooks.showSourceTitle ? "Hide data source titles" : "Show data source titles", Eye, () => {
@@ -38,9 +39,9 @@ export function openTabMenu(anchor: HTMLElement, hooks: {
   actions.append(menuButton("Duplicate view", Copy, () => { void pop.perform(hooks.duplicate); }));
   const remove = menuButton("Delete view", Trash2, () => {
     if (!hooks.lastSourceView) { void pop.perform(() => hooks.remove()); return; }
-    const dialog = document.createElement("dialog"); dialog.className = "database-delete-view-dialog"; dialog.setAttribute("aria-label", "Delete last view");
+    const dialog = document.createElement("dialog"); dialog.className = "database-delete-view-dialog"; setUIAttribute(dialog, "aria-label", "Delete last view");
     const title = document.createElement("h3"); title.textContent = `Delete the last view for ${hooks.source.title}?`; dialog.append(title);
-    dialog.insertAdjacentHTML("beforeend", '<form><label><input type="radio" name="delete" value="view" checked><strong>Delete view only</strong><small>The data source and all of its pages will be kept in this database.</small></label><label><input type="radio" name="delete" value="source"><strong>Delete view and data source</strong><small>The data source and all of its pages will move to Trash.</small></label><p role="status"></p><footer><button type="submit" class="danger">Delete view</button><button type="button" data-cancel>Cancel</button></footer></form>');
+    dialog.insertAdjacentHTML("beforeend", `<form><label><input type="radio" name="delete" value="view" checked><strong data-i18n="Delete view only">Delete view only</strong><small data-i18n="The data source and all of its pages will be kept in this database.">The data source and all of its pages will be kept in this database.</small></label><label><input type="radio" name="delete" value="source"><strong data-i18n="Delete view and data source">Delete view and data source</strong><small data-i18n="The data source and all of its pages will move to Trash.">The data source and all of its pages will move to Trash.</small></label><p role="status"></p><footer><button type="submit" class="danger" data-i18n="Delete view">Delete view</button><button type="button" data-cancel data-i18n="Cancel">Cancel</button></footer></form>`);
     const form = dialog.querySelector("form")!, choice = form.querySelector<HTMLInputElement>('[value="source"]')!;
     choice.disabled = !hooks.ownsSource || hooks.wiki; if (choice.disabled) choice.closest("label")!.title = "This source belongs to another database or is a Wiki page source";
     let busy = false; const close = () => { if (!busy) { dialog.close(); dialog.remove(); } };

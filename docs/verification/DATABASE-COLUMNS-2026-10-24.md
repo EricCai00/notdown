@@ -1,20 +1,28 @@
-# Notion 数据库列序与按钮对齐（2026-10-24）
+<a id="notion-数据库列序与按钮对齐2026-10-24"></a>
 
-## 范围与修复
+# Notion database column order and button alignment (2026-10-24)
 
-- 内嵌数据库的通用内容块按钮样式带有外边距，导致 **New** 和下拉箭头分离、上下错位。数据库按钮清除默认外边距，两个分段统一高度及盒模型。
-- 导入原先直接采用数据源 `properties` 对象的枚举顺序。现在读取同一数据源第一个可用表格视图的 `configuration.properties`，按来源属性 ID（含 URL 编码）或名称映射列序；无法取得时标题列置首，其他字段保持接口顺序。重复、未知或遗漏字段不会造成现有字段丢失，隐藏字段仍可访问。
-- 早期导入中标题不在首位、且列序仍等于完整 schema 顺序的默认视图，在读取时用已归档视图修正显示。不会自动改写 metadata 或正文；自定义列序和可见列集合保持原样。
-- 保存视图设置、筛选或排序时保持当前列序，避免又按 schema 重排。
+**English** · [简体中文](DATABASE-COLUMNS-2026-10-24.zh-CN.md)
 
-原始 Notion schema 和视图配置继续保留。未增加远端写入、批量数据迁移或新的正文语法；未复现远端记录排序、筛选、分组及其他布局。API 字段依据 [Notion 官方视图说明](https://developers.notion.com/guides/data-apis/working-with-views#property-configuration)。
+<a id="范围与修复"></a>
 
-## 验证
+## Scope and Repair
 
-- `npm test`：996 项，990 通过、5 跳过、1 失败。唯一失败是已有 R API 测试的随机监听端口被 Node fetch 拒绝（`bad port`）；独立复测 `tests/unit/rmarkdown.test.ts` 后 10 项全部通过。没有为此修改 R 代码。
-- `npm run build -- --outDir .run/database-columns-frontend`：通过 TypeScript 检查及 Vite 构建；仍有现有的大 chunk 提示。
-- 隔离 Chrome、临时知识库，运行 `database-inline.spec.ts`、`databases.spec.ts` 和 `notion-inline-database-import.spec.ts`：13 项全部通过。覆盖两种方言导入、远端列序与缺少远端视图的回退、New 按钮分段对齐与菜单展开、保存视图及刷新后的列序、旧导入只读修正与 revision 不变，以及已有编辑、冲突、草稿和记录面板行为。
-- 已查看生成截图，确认内嵌数据库中标题列在左、New 两段相连且等高。
-- `npm run test:e2e -- tests/e2e/database-hierarchy.spec.ts tests/e2e/database-icons.spec.ts tests/e2e/database-server-compat.spec.ts tests/e2e/notion-import.spec.ts --output test-results/database-columns-related --reporter=list`：通过独立构建及另外 18 项浏览器回归。使用端口 4360、前端目录 `.run/database-columns-e2e-final/`；连同上述 13 项，合计 31 项全部通过。
+- The universal content block button style of the embedded database has margins, causing **New** and the drop-down arrow to be separated and misaligned. The database button clears the default margins, unifies the height of both segments, and the box model.
+- The import originally directly adopts the enumeration order of the data source `properties` object. Now read the `configuration.properties` of the first available table view of the same data source, and map the column order according to the source attribute ID (including URL encoding) or name; when it cannot be obtained, the title column is placed first, and other fields maintain the interface order. Duplicate, unknown, or missing fields will not cause existing fields to be lost, and hidden fields will remain accessible.
+- The default view in earlier imports where the header was not first and the column order was still equal to the full schema order was corrected for display with the archived view when reading. metadata or body is not automatically rewritten; custom column order and visible column set remain intact.
+- Keep the current column order when saving view settings, filtering or sorting to avoid rearranging by schema.
 
-本地日志为 `.run/logs/database-columns-*.log`，构建为 `.run/database-columns-frontend/`，截图为 `test-results/notion-inline-databases-{variant}.png`。全部验证使用临时数据，没有读取或修改用户知识库；这些结果不代表全量浏览器套件通过。
+The original Notion schema and view configuration remain. No remote writing, batch data migration or new text syntax has been added; remote record sorting, filtering, grouping and other layouts have not been reproduced. The API field is based on the [ Notion official view description ](https://developers.notion.com/guides/data-apis/working-with-views#property-configuration).
+
+<a id="验证"></a>
+
+## Validation
+
+- `npm test`: 996 item, 990 passed, 5 skipped, 1 failed. The only failure was that the random listening port tested by R API was rejected by Node fetch (`bad port`); after independent retesting of `tests/unit/rmarkdown.test.ts`, all 10 items passed. The R code was not modified for this purpose.
+- `npm run build -- --outDir .run/database-columns-frontend`: Passes TypeScript check and Vite build; still has existing large chunk prompt.
+- Isolate Chrome and temporary vault, run `database-inline.spec.ts`, `databases.spec.ts` and `notion-inline-database-import.spec.ts`: all 13 items passed. Covers two dialect imports, remote column ordering and fallback for missing remote views, New button segment alignment and menu expansion, saved views and refreshed column order, old import read-only fixes and revision unchanged, and existing edit, conflict, draft and record panel behaviors.
+- I have checked the generated screenshot and confirmed that the title column in the embedded database is on the left and the New segments are connected and of equal height.
+- `npm run test:e2e -- tests/e2e/database-hierarchy.spec.ts tests/e2e/database-icons.spec.ts tests/e2e/database-server-compat.spec.ts tests/e2e/notion-import.spec.ts --output test-results/database-columns-related --reporter=list`: Browser regression via standalone build and additional 18 items. Use port 4360 and front-end directory `.run/database-columns-e2e-final/`; together with the above 13 items, a total of 31 items are all passed.
+
+The local log is `.run/logs/database-columns-*.log`, the build is `.run/database-columns-frontend/`, and the screenshot is `test-results/notion-inline-databases-{variant}.png`. All verifications use temporary data and do not read or modify the user vault; these results do not represent passing of the full browser suite.

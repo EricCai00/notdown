@@ -1,45 +1,55 @@
-# 内容对象与节点身份
+<a id="内容对象与节点身份"></a>
 
-更新：2026-09-24。
+# Content objects and node identity
 
-内容节点直接使用内容目录的完整 object ID 作为 ProseMirror 节点名。`resolveContentObject(node)` 直接查询 `node.type.name`，不再维护另一份“节点名到内容类型”的映射表。节点 JSON 只是内存中的编辑结构；正文仍以 Markdown 文件为真相。
+**English** · [简体中文](OBJECT-IDENTITY.zh-CN.md)
 
-| 内容对象 / 节点名 | Markdown 编码或含义 |
+Updated: 2026-09-24.
+
+Content nodes directly use the full object ID of the content directory as the ProseMirror node name. `resolveContentObject(node)` directly queries `node.type.name` and no longer maintains another mapping table of "node name to content type". The node JSON is just an in-memory edit structure; the body still has the Markdown file as the truth.
+
+| Content object/node name | Markdown code or meaning |
 | --- | --- |
-| `block.paragraph` | 段落 |
-| `block.quote` | 引用块 |
-| `block.definition_list_item` | 一个术语及其全部定义；定义内的段落、列表、代码保留自身块身份 |
-| `block.heading` / `block.toggle_heading` | 普通标题 / 折叠标题 |
-| `inline.internal_link` | 页面提及、Wiki 引用、位置引用 |
+| `block.paragraph` | Paragraph |
+| `block.quote` | Block quote |
+| `block.definition_list_item` | A term and its entire definition; paragraphs, lists, and code within the definition retain their own block identity |
+| `block.heading` / `block.toggle_heading` | Heading / toggle heading |
+| `inline.internal_link` | Page mentions, Wiki citations, location citations |
 | `inline.mention_person` | `<mention-user>` |
 | `inline.date_or_reminder` | `<mention-date>` |
-| `inline.mention_page_or_data_source` | 数据库 / 数据源提及 |
-| `inline.link` | 本地行内链接卡片 `<mention-link>` |
-| `block.audio` / `block.video` / `block.pdf` / `block.file` | 对应媒体块 |
-| `block.diagram` / `block.block_comment` / `block.file_transclusion` | 图表、块注释、文件引入 |
-| `metadata.yaml_front_matter` / `metadata.pandoc_title_block` | 文档属性块 |
-| `block.unsupported` | 未支持内容及其可恢复原文 |
+| `inline.mention_page_or_data_source` | Database/data source mentions |
+| `inline.link` | Local inline link card `<mention-link>` |
+| `block.audio` / `block.video` / `block.pdf` / `block.file` | Corresponding media block |
+| `block.diagram` / `block.block_comment` / `block.file_transclusion` | Charts, block comments, file import |
+| `metadata.yaml_front_matter` / `metadata.pandoc_title_block` | document property block |
+| `block.unsupported` | Unsupported content and its recoverable original text |
 
-## 结构节点与格式标记
+<a id="结构节点与格式标记"></a>
 
-表格行、列表分组、分栏容器等使用 `structure.*` 名称，例如 `structure.table_row`、`structure.bullet_list`。脚注内文和保留的行内源码也是组成内容对象的结构，不另增产品内容类型。`doc`、`text` 保留引擎基础名称。
+## Structural nodes and formatting marks
 
-定义列表由 `structure.definition_list` 容纳多个 `block.definition_list_item`；每项包含一个 `structure.definition_term` 和一个或多个 `structure.definition_description`。定义正文容器内的块可独立操作，术语行的手柄则操作整项。
+Table rows, list groupings, column containers, etc. use `structure.*` names, such as `structure.table_row` and `structure.bullet_list`. The footnote text and reserved inline source code are also the structure that makes up the content object, and no additional product content type is added. `doc` and `text` retain the engine base name.
 
-粗体、链接等 mark，以及实体转义、emoji 等文字处理能力，不会为命名一致而改成独立节点。它们继续使用富文本标记或文字，内容目录通过标记解析器识别其语义。
+The definition list consists of `structure.definition_list` holding multiple `block.definition_list_item` ; each item contains one `structure.definition_term` and one or more `structure.definition_description` . Blocks within the definition body container operate independently, whereas handles on term lines operate on the entire item.
 
-内容身份由节点类型确定，而不是由调用者传入的显示上下文改写。例如 `inline.image` 放在独立段落中仍是该节点；显式图片块使用 `block.image_block`。`block.child_page` 对应明确子页角色，普通 `<page>` 引用使用 `block.link_to_page`；页面所属关系仍由知识库 metadata 决定。
+Boldface, links, etc. mark, as well as entity escaping, emoji and other text processing capabilities will not be changed to independent nodes for naming consistency. They continue to use rich text markup or text, and the content catalog recognizes its semantics through a markup parser.
 
-## 编码与编辑实现
+Content identity is determined by the node type, not by the display context passed in by the caller. For example, `inline.image` is still the node when placed in an independent paragraph; explicit picture blocks use `block.image_block`. `block.child_page` corresponds to a clear sub-page role, and ordinary `<page>` references use `block.link_to_page`; the page ownership is still determined by the vault metadata.
 
-`src/document/node-identity.ts` 将 codec 的表示种类连接到规范节点名。普通编辑代码使用 `schema.nodes["block.paragraph"]` 这样的完整 ID；解析依赖属性的 mention、媒体、源码对象时，使用 `createEditorNode` 选取相应类型。schema 不注册 `paragraph`、`mention`、`page_link` 等旧名称别名。
+<a id="编码与编辑实现"></a>
 
-同一对象可有多个原文编码。例如 HTML 块与 `{=html}` 源码共用 `block.html_block`。必要时，内存属性 `editorRepresentation` 区分编辑视图及写回路径，不写入用户 Markdown。节点视图在表示种类改变时重新创建，避免沿用不兼容的编辑器。
+## Codec and editor implementation
 
-ProseMirror 内容表达式不能直接使用带点的名称。schema 以内部 group 表达嵌套规则；实际 NodeType 名称和节点 JSON 中的 `type` 仍是完整 object ID。
+`src/document/node-identity.ts` Connect the representation kind of codec to the canonical node name. Common editing code use `schema.nodes["block.paragraph"]` Such a complete ID; when parsing mention, media, and source code objects that depend on attributes, use `createEditorNode` Select the appropriate type. schema does not register `paragraph`、`mention`、`page_link` Wait for the old name alias.
 
-重命名不改变 Markdown 方言边界，不迁移知识库文件，不新增正文协议。`<mention-agent>` 继续保留原文，尚未实现 Agent 对象；`<mention-link>` 仍属于 Notdown 扩展。
+The same object can have multiple source encodings. For example HTML block with `{=html}` Source code sharing `block.html_block`. If necessary, memory attributes `editorRepresentation` Distinguish between the editing view and the writeback path, and do not write user Markdown. Node views are re-created when representation types change to avoid inheriting incompatible editors.
 
-## 验证
+ProseMirror content expressions cannot directly use dotted names. schema expresses the nested rule in inner group; the actual NodeType name and node in JSON `type` Still full object ID .
 
-`tests/unit/node-identity.test.ts` 检查实际 NodeType 名称、旧名称不可用、mention / 媒体 / 源码对象的解析身份、CRLF 与未知属性保留、编辑及撤销、视图表示切换，以及结构合法性。其余 codec、编辑命令和浏览器测试继续覆盖原有交互。
+Renaming does not change the Markdown dialect boundary, does not migrate the vault files, and does not add a new text protocol. `<mention-agent>` continues to retain the original text and has not yet implemented the Agent object; `<mention-link>` is still a Notdown extension.
+
+<a id="验证"></a>
+
+## Validation
+
+`tests/unit/node-identity.test.ts`Checks the actual NodeType name, old name unavailability, resolved identity of mention/media/source objects, CRLF and unknown attribute retention, editing and undoing, view representation switching, and structural legality. The remaining codec, editing commands and browser tests continue to cover the original interaction.

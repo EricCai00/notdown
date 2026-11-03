@@ -1,28 +1,36 @@
-# 扩展的方言依据与默认状态
+<a id="扩展的方言依据与默认状态"></a>
 
-2026-09-22 核对。编辑页 Extensions、Block Explorer 的扩展卡片及方言详情共用 `src/catalog/extension-provenance.ts`。此数据只影响标注与排列，不修改方言默认值、开关、Markdown 编码或页面文件。
+# Extension provenance and defaults
 
-## 顺序
+**English** · [简体中文](EXTENSION-PROVENANCE.zh-CN.md)
 
-1. **Specified syntax**：当前方言的规范／官方文档明确描述、未归为基础解析器内置规则的语法。Required 在前，Optional 在后；同级中 GFM Spec 在 GFM Docs 之前。
-2. **Built-in syntax**：已核实由基础解析器处理、没有对应扩展开关的语法，只读显示规范链接和内置状态。当前覆盖 CommonMark／GFM／CommonMark X 的九项基础规则，包括反斜杠换行、代码围栏等；HTML 有独立开关，仍在第一组。
-3. **Others**：其余可列出的扩展，按 Pandoc extensions、Notdown Notion extensions、Notdown Markdown extensions 三类来源依次分区排列；Pandoc 默认开启状态仅作标签，不再另设优先组。
-4. **Outside Markdown scope**：目录中的非 Markdown 参考项，继续单列在最后。
+2026-09-22 check. The expansion cards and dialect details of Extensions and Block Explorer on the edit page share `src/catalog/extension-provenance.ts`. This data only affects labeling and arrangement, and does not modify dialect defaults, switches, Markdown encoding, or page files.
 
-所有条目的来源仅使用上述三类，与方言语法归属独立。Notdown Notion extensions 同时包含官方 NFM 语法适配和有官方产品/API 依据的 Notion 功能适配；后者由 `src/catalog/extension-feature-origins.ts` 显式映射，不能凭 `local_*` 前缀归入 Markdown 类。当前九个本地块扩展有 Notion 功能对应，正式 ID 使用 notion_*，旧 local_* 为兼容别名；local_figure 保留通用 Markdown 分类，显示官方链接及 local encoding 提示；其本地标签未被核实为官方 NFM 语法，仍放在 Others。Notdown Markdown extensions 保留其他 Markdown 产品语法扩展。分类表示适配来源，不表示 Notion 发明了图片等通用功能。目录来源过滤键及扩展 ID 保持不变。
+<a id="顺序"></a>
 
-空组不显示；搜索和来源过滤后仍按相同规则排列。切换方言重新分组，修改当前勾选状态不改变规范归属和排序。
+## Order
 
-内置规则使用明确的 CommonMark 核心规则集合，并核对 Pandoc flag 快照和本地基础解析路径，不将所有缺少 flag 的扩展标为内置。[Pandoc 的方言说明](https://pandoc.org/MANUAL.html#markdown-variants)明确指出 CommonMark 系列的扩展是相对基础语法列出的，以 backtick_code_blocks 为例，其默认启用且不能通过扩展开关关闭。这里展示的是扩展名对应的基础语法，不是另一组待启用的插件。Typora 等没有 Pandoc preset 的产品也不会因此被归入内置组。
+1. **Specified syntax**The present language specification/official documentation clearly describes the grammar of the language, which is not the basis for the built-in rules of the analyzer. Required is before, Optional is after, and GFM Spec is before GFM Docs in the class.
+2. **Built-in syntax**: Verified by the Basic Analyzer Processing, no corresponding extended switches, only read to display specification links and built-in status. The nine basic rules currently covered by CommonMark / GFM / CommonMark X include reverse-slip switching, code fencing, etc. HTML has an independent switch and is still in the first group.
+3. **Others**: The remaining extensions of the list are sorted by source in the following categories: Pandoc extensions, Notdown Notion extensions, Notdown Markdown extensions; Pandoc is the default start-up status as a label only, no longer assigned as an alternative priority group.
+4. **Outside Markdown scope**: Non-Markdown references in the directory, continue to the last row.
 
-Required 表示该方言的基线语法，不表示每篇文章必须使用、不表示 Notdown 锁定这个开关，也不等于完整兼容认证。Optional 表示上游可选功能；Typora 的设置项额外标为 Optional setting，悬停可见设置位置。一个本地开关包含多种行为时，用说明限定规范覆盖范围。
+All sources of the articles use only the above three categories, which are independent of grammar. Notdown Notion extensions also contains the official NFM syntax adaptation and the official product/API based Notion function adaptation; the latter is defined by `src/catalog/extension-feature-origins.ts` The map is clearly not valid `local_*` The front end is classified as Markdown. The current nine local blocks are expanded with Notion functional counterparts, formally ID using notion_.*, old local_* For compatibility with the name; local_figure maintains a general Markdown classification, showing official links and local encoding hints; its local tag is not verified as the official NFM grammar, but is still in Others. Notdown Markdown extensions maintains other Markdown product grammar extensions. Classification represents the appropriate source, not the general functionality of images invented by Notion. Catalogue source filtering and extension of ID remain unchanged.
 
-## 两套独立依据
+Empty groups are not displayed; they are still arranged according to the same rules after search and source filtering. Switch dialects to regroup, and modify the current check status without changing the specification ownership and sorting.
 
-- 语法依据来自官方规范／文档，标签链接到来源。GFM 采用 [0.29-gfm Spec](https://github.github.com/gfm/)；Alerts、脚注、Emoji 和标题锚点另据 [GitHub Docs](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax)，数学和图表链接对应专页。
-- Typora 的高亮、上下标、行内数学和 Alerts 按 [Markdown Reference](https://support.typora.io/Markdown-Reference/) 标注设置可选；图表依据 [Diagrams 的启用条件](https://support.typora.io/Draw-Diagrams-With-Markdown/#precondition)，智能标点及换行依据各自设置文档。数学开关同时控制显示公式和行内公式，只有行内部分受该设置说明约束。
-- 其他方言分别依据 [CommonMark](https://spec.commonmark.org/0.31.2/)、[Original Markdown](https://daringfireball.net/projects/markdown/syntax)、[PHP Extra](https://michelf.ca/projects/php-markdown/extra/)、[MultiMarkdown 6](https://fletcher.github.io/MultiMarkdown-6/syntax/)、[Obsidian](https://help.obsidian.md/syntax)、[Notion Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown) 和 [Pandoc manual](https://pandoc.org/MANUAL.html#markdown-variants)。Legacy GitHub 是已弃用的 Pandoc reader，不借用当前 GFM Spec 身份。
-- Pandoc 状态采用现有 [Pandoc 3.11 快照](../data/pandoc-3.11-extensions.json)，分别显示默认开启、默认关闭、无扩展开关、无该产品方言。缺少扩展开关可能因为语法已内建，不能解释成默认关闭。Typora／Obsidian／Notion 的本地预设不冒充 Pandoc 默认。
-- `No documented syntax mapping` 表示此开关没有在当前映射中找到相应官方依据，不断言上游绝不支持。工作簿来源分类、本地支持状态、当前开关状态继续单独保留。比如 MultiMarkdown 的受限 metadata 不因为支持 `---` 就将完整 YAML 扩展标成它的规范语法。
+Built-in rules use the explicit set of CommonMark core rules and check against Pandoc flag snapshots and local base parsing paths, not marking all extensions missing flag as built-in. Dialect description of [ Pandoc ](https://pandoc.org/MANUAL.html#markdown-variants) clearly points out that the extensions of the CommonMark series are listed relative to the basic syntax. Taking backtick_code_blocks as an example, it is enabled by default and cannot be turned off through the extension switch. What is shown here is the basic syntax corresponding to the extension, not another set of plug-ins to be enabled. Typora and other products without Pandoc preset will not be classified into the built-in group.
 
-验证包含全部 115 项在 11 个方言中的不重不漏分组、GFM Spec／Docs、Typora 可选设置、核心语法没有 Pandoc flag、旧名称兼容，以及浏览器切换方言、覆盖开关、来源筛选和往返导航。
+Required represents the baseline syntax of the dialect. It does not mean that every article must use it, nor does it mean that Notdown locks this switch, nor does it mean full compatibility certification. Optional represents the upstream optional function; the setting items of Typora are additionally marked as Optional setting, and the setting position is visible by hovering. When a local switch contains multiple behaviors, use descriptions to limit specification coverage.
+
+<a id="两套独立依据"></a>
+
+## Two independent sets of evidence
+
+- Syntax references come from official specs/documents, and tags link to the source. GFM uses [ 0.29-gfm Spec ](https://github.github.com/gfm/); Alerts, footnotes, Emoji and title anchors are based on [ GitHub Docs ](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax), and the math and chart links correspond to the dedicated page.
+- Typora's highlighting, superscript and subscript, inline mathematics and Alerts are optional according to [ Markdown Reference ](https://support.typora.io/Markdown-Reference/) label settings; charts are based on [ Diagrams's enabling conditions ](https://support.typora.io/Draw-Diagrams-With-Markdown/#precondition), and smart punctuation and line breaks are set according to the respective documents. The math switch controls both the displayed formula and the inline formula, and only the inline part is subject to this setting description.
+- Other dialects are based on [ CommonMark ](https://spec.commonmark.org/0.31.2/), [ Original Markdown ](https://daringfireball.net/projects/markdown/syntax), [ PHP Extra ](https://michelf.ca/projects/php-markdown/extra/), [ MultiMarkdown 6 ](https://fletcher.github.io/MultiMarkdown-6/syntax/), [ Obsidian ](https://help.obsidian.md/syntax), [ Notion Enhanced Markdown ](https://developers.notion.com/guides/data-apis/enhanced-markdown) and [ Pandoc manual ](https://pandoc.org/MANUAL.html#markdown-variants). Legacy GitHub is a deprecated Pandoc reader and does not borrow the current GFM Spec identity.
+- The Pandoc status adopts the existing [ Pandoc 3.11 snapshot ](../data/pandoc-3.11-extensions.json), which respectively displays default on, default off, no extension switch, and no dialect of the product. The lack of extended switches may be because the syntax is built in and cannot be interpreted as being off by default. The local defaults for Typora/Obsidian/Notion do not pretend to be the Pandoc default.
+- `No documented syntax mapping` The current status of the switch is not supported by the current map, and the continuous upstream is not supported. Workbook source classification, local support status, and the current status of the switch remain separate. For example, MultiMarkdown's limited metadata is not supported. `---` The full YAML extension is the standard language for the code.
+
+Verify that all 115 items are included in 11 dialects, GFM Spec/Docs, Typora optional settings, core syntax without Pandoc flag, legacy name compatibility, and browser dialect switching, override switches, source filtering, and round-trip navigation.

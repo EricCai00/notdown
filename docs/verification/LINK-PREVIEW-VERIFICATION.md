@@ -1,13 +1,17 @@
-# Link Preview 验证（2026-09-22）
+<a id="link-preview-验证2026-09-22"></a>
 
-实现和使用边界见 [LINK-PREVIEWS.md](../features/LINK-PREVIEWS.md)。测试使用临时知识库和独立 Chrome，没有写入用户 `vault/` 或 MyBase 主库。
+# Link Preview validation (2026-09-22)
 
-- `npm test`：389 项，388 通过，1 项因系统符号链接权限跳过，0 失败。
-- TypeScript 检查和生产构建通过。为避免其他任务并发构建替换 `dist/`，浏览器回归使用独立构建目录 `test-results/link-preview-build`。
-- Link Preview 浏览器用例 5 项通过：粘贴菜单、键盘、撤销重做、Markdown 保存重开、连接设置、OneDrive 查看器、失败回退、扩展开关、代码块、过期请求隔离、属性编辑、未知字段和窄屏。
-- 完整浏览器回归 184 项：首次 182 通过、2 失败。侧栏拖拽冲突用例单独复跑通过；嵌套段落用例首次轮询读到了保存前没有 `syntax` 的页面，已让等待断言允许此初始状态，保留原有最终持久化及重载断言。两项最终一起复跑均通过，没有把该复跑描述为完整套件一次全绿。
-- GitHub 公共仓库通过真实 API 冒烟检查；私有 GitHub 和 OneDrive 权限／组织策略尚未使用真实账户验证，自动测试模拟这些外部响应。
+**English** · [简体中文](LINK-PREVIEW-VERIFICATION.zh-CN.md)
 
-截图保存在 `test-results/link-preview-github.png`、`test-results/link-preview-onedrive.png`、`test-results/link-preview-narrow.png`。浏览器测试验证实时元信息不写入 Markdown、不改变正文 revision，URL 和手填后备内容继续通过原有 CAS 路径保存。
+See [ LINK-PREVIEWS.md ](../features/LINK-PREVIEWS.md) for implementation and usage boundaries. The test uses a temporary vault and standalone Chrome, and does not write to the user `vault/` or MyBase main library.
 
-开发后端原进程尚未加载新接口。自动审批拒绝了重启操作（`blocked by policy`），需要重启现有开发服务后使用本功能。没有为此更改用户知识库内容。
+- `npm test`: 389 item, 388 passed, 1 item skipped due to system symbolic link permission, 0 failed.
+- TypeScript check and production build passes. To prevent other tasks from concurrently building replacement `dist/` , the browser returns to using the independent build directory `test-results/link-preview-build` .
+- Link Preview browser use case 5 items pass: paste menu, keyboard, undo redo, Markdown save and reopen, connection settings, OneDrive viewer, fallback on failure, expansion switch, code block, expired request isolation, attribute editing, unknown fields and narrow screen.
+- Full browser regression 184 item: 182 passes the first time, 2 fails. The sidebar drag conflict use case passed alone; the nested paragraph use case polled for the first time and read a page that did not have `syntax` before saving. The wait assertion has been allowed to allow this initial state, and the original final persistence and overload assertions have been retained. Both were passed in the final re-run together, without describing the re-run as a complete package, all green in one go.
+- GitHub public repositories pass real API smoke checks; private GitHub and OneDrive permissions/organization policies have not yet been verified using real accounts, automated testing simulates these external responses.
+
+Screenshots are saved in `test-results/link-preview-github.png`, `test-results/link-preview-onedrive.png`, `test-results/link-preview-narrow.png`. Browser testing verifies that real-time meta information is not written to Markdown and the text of revision is not changed. URL and hand-filled backup content continue to be saved through the original CAS path.
+
+The original process of developing the backend has not yet loaded the new interface. Automatic approval rejected the restart operation (`blocked by policy`), and you need to restart the existing development service before using this function. No user vault content has been changed for this purpose.

@@ -1,3 +1,4 @@
+import { setUIText } from "../../shared/i18n";
 import { allPeople, peopleChanged, refreshPeople, savePerson } from "./people-client";
 import { personFields, personInitials, searchPeople, type Person, type PersonInput } from "./person";
 import { ApiError, escape as e } from "../../shared/types";
@@ -15,13 +16,13 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
   const dialog = document.createElement("dialog");
   dialog.className = "people-dialog";
   dialog.setAttribute("aria-labelledby", "people-title");
-  dialog.innerHTML = `<header class="people-header"><div><h2 id="people-title">People</h2><p>Your local address book</p></div><button type="button" class="icon-button people-close" aria-label="Close people">×</button></header>
-    <div class="people-layout"><section class="people-directory" aria-label="Contact directory"><div class="people-tools"><input type="search" aria-label="Search people" placeholder="Search people…"><button type="button" class="secondary-button people-new">+ New person</button><label class="people-deleted"><input type="checkbox"> Show deleted people</label></div><div class="people-list" role="list" aria-label="People"></div></section><section class="people-detail" aria-label="Person details"></section></div><footer class="people-footer">Local contacts · Mention someone by typing @ in a note.</footer>`;
+  dialog.innerHTML = `<header class="people-header"><div><h2 id="people-title" data-i18n="People">People</h2><p data-i18n="Your local address book">Your local address book</p></div><button type="button" class="icon-button people-close" aria-label="Close people" data-i18n-aria-label="Close people">×</button></header>
+    <div class="people-layout"><section class="people-directory" aria-label="Contact directory" data-i18n-aria-label="Contact directory"><div class="people-tools"><input type="search" aria-label="Search people" placeholder="Search people…" data-i18n-placeholder="Search people…" data-i18n-aria-label="Search people"><button type="button" class="secondary-button people-new" data-i18n="+ New person">+ New person</button><label class="people-deleted"><input type="checkbox"> <span data-i18n="Show deleted people">Show deleted people</span></label></div><div class="people-list" role="list" aria-label="People" data-i18n-aria-label="People"></div></section><section class="people-detail" aria-label="Person details" data-i18n-aria-label="Person details"></section></div><footer class="people-footer" data-i18n="Local contacts · Mention someone by typing @ in a note.">Local contacts · Mention someone by typing @ in a note.</footer>`;
   document.body.append(dialog);
   const events = new AbortController(), signal = events.signal;
   const list = dialog.querySelector<HTMLElement>(".people-list")!;
   const detail = dialog.querySelector<HTMLElement>(".people-detail")!;
-  const search = dialog.querySelector<HTMLInputElement>('[aria-label="Search people"]')!;
+  const search = dialog.querySelector<HTMLInputElement>('[data-i18n-aria-label="Search people"]')!;
   const deleted = dialog.querySelector<HTMLInputElement>('.people-deleted input')!;
   let selected = options.selectedId ?? "", busy = false, failure = false;
   let draft: Draft | undefined;
@@ -50,19 +51,19 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
     const original = draft.original, removed = original?.deleted;
     detail.innerHTML = `<form class="person-form"><div class="person-form-heading"><span class="person-avatar" aria-hidden="true">${e(personInitials(String(draft.input.name || "")))}</span><div><h3>${original ? "Contact details" : "New person"}</h3><p>${removed ? "Deleted contact · Existing mentions are preserved." : "A person in your address book, without an account or workspace access."}</p></div></div>
       ${personFields.map(field => `<label>${({ name: "Name", email: "Email", phone: "Phone", organization: "Organization", notes: "Notes" })[field]}${field === "name" ? " *" : ""}${field === "notes" ? `<textarea name="notes" aria-label="Notes" rows="4" maxlength="20000" ${removed ? "readonly" : ""}>${e(draft!.input.notes)}</textarea>` : `<input name="${field}" type="${field === "phone" ? "tel" : "text"}" ${field === "name" ? "required" : ""} maxlength="500" value="${e(draft!.input[field])}" ${removed ? "readonly" : ""}>`}</label>`).join("")}
-      <output class="person-status" role="status"></output><div class="person-actions">${original ? `<button type="button" class="secondary-button person-delete">${removed ? "Restore person" : "Delete person"}</button>` : ""}<span></span>${original && !removed && options.onSelect ? '<button type="button" class="secondary-button person-mention">Mention person</button>' : ""}${!removed ? '<button type="submit" class="primary-button">Save person</button>' : ""}</div></form>`;
+      <output class="person-status" role="status"></output><div class="person-actions">${original ? `<button type="button" class="secondary-button person-delete">${removed ? "Restore person" : "Delete person"}</button>` : ""}<span></span>${original && !removed && options.onSelect ? `<button type="button" class="secondary-button person-mention" data-i18n="Mention person">Mention person</button>` : ""}${!removed ? `<button type="submit" class="primary-button" data-i18n="Save person">Save person</button>` : ""}</div></form>`;
     const form = detail.querySelector<HTMLFormElement>("form")!;
     form.oninput = () => {
       if (busy || !draft) return;
       draft.input = Object.fromEntries(personFields.map(field => [field, (form.elements.namedItem(field) as HTMLInputElement).value]));
       drafts.set(selected, draft);
-      detail.querySelector("output")!.textContent = "Unsaved changes";
+      setUIText(detail.querySelector("output")!, "Unsaved changes");
     };
     form.onsubmit = event => { event.preventDefault(); void save(draft!.input); };
     detail.querySelector<HTMLButtonElement>(".person-delete")?.addEventListener("click", () => void save({ ...draft!.input, deleted: !removed }));
     detail.querySelector<HTMLButtonElement>(".person-mention")?.addEventListener("click", () => {
       const person = allPeople().find(person => person.id === selected && !person.deleted);
-      if (!person) { detail.querySelector("output")!.textContent = "This person is no longer available."; return; }
+      if (!person) { setUIText(detail.querySelector("output")!, "This person is no longer available."); return; }
       dialog.close();
       options.onSelect?.(person);
     });
@@ -73,7 +74,7 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
     const savingDraft = draft;
     busy = true;
     dialog.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLTextAreaElement>("button,input,textarea").forEach(element => { element.disabled = true; });
-    detail.querySelector("output")!.textContent = "Saving…";
+    setUIText(detail.querySelector("output")!, "Saving…");
     try {
       const person = await savePerson(input, savingDraft.original);
       drafts.delete(selected);
@@ -89,7 +90,7 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
         const button = document.createElement("button");
         button.type = "button";
         button.className = "secondary-button";
-        button.textContent = "Review latest contact";
+        setUIText(button, "Review latest contact");
         button.onclick = () => {
           const latest = error.data.current as Person;
           const proposed = error.data.proposed as Person;
@@ -100,7 +101,7 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
           const use = document.createElement("button");
           use.type = "button";
           use.className = "secondary-button";
-          use.textContent = "Load latest contact";
+          setUIText(use, "Load latest contact");
           use.onclick = () => { drafts.delete(selected); draft = { original: latest, input: Object.fromEntries(personFields.map(field => [field, latest[field]])) }; paintDetail(); };
           status.append(comparison, use);
         };
@@ -135,7 +136,7 @@ export function openPeople(options: { selectedId?: string; onSelect?: (person: P
     failure = true;
     list.textContent = `Unable to load people: ${error instanceof Error ? error.message : error}`;
     const retry = document.createElement("button");
-    retry.textContent = "Retry";
+    setUIText(retry, "Retry");
     retry.onclick = () => { dialog.close(); openPeople(options); };
     list.append(retry);
   });

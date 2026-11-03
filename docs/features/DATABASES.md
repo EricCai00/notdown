@@ -1,130 +1,152 @@
-# 本地数据库与 Notion 数据库导入
+<a id="本地数据库与-notion-数据库导入"></a>
 
-数据库组织普通 Markdown 页面：每条记录都有自己的 `pages/<page-id>.md`，表格单元格和页面上方的属性编辑器共享同一份页面属性。桌面与手机共用数据库视图和资源存储；跨端使用需配置实验性[前台云同步](CLOUD-SYNC.md)。Notion API 导入为单向复制，没有 Notion 写回。
+# Local databases and Notion database import
 
-## 创建与编辑
+**English** · [简体中文](DATABASES.zh-CN.md)
 
-如果前端已更新而运行中的旧后端尚无数据库接口，普通页面仍可打开和保存；侧栏及数据库入口提示重启后端，更新服务后可用 **Check connection** 重新检查。此兼容只针对数据库列表接口的 404；元数据损坏、权限及其他服务错误仍会报告。
+Databases organize ordinary Markdown pages: every record has its own `pages/<page-id>.md`. Table cells and the property editor above the page share the same page properties. Desktop and mobile share database views and resource storage; cross-device use requires experimental [foreground cloud sync](CLOUD-SYNC.md). Notion API import creates local copies and does not write back to Notion.
 
-1. 侧栏 **New database**，或在 **Databases** 列表中选择 **New database**，立即创建根层数据库，默认名称为 **New database**，没有确认弹窗。应用创建数据库 JSON、自有数据源、**Name** 字段和 **Table** 视图；随后直接点击数据库标题修改名称，按 Enter 或离开输入框保存。
-2. 表头 **Add property** 或记录面板的 **Add a property** 添加文本、数字、勾选、日期、单选、多选、状态、URL、邮件或电话字段。新字段的选项可逐行填写；点击已有表头打开属性浮层，通过 **Edit property** 逐项改名、调色、拖动或用上下按钮排序，也可追加或删除未被记录使用的选项。选项身份保持稳定。记录面板按属性名称显示字段，表格保留视图列顺序。
-3. 蓝色 **New** 或表格底部的新增行入口创建记录。标题旁的打开按钮默认展开右侧记录面板，表格继续留在左边；面板中可编辑标题、属性和正文。**Open as full page** 再进入普通页面，正文继续使用现有 Page / Source / Split 视图。
-4. 数据库与页面一样自动保存，连续输入暂停后、离开单元格或按 Enter 时收取修改。切换页面或数据库前先保存 pending 输入；保存失败时保留草稿并阻止切换，仅在错误处提供 **Retry save** 与 **Discard draft and reload**，不再保留单独的数据库保存菜单。
-5. 顶部标签切换视图，**New view** 打开布局选择面板，可创建 Table、Board、Gallery、List 或 Calendar，随后选择名称和数据源。**Filter**、**Sort** 和 **View settings** 提供筛选、排序、视图名和显示列设置；搜索图标展开当前表格搜索。隐藏列、筛选记录不会删除属性或页面，标题列始终保留。当前标签页记住每个知识库、数据库上次选择的视图，重新打开或浏览器返回时恢复该选择。
+<a id="创建与编辑"></a>
 
-数字 `0` 和布尔值 `false` 保持其类型。日期保存开始、可选结束和已有时区信息。单选、状态和多选保存选项 ID，以有色标签显示名称，并通过选项面板编辑。关联、联系人和文件等导入值显示为只读；可解析的关联可打开本批导入的本地页面。
+## Creating and editing
 
-点击完整数据库标题左侧图标使用与普通页面相同的 Emoji／Lucide 选择器，可以搜索、输入自定义符号或选择 **Remove**。修改后同步更新页面树及指向该数据库的块入口；Remove 保存空图标值，并显示与普通页面一致的默认文档图标。当前没有图片上传图标入口。数据库标题和图标写入所属 JSON，不改写 Markdown；旧宿主页或 Wiki Home 的文档 YAML／Pandoc 控制值仍须在源文档中修改。
+If the front end has been updated and the old running back end does not have a database interface, ordinary pages can still be opened and saved; the sidebar and database entrance prompts to restart the back end. After updating the service, you can use **Check connection** to recheck. This compatibility is only for 404 of the database list interface; metadata corruption, permissions, and other service errors will still be reported.
 
-正文中的子数据库、Child page 和 Link to page 使用相同的单行入口样式、16 px 图标和带下划线的名称，不再给子数据库单独套卡片。它们仍分别保持原本的引用类型和导航目标，调整显示不会改写引用源码或父关系。
+1. sidebar **New database**, or in **Databases** Select from list **New database**, create the root database immediately, with the default name **New database**, there is no confirmation pop-up window. Application creates database JSON, own data source,**Name** fields and **Table** view; then click directly on the database title to modify the name, press Enter or leave the input box to save.
+2. Header **Add property** or **Add a property** of the record panel add text, number, check, date, single choice, multi-select, status, URL, email or phone fields. The options of the new field can be filled in line by line; click on the existing header to open the attribute floating layer, and use **Edit property** to rename, color, drag or sort items one by one using the up and down buttons. You can also add or delete unused options. Option identity remains stable. The records panel displays fields by attribute name, and the table retains view column order.
+3. Blue **New** or the new row entry at the bottom of the table creates a record. The open button next to the title expands the record panel on the right by default, and the table remains on the left; the title, attributes, and text can be edited in the panel. **Open as full page** Then enter the normal page, and continue to use the existing Page / Source / Split view for the text.
+4. The database is automatically saved like the page, and changes are collected after a pause in continuous input, when leaving the cell or pressing Enter. Save the pending input before switching pages or databases; keep the draft and prevent switching when saving fails, only provide **Retry save** and **Discard draft and reload** at the error point, and no longer retain a separate database save menu.
+5. The top tab switches the view, **New view** opens the layout selection panel, you can create Table, Board, Gallery, List or Calendar, and then select the name and data source. **Filter**, **Sort** and **View settings** provide filtering, sorting, view name and display column settings; the search icon expands the current table search. Hiding columns and filtering records does not delete properties or pages, and the title column is always retained. The current tab remembers the last selected view for each vault and database, and restores the selection when it is reopened or the browser returns.
 
-记录侧栏复用现有正文编辑器，不另存一份正文。关闭侧栏、打开完整页面或跳转前先保存待处理的正文与属性；发生冲突时保留草稿并阻止跳转，仍须显式处理冲突。可明确选择 **Discard draft and reload** 放弃本标签页草稿并读取最新内容，已有冲突归档仍保留。宽屏表格与记录并排，窄屏下记录面板从右侧覆盖显示，宽表格在自己的区域横向滚动。
+The numeric `0` and the boolean `false` retain their types. Date save start, optional end and existing time zone information. Radio, status and multi-select saving options ID, display names in colored labels and edit via options panel. Imported values ​​such as associations, contacts, and files are displayed as read-only; resolvable associations can open the local page imported in this batch.
 
-YAML / Pandoc 覆盖仍优先于 JSON：表格和页面属性区显示有效值，并将受文档控制的属性标为只读。通过源码或 Metadata details 修改覆盖值，不会出现修改 JSON 默认值却误报有效值已改变的情况。
+Click the icon to the left of the full database title to use the same Emoji/Lucide selector as on the normal page, you can search, enter custom symbols or select **Remove**。The modified synchronized updates of the page tree and the block entries to the database;Remove Save the empty icon value and display the default document icon that matches the normal page. There are currently no images uploading icon inputs. Database titles and icons are written to belong.JSON，Not to be confusedMarkdown；Old host page orWiki Home The documentationYAML／Pandoc The control value must still be modified in the source document.
+
+The subdatabases, Child page and Link to page in the main text use the same single-line entry style, 16 px icon and underlined name, and separate cards are no longer given to the subdatabases. They still maintain the original reference type and navigation target respectively, and adjusting the display will not change the reference source code or parent relationship.
+
+The record sidebar reuses the existing text editor without saving a new copy of the text. Save the pending text and attributes before closing the sidebar, opening the full page, or jumping; if a conflict occurs, keep the draft and prevent the jump, but you must still handle the conflict explicitly. You can explicitly select **Discard draft and reload** to abandon the draft of this tab and read the latest content. The conflicting archives will still be retained. The wide-screen table sits side by side with the record, the narrow-screen record panel overlays it from the right, and the wide table scrolls horizontally in its own area.
+
+YAML / Pandoc overrides still take precedence over JSON: table and page property areas show valid values and mark document-controlled properties as read-only. Modifying the overlay value through source code or Metadata details will not cause the JSON default value to be modified but falsely reported that the effective value has changed.
 
 ## Wiki
 
-Wiki 是一种数据库容器，在 **Databases** 列表中显示为 **Wiki · Home and page views**。列表的 **New wiki** 创建根层 Wiki；正文 `/` 菜单搜索 **wiki**，选择 **Wiki**，会在当前页下新建 Wiki 并插入页面入口。手机的插入块菜单和数据库列表也提供 Wiki。
+Wiki is a database container, in **Databases** shown in the list as **Wiki · Home and page views**. list **New wiki** Create root layer Wiki; text `/` Menu search **wiki**, select **Wiki**, Wiki will be created under the current page and the page entry will be inserted. Wiki is also available in the phone's Insert Block menu and database list.
 
-普通页面的右上角／侧栏页面菜单提供 **Turn into wiki**。转换沿用页面 ID、Markdown 文件、正文、图标及父位置；原正文成为 Home。Wiki 只有一个页面数据源，初始 **All pages** 使用 List 布局；Home 使用正文编辑器，集合视图可新增 Table、List、Gallery、Board 和 Calendar。Home 不显示数据库筛选／分组工具；集合视图不提供新建／接入数据源、切换来源和显示数据源标题。普通数据库及数据库记录不提供页面转 Wiki。
+The upper right corner of the normal page/sidebar page menu provides **Turn into wiki**. The conversion inherits the page ID, Markdown files, text, icons and parent positions; the original text becomes Home. Wiki has only one page data source, initially **All pages** Use List layout; Home uses the text editor, and the collection view can add Table, List, Gallery, Board and Calendar. Home does not display database filtering/grouping tools; the collection view does not provide new/accessed data sources, switching sources and displaying data source titles. Ordinary databases and database records do not provide page conversion to Wiki.
 
-直接和嵌套子页面按原父关系加入页面集合；子数据库及其记录保持独立，不被压平或当作 Wiki 页面记录。新建子页面以及移动页面／子树进出 Wiki 会更新成员关系；页面属性与集合视图共用原页面数据。普通数据库可以链接 Wiki 的页面源；存在外部引用时，Undo 会阻止移除共享来源，保留已有数据库和引用。
+Directly and nested subpages are added to the page collection according to the original parent relationship; the subdatabase and its records remain independent and will not be flattened or treated as Wiki page records. Creating new subpages and moving pages/subtrees in and out of Wiki will update membership relationships; page properties and collection views share the original page data. Ordinary databases can link to the page source of Wiki; when there are external references, Undo will prevent the removal of the shared source and retain the existing database and references.
 
-Wiki Home 默认采用 **Full width** 布局，标题、导航与正文共同使用可用内容宽度；Home 和集合视图共用封面、横排图标／标题、面包屑、内容边距与胶囊下拉视图入口；切换时只更换内容区及右侧工具。Wiki Home 不提供单独的宽度开关，Undo 后恢复普通页面原先的宽度设置。
+Wiki Home adopts the **Full width** layout by default. The title, navigation and text share the available content width; Home and the collection view share the cover, horizontal icon/title, breadcrumbs, content margins and capsule drop-down view entrance; only the content area and the right tools are changed when switching. Wiki Home does not provide a separate width switch. After Undo, the original width setting of the ordinary page is restored.
 
-打开 Wiki 默认进入 **Home**。标题下的视图下拉菜单在 Home 和集合视图中相同，列出 Home、所有已有视图及 New view，并标记当前视图；New view 在 Home 即可创建集合视图，提交前会收取正文输入，取消时保留 Home。Home 右侧 Search 搜索 Wiki 页面；集合视图显示筛选、排序、视图设置及 New 等工具。Home 的源码／分栏等编辑模式和页面属性从右上角页面菜单打开。导入时保留的独立 Home 子页继续承载原正文，外层显示 Wiki 容器的封面、图标与标题；可在集合视图中编辑该容器名称和图标，不合并或改写原子页。Wiki Home 的页面菜单提供 **Undo wiki**：解除该容器、数据源及视图，把 Home 恢复成普通页面，保留正文、页面身份、子页面／子数据库位置和每页已有属性值。字段定义、视图及转换前后 metadata 归档到 `.history/database-transactions/`，目前没有自动重新应用归档的界面。原有链接仍指向同一个页面，不批量改写正文。
+Open Wiki and enter by default **Home**。The menu is drawn in the view under the titleHome The same as in the view of the set, listHome、All have a vision andNew view，The current view is marked;New view inHome This means that you can create a collection view, which collects the original input before submitting, and retains it when deleted.Home。Home Right sideSearch SearchingWiki Page; collection view shows the selection, sorting, view settings andNew The tools.Home The source/split pattern and page attributes of the source/split pattern are opened from the top-right corner page menu. Independence retained when importedHome Subpages continue to carry the original text, with the outer layer showingWiki The container's cover, icon and title; the container's name and icon can be edited in the collection view, without merging or rewriting the atomic page.Wiki Home The menu of the page provided**Undo wiki**: Unlock the container, data source and view, restore Home to a normal page, and retain the text, page identity, subpage/subdatabase location and existing attribute values of each page. Field definition, view and conversion before and after metadata archive to `.history/database-transactions/`, there is currently no interface for automatically re-applying archives. The original link still points to the same page, and the text will not be rewritten in batches.
 
-Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出的独立 **Home** 子页面继续保留，Undo 后仍在原位置，不合并、删除或覆盖原页面正文。若独立 Home 已删除或移入回收站，独立文件格式的 Wiki 进入有效集合视图，不创建空 Markdown 替身，也不恢复已删除内容；旧格式仍可使用原有真实宿主页。将当前打开的 Wiki／数据库移入回收站后，离开该集合视图并更新侧栏，可从 Trash 恢复。如果旧 Wiki 的来源已被其他数据库共享，Undo 会提示并停止，保留现有资源。Notion 的当前用户 Owner 筛选、Verification 验证与通知尚未在本地模拟。
+Notion imports Wiki using the same single data source boundary. Early import recovery out of independent **Home** The sub-page will continue to be retained, and will remain in its original position after Undo, without merging, deleting or overwriting the original page text. If the independent Home has been deleted or moved to the recycle bin, the independent file format Wiki will enter the effective collection view, and no empty Markdown stand-in will be created, nor will the deleted content be restored; the old format can still use the original real host page. After moving the currently open Wiki/database to the Recycle Bin, you can resume from Trash by leaving the collection view and updating the sidebar. If the source of the old Wiki has been shared by other databases, Undo will prompt and stop, preserving the existing resources. Notion's current user Owner filtering, Verification validation and notifications are not yet emulated locally.
 
-转换前收取 pending 编辑；转换及 Undo 在知识库锁内校验页面／数据库版本，冲突归档双方，不强制重试。转换更新数据库 JSON 与页面元数据；已有页面 Markdown 不会因转换而重新序列化。独立 Home 的导入 Wiki 在 Undo 时恢复一个普通容器页面，其原 Home 子页保持原文和位置。
+pending is collected for editing before conversion; the page/database version is verified within the vault lock during conversion and Undo, and conflicts are archived on both sides without forcing retries. The conversion updates the database JSON and page metadata; existing page Markdown is not reserialized as a result of the conversion. The independent Home import Wiki restores a normal container page in Undo, and its original Home subpage retains the original text and location.
 
-行为参考 [Notion Wiki 官方说明](https://www.notion.com/help/wikis-and-verified-pages)：Notion 提供页面转 Wiki 和 Undo Wiki，默认有 Home、All pages、Pages I own；官方未明确说明 Undo 后自定义属性和视图配置的完整去向。上述保留／归档规则是 Notdown 的明确契约，本地不伪造账户对应的 Pages I own。
+Behavior Reference [ Notion Wiki Official Description ](https://www.notion.com/help/wikis-and-verified-pages): Notion provides page conversion to Wiki and Undo Wiki. The defaults are Home, All pages, and Pages I own; the official has not clearly stated the complete destination of custom attributes and view configuration after Undo. The above retention/archiving rules are an explicit contract of Notdown, and the local does not forge the corresponding Pages I own of the account.
 
-数据库从应用 Trash 再次删除后，数据库 JSON、Wiki 的真实 Home 及所选子页面进入系统回收站，历史中保留恢复材料。已删除容器不再生成侧栏入口或出现在数据库和数据源列表中；引用它的数据源视图保持 Link，并显示来源不可用，不接管其记录。旧格式保留的宿主页元数据只用于恢复，不会把缺失宿主误当成从未有宿主的数据库。
+database from applicationTrash After deleting again, the databaseJSON、Wiki of realityHome and the selected subpages enter the system recycle bin, and the recovery materials are retained in the history. A deleted container no longer generates sidebar entries or appears in database and data source lists; data source views that reference it remainLink，And it shows that the source is unavailable and its records are not taken over. The host page metadata retained by the old format is only used for recovery, and the missing host will not be mistaken for a database that has never had a host.
 
-## 数据源管理
+<a id="数据源管理"></a>
 
-完整数据库和正文内嵌数据库使用 **View settings → Manage data sources**，也可从 **Source → Manage data sources** 打开。来源管理在右侧设置面板内替换当前内容，**Back** 返回上一层，**Close** 关闭整组面板。数据库可以包含多个数据源，每个视图选择其中一个数据源。
+## Data source management
 
-面板将本数据库拥有的来源列在 **Source**，外部接入的来源列在 **Linked**。每个来源占一行，显示名称、当前数据库中的视图数量和 **···** 详情入口。详情保留原数据库、其他使用它的数据库和各自视图；视图链接打开准确的数据库与视图。悬停来源名称可查看所属关系和视图名称。
+The complete database and text-embedded database use **View settings → Manage data sources**, and can also be opened from **Source → Manage data sources**. Source management replaces the current content in the settings panel on the right, **Back** returns to the previous level, **Close** closes the entire group of panels. A database can contain multiple data sources, one of which is selected for each view.
 
-查看全知识库的数据源：侧栏 **Databases → Data sources**。列表每个数据源只占一行，分列显示名称、原数据库和使用位置／视图，可按数据源、数据库或视图名搜索。当前数据库菜单的 **Browse all data sources** 也可查看同一列表。列表是只读关系投影，不复制记录或写回元数据，回收站中的数据库不会显示为活跃使用位置。
+The panel lists the sources owned by this database in **Source** and the sources of external access in **Linked**. Each source has one line, showing the name, the number of views currently in the database, and the **···** details entry. Details retain the original database, other databases using it, and their respective views; view links open the exact database and views. Hover the source name to see ownership and view names.
 
-数据库包含多个数据源时，默认按 **数据库标题 → 当前数据源标题 → 视图标签** 排列；切换视图时，第二级标题随其数据源变化，点击该标题打开数据源管理。单数据源默认只显示数据库标题；**Layout → Show data source titles** 可覆盖默认显示，显式选择会保存。完整页和内嵌数据库采用相同规则。视图标签的悬停提示显示所属数据源。
+View the data source of the full vault: sidebar **Databases → Data sources**. Each data source in the list only occupies one row, and the name, original database and usage location/view are displayed in columns. You can search by data source, database or view name. **Browse all data sources** of the current database menu can also view the same list. The list is a read-only relational projection, no records are copied or metadata is written back, and the database in the recycle bin does not appear as an actively used location.
 
-来源分组和共享数据、独立视图的语义参考 [Notion 数据源管理说明](https://www.notion.com/help/data-sources-and-linked-databases)；数据库／数据源标题层级参考用户提供的 Notion 界面。
+When the complete database contains multiple data sources, they are arranged by default as **database title → current data source title → view label**; when switching views, the second-level title changes with its data source. The complete page of a single data source only displays the database title by default; the embedded database only displays the title of the current data source by default. **Layout → Show data source titles** overrides the default display of data source titles, explicit selections are saved. The view label's hover tip shows the data source it belongs to.
 
-- **Source → Add data source** 在当前数据库中创建独立的字段和记录集合，并添加一个同名 Table 视图；不会另建数据库宿主页。点击 **Create data source** 才保存，返回上层或关闭面板不会创建资源。
-- **Link existing data source** 可按数据源或所属数据库名称搜索本知识库中的数据源。接入后添加一个本地 Table 视图；字段和记录继续共享，编辑会在引用同一数据源的其他数据库中生效。视图的筛选、排序和布局独立保存。
-- 接入不会复制 Markdown、移动记录或改变数据源的所有者；从接入位置新建的记录仍归原数据库宿主页。已接入的源不会重复出现在候选列表，回收站中的来源数据库也不列为可接入对象。
-- **Source / Linked** 列出当前来源及所属关系，点击来源名称切换到其视图。新建／接入会先保存当前单元格草稿，再检查数据库版本；接入还检查所选源的版本。冲突保留输入并显示原因，不自动覆盖其他窗口的更改。
+The current data source title displayed in the complete database and embedded database can be directly clicked to edit and is no longer used as a drop-down menu entry. Automatically save after input, Enter or leave the input box to save immediately; Escape abandon the name that has not been submitted. The modification only updates the data source name, while the database container name, view name and text reference remain the original values; renaming the Linked location will also update the same source. The title is read-only when the source is unavailable. If saving fails or version conflicts, the name draft will be retained. Explicit retries will still use the original version, and modifications in other windows will not be automatically overwritten. Data source management is entered from **View settings → Manage data sources**.
 
-来源行的 **···** 打开独立小菜单，提供 **Copy data source ID**、**Move to**、**Move to Trash**，也可查看来源关系。自有的普通数据源可以移动到其他普通数据库：来源及页面 ID 保持不变，记录根页面改归目标数据库，已有视图继续引用同一来源；原数据库中的视图变为 Linked。移动前校验来源、原数据库和目标数据库的版本，拒绝循环归属及由文档 metadata 控制的记录父位置。Linked 入口不能代替原数据库移动或删除来源；Wiki 的页面源继续遵循 Wiki 转换边界。
+Semantic reference for source grouping and shared data, independent views [ Notion Data source management instructions ](https://www.notion.com/help/data-sources-and-linked-databases); database/data source header hierarchy reference user-provided Notion interface.
 
-数据库删除沿用页面的 Trash。数据源 **Move to Trash** 也为可恢复删除：字段、视图引用和 Markdown 保留在原位置，来源及其页面暂时隐藏，外部引用显示来源在 Trash；恢复后重新可用。侧栏 **Trash** 列出被回收的数据源及页面数量，**Restore** 恢复整个来源；管理面板的 **Trashed data sources** 也提供恢复入口。单独进入 Trash 的来源不会因恢复其数据库而被自动恢复。
+- **Source → Add data source** Create an independent collection of fields and records in the current database, and add a Table view with the same name; no new database host page will be created. Click **Create data source** Resources will not be created until saved, returning to the upper level or closing the panel.
+- **Link existing data source** Data sources in this vault can be searched by the name of the data source or the database to which they belong. Add a local Table view after access; fields and records continue to be shared, and edits will take effect in other databases that reference the same data source. Filtering, sorting, and layout of views are saved independently.
+- Access will not copy Markdown, move records, or change the owner of the data source; records newly created from the access location will still be returned to the original database host page. Connected sources will not reappear in the candidate list, and the source database in the recycle bin will not be listed as accessible objects.
+- **Source / Linked** List the current sources and their affiliations. Click the source name to switch to its view. New/Insert will save the current cell draft before checking the database version; Insert also checks the version of the selected source. Conflicts preserve input and display reasons, and do not automatically overwrite changes in other windows.
 
-数据源管理回归见 `tests/unit/database-sources.test.ts`、`tests/unit/database-source-lifecycle.test.ts` 和对应浏览器用例，覆盖归属、版本冲突、原文保留及回收与恢复。
+The source is OK **···** Open an independent small menu and provide **Copy data source ID**、**Move to**、**Move to Trash**, you can also view source relationships. Own common data sources can be moved to other common databases: the source and page ID remain unchanged, the record root page is changed to the target database, and existing views continue to reference the same source; the view in the original database becomes Linked. Verify the versions of the source, original and target databases before moving, reject circular ownership and record parent positions controlled by document metadata. Linked entries cannot replace the original database to move or delete sources; Wiki page sources continue to follow Wiki conversion boundaries.
 
-## 多种布局
+Database deletion inherits Trash of the page. The data source **Move to Trash** is also reversibly deleted: fields, view references and Markdown remain in their original positions, the source and its pages are temporarily hidden, and external references show the source in Trash; they are available again after restoration. The sidebar **Trash** lists the recovered data sources and the number of pages, **Restore** restores the entire source; **Trashed data sources** of the management panel also provides a recovery entrance. Sources entering Trash alone will not be automatically restored by restoring their databases.
 
-**+ New view** 提供与 Notion 类似的图标网格，切换标签不会复制记录。Table 保留单元格编辑；List 是紧凑记录列表；Gallery 使用卡片网格；Board 按 Select、Status 或 Checkbox 属性分组；Calendar 按日期属性显示月或周。
+**Trash → Empty Trash** Also cleans up recycled data sources and their records and subpages, retaining active databases and other sources. Deletion of the source definition has historical recovery material, and the external Linked view retains the reference and shows the source as unavailable. Clean up the verification source, the associated database and all recorded versions; it will stop when it encounters a conflict or system recycling failure, and will not automatically overwrite or retry.
 
-新视图在同一个浮层内设置名称、布局和数据源，点击 **Done** 创建；点击外部或按 Escape 取消创建。已有视图的 **View settings** 使用右侧面板，子设置在同一位置切换，属性选项继续使用锚定入口的级联菜单。点击 **Done** 或菜单外部保存修改。保存失败时保留输入并显示原因，也可明确选择 **Discard menu changes** 放弃本次菜单草稿；不会以最新版本号强制覆盖其他窗口的改动。
+For data source management regression, see `tests/unit/database-sources.test.ts`, `tests/unit/database-source-lifecycle.test.ts` and corresponding browser use cases, covering ownership, version conflicts, original text retention, recycling and recovery.
 
-点击当前视图标签或右键任一标签，打开标签下方的 **View options**：**Rename**、**Display as**、**Edit view**、**Source**、**Copy link to view**、显示／隐藏数据源标题、**Duplicate view** 和 **Delete view**。右键操作其他标签时不会切换当前视图。复制沿用原来源、字段选择、筛选、排序和布局，只创建新视图。
+<a id="多种布局"></a>
 
-删除某个来源在当前数据库中的最后一个视图时，会先选择 **Delete view only**，或 **Delete view and data source**。前者保留来源和全部页面，允许数据库暂时没有视图，再用 New view 恢复显示；后者将自有的普通来源及其页面一起移入 Trash。Linked／Wiki 不提供代删原来源的选项。删除同时校验视图和数据库版本，连同来源删除还校验来源版本；冲突保留恢复记录，不强制重试。尚未提供逐个视图固定到侧栏的入口，侧栏仍按既有 Database children 设置展示视图。
+## Layouts
 
-工具栏空间不足时，放不下的视图收进 **n more…**。菜单列出全部视图、当前选择和各自的操作入口，可搜索视图名，并提供 New view／New data source。搜索记录也在工具栏原位置展开，Escape 关闭并清空，不另占一行。
+**+ New view** Provides an icon grid similar to Notion, switching labels does not copy records. Table preserves cell editing; List is a compact record list ([Layout and attribute display](DATABASE-LIST.md)); Gallery uses the card grid; Board groups by the Select, Status or Checkbox attribute; Calendar displays the month or week by the date attribute.
 
-- **Layout** 可设置数据源标题、页面图标、表格竖线、全部内容换行，以及 Side peek / Center peek / Full page 打开方式。**Load limit** 控制首批显示 25、50、100 或全部记录，**Load more** 继续显示；不改变底层记录数量。
-- **Property visibility**、**Filter**、**Sort**、**Group** 分别打开子菜单；**Copy link to view** 复制指定视图入口，**Source** 显示所用数据源，**Edit properties** 打开字段列表。已有视图不跨数据源重新绑定。
-- 表头菜单提供字段改名、空字段类型变更、按此字段筛选／排序／分组、冻结当前列、隐藏、单列换行和左右插入字段。含记录值的字段不能直接改类型；被视图引用的日期／分组字段不能改成不兼容类型。冻结、隐藏及换行设置属于当前视图。
-- Table、List、Gallery、Board 共用分组设置。新视图沿用当前记录顺序，随后可独立筛选、排序和设置显示字段。
-- 分组表格为每组重复显示列标题和 **New page**，在组内新增记录会填好分组属性。组标题箭头可折叠／展开并保留到当前视图；标题旁的 **···** 提供 Edit groups、显示记录计数、隐藏组和颜色设置。选项组调色同步更新该选项标签；空值／勾选组颜色保存在视图中。隐藏组可在 **Group** 子菜单重新显示。
-- 组菜单的 **Move to Trash** 会先显示本次筛选范围内的记录数量并确认，再把这些页面及其子页面移入可恢复的回收站；不受首批加载数量限制。逐条写入均校验页面版本，若中途冲突则停止并明确报告已完成数量，不强制覆盖剩余页面。
+Set the name, layout and data source of the new view in the same floating layer. Click **Done** to create; click outside or press Escape to cancel creation. **View settings** of the existing view uses the right panel, the sub-settings are switched in the same position, and the property options continue to use the cascading menu anchored to the portal. Click **Done** or outside the menu to save changes. When saving fails, the input will be retained and the reason will be displayed. You can also explicitly select **Discard menu changes** to abandon this menu draft; changes in other windows will not be forced to be overwritten with the latest version number.
 
-- 卡片标题打开现有记录面板，可编辑原页面正文和属性。手机继续打开完整记录页。
-- **View settings → Layout** 切换布局；**Property visibility** 控制显示字段。Gallery / Board 可选卡片大小、页面封面、正文文字预览和图片适配。正文预览当前为文字摘要，文件属性图片及完整富文本预览尚未接入。
-- **Group by** 选择分组字段，可隐藏空组、隐藏指定组，并用上下按钮排列分组。Board 跨列拖动会保存对应属性；同列卡片手动排序尚未提供。受 YAML/Pandoc 或只读字段控制的值不能通过拖动覆盖。
-- 新建 Board / Calendar 时没有选择相应字段，会新增 Status / Date 属性。旧视图缺少字段时显示设置入口，不在读取时修改数据。
-- Calendar 提供 Today、前后导航、月／周切换、无日期列表以及按日期新增记录。全天日期支持拖动并保持原范围长度；带时间／时区的记录按其日期部分显示，改期通过记录属性完成，当前不提供时区切换。
-- 多个筛选和排序会完整保留；**All conditions / Any condition** 对应 AND / OR。选项条件保存稳定选项 ID，数字按数值比较，日期比较使用日期部分。隐藏记录不会删除原页面。
-- 所有视图沿用页面和字段版本校验、草稿恢复及冲突归档。桌面和手机共用实现；触摸端通过记录属性改组／改期，原生 HTML 拖动主要供鼠标操作。
+Click the current view label or right-click any label to open **View options** below the label: **Rename**, **Display as**, **Edit view**, **Source**, **Copy link to view**, show/hide data source title, **Duplicate view** and **Delete view**. Right-clicking on other tabs will not switch the current view. Copying retains the original source, field selection, filtering, sorting, and layout, and only creates a new view.
 
-## 手机使用
+When deleting the last view of a source in the current database, **Delete view only**, or **Delete view and data source** will be selected first. The former retains the source and all pages, allowing the database to temporarily have no views, and then use New view to restore the display; the latter moves its own ordinary sources and their pages into Trash. Linked/Wiki does not provide the option to delete the original source. Deletion simultaneously verifies the view and database versions, and deletion along with the source also verifies the source version; conflicts are retained and recovery records are not forced to be retried. There is no way to fix the views to the sidebar one by one. The sidebar still displays the view according to the existing Database children settings.
 
-手机 **Pages → Databases** 打开数据库列表，**New database** 新建根层数据库；页面树中的数据库打开完整表格，展开后可进入记录。普通页面底部 **Insert block → Database** 选择 Inline／Full page，以及新建或链接已有数据源。当前方言不支持数据库引用语法时只能选 Full page。Inline 保留在正文里，右侧 **Open as page** 打开完整表格，父页面中的数据库块菜单 **Turn into page** 转为页面入口。
+When there is insufficient space in the toolbar, the views that cannot fit are retracted into **n more ...**. The menu lists all views, the current selection and their respective operation entries. The view name can be searched and New view/New data source is provided. The search record is also expanded at the original position of the toolbar, and Escape is closed and cleared without occupying another line.
 
-手机表格支持编辑标题、字段、基本属性值、新增记录、新建视图、筛选、排序和搜索；宽表格在自己的区域横向滑动。点击记录的 **OPEN** 进入完整页面，编辑属性和正文后用 **Back to database** 返回；手机使用完整记录页。切换页面、视图或进入数据库前先保存待处理输入，冲突时保留原版本草稿并阻止导航。电脑导入后经云同步到手机的 full-page 和 inline 数据库使用相同入口；Notion 导入向导仍在电脑端使用。
+- **Layout** You can set the data source title, page icon, table vertical bar, all content line wrapping, and Side peek / Center peek / Full page opening method.**Load limit** Control the first batch to display 25, 50, 100 or all records,**Load more** Continue to display; do not change the number of underlying records.
+- **Property visibility**、**Filter**、**Sort**、**Group** Open submenus respectively;**Copy link to view** Copy the specified view entry,**Source** Shows the data source used,**Edit properties** Open the field list. Existing views are not rebound across data sources.
+- The header menu provides field renaming, empty field type change, filtering/sorting/grouping by this field, freezing the current column, hiding, single column line wrapping, and left and right insertion of fields. Fields containing record values ​​cannot be changed directly; date/group fields referenced by views cannot be changed to incompatible types. Freeze, hide, and wrap settings belong to the current view.
+- Table, List, Gallery, Board share group settings. The new view inherits the current record order, and the display fields can then be independently filtered, sorted, and set.
+- The grouping table repeatedly displays column headers and **New page** for each group. When adding records within the group, the grouping attributes will be filled in. The group header arrow collapses/expands and remains to the current view; **···** next to the header provides Edit groups, show record count, hide group and color settings. Option group color correction updates the option label simultaneously; empty/checked group colors are saved in the view. Hidden groups can be redisplayed in the **Group** submenu.
+- The group menu **Move to Trash** The number of records within the scope of this screening will be shown and confirmed, and then transferred to the recoverable recycling station; the number of first-time uploads is not limited. Each entry is written in a single version of the page, and if the conflict is in the middle, the number is stopped and the number is clearly reported as completed, without the obligation to cover the remaining pages.
 
-手机直接编辑记录时，页面及字段版本一并保存在恢复草稿中；重开草稿不会自动采用新字段版本强制覆盖。公式、汇总、关联、联系人、文件与文档 metadata 控制的属性继续遵循下述只读边界。
+- The card title opens the existing record panel, where the original page text and properties can be edited. The phone continues to open the complete record page.
+- **View settings → Layout** switch layout;**Property visibility** Controls the displayed fields. Gallery / Board optional card size, page cover, text preview and image adaptation. The text preview is currently a text summary, and the file attribute images and complete rich text preview have not yet been accessed.
+- **Group by** Select the grouping field to hide empty groups, hide specified groups, and use the up and down buttons to arrange groups. Board Dragging across columns will save the corresponding attributes; manual sorting of cards in the same column is not yet provided. Values ​​controlled by YAML/Pandoc or read-only fields cannot be overridden by dragging.
+- When creating a new Board / Calendar without selecting the corresponding field, the Status / Date attribute will be added. When the old view lacks fields, the setting entry is displayed and the data is not modified during reading.
+- Calendar provides Today, forward and backward navigation, month/week switching, dateless list, and new records by date. All-day dates support dragging and maintaining the original range length; records with time/time zone are displayed according to their date part, and rescheduling is completed through record attributes. Time zone switching is not currently provided.
+- Multiple filtering and sorting will be retained intact; **All conditions / Any condition** corresponds to AND / OR. The option condition saves the stable option ID, numbers are compared numerically, and dates are compared using the date part. Hiding the record will not delete the original page.
+- All views inherit page and field version verification, draft recovery, and conflict archiving. Shared implementation for desktop and mobile phones; the touch terminal is reorganized/rescheduled by recording attributes, and native HTML drag is mainly used for mouse operations.
 
-## 创建位置与页面树
+<a id="手机使用"></a>
 
-数据库可以位于知识库根层，也可以作为普通页面的子项。侧栏用同一棵页面树展示数据库和记录：点击数据库打开表格，展开后默认显示它的记录；点击记录打开普通页面。记录不会同时作为根层页面重复显示。在 **Workspace settings → Appearance → Sidebar → Database children** 中可改为 **Views**，展开后显示保存的视图，点击打开对应视图；记录仍保留在数据库中。目录树默认折叠，可在同处设置 **Default expanded levels**（0–10 层或全部）。
+## Mobile usage
 
-正文 `/database`、`/inline` 或 `/link` 都可找到同一个 **Database** 入口。创建面板选择名称、Inline／Full page，以及 **New data source** 或 **Link existing data source**；提交前不会创建资源，取消不写入数据库。创建前先保存待处理的正文，链接已有来源时同时校验其版本，失败保留创建草稿。
+Mobile phone **Pages → Databases** opens the database list, **New database** creates a new root-level database; the database in the page tree opens the complete form, which can be expanded to enter the record. At the bottom of the normal page, **Insert block → Database** select Inline/Full page, and create a new or link an existing data source. When the current dialect does not support database reference syntax, only Full page can be selected. Inline remains in the text, **Open as page** on the right opens the complete form, and the database block menu **Turn into page** in the parent page becomes the page entry.
 
-两种展示都在当前页下创建同样的 `databases/<id>.json`。Full page 创建后打开数据库，父页保存官方 `<database inline="false">` 引用；不支持该语法的方言使用普通 Markdown 链接。Inline 使用 `<database inline="true">` 嵌入同一个数据库工作区：紧凑可编辑标题、视图标签、右侧工具及表格，右侧 **Open as page** 打开完整页面。外部来源的当前视图显示箭头与 Link 标记；记录仍属于原来源，不复制定义或记录。Linked-only 数据库允许 `dataSources: []`，只有引用外部来源的视图，之后也可增加自有来源。
+Mobile tables support editing titles, fields, basic attribute values, adding new records, creating new views, filtering, sorting and searching; wide tables can slide horizontally in their own areas. Click the recorded **OPEN** to enter the complete page. After editing the properties and text, use **Back to database** to return; use the complete record page on mobile phones. Save pending input before switching pages, views, or entering the database, retaining the original draft and preventing navigation in the event of a conflict. After the computer is imported, the full-page and inline databases synchronized to the mobile phone via the cloud use the same entrance; the Notion import wizard is still used on the computer.
 
-编辑器只有一种 `block.database` 节点；inline／full page 是入口的展示属性，链接关系属于 JSON 中视图的数据源引用。块手柄或页面入口的 **··· → Turn into inline database** 将入口展开为内嵌视图；父页面中的内嵌块菜单 **Turn into page** 将其收为页面入口。完整数据库不再提供重复的转换菜单，转换在父页面的目标块上完成。转换先保存待处理正文和单元格，保留数据库 ID、来源、视图和记录，不重建 JSON。根层数据库没有父页时无法转成 inline；父页方言不支持、版本冲突或存在多个同库入口时会说明原因，多个入口需从目标块的菜单转换。
+When a record is edited directly on a mobile phone, the page and field versions are saved in the recovery draft; reopening the draft will not automatically overwrite it with the new field version. Properties controlled by Formulas, Totals, Associations, Contacts, Files and Documents metadata continue to adhere to the read-only boundaries described below.
 
-数据库的顶部面包屑按实际父页面层级导航；记录的面包屑可返回所属数据库，根层数据库仍可用 **All databases** 返回列表。标题和图标写入所属 JSON；已有引用的显式显示文字继续保留原文。
+<a id="创建位置与页面树"></a>
 
-新建数据库拥有独立 JSON，不创建空 Markdown。数据库与页面共同进入侧栏树，名称及父位置保存在数据库文件；新记录的 `parent` 指向所属数据源的数据库 ID。页面 API 为现有导航提供同 ID 的兼容条目，并以 `databaseProxy: true` 标明没有 Markdown 正文。普通页面创建／移动不能绕过数据源登记直接塞入数据库，数据库记录也不能通过普通页面移动接口改成其他父级。
+## Creation locations and the page tree
 
-宿主页沿用页面移动与回收站规则；回收宿主页时，它的记录随层级隐藏，恢复后重新显示。记录的侧栏移动入口和拖动被禁用；数据库宿主页不提供会产生不完整资源副本的普通页面复制入口。
+The database can be located at the root level of the vault or as a child of an ordinary page. The sidebar uses the same page tree to display the database and records: click the database to open the table, and its records will be displayed by default after expansion; click the record to open the ordinary page. Records will not be displayed repeatedly as root pages at the same time. **Workspace settings → Appearance → Sidebar → Database children** can be changed to **Views**. After expansion, the saved view is displayed. Click to open the corresponding view; the record is still retained in the database. The directory tree is collapsed by default, and **Default expanded levels** (0 – 10 layers or all) can be set in the same place.
 
-旧格式数据库继续沿用原宿主页或虚拟条目，读取和展开不会改写磁盘。早期没有宿主页的旧库新增记录仍保存原有 `parent: null`，树中按数据源归属显示；只有显式迁移才改用独立 JSON。新导入数据库直接采用独立文件。
+In the body, `/database`, `/inline` and `/link` all lead to the same **Database** entry. The creation panel accepts a name, Inline / Full page, and **New data source** or **Link existing data source**. Resources are created only on submission; cancelling does not write a database. Pending body input is saved first. Linking an existing source also checks its revision; failures preserve the creation draft.
 
-内嵌数据库只显示当前 data source 标题，容器名称继续属于完整数据库。正文和工具栏保持页面原宽度；表格列溢出正文宽度时，只有数据区扩展到可用页面宽度，并在内部横向滚动，不修改页面 Full width 设置。分栏内的数据库保留在所在栏内滚动。
+Both displays create the same `databases/<id>.json` under the current page. After Full page is created, the database is opened, and the parent page saves the official `<database inline="false">` reference; dialects that do not support this syntax use ordinary Markdown links. Inline uses `<database inline="true">` to embed the same database workspace: compact editable title, view labels, tools and tables on the right, and **Open as page** on the right to open the complete page. The current view of the external source shows arrows and Link markers; the records still belong to the original source and no definitions or records are copied. The Linked-only database allows `dataSources: []`, only views that reference external sources, and later own sources can be added.
 
-## 独立数据库文件
+The editor has only one `block.database` node; inline/full page are the display attributes of the entrance, and the link relationship belongs to the data source reference of the view in JSON. **of the block handle or page entry ···→ Turn into inline database** expands the entry into an inline view; **Turn into page** of the inline block menu in the parent page collapses it into the page entry. Full databases no longer provide duplicate conversion menus, conversions are done on the target block of the parent page. The conversion first saves the text and cells to be processed, retains the database ID, sources, views and records, and does not rebuild JSON. When the root database does not have a parent page, it cannot be converted to inline; the reason will be explained when the parent page dialect is not supported, there is a version conflict, or there are multiple entries in the same database. Multiple entries need to be converted from the menu of the target block.
 
-数据库存储升级为 `databases/<database-id>.json`，Database 与 Markdown Page 是同级资源。文件保存数据库展示信息、自有数据源（字段及 `pageIds`）和视图；视图的 `dataSource` 同时指定 `databaseId` 与 `dataSourceId`，跨库时显示 Link，仅引用所属库，不复制定义或页面。普通数据库不创建空 Markdown；Wiki 的 `homePageId` 指向真实正文页。页面属性仍保存在 `metadata.json`，页面 API 的数据库宿主／成员字段为兼容投影。
+The top breadcrumbs of the database navigate according to the actual parent page level; the recorded breadcrumbs can return to the corresponding database, and the root level database is still available. **All databases** returns the list. The title and icon are written to the corresponding JSON; the explicit display text that has been quoted continues to retain the original text.
 
-旧数据库格式保持可读；同步收到旧格式资源也保留其宿主页和资源格式，不因下载顺序隐式迁移。迁移必须显式执行并校验预览版本，保留 ID、未知字段和恢复记录。迁移后的旧定义退出活跃读取，删除 JSON 不会从旧定义重建数据库。成员、页面及数据库文件的联合写入仍走知识库锁、CAS 和可恢复事务。
+The newly created database has an independent JSON and does not create a blank Markdown. The database and the pages share access to the sidebar, which keeps the database files in name and parent location; the new records are `parent` References to the database ID to which the data source belongs. API provides a compatibility entry with ID for existing navigation and is used to `databaseProxy: true` Signed NoMarkdown The normal page creation/mobility cannot be bypassed by the data source registration directly into the database, nor can the database records be converted to other parent levels through the normal page mobile interface.
+
+The host page follows the page movement and recycling bin rules; when the host page is recycled, its records are hidden along with the hierarchy, and are redisplayed after restoration. Sidebar movement entries and dragging of records are disabled; the database host page does not provide a normal page copy entry that would produce an incomplete copy of the resource.
+
+The old format database continues to use the original host page or virtual entry, and reading and expanding will not rewrite the disk. New records in the old database that did not have a host page in the early days still retain the original `parent: null`, and are displayed according to the data source ownership in the tree; only explicit migration will switch to independent JSON. Newly imported databases directly use independent files.
+
+The embedded database only shows the current data source title, the container name continues to belong to the full database. The main text and toolbar maintain the original width of the page; when the table column overflows the main text width, only the data area expands to the available page width and scrolls horizontally internally, without modifying the page Full width setting. Databases within columns remain scrollable within the column.
+
+View capsules, toolbars, option cells, and cards for embedded databases use the database's own control styles; the button default styles for universal content blocks do not override them. Both development services and production builds are returned through independent temporary vaults. For testing, see `tests/e2e/database-inline-styles.spec.ts`.
+
+<a id="独立数据库文件"></a>
+
+## Individual database files
+
+Database storage upgraded to `databases/<database-id>.json`, Database and Markdown Page are resources of the same level. File save database display information, own data sources (fields and `pageIds`) and view; view's `dataSource` Specify at the same time `databaseId` with `dataSourceId`, Link is displayed when cross-library, only the owning library is referenced, and definitions or pages are not copied. Ordinary databases do not create empty Markdown; Wiki `homePageId` Points to the actual text page. Page properties are still saved in `metadata.json`, the database host/member field of page API is a compatible projection.
+
+The old database format remains readable; resources in the old format received synchronously also retain their host page and resource format, and are not implicitly migrated due to the download order. The migration must be performed explicitly and verify the preview version, retaining ID, unknown fields, and recovery records. The migrated old definition exits active reading and deleting JSON will not rebuild the database from the old definition. Joint writes to members, pages, and database files still require vault locks, CAS, and recoverable transactions.
 
 ```json
 {
@@ -143,67 +165,75 @@ Notion 导入的 Wiki 采用同一种单数据源边界。早期导入恢复出�
 }
 ```
 
-示例省略真实 UUID。自有来源只定义在所属库；外部来源仅以视图引用出现。`pageIds` 是成员关系的唯一持久真相，页面 API 的 `dataSourceId`／`wikiMember` 是读取时投影，不在 `metadata.json` 再缓存一份关系。`revision`、`linked`、`ownedDataSourceIds` 等 API 字段也不写回文件。导入宿主的来源信息和未知字段保留在可选 `pageMetadata`；迁移另保留完整 `legacyPageMetadata`。普通页面未知属性仍在原 JSON 页面记录中。
+Example omits real UUID . Own sources are only defined in the owning library; external sources only appear as view references.`pageIds` is the only enduring truth about membership, page API `dataSourceId`／`wikiMember` It is projected when reading, not `metadata.json` Cache another relationship.`revision`、`linked`、`ownedDataSourceIds` The API field is not written back to the file. Import host source information and unknown fields remain optional `pageMetadata`;Migrate and keep intact `legacyPageMetadata`. The unknown attributes of ordinary pages are still recorded in the original JSON page.
 
 ```powershell
 node --import tsx scripts/migrate-database-files.ts <vault-path>
 node --import tsx scripts/migrate-database-files.ts <vault-path> --apply
 ```
 
-第一条预览，第二条以刚取得的预览版本执行，HTTP 也提供同等的两步接口。迁移前后文件完整记录在 `.history/database-migration-<uuid>.json`；空宿主原文归档后移出 `pages/`。非空的普通数据库宿主、不同 ID 的旧宿主、歧义／缺失来源所有权和版本变化会中止并保留原文件，需先明确映射，不能依靠重试强制覆盖。旧知识库不会在打开时自动迁移。同步中的设备需使用支持独立数据库文件的同一版本。
+The first preview, the second preview version, and the HTTP provide the same two-step interface. `.history/database-migration-<uuid>.json`The original host was removed after being archived. `pages/`。The common host of the database, which is not empty, is different.ID The old host, discrete/missing source ownership and version changes will be suspended and the original file will be retained, with a clear mapping required, and cannot be relied upon forcing retrieval coverage. The old knowledge base will not automatically migrate when opened.
 
-## 旧格式存储契约
+<a id="旧格式存储契约"></a>
 
-`metadata.json` 的既有 `pages` 之外增加以下顶层记录，未知顶层和对象字段继续保留：
+## Legacy storage contract
 
-| 区域 | 内容 |
+`metadata.json`The following top-level records are added in addition to the existing `pages`, and the unknown top-level and object fields continue to be retained:
+
+| area | Content |
 | --- | --- |
-| `pages[pageId]` | `dataSourceId` 指定记录所属数据源，`properties` 保存属性值；数据库宿主页包含 `databaseId`，`parent` 保存页面树位置。 |
-| `dataSources[sourceId]` | 数据源名称、字段定义与 revision；新数据源的 `ownerDatabaseId` 指定其数据库宿主。每个字段有稳定 `id`、属性键 `key`、显示名 `name` 和 `type`；选项另有稳定 ID。 |
-| `databases[databaseId]` | 数据库名称、宿主页 `pageId`、`dataSourceIds`、`viewIds` 与 revision。 |
-| `views[viewId]` | 所属数据库及数据源、表格布局、可见字段、筛选、排序与 revision。 |
+| `pages[pageId]` | `dataSourceId`Specify the data source to which the record belongs, `properties` saves the attribute value; the database host page contains `databaseId`, and `parent` saves the page tree position. |
+| `dataSources[sourceId]` | Data source name, field definitions and revision; `ownerDatabaseId` of the new data source specifies its database host. Each field has stable `id`, property key `key`, display name `name` and `type`; the option is also stable ID. |
+| `databases[databaseId]` | Database name, host page `pageId`, `dataSourceIds`, `viewIds` and revision. |
+| `views[viewId]` | The database and data source, table layout, visible fields, filtering, sorting and revision. |
 
-标题字段直接绑定页面标题；普通属性仅保存在页面的 `properties` 中。数据源归属和页面父关系分别记录，一个页面至多有一个 `dataSourceId`；有宿主的数据库记录由该宿主页承载。不同视图引用同一组记录，不复制正文。
+The title field is directly bound to the page title; ordinary attributes are only saved in `properties` of the page. The data source ownership and page parent relationship are recorded separately, and a page has at most one `dataSourceId`; database records with a host are hosted by the host page. Different views refer to the same set of records, and the text is not copied.
 
-Wiki 容器记录 `kind: "wiki"`；早期导入的 `notionWiki: true` 继续识别。宿主页记录 `wiki: true`；成员页面的 `wikiMembership` 标记可随页面树重新计算的数据源归属，`parent` 始终保留真实层级。字段和视图继续使用既有资源格式，正文入口复用官方 `<database wiki="true">`，其他方言使用普通链接。
+The Wiki container records `kind: "wiki"`; the `notionWiki: true` imported earlier continues to be recognized. The host page records `wiki: true`; the `wikiMembership` tag of the member page can be recalculated with the data source attribution of the page tree, and `parent` always retains the true level. Fields and views continue to use existing resource formats, text entries reuse official `<database wiki="true">`, and other dialects use ordinary links.
 
-正文不保存数据库记录 JSON，也不增加自定义正文协议。现有 `<database>` 引用语法与资源定义分离；数据库从侧栏或页面引用打开时进入集合视图。备份应复制整个知识库，包括 `databases/`、Markdown 和 `metadata.json`。
+The body does not save the database record JSON, nor does it add a custom body protocol. Existing `<database>` reference syntax decoupled from resource definition; database goes into collection view when opened from sidebar or page reference. The backup should copy the entire vault, including `databases/`, Markdown, and `metadata.json`.
 
-## 保存与冲突
+<a id="保存与冲突"></a>
 
-所有变更通过 `createVault` 的本地锁和版本校验。字段定义、数据库和视图有独立 revision；单元格同时提交页面 `baseRevision` 和字段定义 `schemaRevision`。旧窗口不能将依据旧字段类型编辑的值直接写入新 schema，也不能覆盖较新的正文。
+## Saving and conflicts
 
-页面内容仍沿用成对的 Markdown / JSON 历史和冲突记录。数据库资源冲突在 `.history/database-conflicts/` 保存当前和拟写入版本；资源更新在 `.history/database-transactions/` 保存原数据库文件和拟写入资源，联合写入使用可恢复的文件批次。ZIP 与 Git 检查点包含独立数据库文件。这里提供可恢复证据，目前没有数据库历史回滚界面。
+All changes pass `createVault`'s local lock and version verification. Field definitions, databases and views have independent revision; cells submit page `baseRevision` and field definition `schemaRevision` at the same time. The old window cannot write values ​​edited based on the old field type directly to the new schema, nor can it overwrite newer text.
 
-表格草稿按知识库和数据库存于当前标签页的会话存储，保留最初的页面及字段版本；恢复草稿不会自动换成新 revision 强制重试。保存失败时的 **Discard draft and reload** 明确丢弃本标签页草稿后重新读取磁盘数据；Retry save 继续校验原版本，不自动采用其他窗口的新版本。
+The page content still uses the paired Markdown / JSON history and conflict records. Database resource conflicts save the current and planned-to-write versions in `.history/database-conflicts/`; resource updates save the original database files and planned-to-write resources in `.history/database-transactions/`, and joint writing uses recoverable file batches. ZIP and Git checkpoints contain separate database files. Recoverable evidence is provided here, and there is currently no database history rollback interface.
 
-## Notion 导入
+The form draft is stored in the session of the current tab in the vault and database, retaining the original page and field versions; restoring the draft will not automatically change to the new revision and force a retry. **Discard draft and reload** when saving fails. Explicitly discard the draft of this tab page and re-read the disk data; Retry save continue to verify the original version and do not automatically adopt new versions from other windows.
 
-在侧栏 **Import → Import from Notion API** 输入页面、数据库或数据源 URL / ID，预览后导入副本。数据库字段和记录会转为上述本地模型；正文继续使用 Enhanced Markdown，原始 JSON、Markdown 和视图配置保留在导入归档。具体权限、分页、重复提交及安全边界见 [Notion 导入](NOTION-IMPORT.md)。
+<a id="notion-导入"></a>
 
-| Notion 数据 | 当前行为 |
+## Notion import
+
+In the sidebar **Import → Import from Notion API** enter page, database or data source URL / ID, preview and import a copy. Database fields and records will be converted to the above-mentioned local model; the body continues to use Enhanced Markdown, and the original JSON, Markdown and view configuration are retained in the import archive. For specific permissions, paging, repeated submissions and security boundaries, see [ Notion and import ](NOTION-IMPORT.md).
+
+| Notion data | current behavior |
 | --- | --- |
-| 基础属性和选项 | 转为本地字段定义和可编辑值，保留来源配置。富文本属性显示为文本，原始富文本保留。 |
-| Relation | 第二遍解析同批已导入目标；未导入或无权限目标保留来源引用及未解析状态，不按标题合并。 |
-| People / Files | 保留来源结构，当前界面只读；不自动合并本地联系人或下载文件。 |
-| Formula / Rollup / 未知属性 | 保留定义和导入时结果，作为只读快照；没有本地计算引擎。 |
-| 远端视图 | 尝试读取并保留原始配置，按可支持的类型创建本地视图，恢复可见字段、支持的分组属性、日期字段和卡片预览配置；其他布局降级成表格。尚未映射的远端条件、状态大组、子分组和配置保留原始定义并提示。当前筛选导入仍仅执行可准确映射的文本 contains / AND，排序仅映射支持的基础类型；本地设置提供更多条件。 |
+| Basic properties and options | Convert to local field definitions and editable values, retaining source configuration. Rich text properties are displayed as text, and the original rich text is retained. |
+| Relation | The second pass parses the imported targets of the same batch; unimported or unauthorized targets retain their source references and unresolved status, and are not merged by title. |
+| People / Files | The source structure is retained and the current interface is read-only; local contacts or downloaded files are not automatically merged. |
+| Formula / Rollup / Unknown attribute | Preserve definitions and import-time results as read-only snapshots; no local calculation engine. |
+| Remote views | Attempt to read and retain original configuration, create local views as supported types, restore visible fields, supported grouping attributes, date fields, and card preview configuration; other layouts are downgraded to tables. Remote conditions, status groups, subgroups, and configurations that have not yet been mapped retain their original definitions and prompts. Currently filtered import still only does text that can be mapped exactly contains / AND , sorting only maps supported underlying types; local settings provide more conditions. |
 
-早期导入若将字段对象顺序直接存为默认列序，重新打开时会利用已归档视图修正显示；无可用视图则将标题列置首。这是读取时的兼容显示，不批量修改知识库文件。已有自定义列序或显示列集合继续保留。保存视图设置、筛选或排序不会重置当前列序。
+If the field object order is directly saved as the default column order in the early import, the archived view will be used to correct the display when reopened; if there is no available view, the title column will be placed first. This is a compatible display when reading, and the vault files are not modified in batches. Existing custom column sequences or display column sets will be retained. Saving view settings, filtering, or sorting does not reset the current column order.
 
-## 当前边界
+<a id="当前边界"></a>
 
-- 提供 Table、List、Gallery、Board、Calendar。Timeline、Chart、Feed、Dashboard、Form、Map 和公式／汇总计算尚未实现。
-- 数据库可经 Trash 恢复或送入系统回收站；界面暂不提供字段删除／复制、已填值字段的类型转换、现有页面加入或移出集合，以及数据库之间移动记录。
-- 视图设置支持多个排序及平面的 All / Any 筛选组合，提供包含、等于、空值和数字／日期比较。暂不支持嵌套条件组、列宽和手动卡片排序。
-- 关联、联系人和文件没有可编辑选择器；公式快照不会随本地编辑重算，界面始终标注导入结果。
-- 不恢复 Notion 权限、评论、自动化和工作区账号；附件 URL 可能过期，导入不能视为完整离线附件备份。
-- 大库性能、Android 真机数据库交互与真实 Notion 账号的完整迁移仍需进一步验证。
+## Current limitations
 
-浏览器回归在 `tests/e2e/databases.spec.ts`，使用独立 Chrome 与临时知识库，覆盖创建和编辑、页面属性联动、字段改名、pending 输入与浏览器返回、保存期间继续输入、冲突及草稿恢复、文档覆盖、保存视图、编辑后的筛选刷新、右侧记录编辑和窄屏布局。2026-09-28 隔离构建下的八项测试全部通过，截图与范围见 [设计及交互验证](../verification/DATABASES-DESIGN-QA-2026-09-28.md)。
+- Provide Table, List, Gallery, Board, Calendar. Timeline, Chart, Feed, Dashboard, Form, Map and formula/summary calculations are not implemented yet.
+- The database can be restored through Trash or sent to the system recycle bin; the interface currently does not provide field deletion/copying, type conversion of filled-in fields, adding or removing existing pages from the collection, and moving records between databases.
+- View settings support multiple sorting and flat All / Any filter combinations, providing Contains, Equals, NULL, and Number/Date comparisons. Nested conditional groups, column widths, and manual card sorting are not supported yet.
+- There are no editable selectors for associations, contacts, and files; formula snapshots are not recalculated with local edits, and the interface always labels the imported results.
+- Notion permissions, comments, automation and workspace accounts are not restored; the attachment URL may be expired and the import cannot be considered a complete offline attachment backup.
+- Large database performance, Android real machine database interaction and complete migration of real Notion accounts still need further verification.
 
-创建与层级回归在 `tests/e2e/database-hierarchy.spec.ts`，内嵌编辑与导航保护在 `tests/e2e/database-inline.spec.ts`。根层／嵌套宿主、记录归属、两种斜杠创建、重新加载、旧库只读投影、内嵌草稿与冲突均有覆盖；连同已有数据库、导入、MCP 语法、页面导航和侧栏拖动，36 项定向浏览器测试通过。最后一次拖动边界修正后，层级与拖动的 9 项复测也全部通过。
+The browser returns to `tests/e2e/databases.spec.ts`, using independent Chrome and temporary vault, covering creation and editing, page attribute linkage, field renaming, pending input and browser return, continued input during saving, conflict and draft recovery, document overlay, saved view, filter refresh after editing, right record editing and narrow screen layout. All eight tests under the 2026-09-28 isolation build passed. For screenshots and scope, see [ Design and Interactive Verification ](../verification/DATABASES-DESIGN-QA-2026-09-28.md).
 
-图标与引用入口回归在 `tests/e2e/database-icons.spec.ts`，覆盖 Emoji／Lucide／Remove、持久化、原文保留、冲突和导航；创建用例已改为验证直接生成 **New database**，随后编辑标题。最新九文件定向运行共 36 个不同用例：首次 33 项通过，3 项测试定位修正后全部通过；另复测 3 项已有通过用例。详见上述验证记录，不代表全量浏览器套件通过。
+Creation and hierarchical regression in `tests/e2e/database-hierarchy.spec.ts`, inline editing and navigation are protected in `tests/e2e/database-inline.spec.ts`. Root level/nested hosting, record ownership, two slash creations, reloading, old library read-only projection, inline drafts and conflicts are all covered; together with existing databases, imports, MCP syntax, page navigation and sidebar dragging, 36 directed browser tests are passed. After the last dragging boundary correction, all 9 retests of levels and dragging passed.
 
-随后修正子数据库引用的额外外间距，四文件 9 项复测全部通过，含等距排列断言及 3 项补充通用块间距用例；合计 39 个不同定向用例有通过结果。
+The icon and reference portal is back in `tests/e2e/database-icons.spec.ts`, covering Emoji/Lucide/Remove, persistence, original text retention, conflicts and navigation; creating use cases has been changed to verifying direct generation **New database**, then edit the title. The latest nine-file directional operation has a total of 36 different use cases: 33 passed for the first time, 3 all passed after the test positioning was corrected; 3 has already passed the retest use case. See the above verification record for details, which does not mean that the entire browser suite has passed.
+
+Subsequently, the extra outer spacing referenced by the sub-database was corrected, and all 9 items in the four files passed the retest, including the equidistant arrangement assertion and the 3 item to supplement the general block spacing use case; a total of 39 different directional use cases had passing results.

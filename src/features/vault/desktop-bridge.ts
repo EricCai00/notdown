@@ -1,6 +1,11 @@
 declare global {
   interface Window {
     notdownDesktop?: {
+      uiLanguage?: {
+        get(): Promise<"en" | "zh-CN" | null>;
+        set(value: "en" | "zh-CN"): Promise<void>;
+        onChanged(callback: (value: "en" | "zh-CN") => void): () => void;
+      };
       notionImportClipboard?: { get(): Promise<string> };
       notionImportToken: { get(): Promise<string>; set(token: string): Promise<void> };
       quit(): Promise<void>;

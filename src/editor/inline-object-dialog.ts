@@ -1,3 +1,4 @@
+import { setUIText, setUIAttribute } from "../shared/i18n";
 import { apiUrl } from "../shared/vault-url";
 import { isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
@@ -21,7 +22,7 @@ export function inlineObjectDialog(command: InlineObjectCommand, config: SyntaxC
   const fields = document.createElement("div"), hint = document.createElement("p"); hint.className = "muted";
   const output = document.createElement("output"); output.setAttribute("role", "status");
   const save = document.createElement("button"), cancel = document.createElement("button");
-  save.type = "submit"; save.textContent = "Insert"; cancel.type = "button"; cancel.textContent = "Cancel"; cancel.onclick = () => dialog.close();
+  save.type = "submit"; setUIText(save, "Insert"); cancel.type = "button"; setUIText(cancel, "Cancel"); cancel.onclick = () => dialog.close();
   form.append(fields, hint, output, save, cancel); dialog.append(title, form);
   const render = () => {
     fields.replaceChildren(); for (const key of Object.keys(controls)) delete controls[key]; output.textContent = "";
@@ -33,14 +34,14 @@ export function inlineObjectDialog(command: InlineObjectCommand, config: SyntaxC
     if (encoding.value === "critic") {
       if (command !== "addition") add("old", "Original text", true);
       if (command !== "deletion") add("text", "New text", true);
-      hint.textContent = "One inline revision. Double-click an existing revision to edit it, accept it or reject it.";
+      setUIText(hint, "One inline revision. Double-click an existing revision to edit it, accept it or reject it.");
     } else {
       const key = add("key", encoding.value === "notion" ? "Source URL" : command === "metadata_variable" ? "Variable name" : "Reference key");
       const choices = inlineChoices(doc, command, encoding.value as InlineEncoding);
       if (command === "citation" && encoding.value !== "notion") for (const [key, value] of Object.entries(bibliography)) if (!choices.has(key)) choices.set(key, value);
       if (choices.size) {
-        const list = document.createElement("select"); list.setAttribute("aria-label", "Existing references");
-        const option = document.createElement("option"); option.value = ""; option.textContent = "New reference"; list.append(option);
+        const list = document.createElement("select"); setUIAttribute(list, "aria-label", "Existing references");
+        const option = document.createElement("option"); option.value = ""; setUIText(option, "New reference"); list.append(option);
         for (const [value, text] of choices) { const option = document.createElement("option"); option.value = value; option.textContent = `${value} — ${text.slice(0, 90)}`; list.append(option); }
         fields.prepend(list); list.onchange = () => { key.value = list.value; if (controls.body) controls.body.value = inlineChoices(doc, command, encoding.value as InlineEncoding).get(list.value) || ""; };
       }

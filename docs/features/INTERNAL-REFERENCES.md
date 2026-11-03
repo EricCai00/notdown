@@ -1,31 +1,39 @@
-# 页面与位置链接
+<a id="页面与位置链接"></a>
 
-Notion 页面提及、Obsidian Wiki 链接及 Typora／普通 Markdown 内链共用 `InternalReference` 语义模型，Block Explorer 中统一归入 `inline.internal_link`。页面和位置是该对象的两种目标范围；数据库／数据源提及仍独立，不表示页面或数据库所有权。
+# Page and location links
 
-`/` 菜单提供两个入口：
+**English** · [简体中文](INTERNAL-REFERENCES.zh-CN.md)
 
-- **Page link（页面链接）**：引用完整页面，包括 `[[Example]]` 和 `<mention-page>`。
-- **Location link（位置链接）**：选择当前页或其他页面的标题、已有块 ID 或锚点，包括 `[[Example#Details]]`、`[[Example#Overview#Details]]`、`[[Example#^item]]` 及 `[详情](Example.md#details)`。
+Notion page mentions, Obsidian Wiki links, and Typora/ordinary Markdown internal links share the `InternalReference` semantic model, and Block Explorer is unified into `inline.internal_link`. Page and location are the two target scopes for this object; database/data source mentions remain independent and do not imply page or database ownership.
 
-插入器允许填写显示文字。显式 Wiki 别名和普通 Markdown 链接文字保持不变；自动页面标签随已解析页面的标题显示。Markdown 仍是正文真相，未修改的原文、未知属性与原有写法保留，不批量转换既有文件。普通链接继续使用富文本 mark，Wiki／mention 使用行内引用节点；两者共享分类、目标解析、导航与反向链接。
+`/`The menu provides two entrances:
 
-## 输入时补全
+- **Page link (page link)**: Quote the complete page, including `[[Example]]` and `<mention-page>`。
+- **Location link (location link)**: Select the title of the current page or other pages, existing block ID or anchor point, including `[[Example#Details]]`、`[[Example#Overview#Details]]`、`[[Example#^item]]` and `[详情](Example.md#details)`。
 
-可视正文输入 `[[`、`+页面名` 实时搜索页面；`@页面名` 在已有联系人／日期菜单中提供页面候选。按 ↑/↓ 选择，Enter/Tab 或点击插入，Escape 取消且保留输入。重名页面通过父位置与短 ID 区分，选择后写稳定页面 ID，不猜测重名目标。回收站页面及其后代不列入候选。
+The inserter allows display text to be filled in. Explicit Wiki aliases and normal Markdown link text remain unchanged; automatic page labels appear with the title of the parsed page. Markdown is still the original text. The unmodified original text, unknown attributes and original writing methods are retained, and existing files are not converted in batches. Ordinary links continue to use rich text mark, and Wiki/mention use inline reference nodes; both share classification, target resolution, navigation and backlinks.
 
-`[[` 菜单优先列出已有页面，`+` 优先创建；可选择当前页、其他页面或知识库顶层作为创建位置。创建调用既有页面 API／createVault，不切换当前编辑页。异步返回前发生编辑、取消、视图切换或页面导航时，不再向旧位置插入；已成功创建的页面保留在侧栏。失败不清除输入或强制重试。撤销引用插入不删除创建的页面。
+<a id="输入时补全"></a>
 
-Wiki 启用时沿用 Wiki 编码，官方页面提及可用时沿用 `<mention-page>`，其余方言使用普通 Markdown 内链。既有 `[[目标|别名]]` 与位置源码不被实时页面菜单截走；`+` + 空格仍是无序列表。转义、代码、链接及 IME 组合输入期间不触发菜单。`(@` 继续由示例引用菜单处理。这里不扩展全库标题／块搜索，也不增加新的正文协议。
+## Completion while typing
 
-## 位置与方言
+Visual text input `[[`, `+页面名` real-time search page; `@页面名` provides page candidates in the existing contact/date menu. Press ↑/↓ to select, Enter/Tab or click to insert, Escape to cancel and keep the input. The page with the same name is distinguished by the parent position and the short ID. After selecting, the stable page ID is written, and the target with the same name is not guessed. Recycle bin pages and their descendants are not candidates.
 
-- Wiki 标题引用按标题文本与可选父标题链定位；Markdown fragment 优先匹配方言生成的标题 ID 或显式锚点。
-- Obsidian／Notdown 接受段落末尾 ` ^block-id`、列表项末尾 ` ^item-id`，以及结构化块后空行分隔的独立 `^block-id`。代码围栏、行内代码和转义内容不被当成块 ID。
-- Obsidian 文档的“特定行”是带块 ID 的列表项，不是任意源码行号。未增加 `#L42` 私有协议，也不支持引用表格单元格、引用块或 callout 的内部片段。
-- 位置选择器列出已有目标；暂不为无 ID 的块自动写入 ID。未知或重复块 ID 不自动选取目标。
-- HTML 的 `id` 和 `<a name>` 在安全投影中使用 `md-` 命名空间，保留原始锚点身份；脚本、事件处理器和应用操作属性仍被移除。
-- 官方 `notion-markdown` 不解释 Wiki 或 Obsidian 块 ID 源码。输入快捷键可转成官方页面提及或普通链接；模型统一不会越过方言边界。
+`[[`The menu lists existing pages first, and `+` is created first; you can select the current page, other pages, or the top level of the vault as the creation location. Create and call the existing page API/createVault without switching the current editing page. When editing, cancellation, view switching, or page navigation occurs before asynchronous return, the old position will no longer be inserted; the successfully created page will remain in the sidebar. Failure does not clear the input or force a retry. Undo reference insertion does not delete the created page.
 
-跨页跳转沿用页面保存与 CAS 冲突流程，URL 保留目标片段，支持刷新与历史导航。反向链接和关系图按解析后的页面归并，不把标题／块片段拼进页面身份。重名且无法确定身份的页面保持未解析；这里没有实现完整 Obsidian 文件路径、别名索引、自动重命名修复或全库 `[[##`／`[[^^` 自动补全。
+When Wiki is enabled, Wiki encoding will be used. When the official page mentions that it is available, `<mention-page>` will be used. Other dialects use ordinary Markdown internal links. The existing `[[目标|别名]]` and location source code are not intercepted by the real-time page menu; `+` + space is still an unordered list. Menus are not triggered during input of escape, code, link and IME combinations. `(@` continues to be handled by the example reference menu. This does not extend the full library title/block search, nor does it add new text protocols.
 
-来源：[Obsidian Internal links](https://obsidian.md/help/links)、[Typora Links](https://support.typora.io/Links/)、[Notion Enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)。
+<a id="位置与方言"></a>
+
+## Locations and dialects
+
+- Wiki title references are positioned by title text with an optional parent title chain; Markdown fragment preferentially matches dialect-generated titles ID or explicit anchors.
+- Obsidian/Notdown accept ` ^block-id` at the end of a paragraph, ` ^item-id` at the end of a list item, and a standalone `^block-id` separated by a blank line after a structured block. Code fences, inline code, and escaped content are not treated as blocks ID.
+- The "specific line" of the Obsidian document is the list item with block ID, not an arbitrary source code line number. No `#L42` private protocols have been added, and there is no support for referencing table cells, referencing blocks, or internal fragments of callout.
+- The location selector lists existing targets; not None yetID blocks are automatically writtenID。unknown or duplicate blockID Does not automatically select targets.
+- HTML's `id` and `<a name>` use the `md-` namespace in the security projection, retaining the original anchor identity; script, event handler, and application action attributes are still removed.
+- Official `notion-markdown` does not interpret Wiki or Obsidian blocks of ID source code. Enter shortcut keys to convert official page mentions or ordinary links; model unification will not cross dialect boundaries.
+
+Cross-page jumps follow the conflict process between page saving and CAS. URL retains the target fragment and supports refresh and historical navigation. Backlinks and relationship diagrams are combined according to the parsed page, and the title/block fragment is not integrated into the page identity. Pages with duplicate names and unidentified pages remain unresolved; there is no implementation of full Obsidian file paths, alias indexing, automatic rename repair, or full-base `[[##`/`[[^^` autocompletion.
+
+Source: [ Obsidian Internal links ](https://obsidian.md/help/links), [ Typora Links ](https://support.typora.io/Links/), [ Notion Enhanced Markdown ](https://developers.notion.com/guides/data-apis/enhanced-markdown).

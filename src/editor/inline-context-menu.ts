@@ -1,3 +1,4 @@
+import { setUIText, setUIAttribute } from "../shared/i18n";
 import { Fragment, type Node as PMNode } from "prosemirror-model";
 import { Plugin, NodeSelection, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
@@ -72,20 +73,20 @@ export function inlineContextMenu(options: Options) {
         const baseline = view.state.doc;
         const dialog = editDialog = document.createElement("dialog"); dialog.className = "pm-link-dialog";
         const form = document.createElement("form"), heading = document.createElement("h3"), input = document.createElement("textarea"), output = document.createElement("output");
-        heading.textContent = "Edit inline source";
-        input.setAttribute("aria-label", "Inline source"); input.value = inlineSource(baseline, target, options.serialize);
+        setUIText(heading, "Edit inline source");
+        setUIAttribute(input, "aria-label", "Inline source"); input.value = inlineSource(baseline, target, options.serialize);
         output.setAttribute("role", "status");
         const save = document.createElement("button"), cancel = document.createElement("button");
-        save.type = "submit"; save.textContent = "Save"; cancel.type = "button"; cancel.textContent = "Cancel"; cancel.onclick = () => dialog.close();
+        save.type = "submit"; setUIText(save, "Save"); cancel.type = "button"; setUIText(cancel, "Cancel"); cancel.onclick = () => dialog.close();
         form.append(input, output, save, cancel); dialog.append(heading, form);
         form.onsubmit = event => {
           event.preventDefault();
-          if (!view.editable || !view.state.doc.eq(baseline)) { output.textContent = "Content changed. Reopen the inline editor."; return; }
+          if (!view.editable || !view.state.doc.eq(baseline)) { setUIText(output, "Content changed. Reopen the inline editor."); return; }
           try {
             const parsed = options.parse(input.value);
             if (parsed.childCount !== 1 || editorKind(parsed.firstChild) !== "paragraph" || !parsed.firstChild!.content.size ||
               parsed.attrs.sourcePrefix?.trim() || parsed.attrs.sourceSuffix?.trim() || parsed.attrs.sourceGaps?.some((gap: string) => gap.trim())) {
-              output.textContent = "Enter inline content only, without blocks or definitions."; return;
+              setUIText(output, "Enter inline content only, without blocks or definitions."); return;
             }
             // Unchanged source must not normalize legacy attributes or definitions.
             if (input.value !== inlineSource(baseline, target, options.serialize)) {

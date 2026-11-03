@@ -1,3 +1,4 @@
+import { setUIText } from "../../shared/i18n";
 import { createEditorNode } from "../../document/node-identity";
 import {
   Plugin,
@@ -94,7 +95,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
     if (peopleAllowed()) {
       const heading = document.createElement("div");
       heading.className = "pm-date-heading";
-      heading.textContent = "People";
+      setUIText(heading, "People");
       panel.append(heading);
       if (!people.length) {
         const hint = document.createElement("div");
@@ -109,7 +110,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
         const heading = document.createElement("div");
         heading.className = "pm-date-heading";
         heading.dataset.pageHeading = "";
-        heading.textContent = "Pages";
+        setUIText(heading, "Pages");
         panel!.append(heading);
       }
       const button = document.createElement("button");
@@ -132,7 +133,7 @@ export function dateMentionInput(allowed: () => boolean, peopleAllowed: () => bo
       } else if (choice.kind === "page") {
         button.dataset.pageId = choice.page.id;
         button.textContent = pageInputLabel(choice.page, pageOptions!.pages());
-      } else button.textContent = "Manage people…";
+      } else setUIText(button, "Manage people…");
       button.onpointerdown = event => event.preventDefault();
       button.onclick = () => choose(choice);
       panel!.append(button);

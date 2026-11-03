@@ -1,22 +1,28 @@
-# 本地对象与服务
+<a id="本地对象与服务"></a>
 
-当前写入规则见[保留的自定义扩展](NOTDOWN-EXTENSIONS.md)：Web embed、书签、Tabs、会议标题与转录改用官方载体；下文旧属性形式仅为历史记录。服务与布局缺口仍以文档列出的补充字段保留。
+# Supplementary local content objects
 
-2026-09-27：MCP 已明确的 Tabs、分区 Meeting notes、HTML 附件 embed、Folder/Database 引用等现已在 Notdown 与 Notion Markdown 共同支持，见[规范语法](NOTION-MCP-SYNTAX.md)。下文 Tabs 的 title/active 属性、会议笔记的 audio/language 等属于旧 Notdown 补充编码，只保留兼容读取和编辑；新插入的 Tabs、会议笔记使用官方形式。`<embed>` 也共用 `block.web_embed`，并保留自己的 URL 附件编码。此修订优先于下面的历史说明。
+**English** · [简体中文](LOCAL-OBJECTS.zh-CN.md)
 
-2026-09-22 方言边界修正：各方言默认值按上游规范独立定义，仅 Pandoc 自身预设沿用 Pandoc 3.11 快照。九种本地对象改为默认关闭的独立插件，在页面语法面板开启；旧正文不迁移、不删除。已实现默认规则隔离、显式启用、解析／命令／目录统一门控；尚未宣称完整上游一致性或跨端同步。详见[方言核对与插件说明](./DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
+For the current writing rules, see [. The reserved custom extensions ](NOTDOWN-EXTENSIONS.md): Web embed, bookmarks, Tabs, conference titles and transcriptions are changed to official carriers; the old attribute forms below are only historical records. Service and layout gaps remain as supplementary fields listed in the documentation.
 
-2026-09-22。逐项能力见 [对象 Roadmap](../architecture/CONTENT-OBJECT-ROADMAP.md)。implemented 表示具备该行说明的本地编辑／保存路径，不代表任意方言完整兼容或已调用真实外部服务。字符类继续作为文本处理能力展示。
+2026-09-27：MCP It is clear.Tabs、DistrictsMeeting notes、HTML Annex to thisembed、Folder/Database The reference is already inNotdown withNotion Markdown Common support, see[The rules of grammar](NOTION-MCP-SYNTAX.md)。The followingTabs oftitle/active Attributes, meeting notesaudio/language It's the old one.Notdown Add code, with read and edit compatibility only; newly insertedTabs、The meeting notes are used in official form.`<embed>` Share `block.web_embed`The code is not available to the public, and it retains its own code in the URL attachment. This revision is prioritized by the following historical reference.
 
-## 编辑与编码
+2026-09-22 dialect boundary correction: each dialect's default value is independently defined according to the upstream specification, and only Pandoc's own default default follows the Pandoc 3.11 snapshot. Nine types of local objects have been changed to independent plug-ins that are turned off by default and turned on in the page syntax panel; old text will not be migrated or deleted. Default rule isolation, explicit enablement, and parsing/command/directory unified gating have been implemented; full upstream consistency or cross-end synchronization has not been claimed. For details, see [ Dialect Checking and Plug-in Description ](DIALECT-CONFORMANCE.md); if the historical description below conflicts with it, this revision shall prevail.
 
-Tabs 的页签标题、正文、选中项和顺序可编辑并撤销。Web bookmark 的 URL、标题、描述及图片由用户填写。Link preview 支持 GitHub 仓库、PR/Issue、代码和 OneDrive / SharePoint 文件的实时只读预览，其他网站保留手填静态卡片；粘贴可选普通链接、行内引用或卡片。凭据、刷新策略和限制见 [Link Preview](../features/LINK-PREVIEWS.md)。Breadcrumb 使用无外框的行内页面图标、名称和斜杠分隔，悬停及键盘聚焦显示背景；路径为空时显示当前页面的父级链，有序页面 ID 路径仍优先采用，缺失／回收站页面显示不可点击的占位。自动路径不写入正文。图片的替代文字与题注分别保存。HTML embed 是禁用脚本的隔离 iframe，与 HTML block 分开。
+2026-09-22. See [ object Roadmap ](../architecture/CONTENT-OBJECT-ROADMAP.md) for itemized capabilities. implemented represents the local editing/save path with this line description, which does not mean that any dialect is fully compatible or that real external services have been called. Character classes continue to serve as a showcase for text processing capabilities.
 
-本地标签包括 `tabs/tab`、`bookmark`、`link-preview`、`breadcrumb`、`button`、`meeting-notes`、`ai-block`、`web-embed`、`figure`。它们是本地对象编码，**不全部属于 Notion 官方 Markdown 标签**。
+<a id="编辑与编码"></a>
 
-`web-embed` 与已有 Typora iframe、官方 Notion embed 共用 PM `block.web_embed`。`editorRepresentation` 记录各自编码；不向 Markdown 写入内部字段。`html-embed` 标签与独立 HTML 插入入口已移除。
+## Editing and encoding
 
-Web embed 面板支持 HTTP(S) 链接，以及 HTML 文件上传／拖放。HTML 文件先通过知识库 API 保存为 `assets/*.html`，确认后只提交附件 URL 到文档；取消不提交，失败可重试，外部更新或页面切换关闭旧草稿，延迟上传结果不能覆盖新内容。上传后的独立附件不会因撤销而删除。上传文件预览禁用脚本与同源权限；资源响应也强制 sandbox，允许内联样式与 data 图片。远程网页仍受目标站点嵌入限制。HTML 相对资源不自动复制。旧内容使用显式迁移脚本提取为附件，按 CAS 保存并保留原正文历史；代码围栏示例不改写。
+The title, font, selections and sequence of the Tabs page can be edited and removed. Web bookmark's URL, the title, description and images are filled in by the user. Link preview supports real-time previews of GitHub repositories, PR/Issue, code and OneDrive / SharePoint files, while other websites retain static cards. Select common links, inline references or cards. [Link Preview](../features/LINK-PREVIEWS.md)Breadcrumb uses an inline page icon, name and slash separation with no outer frames, suspended and keyboard focus to display background; paths show the parent chain of the current page in free time, the orderly page path ID is still preferred, and the missing/recycled site page displays uncliced positions. Auto paths are not written in the original. The image's alternate text and footnotes are saved respectively. HTML embed is a separate iframe from HTML block that disables the script.
+
+Local labels include `tabs/tab`、`bookmark`、`link-preview`、`breadcrumb`、`button`、`meeting-notes`、`ai-block`、`web-embed`、`figure`They are locally encoded objects.**Not all of them.Notion officialMarkdown Labels**。
+
+`web-embed` The currentTypora iframe、officialNotion embed SharedPM `block.web_embed`。`editorRepresentation` Record their respective coding; do not write internal fields to Markdown.`html-embed` The tag and the independent HTML input have been removed.
+
+The Web embed panel supports the HTTP (S) link, and uploads/drags of HTML files. HTML files are first saved as API in the vault. `assets/*.html`After confirmation, submit only the attachment URL to the document; unsubmit, fail to retest, external update or page switching, close old draft, delay upload results cannot cover new content. Independent attachments after upload will not be removed due to revocation. Resource response also mandates sandbox, allowing in-line style with data images. Remote web pages are still restricted to embedding at target sites. HTML does not automatically copy the relative resources. Old content uses explicit migration scripts extracted as attachments, and is preserved and preserved in the original text history according to CAS. The code fence example is not rewritten.
 
 ```markdown
 <tabs active="0">
@@ -39,49 +45,55 @@ Editable notes or transcript
 </meeting-notes>
 ```
 
-未修改块复用原文；已编辑对象保留未知标签属性。无效或未闭合容器保留原文。各表格编码共用模型，合并操作仅在当前配置能表达跨度时启用。Raw source / Raw TeX 保留目标格式并可编辑源码，不假设浏览器能渲染全部格式。
+Unmodified blocks reuse the original text; edited objects retain unknown tag attributes. Invalid or unclosed containers retain the original text. Each table encoding shares a model, and the merge operation is only enabled when the current configuration can express the span. Raw source / Raw TeX retains the target format and can edit the source code, without assuming that the browser can render all formats.
 
-块属性及正文元数据字段从拖动手柄菜单的 **Properties…** 打开弹窗，不再占用正文中的折叠面板。字段先保存在窗口草稿中，Save 作为一次可撤销更新提交；Cancel／Escape 丢弃草稿，块被更新或删除后禁止覆盖旧值。Tabs 的活动标签及每个 Tab 的标题分别从对应块的菜单编辑。双击行内图片、原始格式内容、提及、引文、脚注引用仍可编辑属性／源码；缩写和替换标记保留属性面板。Pandoc example list 使用 `(@label)`，引用使用 `@label`。Native div/span、Small caps 和行内注释按扩展开关解析。页面 cover 保存到 `properties.cover`；正文元数据字段编辑独立于页面外层 YAML，未知字段保留。MMD 限制见 [元数据规则](../architecture/METADATA-AND-COMPATIBILITY.md)。
+Block properties and metadata fields from the drag-and-drop menu **Properties…** Open the pop-up window and no longer occupy the folding panel in the original text. Fields are preserved in the window draft, with Save as a revocable update submission; Cancel/Escape discards the draft, blocks are updated or removed and old values are prohibited from covering it. The activity labels of Tabs and the headings of each Tab are edited separately from the menu of the corresponding blocks. The image, the original format content, the reference, the quotation, the footnote references can still be edited by the attribute/source; the shortening and replacement of the tag retains the attribute panel. Pandoc example list is used `(@label)`References to use `@label`• Native div/span and Small caps and inline notes are analyzed by the extended switch. • Page cover is saved to `properties.cover`；Edit the official data field independently of the outer layer of the pageYAML，Unknown fields are reserved.MMD Limitations See[Principles of data](../architecture/METADATA-AND-COMPATIBILITY.md)。
 
-## OpenAI-compatible 服务
+<a id="openai-compatible-服务"></a>
 
-Settings → OpenAI-compatible services 配置 API endpoint（例如 `https://api.openai.com/v1`）、Text model、Transcription model 和 API key。模型 ID 由服务商提供；应用未硬编码模型。端点接受 HTTPS 或本机 HTTP，不含凭据、查询参数或 fragment。
+## OpenAI-compatible services
 
-- Generate：POST `/chat/completions`，非流式，发送 prompt、当前块文字和模型。结果是可编辑段落，可撤销。
-- Transcribe：POST `/audio/transcriptions`，multipart 文件及模型，可选 language；音频必须位于本知识库 assets，最大 25 MB（应用上传限制另为 20 MB）。结果是可编辑段落。
-- 请求期间编辑过该块时，结果仅显示在状态区，不替换新内容。失败保留原文。最多两个并行请求，120 秒超时。
+Settings → OpenAI-compatible services configures API endpoint (e.g. `https://api.openai.com/v1` ), Text model , Transcription model and API key . Model ID is provided by the service provider; the application does not hardcode the model. The endpoint accepts HTTPS or native HTTP without credentials, query parameters, or fragment .
 
-设置保存到当前知识库 `.notdown/services.json`，API key 是本地明文字段，不进入页面 Markdown、浏览器持久设置或 GET 设置响应。空密码框保留旧密钥，勾选 Remove saved API key 才清除。备份知识库时需按自己的密钥管理方式处理该文件。仅点击对应动作时发送相应文字或音频。
+- Generate: POST `/chat/completions`, non-streaming, sends prompt, current block text and model. The result is an editable paragraph that can be undone.
+- Transcribe: POST `/audio/transcriptions`, multipart files and models, optional language; the audio must be in this vault assets, the maximum is 25 MB (the application upload limit is 20 MB). The result is an editable paragraph.
+- When the block has been edited during the request, the results are only displayed in the status area and are not replaced with new content. If failed, keep the original text. Maximum of two parallel requests, 120 second timeout.
 
-协议依据：[Chat Completions](https://platform.openai.com/docs/api-reference/chat/create)、[Audio transcriptions](https://platform.openai.com/docs/api-reference/audio/createTranscription)。兼容服务可能只支持其中一个接口；自动化测试使用模拟服务，真实账号由用户在应用中配置。
+The settings are saved to the current vault `.notdown/services.json` and API key are local clear text fields and do not enter page Markdown, browser persistent settings or GET settings responses. The empty password box retains the old key and is cleared only when Remove saved API key is checked. When backing up the vault, you need to handle the file according to your own key management method. Only send corresponding text or audio when the corresponding action is clicked.
 
-## 本地执行边界
+Agreement basis: [ Chat Completions ](https://platform.openai.com/docs/api-reference/chat/create), [ Audio transcriptions ](https://platform.openai.com/docs/api-reference/audio/createTranscription). Compatible services may only support one of the interfaces; automated testing uses simulated services, and real accounts are configured by users in the application.
+
+<a id="本地执行边界"></a>
+
+## Local execution boundaries
 
 ### Button
 
-参考 [Notion Buttons](https://www.notion.com/help/buttons) 的点击执行、齿轮配置、多步骤动作与四种插入位置；外观参考[官方配置截图](https://www.notion.com/help/guides/automatically-generate-blocks-pages-with-buttons)。Notdown 的 `<button>` 是 `notion_button` 插件编码，不是 Notion 官方 Enhanced Markdown 自动化格式。
+Reference [Notion Buttons](https://www.notion.com/help/buttons) The click execution, turning configuration, multi-step movement with four insertion positions; external reference[Official configuration screenshot](https://www.notion.com/help/guides/automatically-generate-blocks-pages-with-buttons). Notdown's `<button>` Yes `notion_button` Plugin coding, not the official Notion Enhanced Markdown automation format.
 
-按钮正文只显示名称与可选 emoji，不再显示另一个 Run button 控件。悬停／键盘聚焦显示齿轮，Properties… 也打开同一内联配置。名称、图标和样式实时预览；Done 提交，Cancel／Escape 撤销配置草稿，外部更新不会覆盖成旧值。支持动作增删、复制、上下移动，最多 50 步。
+The button body only displays the name and optional emoji , and no longer displays another Run button control. Hover/keyboard focus shows gear, Properties... also opens the same inline configuration. Real-time preview of name, icon and style; Done submission, Cancel/Escape undo configuration draft, external updates will not overwrite old values. Supports actions to add, delete, copy, move up and down, up to 50 steps.
 
-`actions` 为 XML 转义后的 JSON 数组；已有 `action/target` 兼容读取，存在 `actions` 时优先，非法 JSON 不回退执行旧动作。未修改原文逐字保留，修改后仍保留未知标签和动作字段。
+`actions` For theXML The TranslationsJSON The number of`action/target` Compatibility with reading, existence `actions` Priority is given to illegal JSON that does not retreat from the old action. The original word-for-word not modified is retained, and the unknown tags and action fields are retained after modification.
 
 ```markdown
 <button label="New task" icon="＋" variant="default" actions="[{&quot;type&quot;:&quot;insert-blocks&quot;,&quot;position&quot;:&quot;below&quot;,&quot;content&quot;:&quot;- [ ] New task&quot;}]"/>
 ```
 
-- `insert-blocks`：`content` 是按当前页面方言解释的 Markdown，配置界面提供源码输入与预览；`position` 为 `above/below/start/end`。多个同位置步骤保持配置顺序；解析后检查模板边界，不允许未闭合代码／容器吞并邻接内容。
-- `confirmation`：`message` 为纯文本。所有确认通过后统一提交正文，任一取消则整组不修改正文。等待时页面发生修改则终止，重新点击才能重试。
-- `open-url`：`target` 为 `#page/<id>` 或 HTTP(S) URL，只能作为最后一步；本地页走现有收取输入和保存导航，外链新标签打开并提供浏览器拦截时的链接回退。
-- 旧 `insert-text` 保持纯文本语义，旧 `toggle-tasks` 保持当前页待办反转行为；二者只为兼容已有配置，不冒充 Notion 原生动作。
+- `insert-blocks`: `content` is Markdown interpreted according to the dialect of the current page, and the configuration interface provides source code input and preview; `position` is `above/below/start/end`. Multiple co-located steps maintain configuration order; check template boundaries after parsing, and do not allow unclosed code/containers to engulf adjacent content.
+- `confirmation`: `message` is plain text. After all confirmations are passed, the text will be submitted uniformly. If any one is canceled, the whole group will not modify the text. If the page is modified while waiting, it will terminate. Click again to try again.
+- `open-url`: `target` is `#page/<id>` or HTTP (S) URL, which can only be used as the last step; the local page uses the existing collection input and save navigation, and the external link opens a new tab and provides a link fallback when the browser intercepts it.
+- The old `insert-text` maintains plain text semantics, and the old `toggle-tasks` maintains the to-do reversal behavior of the current page; both are only for compatibility with existing configurations and do not pretend to be Notion native actions.
 
-一次执行对应独立撤销记录，仍经页面 `baseRevision`／CAS 保存。只读预览不能执行或改配置。不支持数据库增改、通知、邮件、Webhook、变量公式、云端联动或原生块模板编辑器；样式当前提供默认描边、灰底和蓝底。
+One execution corresponds to an independent undo record, which is still saved by page `baseRevision`/CAS. Read-only previews cannot be executed or configured. Database additions, notifications, emails, Webhook, variable formulas, cloud linkage or native block template editors are not supported; the style currently provides default strokes, gray background and blue background.
 
-### 日期提醒与同步块
+<a id="日期提醒与同步块"></a>
 
-日期提及的 reminder 为 ISO 日期时间，例如 `<mention-date start="2026-10-01" reminder="2026-10-01T09:00:00+08:00">Review</mention-date>`。应用打开时检查，重新打开时补发未确认提醒；系统通知需在 Settings 授权。它不是后台操作系统任务。
+### Date reminders and synced blocks
 
-Synced block 的源使用 `<synced_block id="shared">…</synced_block>`，引用 URL 为 `#page/PAGE_ID#block=shared`。右上工具栏提供同步位置、复制及取消同步。新复制引用使用仅 Notdown 启用的 `auto-sync="true"`，同页事务联动、跨页自动 CAS 发布及打开时刷新。旧快照保留菜单中的 Refresh from source / Publish to source；Toggle live refresh 每两秒检查来源，本地编辑后暂停替换。发布使用已捕获的 revision，来源改变时生成可恢复冲突并暂停，不强制覆盖。未打开页保留上次快照；实时协作和跨设备传输未实现。见[同步块说明](../features/SYNCED-BLOCKS.md)。
+Date mentioned reminder is ISO datetime, for example `<mention-date start="2026-10-01" reminder="2026-10-01T09:00:00+08:00">Review</mention-date>` . Check when the app is opened, and reissue unconfirmed reminders when it is reopened; system notifications need to be authorized in Settings. It is not a background operating system task.
 
-Pandoc 引文预览读取本知识库 bibliography，可选本地自包含 CSL，使用已安装 Pandoc 的沙箱 citeproc。不执行任意 filter，不下载 CSL；失败保留引用。HTML 导出保留引文标记，不等待异步 citeproc。
+The source of Synced block uses `<synced_block id="shared">…</synced_block>` and the reference to URL is `#page/PAGE_ID#block=shared` . The upper right toolbar provides synchronization location, copy and cancel synchronization. The new replication reference uses only Notdown enabled `auto-sync="true"`, same-page transaction linkage, cross-page automatic CAS publishing and refresh when opening. Old snapshots remain Refresh from source/Publish to source in the menu; Toggle live refresh checks the source every two seconds and pauses replacement after local editing. Release uses captured revision, generates recoverable conflicts and pauses when the source changes, and does not force overwriting. Unopened pages retain the last snapshot; real-time collaboration and cross-device transfer are not implemented. See [ sync block description ](../features/SYNCED-BLOCKS.md).
 
-`sourcepos` 提供块级行范围；`rebase_relative_paths` 处理具有 sourcePath 的 Markdown 链接／图片；`markdown_in_html_blocks` 支持 Div 容器；`gutenberg` 用于纯文本导出。这些本地执行路径不等同于 Pandoc 所有 reader/writer 的完整行为。
+Pandoc Read the information in this librarybibliography，Select local self-containedCSL，Use installedPandoc Sandboxciteproc。Do not execute arbitrarilyfilter，No downloadCSL；Failed to keep citations.HTML Exporting reserved citation marks without waiting for a discrepancyciteproc。
+
+`sourcepos` Provide a block-level linear range;`rebase_relative_paths` The treatment hassourcePath ofMarkdown The following is a list of links to the website.`markdown_in_html_blocks` It supports Div containers.`gutenberg` The local execution paths are not the same as the local execution paths.Pandoc All of them.reader/writer The whole thing is.

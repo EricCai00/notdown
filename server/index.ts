@@ -1,3 +1,4 @@
+import { locationSettingsPath } from "./vault-location-settings.js";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { loadLocalEnv, resolveVaultLocation } from "./vault-location.js";
@@ -13,6 +14,7 @@ const frontendDir = path.resolve("./dist");
 const app = await createBrowserApp({
   vaultPath,
   dataPath,
+  locationSettings: locationSettingsPath(),
   seedDefault: isDefault,
   frontendDir: existsSync(path.join(frontendDir, "index.html"))
     ? frontendDir

@@ -1,28 +1,34 @@
 # Meeting notes
 
-2026-10-27：旧属性式 title/transcript 编辑后使用官方标题正文和 Transcript 分区；audio/language 合并到现有 meeting-config，保留本地转写能力与未知配置。详见[保留扩展及原因](../reference/NOTDOWN-EXTENSIONS.md)。
+**English** · [简体中文](MEETING-NOTES.zh-CN.md)
 
-会议笔记使用专用 NodeView：标题与日期、参与者入口、Notes / Summary / Transcript 标签、Settings 与 Start transcribing、底部摘要指令与同意提示。空笔记显示占位说明，正文仍属于单个 ProseMirror 文档；标签仅隐藏分区，不搬运或复制正文。标题可双击或从设置重命名；新建会议使用当天的明确日期值，不会随重新打开漂移。
+2026-10-27: The old attribute title/transcript is edited to use the official title text and Transcript partition; audio/language is merged into the existing meeting-config, retaining local transliteration capabilities and unknown configurations. For details, see [ reserved extensions and reasons for ](../reference/NOTDOWN-EXTENSIONS.md).
 
-日期使用既有 `mention-date` 标题语法，直接复用正文 mention 的 `DateMentionView` 与 `date.css`，没有独立会议日历。Notdown 下共用月历、日期范围、时间、格式、时区、提醒、键盘操作与视口定位；会议标题提醒进入既有本地提醒服务。带官方独立日期／时间字段不再限制菜单：Notdown 提供完整本地菜单，官方方言开放原生日期、时间和 IANA 时区，格式仅在当前节点会话显示，不写入 Notdown 扩展或本地提醒。修改接入既有统一撤销历史；清除、重新添加、视图切换、外部标题更新均清理旧面板。参与者入口添加 People 本地联系人的既有人物提及，不发送邀请。旧的属性式标题保留原编码，仍可从设置编辑。
+Use dedicated NodeView for meeting notes: title and date, participant entrance, Notes / Summary / Transcript tags, Settings and Start transcribing, bottom summary instructions and consent prompt. Empty notes display placeholder notes, and the text still belongs to a single ProseMirror document; the label only hides the partition and does not move or copy the text. Titles can be double-clicked or renamed from settings; new meetings use today's explicit date value and won't drift when reopened.
 
-摘要指令包含 Auto、Candidate Interview、Customer Call、Stand-Up，可编辑提示词、设置当前会议的默认项、从菜单隐藏或新增自定义项。语言菜单提供中英文等选择。菜单支持键盘操作、Escape 和点击外部关闭。默认项和菜单自定义作用于当前会议，不修改全局设置。
+date using existing `mention-date` Title syntax, directly reuse the text mention `DateMentionView` with `date.css`, there is no independent meeting calendar. The monthly calendar, date range, time, format, time zone, reminder, keyboard operation and viewport positioning are shared under Notdown; the meeting title reminder enters the existing local reminder service. With the official independent date/time field, the menu is no longer restricted: Notdown provides a complete local menu, the official dialect opens native date, time and IANA time zone, the format is only displayed in the current node session, and does not write Notdown extensions or local reminders. Modify access to existing unified undo history; clearing, re-adding, view switching, and external title updates all clean up the old panel. The participant portal adds existing character mentions of People local contacts and does not send invitations. Old attributed titles retain their original encoding and can still be edited from settings.
 
-## 语法与保存边界
+Summary commands include Auto, Candidate Interview, Customer Call, and Stand-Up. You can edit prompt words, set default items for the current meeting, hide or add custom items from the menu. The language menu provides choices such as Chinese and English. The menu supports keyboard operation, Escape and external click closing. Default items and menu customizations apply to the current meeting and do not modify global settings.
 
-官方 `<meeting-notes>` 保留 title-first 标题以及 `<summary>`、`<notes>`、`<transcript>` 分区。未知属性与代码围栏原文保留，不迁移已有用户文件。
+<a id="语法与保存边界"></a>
 
-仅 `syntax.variant: notdown` 解释、写入块属性 `meeting-config`。它是 JSON 字符串，由 XML 属性转义，字段包括 `language`、`audio`、`selected`、`default`、`hidden`、`custom` 和 `prompts`。未知字段合并保留；无法解析的既有配置拒绝覆盖并显示提示。该属性补充官方格式未提供的会议 UI 属性，不新增正文块协议。`notion-markdown` 下界面配置只在当前节点视图会话有效，导入含此属性的内容保持原文，不激活扩展语义，显式扩展开关不能绕过边界。
+## Syntax and persistence boundaries
 
-设置变更使用文档事务、撤销及既有 createVault / baseRevision CAS 保存链路。复制正文不修改文档。Notdown 下复制块或标签链接复用 Obsidian 块锚点；尚无锚点时会新增锚点并需随页面保存。官方方言无可用位置锚点时复制页面链接并明确提示，不伪造不可解析的定位 URL。
+The official `<meeting-notes>` retains the title-first header and `<summary>`, `<notes>`, and `<transcript>` partitions. Unknown attributes and code fences are retained in the original text, and existing user files will not be migrated.
 
-## 服务边界
+Only `syntax.variant: notdown` interprets and writes the block attribute `meeting-config`. It is a JSON string, escaped by the XML attribute, and the fields include `language`, `audio`, `selected`, `default`, `hidden`, `custom`, and `prompts`. Unknown fields are merged and retained; existing configurations that cannot be parsed are refused to be overwritten and a prompt is displayed. This attribute supplements the conference UI attribute that is not provided in the official format and does not add a new text block protocol. The interface configuration under `notion-markdown` is only valid in the current node view session. The imported content containing this attribute remains the original text, the extended semantics are not activated, and the explicit extension switch cannot bypass the boundary.
 
-- Start transcribing 要求确认所有录音参与者同意，再选择音视频或使用已上传文件；文件经既有 `/assets` 上传接口保存。
-- 转写调用 Settings 中配置的兼容服务；尚无实时麦克风录音、系统音频采集或说话人识别。
-- 官方分区容器的转写结果写入 Transcript，不覆盖 Notes / Summary。旧本地容器保持其 Markdown 编码，结果追加到原正文之后。
-- Generate summary 按选定指令向已配置文本服务发送当前笔记与转写内容，显式生成 Summary，不自动后台执行。
-- 请求返回时会议已改变，结果只显示为可恢复文本，不覆盖新编辑；移除节点或离开页面后不回写旧视图。
-- 同意提示可朗读；不包含 Notion 的演示、反馈、跨页面 Move to 或在线成员邀请。
+Set changes using document transactions, undo and existing createVault / baseRevision CAS save links. Copying the text does not modify the document. Copying a block or label link under Notdown reuses the Obsidian block anchor point; if there is no anchor point, a new anchor point will be added and needs to be saved with the page. When the official dialect has no available position anchor, copy the page link and clearly prompt it, and do not forge unresolved positioning URL.
 
-验证使用临时知识库与独立 Chrome，见 `tests/e2e/meeting-notes.spec.ts` 和 `tests/unit/meeting-notes.test.ts`。
+<a id="服务边界"></a>
+
+## Service boundaries
+
+- Start transcribing requires confirmation of the consent of all recording participants before selecting audio and video or using uploaded files; the files are saved through the existing `/assets` upload interface.
+- Transcription calls compatible services configured in Settings; there is no live microphone recording, system audio capture, or speaker recognition yet.
+- The transcription result of the official partition container is written to Transcript and does not overwrite Notes / Summary. The old local container keeps its Markdown encoding and the result is appended to the original body.
+- Generate summary sends the current notes and transcribed content to the configured text service according to the selected command, and explicitly generates Summary without automatically executing it in the background.
+- If the meeting has changed when the request returns, the results are only displayed as resumable text and new edits are not overwritten; the old view is not written back after removing a node or leaving the page.
+- The consent prompt can be read aloud; does not include Notion presentations, feedback, cross-page Move to, or online membership invitations.
+
+Verify using a temporary vault with standalone Chrome , see `tests/e2e/meeting-notes.spec.ts` and `tests/unit/meeting-notes.test.ts` .

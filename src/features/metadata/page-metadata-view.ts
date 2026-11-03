@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import type { EditorView as CodeEditor } from "@codemirror/view";
@@ -79,14 +80,14 @@ export class PageMetadataView implements NodeView {
     const close = document.createElement("button");
     close.type = "button";
     close.className = "icon-button";
-    close.setAttribute("aria-label", "Close metadata details");
+    setUIAttribute(close, "aria-label", "Close metadata details");
     close.append(createElement(X));
     close.onclick = () => this.dialog.close();
     header.append(heading, close);
     const actions = document.createElement("div");
     actions.className = "page-metadata-dialog-actions";
     this.fields.type = "button";
-    this.fields.textContent = "Edit fields";
+    setUIText(this.fields, "Edit fields");
     this.fields.onclick = () => {
       const pos = this.getPos();
       if (pos !== undefined) {
@@ -100,11 +101,11 @@ export class PageMetadataView implements NodeView {
     this.error.setAttribute("aria-live", "polite");
     const cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.textContent = "Cancel";
+    setUIText(cancel, "Cancel");
     cancel.onclick = () => this.dialog.close();
     this.save.type = "button";
     this.save.className = "primary-button";
-    this.save.textContent = "Save changes";
+    setUIText(this.save, "Save changes");
     this.save.onclick = () => this.commit();
     actions.append(cancel, this.save);
     this.dialog.append(header, this.mount, this.error, actions);
@@ -157,7 +158,7 @@ export class PageMetadataView implements NodeView {
     this.node = node;
     if (this.original && !this.original.eq(node)) {
       this.save.disabled = true;
-      this.error.textContent = "This metadata changed. Copy your draft, then close and reopen its details.";
+      setUIText(this.error, "This metadata changed. Copy your draft, then close and reopen its details.");
     }
     this.fields.hidden = !blockPropertyFields(node).length;
     this.summary.replaceChildren();
@@ -179,7 +180,7 @@ export class PageMetadataView implements NodeView {
     if (!entries.length) {
       const text = document.createElement("span");
       text.className = "muted";
-      text.textContent = "View original metadata";
+      setUIText(text, "View original metadata");
       this.summary.append(text);
     }
     return true;

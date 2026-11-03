@@ -1,27 +1,35 @@
-# Tests 子页面验收样本
+<a id="tests-子页面验收样本"></a>
 
-生成器：[manual-test-pages.ts](../fixtures/manual-test-pages.ts)。它不读写知识库，生成 27 份正文：11 个方言默认配置页、14 个扩展测试页、1 个本地对象／服务页、1 个 Outside Markdown scope 参考页。整体覆盖 81 个内容对象和 103 个已注册扩展。
+# Tests child-page acceptance fixtures
 
-安装器另外创建 1 个导航索引和 1 个引用／Synced source 目标，所以一次完整安装为 **29 个直接子页面**。原有 Tests 正文和旧对照页不修改。页面标题编号用于索引识别，不强制更改用户侧栏的排序偏好。
+**English** · [简体中文](MANUAL-ACCEPTANCE-PAGES.zh-CN.md)
 
-每个方言明确设置 syntax.variant，extensions 为空，测试实际默认值；扩展页显式开启对应组的开关。换行规则、wiki 链接标题顺序、literate Haskell 和页首 Pandoc 元数据分别放置，避免互相遮蔽。每个用例提供真实输入、预期与操作、人工记录栏；扩展页另附受围栏保护的源码对照。
+Generator: [ manual-test-pages.ts ](../fixtures/manual-test-pages.ts). It does not read or write the vault, and generates 27 texts: 11 dialect default configuration pages, 14 extended test pages, 1 local object/service pages, and 1 Outside Markdown scope reference pages. Overall coverage of 81 content objects and 103 registered extensions.
 
-资源通过附件 API 上传：既有对照 PNG、合成 WAV、生成的无声 WebM、单页 PDF、引入文本及 BibTeX。全部为本地资源，不依赖外部图片或视频。模型调用、提醒和同步均不自动启动；合成音仅用于播放和协议测试，不用于判断语音转录精度。
+The installer additionally creates 1 navigation indexes and 1 references/Synced source targets, so a complete installation is **29 direct subpages** . The original Tests text and old comparison pages will not be modified. Page title numbers are used for index identification and do not force changes to the user's sidebar sorting preferences.
 
-## 检查
+Each dialect explicitly sets syntax.variant and extensions is empty to test the actual default value; the extension page explicitly turns on the switch of the corresponding group. Line break rules, wiki link title order, literate Haskell and top of page Pandoc metadata are placed separately to avoid blocking each other. Each use case provides real input, expectations and operations, and manual record fields; the extension page also comes with a fence-protected source code comparison.
 
-`node --import tsx --test tests/unit/manual-test-pages.test.ts` 检查方言、扩展、对象清单覆盖以及全部正文的 schema、未修改源码往返和每个用例的顶层标题。Unsupported 的未知指令样本不能使用会开启 Pandoc Div 的 `:::unknown` 加无效结束符 `:::endunknown`；用例间保留空行，以兼容要求标题前空行的方言。不会因原文仍能往返就把整页被吞入 Unsupported 判定为通过。
+Resources are uploaded through the attachment API: existing control PNG, synthesis WAV, generated silent WebM, single page PDF, imported text and BibTeX. All are local resources and do not rely on external images or videos. Model calling, reminders, and synchronization are not automatically started; synthetic sounds are only used for playback and protocol testing, and are not used to judge speech transcription accuracy.
 
-`npx playwright test tests/e2e/manual-test-pages.spec.ts` 在独立临时知识库和 Chrome 中安装整组样本，逐页打开、切换源码与页面视图、检查保存正文不变和浏览器异常。用户知识库不参与自动化测试。
+<a id="检查"></a>
 
-这是样例覆盖和浏览器冒烟验证，不是所有上游规则的兼容认证。各页人工结果初始为 Not run；编辑、撤销、拖动、属性、复杂语法和服务行为按用例记录，不把“默认未启用”误报为“未实现”。
+## Check
 
-## 明确指定知识库后安装
+`node --import tsx --test tests/unit/manual-test-pages.test.ts` Check the dictionary, extensions, object list coverage and all the schema in the original language, unmodified source code return and top-level headings for each use case. The unknown instruction sample in Unsupported that cannot be used will open Pandoc Div `:::unknown` Ending with invalid `:::endunknown`In case of default, the entire page is absorbed into Unsupported and is deemed to be passed if the original cannot be returned.
 
-用户明确要求将验收材料放入知识库时，使用运行中的应用 API，所有写入经过 createVault 队列。命令必须同时提供地址、父页面 ID 和预期知识库路径；安装器验证 /api/status，拒绝错误知识库和同组重复安装，不覆盖已填写的人工验收结果。
+`npx playwright test tests/e2e/manual-test-pages.spec.ts`Install the entire set of samples in the independent temporary vault and Chrome, open them page by page, switch the source code and page view, and check whether the saved text remains unchanged and browser exceptions occur. User vault does not participate in automated testing.
+
+This is a sample coverage and browser smoke validation, not a compatible validation for all upstream rules. The manual results on each page are initially Not run; editing, undoing, dragging, attributes, complex syntax and service behaviors are recorded according to use cases, and "not enabled by default" is not mistakenly reported as "not implemented".
+
+<a id="明确指定知识库后安装"></a>
+
+## Install after explicitly specifying the vault
+
+When a user explicitly requests acceptance material to be placed into the vault, the running application API is used, and all writes go through the createVault queue. The command must also provide the address, parent page ID and expected vault path; the installer verifies / api/status, rejects incorrect vault and repeated installations of the same group, and does not overwrite the filled in manual acceptance results.
 
 ```powershell
 node --import tsx docs/fixtures/install-manual-test-pages.ts http://127.0.0.1:4318 PARENT_PAGE_ID EXPECTED_VAULT_PATH
 ```
 
-安装清单保存在 `test-results/manual-pages-installed.json`，包含新建页面 ID、资源路径、检查统计和索引 ID。没有直接写 pages 文件，也没有修改原父页面或现有测试页。
+The installation list is saved in `test-results/manual-pages-installed.json`, including the new page ID, resource path, inspection statistics and index ID. No pages file is written directly, and the original parent page or existing test page is not modified.

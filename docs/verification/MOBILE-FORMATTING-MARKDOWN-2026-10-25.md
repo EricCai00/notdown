@@ -1,25 +1,35 @@
-# 手机字体样式与 Notion v2 Markdown 保存（2026-10-25）
+<a id="手机字体样式与-notion-v2-markdown-保存2026-10-25"></a>
 
-范围：手机斜体显示、文字及背景调色板，以及手机和桌面共用的 Notion v2 序列化。使用说明见 [Android](../features/ANDROID.md) 与 [Notion 格式参考](../reference/NOTION-MCP-SYNTAX.md#notion-v2-的保存规则)。
+# Mobile text styles and Notion v2 Markdown persistence (2026-10-25)
 
-## 行为
+**English** · [简体中文](MOBILE-FORMATTING-MARKDOWN-2026-10-25.zh-CN.md)
 
-- 手机正文允许合成斜体，解决系统中文字体缺少斜体字形时标记存在但显示不倾斜的问题。
-- 文字颜色和背景色分别提供九色及 Default；Page 中取消一个颜色通道保留另一通道、其他样式及未知字段。选中文字和后续输入均可操作，保留选区和焦点，支持撤销、重做、保存重载。
-- Notion v2 普通标题、列表、任务、引用、粗斜体、删除线、图片、公式和可无损表达的表格优先写 Markdown。样式、图片和表格候选经过解析校验；属性、子块、边缘空白、歧义及未知内容保留官方标签。未编辑块保留原文，不迁移知识库。
-- Source 调色板用于插入所选颜色语法；清除已有颜色切回 Page。v2 下划线插入 `<u>`，颜色继续使用官方 span 载体。
+Scope: Slideshows for mobile phones, text and background coloring boards, and Notion v2 sequencing for mobile phones and desktops. [Android](../features/ANDROID.md) with [Reference format of Notion](../reference/NOTION-MCP-SYNTAX.md#notion-v2-persistence-rules)。
 
-## 验证
+<a id="行为"></a>
 
-- 首次完整 `npm test`：1023 项，1018 通过、5 跳过、0 失败。最终序列化和颜色专项 19 项全部通过，另覆盖标题末尾井号、图片 caption 转义、表格竖线及代码标记、旧字段与代码围栏。后续完整重跑停留在 R 测试进程退出阶段并取消，未计作通过。
-- 最新桌面构建和定向 51 项浏览器回归中 50 项通过；一项旧测试仍预期独立图片位于第三个段落中，已改为验证两侧段落、独立 figure、实际图片加载和保存重载，该文件 3 项重跑全部通过。此前出现的光标与列内换行失败在最终复测中通过。未运行完整桌面浏览器集。
-- 最新移动构建：独立 Chrome / Pixel 7 完整 31 项全部通过，包括新增中文斜体、颜色选择/独立清除、撤销/重做、连续输入、320px 面板及 v2 编辑保存 Markdown。
-- `npm run android:build`：TypeScript、Vite、`assembleDebug`、`testDebugUnitTest` 通过；包内 HTML 及 64 个静态 JS/CSS 文件与受测移动构建逐一核对 SHA-256 一致。已检查窄屏调色板截图。
-- 所有浏览器验证使用临时存储与临时 WebDAV 服务；本轮未在真实 Android WebView/输入法上验收，未覆盖安装或修改用户知识库。
+## behavior
 
-## 本地产物
+- The text of the mobile phone is allowed to be synthesized in italics, which solves the problem that when the system's Chinese font lacks italic fonts, the mark exists but the display is not tilted.
+- The text color and background color provide nine colors and Default respectively; in Page, one color channel is canceled and another channel, other styles and unknown fields are retained. Selected text and subsequent input can be operated, the selection and focus are retained, and undo, redo, save and reload are supported.
+- Notion v2 Prioritize writing Markdown for ordinary titles, lists, tasks, quotes, bold italics, strikethroughs, pictures, formulas and tables that can be expressed without loss. Style, image and table candidates are parsed and verified; attributes, sub-blocks, margin margins, ambiguities and unknown content retain official tags. Unedited blocks retain the original text and the vault is not migrated.
+- The Source palette is used to insert the selected color syntax; clear existing colors to switch back to Page. v2 underscores are inserted into `<u>` and colors continue to use the official span carrier.
 
-- APK：`.run/android-release/Notdown-Android-format-2026-10-25.apk`，71,253,018 字节。
+<a id="验证"></a>
+
+## Validation
+
+- First complete `npm test`: 1023 item, 1018 passed, 5 skipped, 0 failed. In the end, all 19 items of serialization and color were passed, and the pound sign at the end of the title, image caption escaping, table vertical bars and code marks, old fields and code fences were also covered. Subsequent complete reruns will stay at the exit stage of the R test process and be canceled, and will not be counted as passed.
+- The latest desktop builds and orientations51 Back to the browser50 Passed; an old test still expected a separate image to be in the third paragraph, converted to a validated bi-sided paragraph.figure、The actual image uploaded and saved overloaded the file3 The project was completely overhauled. The previously unseen lights and rows failed to change in the final iteration. The complete desktop browser set was not running.
+- The latest mobile build: independent Chrome / Pixel 7, all complete 31 items passed, including new Chinese italics, color selection/independent clearing, undo/redo, continuous input, 320px panel and v2 editing and saving Markdown.
+- `npm run android:build`: TypeScript, Vite, `assembleDebug`, `testDebugUnitTest` passed; the HTML and 64 static JS/CSS files in the package were checked one by one to be consistent with SHA-256 of the tested mobile build. Checked narrow screen palette screenshot.
+- All browser verification uses temporary storage and temporary WebDAV services; this round did not accept the real Android WebView/ input method, and did not cover the installation or modification of the user vault.
+
+<a id="本地产物"></a>
+
+## local produce
+
+- APK: `.run/android-release/Notdown-Android-format-2026-10-25.apk`, 71, 253, 018 bytes.
 - SHA-256：`89f1494ff549a5daa1eb49a6aeb1a3253dbc43ad74d39ba215092b161c6b0a4a`。
-- 日志：`.run/logs/mobile-format-*`、`.run/logs/notion-markdown-focused-unit.log`。
-- 截图：`test-results/mobile-format-final/mobile-mobile-italic-displ-b27d2-sen-and-reset-independently/mobile-color-palette.png`。
+- Log: `.run/logs/mobile-format-*`, `.run/logs/notion-markdown-focused-unit.log`.
+- Screenshot: `test-results/mobile-format-final/mobile-mobile-italic-displ-b27d2-sen-and-reset-independently/mobile-color-palette.png`.

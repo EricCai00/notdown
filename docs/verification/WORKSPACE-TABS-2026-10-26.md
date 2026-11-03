@@ -1,39 +1,49 @@
-# 标签页与集成标题栏验证（2026-10-26）
+<a id="标签页与集成标题栏验证2026-10-26"></a>
 
-后续调整：页面列表独立滚动已移除，当前侧栏采用整体滚动，见[写作与导航](../features/WRITING-AND-NAVIGATION.md#常用操作)。以下记录保留最初布局与当时的验证范围。
+# Tabs and integrated title-bar validation (2026-10-26)
 
-## 范围
+**English** · [简体中文](WORKSPACE-TABS-2026-10-26.zh-CN.md)
 
-按用户确认的截图布局调整 Windows 桌面与浏览器主界面：顶部标签栏、固定的侧栏导航、单独滚动的页面列表、下方页面面包屑。移除桌面的独立系统标题和菜单栏，系统最小化、最大化与关闭按钮由 Electron 的原生 Window Controls Overlay 提供；标签栏空白处可拖动窗口。
+Subsequent adjustments: The page list independent rolling has been removed, the current sidebar uses the full rolling, see[Writing and navigation](../features/WRITING-AND-NAVIGATION.md#common-operations)The following records preserve the original layout and the scope of verification at the time.
 
-浏览器保留自身的地址栏和浏览器标签，应用内提供同一套知识库标签。正文编辑工具和方言选择仍保留。
+<a id="范围"></a>
 
-- 页面、数据库、知识库首页可使用标签；支持后台打开、关闭、关闭后回到首页、重排、键盘选择与桌面快捷键。
-- 关闭或切换前沿用 `save()` / `baseRevision` 保存与冲突恢复；组字期间停止离开。目标视图恢复前暂停正文交互，避免快速切换时新的 Source/Page 选择被恢复步骤覆盖。
-- 每个窗口只挂载一份可写编辑器。标签顺序、当前路由、编辑模式和滚动位置保存在按知识库隔离的窗口会话中；不存在另一份隐藏正文 DOM。离开的页面重新读取保存内容，旧撤销栈不作为跨标签持久能力。
-- 侧栏页面区单独滚动；拖动自动滚动等待短暂停留，避免边缘目标在松手前被滚走。
+## range
 
-## 验证
+Adjust the Windows desktop and browser main interface according to the user-confirmed screenshot layout: top tab bar, fixed sidebar navigation, individually scrollable page list, and page breadcrumbs below. The independent system title and menu bar of the desktop are removed. The system minimize, maximize and close buttons are provided by Electron's native Window Controls Overlay; windows can be dragged in the blank space of the tab bar.
 
-| 检查 | 结果 |
+The browser retains its own address bar and browser tabs, and the same set of vault tabs is available within the app. Text editing tools and dialect selection remain.
+
+- Tags can be used on pages, databases, and vault homepages; they support background opening, closing, returning to the homepage after closing, rearranging, keyboard selection, and desktop shortcuts.
+- Close or switch leading edge with `save()` / `baseRevision` saving and conflict recovery; stop leaving during word grouping. Pause text interaction before restoring the target view to avoid new Source/Page selections being overwritten by the restoration step during fast switching.
+- Only one writable editor is mounted per window. The tab order, current route, edit mode, and scroll position are saved in the window session isolated by the vault; there is no other hidden body DOM . The saved content is re-read after leaving the page, and the old undo stack does not have cross-tab persistence.
+- The sidebar page area scrolls independently; drag to automatically scroll and wait for a short pause to prevent edge targets from being rolled away before letting go.
+
+<a id="验证"></a>
+
+## Validation
+
+| Check | result |
 | --- | --- |
-| 全量单元测试 | 1,051 通过，5 跳过，0 失败 |
-| 最终浏览器构建：标签、页面历史、菜单、侧栏布局与拖动 | 32 通过 |
-| 最终窗口缩放、当前标签保持可见与布局检查 | 10 通过 |
-| Electron 开发构建：集成标题栏、快捷键、多库和关闭保护 | 5 通过 |
-| Windows 0.1.2 打包应用的同一套回归 | 5 通过 |
-| 浏览器与桌面生产构建、NSIS 打包 | 成功 |
+| Full unit testing | 1, 051 passed, 5 skipped, 0 failed |
+| Final browser build: tabs, page history, menus, sidebar layout and dragging | 32 passed |
+| Final window scaling, current tabs remaining visible, and layout checks | 10 passed |
+| Electron development and build: integrated title bar, shortcut keys, multi-library and shutdown protection | 5 passed |
+| Windows 0.1.2 The same set of regressions for packaged applications | 5 passed |
+| Browser and desktop production builds, NSIS packaging | success |
 
-标签用例覆盖：待提交 Page/Source 正文、标题改名、数据库待提交标题、冲突阻止关闭、缺失页面、原生浏览器前进/后退、恢复编辑视图和滚动位置、标签拖动与中键关闭、窄屏与侧栏展开。Electron 检查原生菜单已移除、客户区占用窗口顶部、Ctrl+T / Ctrl+W / Ctrl+Shift+T / Ctrl+1 的保存行为，以及同源页面 `window.open` 不生成另一个可写窗口。
+Label use case coverage: Page/Source text to be submitted, title rename, database title to be submitted, conflict prevention closure, missing pages, native browser forward/backward, restoration of editing view and scroll position, label dragging and middle-click closing, narrow screen and sidebar expansion. Electron checks that the native menu has been removed, the client area occupies the top of the window, the save behavior of Ctrl+T / Ctrl+W / Ctrl+Shift+T / Ctrl+1, and the same origin page `window.open` does not generate another writable window.
 
-使用独立 Chrome、临时知识库及独立 Electron 配置，不连接用户浏览器。浏览器与窄屏截图已人工查看，保留于 `.run/logs/workspace-tabs-browser.png` 与 `.run/logs/workspace-tabs-narrow.png`。日志为 `.run/logs/workspace-tabs-*.log`，不进入 Git。
+Use independent Chrome, temporary vault and independent Electron configuration without connecting to user browser. Browser and narrow screen screenshots have been manually reviewed and retained in `.run/logs/workspace-tabs-browser.png` and `.run/logs/workspace-tabs-narrow.png`. The log is `.run/logs/workspace-tabs-*.log` and does not enter Git.
 
-本轮未重新执行全部浏览器套件；之前未通过的全量项目见[0.1.1 验证记录](MOBILE-DIALECT-AND-RELEASE-2026-10-26.md#浏览器全量限制)，不能将本轮定向通过视为全量通过。
+This round did not re-implement the entire browser suite; see full number of projects not previously approved[0.1.1 verification record](MOBILE-DIALECT-AND-RELEASE-2026-10-26.md#full-browser-limit)The wheel cannot be passed through the direction as a whole quantity.
 
-## 安装与边界
+<a id="安装与边界"></a>
 
-Windows / npm 更新到 `0.1.2`，安装包为 `.run/desktop-release/Notdown-Setup-0.1.2-x64.exe`。本轮不更改 Android 界面与原生版本，Android 保持 `0.1.1`。
+## Installation and borders
 
-本机已正常关闭旧窗口并完成安装。旧 0.1.1 卸载器的升级模式两次返回错误码 2；将旧程序目录备份到 `.run/backups/notdown-installed-0.1.1-before-tabs` 后，使用 `/KEEP_APP_DATA` 普通卸载和重新安装，两步退出码均为 0。安装后 EXE 版本为 `0.1.2.0`，`resources/app.asar` 的 SHA-256 与测试过的打包产物一致。
+Windows / npm are updated to `0.1.2`, and the installation package is `.run/desktop-release/Notdown-Setup-0.1.2-x64.exe`. This round does not change the Android interface and the native version, Android remains `0.1.1`.
 
-已重新打开更新后的应用，原有最近知识库列表仍在。没有迁移或删除知识库；本轮正常保存旧窗口的待处理输入。安装器哈希保存在 `.run/logs/workspace-tabs-installer-hash.json`。
+The machine has normally closed the old window and completed installation. The upgrade mode of the old 0.1.1 unloader returns the error code 2 twice; the old program directory is backed up to `.run/backups/notdown-installed-0.1.1-before-tabs` Afterwards, use `/KEEP_APP_DATA` Normal unloading and reinstalling, two-step exit code is 0 ⋅ After installation, the EXE version is `0.1.2.0`，`resources/app.asar` The SHA-256 is consistent with the packaging products tested.
+
+The updated app has been reopened and the original recent vault list is still there. No vault is migrated or deleted; pending input from the old window is saved normally this round. The installer hash is saved in `.run/logs/workspace-tabs-installer-hash.json` .

@@ -18,7 +18,9 @@
 .pm-block-properties-dialog button:disabled{opacity:.5;cursor:default}
 .pm-block-properties-dialog output{display:block;margin:0 22px 14px;color:#a34436;font-size:13px}
 .pm-block-properties-dialog output:empty{display:none}
-.pm-content-object button{font:13px/1.5 system-ui;padding:5px 10px;margin:3px;border:1px solid #d9ded7;border-radius:4px;background:#f7f8f5;color:inherit;cursor:pointer}
+/* Fallback controls must not override database or other block-specific styles,
+   regardless of Vite development / production stylesheet order. */
+.pm-content-object :where(button){font:13px/1.5 system-ui;padding:5px 10px;margin:3px;border:1px solid #d9ded7;border-radius:4px;background:#f7f8f5;color:inherit;cursor:pointer}
 .pm-content-object output{white-space:pre-wrap;display:block;font-size:13px;color:#52634d;overflow-wrap:anywhere}
 .pm-object-content{min-height:32px}.pm-content-object iframe{width:100%;min-height:220px;border:0;background:white}
 .pm-object-card a{font-weight:600}.pm-object-card p{font-size:14px;color:#687063}

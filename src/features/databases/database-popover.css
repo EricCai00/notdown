@@ -72,3 +72,7 @@
 .database-source-menu-item .database-source-description { flex-shrink:0; margin:0 0 0 auto; font-size:13px; color:var(--muted,#999993); white-space:nowrap; }
 .database-settings-panel > div > .database-popover-section:first-child { border-top:0; margin-top:0; padding-top:4px; }
 @media(max-width:600px) { .database-settings-panel { border:1px solid var(--border,#e9e9e7); border-radius:8px; box-shadow:0 8px 25px #0002; } }
+
+.database-visibility-row { display:flex; align-items:center; gap:2px; }
+.database-visibility-row > button:first-child { flex:1; min-width:0; }
+.database-visibility-row > button:not(:first-child) { width:26px; flex:none; padding:4px; justify-content:center; }

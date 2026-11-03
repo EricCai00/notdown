@@ -1,40 +1,54 @@
-# 附件 UUID、页面删除清理与提醒导入核查（2026-10-26）
+<a id="附件-uuid页面删除清理与提醒导入核查2026-10-26"></a>
 
-## 实现范围
+# Attachment UUIDs, page-deletion cleanup and reminder import review (2026-10-26)
 
-- 新上传、Markdown 文件夹导入和 Notion 下载共用 `assets/<UUIDv5>.<扩展名>`，格式为带连字符的 `8-4-4-4-12`。UUID 由附件专用身份前缀、内容 SHA-256 与规范扩展名确定，继续跨入口去重。共享 UUID 计算函数重构不改变既有页面 UUID。
-- 保留原文件名、未知元数据、目标字节校验与冲突恢复；旧哈希、UUID、批次、`notion-` 和嵌套路径继续读取，不自动重命名或重写旧正文。Markdown 导入的格式身份更新，避免把旧命名批次的已完成标记误用于新附件路径。
-- 移入应用 Trash 不清理附件，恢复页面不破坏原引用。彻底 Delete 一个已在 Trash 的页面及子树后，只检查这些页面引用过的附件；其他页面（包括 Trash）、图标、封面、属性、冲突草稿及非页面全局元数据仍保护文件。不会清扫无关的已有孤立上传。
-- HTML/SVG/CSS 静态依赖按相对路径递归保护。动态脚本、无法可靠解析的来源和依赖、符号链接或并发版本变化阻止清理并提示。
-- 回收前保存附件原字节及未知登记信息到 `.history/deleted-assets/`，重新检查页面／冲突版本和附件字节，再使用与页面相同的系统回收站适配器。成功后以 metadata CAS 移除对应资产条目，不覆盖其他字段。返回 `deletedAssets` 和 `warnings`，界面显示清理数量或保留原因。
-- 多文件回收不是原子事务；页面或附件操作中断可能留下未清理附件。未保存的其他窗口草稿无法纳入关联分析，保留恢复副本；不做永久删除回退或强制重试。
+**English** · [简体中文](ATTACHMENT-UUID-CLEANUP-2026-10-26.zh-CN.md)
 
-## Notion reminder 证据与边界
+<a id="实现范围"></a>
 
-核对实际导入批次的原始 Block API 归档：原 reminder 的 `mention.date` 只有 start/end/time_zone，`annotations.color` 为 `default`，`plain_text` 是 ISO 时间，href 为 null；完整 JSON 中未找到 reminder/alert/notification 字段。抽取结果在本地 `.run/logs/notion-reminder-evidence.json`，没有重写实际知识库。
+## Implementation scope
 
-公开 API 的日期对象与官方 SDK 类型也只有这些日期字段。参见 [日期属性](https://developers.notion.com/reference/page-property-values#date)、[官方 SDK common.ts](https://github.com/makenotion/notion-sdk-js/blob/main/src/api-endpoints/common.ts)。不能仅凭时间或客户端红色推断提醒。
+- New uploads, Markdown folder imports, and Notion downloads share `assets/<UUIDv5>.<扩展名>` , formatted as hyphenated `8-4-4-4-12` . UUID is determined by the attachment-specific identity prefix, content SHA-256 and canonical extension, and continues to be deduplicated across portals. Shared UUID calculation function reconstruction does not change the existing page UUID.
+- The original file name, unknown metadata, target byte verification and conflict recovery are retained; old hashes, UUID, batches, `notion-` and nested paths continue to be read without automatically renaming or rewriting old text. Format identity updated for Markdown imports to avoid misusing completed tags from old named batches for new attachment paths.
+- Moving the application Trash does not clean the attachments, and restoring the page does not destroy the original reference. Thoroughly Delete After a page and subtree that is already in Trash, only the attachments referenced by these pages are checked; other pages (including Trash), icons, covers, properties, conflict drafts and non-page global metadata still protect the file. Irrelevant existing orphan uploads will not be cleared.
+- HTML/SVG/CSS static dependencies are recursively protected by relative paths. Dynamic scripts, sources and dependencies that cannot be reliably resolved, symbolic links, or concurrent version changes prevent cleanup and prompts.
+- Before recycling, save the original bytes and unknown registration information of the attachment to `.history/deleted-assets/`, recheck the page/conflict version and attachment bytes, and then use the same system recycle bin adapter as the page. After success, use metadata CAS to remove the corresponding asset entry without overwriting other fields. Return to `deletedAssets` and `warnings`, and the interface displays the cleaning quantity or retention reason.
+- Multi-file recycling is not an atomic transaction; interruptions in page or attachment operations may leave uncleaned attachments. Other unsaved window drafts cannot be included in correlation analysis, and recovery copies are retained; there is no permanent deletion rollback or forced retry.
 
-需要区分公开集成 API 与客户端内部数据。历史非官方客户端 [notion-py](https://github.com/jamalex/notion-py/blob/master/notion/collection.py) 的 `NotionDate.from_notion` 明确读取内部 date 对象的 `reminder`。这说明内部数据存在过恢复路径，不证明当前版本的私有接口仍可直接使用；本次没有调用私有接口、读取登录凭据或接入该导入方式。
+<a id="notion-reminder-证据与边界"></a>
 
-当前导入对话框在预览前直接提示提醒配置缺失；未知块恢复后的日期同样触发预览警告，代码示例不触发。导入后的日期菜单可按原页设置补回本地提醒；重复提交同一快照不覆盖已修复的本地提醒。不会将所有带时间的日期自动转换成 reminder。
+## Notion reminder Evidence and Boundaries
 
-### 后续实测：当前客户端本地缓存可读取提醒
+Verify the original Block API archives of the actual imported batches: original reminder `mention.date` It's just start/end/time_zone and it's not a code.`annotations.color` For the `default`，`plain_text` YesISO Time is the time.href For thenull；Full ofJSON Not foundreminder/alert/notification Fields. Local results are drawn`.run/logs/notion-reminder-evidence.json`The first is the "Foreign" and the second is the "Foreign".
 
-2026-10-26 按用户要求只读打开本机 Notion 的 `notion.db`（Node SQLite `readOnly: true`），在同一事务快照中读取指定页面的直接子 block，没有读取 Cookies、登录凭据或修改数据库。普通日期对象没有 reminder，目标 datetime 对象仍有明确的 `reminder: { unit: "day", value: 0, time: "09:00", defaultTimeZone: "America/Los_Angeles" }`，其 start_date 为 2026-10-24、start_time 为 09:00。
+The date object that exposes API and the official SDK type also only have these date fields. See [ date attribute ](https://developers.notion.com/reference/page-property-values#date), [ official SDK common.ts ](https://github.com/makenotion/notion-sdk-js/blob/main/src/api-endpoints/common.ts). Alerts cannot be inferred based on time or client red alone.
 
-对应 text block 为 `402e9d4d-a1d7-806a-99b4-f89e6f2799e2`，缓存 version 为 117、last_edited_time 为 `2026-10-26T15:53:59.832Z`；字段位于 `properties.title.4.1.0.1.reminder`。局部导出 `.run/notion-reminder-field.json` 包含源 page/block 身份、缓存版本与提取时间；可重复只读提取脚本为 `.run/read-notion-reminder-cache.mjs`。没有导出整个数据库或无关页面正文。
+The need to distinguish publicly integrated API from client internal data. Historically, unofficial clients [notion-py](https://github.com/jamalex/notion-py/blob/master/notion/collection.py) of `NotionDate.from_notion` Read the internal date objects clearly `reminder`This indicates that there is a path to recovery of internal data, and does not prove that the current version of the private interface is still available directly; this time no private interface is called, login credentials are read or accessed as imported.
 
-这一实测证明当前本机客户端缓存仍可提供真实 reminder，不再只是历史非官方客户端的线索。它不证明公开 API 提供该字段，也不证明缓存与此刻云端完全一致；本次未重取云端数据、未调用私有 HTTP 接口、未修改本地知识库或 Notion 页面，尚未接入自动导入。后续补充导入需要校验缓存新鲜度、原页／原块身份和日期位置，不能仅凭相同日期覆盖本地修改。
+The current import dialog box directly prompts to remind you that the configuration is missing before previewing; the date after the unknown block is restored also triggers a preview warning, but the code example does not trigger it. The imported date menu can restore local reminders according to the original page settings; repeatedly submitting the same snapshot will not overwrite the repaired local reminders. All dates with time are not automatically converted to reminder.
 
-### 后续接入
+<a id="后续实测当前客户端本地缓存可读取提醒"></a>
 
-同日后续已实现 API + SQLite 日期补充，原始证据与上面“尚未接入”的时点分开记录。当前导入流程、缓存更新方式及其他块字段调查见 [Notion SQLite 审计](../audits/NOTION-SQLITE-2026-10-26.md)，用户操作见 [Notion 导入](../features/NOTION-IMPORT.md)。既有本地页不自动覆盖。
+### Follow-up actual measurement: The current client’s local cache can read the reminder
 
-## 验证
+2026-10-26 opens the local Notion's `notion.db` (Node SQLite `readOnly: true`) read-only at the user's request, reading the direct child block of the specified page in the same transaction snapshot, without reading Cookies, login credentials, or modifying the database. The ordinary date object does not have reminder, and the target datetime object still has an explicit `reminder: { unit: "day", value: 0, time: "09:00", defaultTimeZone: "America/Los_Angeles" }`, whose start_date is 2026-10-24 and start_time is 09:00.
 
-- 全量 `npm test`：1,083 项，1,078 通过、5 跳过、0 失败。日志 `.run/logs/asset-uuid-cleanup-unit.log`。
-- 类型检查、生产构建和桌面构建通过。定向资产／页面／导入单测 25 项以及新增清理边界单测 5 项通过。
-- Chrome 相关回归共覆盖 29 项：首轮新增测试语法错误修复后重跑，28 通过、1 项既有附件筛选断言因新增共享附件而不再唯一。改为按名称精确筛选后，附件文件 7 项复验通过，剩余 22 项已在上一轮通过。复验用例全部完成后隔离测试服务退出停滞，核对进程身份后只结束该测试服务，runner 正常退出并报告 7 passed。日志 `.run/logs/asset-uuid-cleanup-browser.log`、`.run/logs/asset-uuid-cleanup-browser-final.log`、`.run/logs/asset-uuid-cleanup-attachments-final.log`。未运行全量浏览器套件。
-- 测试使用临时知识库、独立 Chrome 和专用回收站替身，覆盖独占／共享附件、Trash 和恢复、子树、未知属性与字节恢复、冲突草稿、HTML 依赖、全局元数据、符号链接及回收失败。没有以用户文件测试删除，也没有运行真实系统回收站验收。
-- 桌面安装包：`.run/attachment-uuid-release/Notdown-Setup-0.1.3-x64.exe`。日志 `.run/logs/asset-uuid-cleanup-desktop.log`。当前已安装程序未替换，新命名与自动清理需安装后生效。
+The corresponding text block is `402e9d4d-a1d7-806a-99b4-f89e6f2799e2`, the cached version is 117, and the last_edited_time is `2026-10-26T15:53:59.832Z`; the field is located at `properties.title.4.1.0.1.reminder`. The partial export `.run/notion-reminder-field.json` contains the source page/block identity, cached version and extraction time; the repeatable read-only extraction script is `.run/read-notion-reminder-cache.mjs`. There is no export of the entire database or extraneous page text.
+
+This test proves that the current native client cache can still provide the real reminder and is no longer just a clue to the historical unofficial client. It does not prove that public API provides this field, nor does it prove that the cache is completely consistent with the cloud at this time; this time, the cloud data has not been retrieved, the private HTTP interface has not been called, the local vault or Notion page has not been modified, and automatic import has not yet been connected. Subsequent supplementary imports need to verify cache freshness, original page/original block identity and date position, and local modifications cannot be overwritten simply by the same date.
+
+<a id="后续接入"></a>
+
+### subsequent access
+
+On the same day, the API + SQLite date has been supplemented, and the original evidence is recorded separately from the "not yet connected" time point above. For the current import process, cache update method and other block field investigation, see [ Notion SQLite Audit ](../audits/NOTION-SQLITE-2026-10-26.md), and for user operations, see [ Notion Import ](../features/NOTION-IMPORT.md). Existing local pages are not automatically overwritten.
+
+<a id="验证"></a>
+
+## Validation
+
+- Full `npm test`: 1, 083 items, 1, 078 passed, 5 skipped, 0 failed. Log `.run/logs/asset-uuid-cleanup-unit.log`.
+- Type checking, production build and desktop build pass. The directional asset/page/import single test 25 item and the new clean boundary single test 5 item passed.
+- Chrome related regression covers 29: After the first round of newly added test grammar errors were corrected, 28 was run again, with 1 already having an attachment filtered as the only add-on sharing attachment. After being renamed to a name-curated filter, the attachment file 7 was reviewed and the remaining 22 items were passed in the previous round. After the completion of all the test cases, the isolation test service is out of stagnation, and the test service is only terminated after verifying the process identity, and runner normally leaves and reports 7 passed logs. `.run/logs/asset-uuid-cleanup-browser.log`、`.run/logs/asset-uuid-cleanup-browser-final.log`、`.run/logs/asset-uuid-cleanup-attachments-final.log`. Not running the full browser suite.
+- Tests use a temporary repository, standalone Chrome, and a dedicated recycle bin alias, covering exclusive/shared attachments, Trash and recovery, subtrees, unknown attributes and byte recovery, conflict drafts, HTML dependencies, global metadata, symbolic links, and recovery failures. There was no deletion test with user files, and no real system recycle bin acceptance was run.
+- Desktop installation package: `.run/attachment-uuid-release/Notdown-Setup-0.1.3-x64.exe`. Log `.run/logs/asset-uuid-cleanup-desktop.log`. The currently installed program has not been replaced, and the new naming and automatic cleaning will take effect after installation.

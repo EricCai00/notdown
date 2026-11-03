@@ -955,7 +955,74 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       return { migrated: plan.databases.length, recoveryPath };
     }),
   };
+  async function recycleLocked(id: string, baseRevision: string, baseRevisions: Record<string, string>) {
+    assertId(id);
+    if (!baseRevisions || typeof baseRevisions !== "object" || Array.isArray(baseRevisions) ||
+        typeof baseRevision !== "string" || !/^[a-f0-9]{64}$/.test(baseRevision))
+      throw new VaultError(400, "Recycling requires page and descendant revisions");
+    const all = await scan();
+    const target = all.get(id);
+    if (!target) throw new VaultError(404, "Page not found");
+    if (target.page.revision !== baseRevision) return registerConflict(target, {}, baseRevision);
+    if (!target.page.trashed) throw new VaultError(400, "Move the page to Trash first");
+    const selected = new Map([[id, target]]);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const [pageId, item] of all) if (item.page.parent && selected.has(item.page.parent) && !selected.has(pageId)) {
+        selected.set(pageId, item); changed = true;
+      }
+    }
+    if (Object.keys(baseRevisions).length !== selected.size || [...selected.keys()].some((pageId) => !Object.prototype.hasOwnProperty.call(baseRevisions, pageId)))
+      throw new VaultError(409, "The page tree changed. Reopen Trash before deleting.");
+    for (const [pageId, item] of selected) {
+      if (!/^[a-f0-9]{64}$/.test(baseRevisions[pageId])) throw new VaultError(400, "Invalid descendant revision");
+      if (item.page.revision !== baseRevisions[pageId]) return registerConflict(item, {}, baseRevisions[pageId]);
+    }
+    // Do not strand active conflict records whose source file is still needed.
+    for (const entry of await fs.readdir(conflictsPath, { withFileTypes: true })) {
+      if (entry.isFile() && !entry.isSymbolicLink() && entry.name.endsWith(".json")) {
+        const record = JSON.parse(await fs.readFile(path.join(conflictsPath, entry.name), "utf8"));
+        if (selected.has(record.pageId)) throw new VaultError(400, "Resolve conflicts for this page and its children before deleting.");
+      }
+    }
+    for (const item of selected.values()) await snapshot(item);
+    const latest = await scan();
+    for (const [pageId, item] of selected) {
+      const fresh = latest.get(pageId);
+      if (!fresh) throw new VaultError(409, "The page tree changed. Reopen Trash before deleting.");
+      if (fresh.page.revision !== item.page.revision) return registerConflict(fresh, {}, item.page.revision);
+    }
+    if ([...latest.values()].some((item) => item.page.parent && selected.has(item.page.parent) && !selected.has(item.page.id)))
+      throw new VaultError(409, "The page tree changed. Reopen Trash before deleting.");
+    const recycled: string[] = [];
+    // Children first: if Windows refuses one file, its parent remains recoverable in Trash.
+    for (const item of [...selected.values()].reverse()) {
+      await safeDirectory(pagesPath);
+      if (path.dirname(path.resolve(item.filePath)) !== (item.page.databaseProxy ? databaseFiles.folder : pagesPath)) throw new VaultError(400, "Invalid page file path");
+      const stat = await fs.lstat(item.filePath);
+      if (!stat.isFile() || stat.isSymbolicLink()) throw new VaultError(422, "Cannot recycle symbolic links");
+      const fresh = (await scan()).get(item.page.id)!;
+      if (fresh.page.revision !== item.page.revision) return registerConflict(fresh, {}, item.page.revision);
+      const databaseFile = !item.page.databaseProxy && item.page.databaseId && databaseFiles.document(item.page.databaseId) ? databaseFiles.file(item.page.databaseId) : undefined;
+      const files = [item.filePath, ...(databaseFile ? [databaseFile] : [])];
+      const originals = await Promise.all(files.map(file => readOptional(file)));
+      try {
+        for (const [i, file] of files.entries()) {
+          if (originals[i] === null || await readOptional(file) !== originals[i]) throw new VaultError(409, "A database or page changed during recycling; the recovery snapshots were preserved");
+          await (options.recycleFile ?? platform.recycleFile)(file);
+        }
+      }
+      catch {
+        throw new VaultError(503, "Windows could not recycle every page. Reopen Trash to see remaining pages; completed files are in the system Recycle Bin and history snapshots are preserved.", { recycled });
+      }
+      if (item.page.databaseProxy || databaseFile) await databaseFiles.accept();
+      recycled.push(item.page.id);
+    }
+    const cleanup = await assets.recycleOrphansLocked([...selected.values()].map(item => item.page));
+    return { recycled, ...cleanup };
+  }
   const databases = createDatabases({
+    recyclePage: recycleLocked,
     platform, root, serialize, readMetadata, readOptional, atomicWrite: writeVaultFile, safeDirectory,
     commitResources: async (index, expected, members) => {
       const current = await scan(), files: DatabaseFileChange[] = [];
@@ -1519,74 +1586,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         return persistWithChildEntries(undefined, decode(encoded.source, filePath, encoded.metadata), all);
       });
     },
-    recycle(id: string, baseRevision: string, baseRevisions: Record<string, string>): Promise<{ recycled: string[]; deletedAssets: string[]; warnings: string[] }> {
-      return serialize(async () => {
-        assertId(id);
-        if (!baseRevisions || typeof baseRevisions !== "object" || Array.isArray(baseRevisions) ||
-            typeof baseRevision !== "string" || !/^[a-f0-9]{64}$/.test(baseRevision))
-          throw new VaultError(400, "Recycling requires page and descendant revisions");
-        const all = await scan();
-        const target = all.get(id);
-        if (!target) throw new VaultError(404, "Page not found");
-        if (target.page.revision !== baseRevision) return registerConflict(target, {}, baseRevision);
-        if (!target.page.trashed) throw new VaultError(400, "Move the page to Trash first");
-        const selected = new Map([[id, target]]);
-        for (let changed = true; changed;) {
-          changed = false;
-          for (const [pageId, item] of all) if (item.page.parent && selected.has(item.page.parent) && !selected.has(pageId)) {
-            selected.set(pageId, item); changed = true;
-          }
-        }
-        if (Object.keys(baseRevisions).length !== selected.size || [...selected.keys()].some((pageId) => !Object.prototype.hasOwnProperty.call(baseRevisions, pageId)))
-          throw new VaultError(409, "The page tree changed. Reopen Trash before deleting.");
-        for (const [pageId, item] of selected) {
-          if (!/^[a-f0-9]{64}$/.test(baseRevisions[pageId])) throw new VaultError(400, "Invalid descendant revision");
-          if (item.page.revision !== baseRevisions[pageId]) return registerConflict(item, {}, baseRevisions[pageId]);
-        }
-        // Do not strand active conflict records whose source file is still needed.
-        for (const entry of await fs.readdir(conflictsPath, { withFileTypes: true })) {
-          if (entry.isFile() && !entry.isSymbolicLink() && entry.name.endsWith(".json")) {
-            const record = JSON.parse(await fs.readFile(path.join(conflictsPath, entry.name), "utf8"));
-            if (selected.has(record.pageId)) throw new VaultError(400, "Resolve conflicts for this page and its children before deleting.");
-          }
-        }
-        for (const item of selected.values()) await snapshot(item);
-        const latest = await scan();
-        for (const [pageId, item] of selected) {
-          const fresh = latest.get(pageId);
-          if (!fresh) throw new VaultError(409, "The page tree changed. Reopen Trash before deleting.");
-          if (fresh.page.revision !== item.page.revision) return registerConflict(fresh, {}, item.page.revision);
-        }
-        if ([...latest.values()].some((item) => item.page.parent && selected.has(item.page.parent) && !selected.has(item.page.id)))
-          throw new VaultError(409, "The page tree changed. Reopen Trash before deleting.");
-        const recycled: string[] = [];
-        // Children first: if Windows refuses one file, its parent remains recoverable in Trash.
-        for (const item of [...selected.values()].reverse()) {
-          await safeDirectory(pagesPath);
-          if (path.dirname(path.resolve(item.filePath)) !== (item.page.databaseProxy ? databaseFiles.folder : pagesPath)) throw new VaultError(400, "Invalid page file path");
-          const stat = await fs.lstat(item.filePath);
-          if (!stat.isFile() || stat.isSymbolicLink()) throw new VaultError(422, "Cannot recycle symbolic links");
-          const fresh = (await scan()).get(item.page.id)!;
-          if (fresh.page.revision !== item.page.revision) return registerConflict(fresh, {}, item.page.revision);
-          const databaseFile = !item.page.databaseProxy && item.page.databaseId && databaseFiles.document(item.page.databaseId) ? databaseFiles.file(item.page.databaseId) : undefined;
-          const files = [item.filePath, ...(databaseFile ? [databaseFile] : [])];
-          const originals = await Promise.all(files.map(file => readOptional(file)));
-          try {
-            for (const [i, file] of files.entries()) {
-              if (originals[i] === null || await readOptional(file) !== originals[i]) throw new VaultError(409, "A database or page changed during recycling; the recovery snapshots were preserved");
-              await (options.recycleFile ?? platform.recycleFile)(file);
-            }
-          }
-          catch {
-            throw new VaultError(503, "Windows could not recycle every page. Reopen Trash to see remaining pages; completed files are in the system Recycle Bin and history snapshots are preserved.", { recycled });
-          }
-          if (item.page.databaseProxy || databaseFile) await databaseFiles.accept();
-          recycled.push(item.page.id);
-        }
-        const cleanup = await assets.recycleOrphansLocked([...selected.values()].map(item => item.page));
-        return { recycled, ...cleanup };
-      });
-    },
+    recycle: (id: string, baseRevision: string, baseRevisions: Record<string, string>) => serialize(() => recycleLocked(id, baseRevision, baseRevisions)),
     async listConflicts(): Promise<Conflict[]> {
       return serialize(async () => {
       await init();

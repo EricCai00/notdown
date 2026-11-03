@@ -1,18 +1,24 @@
-# Quarto 方言与多语言 Notebook
+<a id="quarto-方言与多语言-notebook"></a>
 
-Notdown 的 `quarto` 方言以现有 Pandoc Markdown 编辑能力为基础，识别 Quarto 可执行围栏、行内表达式和代码块选项。`notdown` 集合方言同样启用这些语法。正文仍是 `vault/pages/*.md`，不要求 `.qmd`；导入 `.qmd` 时默认选择 Quarto，原文件及未知字段保留。选择方言不改写旧正文。官方 `notion-markdown`、GFM 和 R Markdown 不因此启用 Quarto 的 Python/Julia/OJS 语法。
+# Quarto dialect and multilingual notebooks
 
-这是 Notdown 内的编辑与交互执行集成，不是完整嵌入 Quarto CLI。源码可以交给 Quarto 发布；Notdown 未实现 Quarto 的完整网站/书籍构建、PDF/Word 输出、shortcode/filter 执行、交叉引用编号和项目配置解析。已有 Pandoc 语法按 Notdown 当前能力解释，未知语法原文保留。
+**English** · [简体中文](QUARTO.zh-CN.md)
 
-Notdown 按块选择独立语言会话；Quarto CLI 通常为整篇文档选择一个主执行引擎，并可结合 OJS。混合 R、Python、Julia 的笔记在外部 Quarto 发布前，需要按其引擎规则配置或拆分，不能假定本文的多会话行为与 Quarto CLI 完全相同。
+Notdown's `quarto` dialect builds on existing Pandoc Markdown editing capabilities, recognizing Quarto executable fences, inline expressions, and code block options. The `notdown` collection dialect also enables these syntaxes. The text is still `vault/pages/*.md`, and `.qmd` is not required; when importing `.qmd`, Quarto is selected by default, and the original file and unknown fields are retained. Select the dialect and do not rewrite the old text. Official `notion-markdown`, GFM and R Markdown do not therefore enable Quarto's Python/Julia/OJS syntax.
 
-## 语法与操作
+This is an integration of editing and interactive execution within Notdown, not a complete embedding of Quarto CLI. The source code can be handed over to Quarto for release; Notdown does not implement Quarto's complete website/book construction, PDF/Word output, shortcode/filter execution, cross-reference numbering and project configuration parsing. The existing Pandoc syntax is interpreted according to the current capabilities of Notdown, and the original text of unknown syntax is retained.
 
-Page 编辑中，**Ctrl/Cmd+Enter** 运行光标所在的可执行 chunk 或 inline；chunk 同时保留 Ctrl/Cmd+Shift+Enter。已求值 inline 支持悬停预览结果。点击代码语言标签或结果打开菜单，用 **Show result / Show code** 切换单个 inline；结果视图隐藏代码和语言标签，代码原文仍由文档保存。全局 **Inline: Code / Results** 切换当前页全部 inline，不触发运行；单个切换后的混合状态显示 Mixed。
+Notdown selects independent language sessions by block; Quarto CLI usually selects a main execution engine for the entire document, and can be combined with OJS. Notes that mix R, Python, and Julia need to be configured or split according to their engine rules before external Quarto is released. It cannot be assumed that the multi-session behavior of this article is exactly the same as Quarto CLI.
 
-仅当页面有可执行 chunk 或 inline 时显示 **Run all**，先按文档顺序运行所有 chunk，再计算所有 inline，并将 inline 切为结果视图。运行时按钮变为 **Stop all**，可取消当前请求及尚未开始的计算；编辑正文、换页或重置会话也取消尚未完成的批次。各项错误就地显示，其余项继续执行。显示模式与结果仅存于当前编辑器，不写回 Markdown；缺失、失败和过期结果有提示。
+<a id="语法与操作"></a>
 
-2026-09-25 本轮控件验证：单元测试 746 通过、5 跳过；构建通过；独立临时知识库与 Chrome 的 35 项相关回归全部通过，包含真实 R/Python/Julia/OJS 的整页运行、悬停与两级显示切换、pending 输入、源码保留、停止与会话释放。修正会话 DELETE 请求的 JSON body，避免释放请求被拒绝后持续占用内核名额。日志 `.run/logs/executable-controls-unit.log`、`executable-controls-final-build.log`、`executable-controls-final-e2e.log`。本轮没有执行全仓库浏览器套件。
+## Syntax and operations
+
+During Page editing, **Ctrl/Cmd+Enter** runs the executable chunk or inline where the cursor is located; chunk also retains Ctrl/Cmd+Shift+Enter. Evaluated inline supports hover preview of results. Click the code language label or result to open the menu and use **Show result / Show code** to switch a single inline; the result view hides the code and language label, and the original code text is still saved by the document. Global **Inline: Code / Results** switches all inline on the current page and does not trigger running; the mixed status after a single switch displays Mixed.
+
+Only displayed when the page has executable chunk or inline **Run all**The first step is to run all chunk in document order, then calculate all inline and cut inline to the result view. **Stop all**，Current requests and uninitiated calculations can be cancelled; edit the text, change the page or reset the session, and unfinished batches can be cancelled. Errors show that the rest of the items are still running.Markdown；The first is the lack of a good deal of information about the results of the tests.
+
+2026-09-25 The test of the controls: unit testing746 I'm going to go through this.5 The Commission has also launched a new programme to promote the development of the European Union'sChrome of35 The return of the relevant items is all approved and contains realR/Python/Julia/OJS The entire page is running, suspended with two-level display switching,pending Enter, save source code, stop and release session.DELETE RequestedJSON body，Avoid continuing to occupy the core number after the request for release is rejected.`.run/logs/executable-controls-unit.log`、`executable-controls-final-build.log`、`executable-controls-final-e2e.log`. The full repository browser suite was not implemented in this round.
 
 ````markdown
 ```{python}
@@ -44,33 +50,35 @@ square = n * n
 平方：`{ojs} square`
 ````
 
-- 围栏使用 `{r}`、`{python}`、`{julia}`、`{ojs}`；普通的 `python`、`r`、`js` 围栏仅显示代码。R 的既有 `{r label, option=value}` 和 `` `r expression` `` 继续可用。
-- Python、R、Julia 使用开头连续的 `#|` YAML 选项，OJS 使用 `//|`；未知选项保留。不要把程序中间的注释当成配置。支持反引号与波浪线围栏，原文未变时保持原始围栏与换行。
-- `/` 菜单统一为 **Executable Chunk** 和 **Executable Expression**，Chunk 与 inline 插入都直接沿用记忆的语言（首次默认 R），不弹出语言选择；新 Chunk 为空且光标进入代码。点击 Chunk 语言名称才展开下拉列表，支持上下方向键移动、Enter 确认、Escape 关闭和鼠标点击。语言选择在本机记忆；R Markdown 中回退为 R。点击块左上角的语言名称可重新展开；点击 inline 语言名称可选择语言或运行表达式。块内 `Ctrl/Cmd+Shift+Enter` 运行当前块，右上角可运行当前块或它上面的块；inline 内 `Ctrl/Cmd+Enter` 运行。
-- 两种对象的语言切换均可撤销，保存后继续使用标准 Markdown 语法。切换只修改语言围栏/行内分隔符，代码内容保持逐字不变，包括注释、空白、`#|` / `//|` 选项前缀；不向代码补入旧 R 头部注释。更换语言后使用该语言的标准围栏，原 R 专属头部选项可通过撤销恢复，程序和选项是否适用于新语言需自行调整。Chunk 与 inline 的语言名称均无展开箭头，仍可点击。旧文件的 R 头部和 inline 分隔符在未切换语言时保持原样。R Markdown 方言的同一选择器仅提供 R。
-- 执行前收取待提交的源码/编辑器输入。读取、切换方言、保存或打开页面不自动运行代码。按钮是明确的交互求值：`eval`、`echo`、`include` 等发布选项不禁止求值、不隐藏交互结果；保留这些选项供外部 Quarto 发布。Python/Julia 上方块遇到错误停止，`#| error: true` 可继续下一块。
-- 文本、表格、图像放在块下方，行内结果放在表达式附近；可折叠、清除、停止和重启。结果不进入 Markdown、metadata、撤销记录或知识库历史。仅执行节点自身代码、语言或块头选项变化时，其旧结果标为过期；普通正文和其他节点的编辑不触发该提示。撤销回上次执行的源码会清除过期提示。
+- fence use `{r}`、`{python}`、`{julia}`、`{ojs}`; Ordinary `python`、`r`、`js` The fence only shows the code. R's existing `{r label, option=value}` and `` `r expression` `` Continue to be available.
+- Python, R, Julia use the `#|` and YAML options that start consecutively, and OJS uses `//|`; unknown options are reserved. Don't treat comments in the middle of the program as configuration. Supports backticks and tilde fences, and maintains the original fences and line breaks when the original text remains unchanged.
+- `/` The menu is unified **Executable Chunk** and **Executable Expression**，Chunk withinline The first time I've ever seen a computer, I've seen it in a language that I can't remember.R），Language selection not popped up; newChunk Enter the code as a blank and a flashlight.Chunk The name of the language is to be opened and the list is to be pulled down, and the keys are to be moved up and down.Enter ConfirmedEscape Close and click the mouse. Language selection in the local memory;R Markdown Back to theR。The language name in the upper left corner of the block can be restarted by clicking;inline Language names can be selected for language or run expression.`Ctrl/Cmd+Shift+Enter` Run the current block. The upper right corner can run the current block or the block above it; within inline `Ctrl/Cmd+Enter` run.
+- Language switching for both objects can be undone and standard Markdown syntax will continue to be used after saving. The switch only modifies the language fence/inline separator, and the code content remains verbatim, including comments, whitespace, and `#|` / `//|` option prefixes; the old R header comments are not added to the code. After changing the language, use the standard fence of that language. The original R exclusive header options can be restored by undoing. Whether the programs and options are suitable for the new language need to be adjusted by yourself. The language names of Chunk and inline do not have expansion arrows and can still be clicked. The old file's R header and inline delimiters remain intact without switching languages. The same selector for the R Markdown dialect is only available for R .
+- Receive source code/editor input to be submitted before execution. Reading, switching dialects, saving or opening pages does not automatically run code. Buttons are explicit interactive evaluations: `eval`, `echo`, `include` and other publishing options do not prohibit evaluation and do not hide interactive results; these options are reserved for external Quarto publishing. The block on Python/Julia stops when it encounters an error, and `#| error: true` can continue to the next block.
+- Text, tables, and images are placed below blocks, and inline results are placed near expressions; can be collapsed, cleared, stopped, and restarted. The results do not enter Markdown, metadata, undo records, or vault history. When only executing changes to the node's own code, language, or block header options, its old results are marked as expired; editing of ordinary text and other nodes does not trigger this prompt. Undoing the last executed source code will clear the expiration prompt.
 
-## 语言与运行环境
+<a id="语言与运行环境"></a>
 
-2026-09-25 插入与结果修订：Chunk/inline 插入不再弹出语言选择，沿用记忆语言；新 Chunk 光标直接进入空代码。修复普通正文/inline 编辑清空 OJS 共享会话的问题，并以稳定执行对象身份替代文档序号，避免前方插入块后覆盖既有定义。新增浏览器回归覆盖多个 inline 中编辑最后一个表达式、同一事件中收取 pending DOM 输入并立即运行、在已运行定义之前插入新块，以及真实 R/Python/Julia/OJS 分别读取同名变量的独立值。全量单元测试 746 通过、5 跳过，构建通过；相关 Chrome 回归 30 通过，启用本机 Python/IJulia 的四语言联合测试另 1 项通过。日志 `.run/logs/executable-results-*`；测试使用独立临时知识库。
+## Languages and runtimes
 
-2026-09-25 设置验证：全量单元测试 746 通过、5 个可选环境测试跳过；构建通过。启用本机 Python/IJulia 的 17 项服务集成测试全部通过。浏览器回归 26 通过、1 项 Python 测试随后启用环境补验通过；设置、真实会话重置及 Quarto 的最后 8 项 Chrome 测试全部通过。测试均使用临时知识库，日志 `.run/logs/runtime-settings-*`。
+2026-09-25 The following is the list of the most commonly used methods of measuring the results:Chunk/inline Adding language options that no longer pop up, along memory languages; newChunk The lighting is directly entered into the blank code./inline Edit the blankOJS The problem of sharing sessions and replacing the document sequence with a stable object-identity execution, avoiding the previously inserted block covering the existing definition.inline Last expression edited in the same eventpending DOM Input and run immediately, insert new blocks before the definition is run, and realR/Python/Julia/OJS Read the independent values of the variable of the same name separately.746 I'm going to go through this.5 Jump, build pass; relatedChrome Return to the country30 Pass and activate the machinePython/IJulia The four languages combined test another1 The document was approved.`.run/logs/executable-results-*`• Testing with independent temporary vaults.
 
-在 **Workspace settings → Code execution** 中配置 **Rscript path、Python path、Julia path**。输入可执行文件路径，不加引号或启动参数；**Check** 检查尚未保存的表单配置，R 检查包与 Pandoc，Python/Julia 实际启动临时 kernel 并显示解释器路径及版本。检查不修改现有会话。保存后重置服务中的 Notebook 会话，下一次执行立即使用新设置，无需重启后端。
+2026-09-25 Set up verification: Full unit testing746 I'm going to go through this.5 A selectable environment test is skipped; built-in passes.Python/IJulia of17 The service integration test was passed.26 I'm going to go through this.1 The following:Python The test then enables environmental verification to be passed; setting, real session reset andQuarto The end of8 The following:Chrome All tests were approved. Tests were conducted using a temporary knowledge library, logs.`.run/logs/runtime-settings-*`。
 
-**Advanced: Jupyter and Pandoc** 可指定 Python/Julia kernel 名称、Jupyter data directory 和 Pandoc 可执行文件路径。留空沿用下列启动环境变量或自动检测；已有启动值显示在输入框占位提示中。Python 未指定 kernel 名称时使用所选 Python 解释器；显式命名 kernel 时使用其 kernelspec 中的解释器。Julia 路径覆盖已安装 IJulia kernel 的可执行文件，保留启动参数和环境，因此仍需安装 IJulia。OJS 使用内置运行时，无需路径。
+in **Workspace settings → Code execution** Medium configuration **Rscript path、Python path、Julia path**• Enter executable file paths, without quotation marks or start parameters;**Check** Check the configuration of the form that has not been saved,R The inspection package andPandoc，Python/Julia The temporary start-upkernel Also display interpreter paths and versions. Check not to modify existing sessions. Save in the post-reset service.Notebook The next session is executed immediately using a new setting, without rebooting the backend.
 
-配置存于当前知识库的 `.notdown/runtimes.json`，不是正文或页面 metadata，也不是跨知识库全局配置。保存使用知识库原子写入、锁和 `baseRevision`；另一窗口已修改时返回冲突，表单草稿保留，两个版本存入 `.notdown/runtime-conflict-*.json`，不强制覆盖。启动环境变量仍兼容；仅更改环境变量时需重启后端。语言选择器只选择语言。
+**Advanced: Jupyter and Pandoc** Can be specifiedPython/Julia kernel The name,Jupyter data directory andPandoc File paths can be executed. Leave a space along the following start environment variables or automatic detection; the start value is already displayed in the input box position prompt.Python Not specifiedkernel Selected for use in the namePython The name of the author is "The Book of Mormon".kernel Use of thekernelspec The explanatory notes.Julia Path coverage installedIJulia kernel The executable files of the system, retaining the boot parameters and environment, are still required to be installed.IJulia。OJS The first is that the user can use the built-in system without the need for a path.
 
-| 语言 | 执行路径 | 依赖 |
+The configuration is stored in `.notdown/runtimes.json` of the current vault, not the text or page metadata, nor is it a global configuration across vaults. Save using vault atomic writes, locks and `baseRevision`; conflicts are returned when another window has been modified, the form draft is retained, and both versions are stored in `.notdown/runtime-conflict-*.json`, without forced overwriting. Startup environment variables are still compatible; only changing environment variables requires restarting the backend. The language selector only selects languages.
+
+| Language | Execution path | Dependencies |
 | --- | --- | --- |
-| R | 现有持久 R / knitr 会话 | R、rmarkdown、knitr、jsonlite、Pandoc；`NOTDOWN_RSCRIPT` 可指定 Rscript |
-| Python | Jupyter 的 Python kernel | Python 3.9+、jupyter_client、ipykernel；推荐 `NOTDOWN_PYTHON` 指向虚拟环境的 Python |
-| Julia | Jupyter 的 IJulia kernel | 上述 Jupyter 客户端环境及 Julia/IJulia；Julia 内执行 `using Pkg; Pkg.add("IJulia")`，确保 kernel 安装到客户端可发现的位置 |
-| Observable JavaScript | 隔离 iframe 内的 Observable Runtime | 随应用打包的 runtime、stdlib、Inspector、Inputs、Plot 与 Observable 语法解释器；无需 Node/Python kernel |
+| R | Existing persistent R / knitr session | R, rmarkdown, knitr, jsonlite, Pandoc; `NOTDOWN_RSCRIPT` can specify Rscript |
+| Python | Jupyter of Python kernel | Python 3.9+, jupyter_client, ipykernel; it is recommended that `NOTDOWN_PYTHON` points to Python of the virtual environment |
+| Julia | Jupyter of IJulia kernel | The above Jupyter client environment and Julia/IJulia; Julia are implemented `using Pkg; Pkg.add("IJulia")`Make sure kernel is installed where the client can be found |
+| Observable JavaScript | Isolationiframe In the InteriorObservable Runtime | runtime, stdlib, Inspector, Inputs, Plot and Observable syntax interpreters packaged with the application; no Node/Python kernel required |
 
-Python 环境示例：
+Python environment example:
 
 ```powershell
 python -m venv .venv
@@ -79,23 +87,24 @@ $env:NOTDOWN_PYTHON = (Resolve-Path .venv\Scripts\python.exe).Path
 npm run dev
 ```
 
-`NOTDOWN_PYTHON` 也用于连接 Julia kernel，不代表用 Python 执行 Julia。未配置时尝试 Python launcher、PATH、虚拟环境和 Windows 常见 Python 安装位置；不会使用不满足版本要求或缺少 jupyter_client 的环境。多个 kernel 可分别通过 `NOTDOWN_JUPYTER_PYTHON_KERNEL` / `NOTDOWN_JUPYTER_JULIA_KERNEL` 选择，默认按 kernel spec 的 language 匹配。`NOTDOWN_JULIA` 可覆盖 IJulia 的 Julia 可执行文件，`JUPYTER_DATA_DIR` 可指定额外 kernel 数据目录，`PANDOC_PATH` 选择 R Markdown 的 Pandoc。环境缺失会在结果视图显示安装提示。
+`NOTDOWN_PYTHON` It is also used for connectingJulia kernel，Not meant to be usedPython ImplementationJulia。Try when not configuredPython launcher、PATH、Virtual environments andWindows CommonPython Installation location; not used for non-compliance with version requirements or missingjupyter_client The environment.kernel The following is a list of`NOTDOWN_JUPYTER_PYTHON_KERNEL` / `NOTDOWN_JUPYTER_JULIA_KERNEL` Select by defaultkernel spec oflanguage It matches.`NOTDOWN_JULIA` CoveredIJulia ofJulia The document can be executed.`JUPYTER_DATA_DIR` Additional kernel data directories can be specified,`PANDOC_PATH` Choose R Markdown to Pandoc. Environmental failure will show installation prompt in the result view.
 
-每个窗口有独立会话；R、Python、Julia 之间不共享变量。单窗口请求串行执行，最多四个 Jupyter kernel 与两个 Quarto R 会话，运行超时 60 秒、空闲 15 分钟后释放。停止执行会结束进程树并重置会话。进程工作目录为独立系统临时目录，不把知识库文件自动交给执行器。本机 R/Python/Julia 程序仍有当前用户的系统权限。
+The first is the "Special Meeting" in the following sections:R、Python、Julia No variables are shared between. Single window requests are executed in sequence, up to fourJupyter kernel And twoQuarto R Meetings, running overtime60 Seconds, empty space15 The process tree ends and resets the session. The process workbook is a temporary directory for an independent system, and does not automatically deliver knowledge base files to the executor.R/Python/Julia The program still has system permissions for current users.
 
-OJS 的所有已运行块共享一个响应式模块，每个块的输出和交互控件直接显示在该块下方，不再打开独立面板。依赖可以先于定义运行；随后定义或滑块变化会重新计算依赖。普通正文或 inline 编辑保留已执行的定义，只有自身源码变化的执行节点显示过期提示。修改代码不会自动执行，手动重跑对应块后更新定义；删除块或切换该块语言移除其 OJS 定义。每个执行对象有独立稳定身份，前方插入其他块不会覆盖已有定义或把结果送给错误对象。重启或离开页面会释放模块。OJS 沙箱只启用脚本，不允许同源权限；运行时不向父应用暴露知识库 API。第三方 HTTPS 模块/数据需网络和 CORS 支持。块内显示使用隔离 DOM 镜像并转发 input/change/click/submit 事件，支持常用 Inputs 控件与静态 Plot；任意自定义键盘/指针事件、文件上传、动画或受跨域限制的 Canvas 尚不保证完整交互。本地 `FileAttachment`、R/Python 的 `ojs_define` 桥接尚未接入。
+All of the blocks in OJS already run share a responsive module, with each block's output and interaction controls displayed directly below the block, no longer opening separate panels. Dependencies can be defined first; definitions or changes to the slider are then recalculated depending upon dependencies. The normal or inline editor retains the defined execution, with only the execution node of its own source code changes showing an expired prompt. Modification code will not be executed automatically, and the corresponding block will be manually re-run after the update; block deletion or switching the block language removes its OJS definition. Each executable object has independent stability status, and the front inserting of other blocks does not cover the already defined or send the results to the wrong object. Rebooting or leaving the page releases the module. OJS sandbox only enables scripts, and does not allow co-source permissions; the parent application does not expose the API vault when running. Third-party HTTPS modules/data networks and CORS support. The block displays the use of isolated DOM mirrors and the forwarding of input/change/click/submit events, supports regular Inputs controls and static Plot; arbitrary custom keyboard/pointer events, file uploads, animations or cross-domain restrictions of Canvas do not guarantee full interaction. Locally `FileAttachment`The R/Python `ojs_define` The bridge is not yet accessible.
 
-当前只启用这四种主语言。普通 JavaScript/Node、SQL 和其他 Jupyter kernels 不会因存在某个解释器就自动成为可执行围栏；后续添加语言需要注册语法、kernel 选择与输出契约。暂不支持持久结果缓存、交互式 stdin、ipywidgets、Shiny、调试器和逐语句运行。
+Currently only these four primary languages are enabled. Ordinary JavaScript/Node, SQL and other Jupyter kernels will not automatically become executable fences because of the existence of an interpreter; subsequent addition of languages ​​requires registration of grammar, kernel selection and output contracts. Persistent result caching, interactive stdin, ipywidgets, Shiny, debugger and statement-by-statement running are not supported yet.
 
-## 验证与参考
+<a id="验证与参考"></a>
 
-历史记录（自动展开行为已被当前“插入不弹出”要求替代）：2026-09-25 Chunk 插入交互修订：空块沿用上次语言，插入后展开锚定下拉列表；上下方向键、回车、Escape、点击、重载后的语言记忆及选择后直接输入均经 Chrome 验证。语言切换现在严格保留代码内容，替代此前转换选项注释前缀、插入旧 R 头部注释的行为。Chunk/inline 的展开箭头已移除。`npm test` 741 通过、4 跳过、0 失败；`npm run test:e2e -- tests/e2e/executable-language.spec.ts tests/e2e/quarto.spec.ts tests/e2e/rmarkdown.spec.ts` 构建成功、22 通过、1 跳过（未配置 Python 环境变量），新增交互及相关用例再验 7 项全通过。日志 `.run/logs/chunk-dropdown-*`，界面截图 `.run/logs/chunk-dropdown.png`；测试均使用临时知识库。
+## Validation and references
 
-本次运行结果和未通过的全量浏览器回归见 [2026-09-25 验证记录](../verification/QUARTO-2026-09-25.md)。
+History record (the automatic expansion behavior has been replaced by the current "insert without popping" requirement): 2026-09-25 Chunk Insert interactive revision: the empty block inherits the last language, and the anchored drop-down list is expanded after insertion; the up and down arrow keys, enter, Escape, click, language memory after reloading and direct input after selection are all verified by Chrome. Language switching now strictly preserves code content, replacing the previous behavior of switching option comment prefixes and inserting old R header comments. Chunk/inline's expand arrow has been removed. `npm test` 741 passed, 4 skipped, 0 failed; `npm run test:e2e -- tests/e2e/executable-language.spec.ts tests/e2e/quarto.spec.ts tests/e2e/rmarkdown.spec.ts` was built successfully, 22 passed, 1 skipped (Python environment variable was not configured), new interactions and related use cases were retested, and all 7 items passed. Log `.run/logs/chunk-dropdown-*`, interface screenshot `.run/logs/chunk-dropdown.png`; all tests use temporary vault.
 
-- `tests/unit/quarto.test.ts`：方言隔离、原文往返、编辑后保留、选项边界、导入、请求验证及真实 kernel 的变量/图像/停止/隔离。`NOTDOWN_PYTHON` 启用 Python 实测，额外设置 `NOTDOWN_TEST_JULIA=1` 启用 IJulia 实测。
-- `tests/e2e/quarto.spec.ts`：独立临时知识库与 Chrome；交互入口、真实 Python 输出、OJS 响应式控件和沙箱、结果不落盘。
-- 官方：[Quarto 语言支持](https://quarto.org/docs/faq/)、[行内代码](https://quarto.org/docs/computations/inline-code.html)、[执行选项](https://quarto.org/docs/computations/execution-options.html)、[Observable JS](https://quarto.org/docs/interactive/ojs/)、[Julia](https://quarto.org/docs/computations/julia.html)。
+The results of this operation and the regression of all failed browsers can be found in [ 2026-09-25 verification record ](../verification/QUARTO-2026-09-25.md).
 
-2026-09-25 块内结果修订：inline R 标签改为 `r`。结果过期按执行节点自身源码判断，覆盖普通正文编辑、只改一个块、撤销及无关编辑期间的异步结果。OJS 移除独立面板，响应式结果与常用 Inputs 控件直接位于各块下方；验证原生键盘调整滑块、跨块更新、折叠、清除、重新运行及隔离权限。全量单元测试 746 通过、5 跳过，构建通过；38 项 Chrome 回归通过，包含真实 R/Python/Julia/OJS 会话。测试使用临时知识库，日志 `.run/logs/ojs-embedded-unit.log`、`.run/logs/ojs-embedded-regression.log`，截图 `.run/logs/quarto-ojs.png`。
+- `tests/unit/quarto.test.ts`: Dialect isolation, original text round-trip, retention after editing, option boundaries, import, request validation and variables/images/stop/isolation of real kernel. `NOTDOWN_PYTHON` enables the actual measurement of Python, and additionally sets `NOTDOWN_TEST_JULIA=1` to enable the actual measurement of IJulia.
+- `tests/e2e/quarto.spec.ts`: Independent temporary vault and Chrome; interactive entrance, real Python output, OJS responsive control and sandbox, and the results are not saved on the disk.
+- Official: [ Quarto language support ](https://quarto.org/docs/faq/), [ inline code ](https://quarto.org/docs/computations/inline-code.html), [ execution options ](https://quarto.org/docs/computations/execution-options.html), [ Observable JS ](https://quarto.org/docs/interactive/ojs/), [ Julia ](https://quarto.org/docs/computations/julia.html).
 
+Result revision within 2026-09-25 block: inline R label changed to `r`. Result expiration is judged based on the source code of the execution node itself, covering asynchronous results during ordinary text editing, only changing one block, undo, and unrelated editing. OJS removes independent panels, and responsive results and common Inputs controls are located directly below each block; verify native keyboard adjustment slider, cross-block update, collapse, clear, rerun and isolation permissions. All unit tests passed 746, skipped 5, and passed the build; 38 items passed Chrome regression, including real R/Python/Julia/OJS sessions. The test uses a temporary vault, logs `.run/logs/ojs-embedded-unit.log`, `.run/logs/ojs-embedded-regression.log`, and screenshots `.run/logs/quarto-ojs.png`.

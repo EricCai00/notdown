@@ -1,29 +1,39 @@
-# Notdown 对象统一与实现 Roadmap
+<a id="notdown-对象统一与实现-roadmap"></a>
 
-2026-09-27 修订：HTML embed 与 Web embed 合并为 `block.web_embed`，同时承载内嵌 HTML、URL 与 Typora iframe 编码。当前目录 79 项（41 block、2 metadata、32 inline、4 character）；以下历史数量以本次修订为准。
+# Notdown content object roadmap
 
-2026-09-23 修订：Raw Source 不再是独立对象。`{=html}` 合并到 HTML block / Inline HTML，其他格式和 raw TeX 归入 Unsupported；全部保留原编码和可恢复源码。当前目录共 78 项（41 block、2 metadata、31 inline、4 character），下文旧数量与归类以此为准。
+**English** · [简体中文](CONTENT-OBJECT-ROADMAP.zh-CN.md)
 
-2026-09-22。原 80 项对象清单加上用户要求的 Inline raw source，共 81 项：43 个 block、2 个 metadata、32 个 inline、4 个 character。对象身份独立于 Markdown 写法和 ProseMirror 节点；单一 ProseMirror 文档与原有 codec 继续工作，Markdown 文件仍是正文真相。
+2026-09-27 revision: HTML embed and Web embed are merged to form the `block.web_embed`，At the same time, carrying embeddedHTML、URL withTypora iframe Code. Current directory79 The following is a list of articles related to41 block、2 metadata、32 inline、4 character）；The following historical figures are as amended.
 
-## 当前交付
+2026-09-23 Revision: Raw Source is no longer a standalone object.`{=html}` The United StatesHTML block / Inline HTML，Other formats andraw TeX IncludedUnsupported；All of the original coding and recoverable source code are retained.78 The following is a list of articles related to41 block、2 metadata、31 inline、4 character），The following is a list of the oldest numbers and classifications.
 
-- 全表语义注册、统一菜单、对象／方言／扩展双向链接；三种列表项各用独立底层节点，Heading 共享节点。仅保留有归属的子结构栏，字符类为文本能力。
-- Callout 和 TOC 合并并保留编码来源；管道、Notion、MMD、网格、简单、多行表格共用模型，提供行列和跨度编辑。
-- Tabs、手工书签／链接预览、Breadcrumb、HTML embed、图片题注、Example list、Native span、Small caps、Raw TeX；定义列表项操作、cover、元数据字段及行内属性编辑。
-- AI block / Meeting notes 使用 Settings 配置的 OpenAI-compatible 服务。Button 提供本地动作；提醒在应用打开时运行；Synced block 支持本地刷新与 CAS 发布，本地编辑暂停自动刷新。
-- 103 个 Markdown 扩展有本地执行路径；12 个 Outside Markdown scope 项排最后且不可启用。notdown_* 规范为 notion_*，旧键兼容，新键优先，不批量迁移页面。
-- MMD / YAML 共用产品身份但编码不同；Mention agent、Inline media、Database reference 对象和 Existing content 已移除，Inline raw source 保留。旧数据库和未知输入仍保留原文。
+2026-09-22. The original 80 item object list plus the Inline raw source requested by the user, there are a total of 81 items: 43 block, 2 metadata, 32 inline, 4 character. The object identity is independent of Markdown writing and ProseMirror nodes; a single ProseMirror document continues to work with the original codec, and the Markdown file is still the textual truth.
 
-## 能力与边界
+<a id="当前交付"></a>
 
-status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，不表示仍待实施。direct = 直接编辑，source = 源码编辑，reference = 引用载荷，text = 文本规则，preserved = 原文回退。实际可用性取决于方言与扩展开关，不能由可解析推断所有属性都有表单。
+## Current deliverables
 
-没有第二份持久化 AST，Page / CAS / MyBase 契约不变。新增模型调用及本地 citeproc API，未新增远端同步。真实模型由用户配置，测试使用模拟端点。Raw TeX 不在浏览器执行，书签元信息手工填写，citeproc 需本机 Pandoc。详细格式及边界见 [本地对象与服务](../reference/LOCAL-OBJECTS.md)。
+- Full table semantic registration, unified menu, object/dialect/extended bidirectional links; each of the three list items uses independent underlying nodes, and the Heading shared node. Only the substructure columns with ownership are retained, and the character class is text capability.
+- Callout and TOC merge and retain coding sources; pipeline, Notion, MMD, grid, simple, multi-row table share model, providing row, column and span editing.
+- Tabs, manual bookmark/link preview, Breadcrumb, HTML embed, picture caption, Example list, Native span, Small caps, Raw TeX; define list item operation, cover, metadata field and inline attribute editing.
+- AI block / Meeting notes UseSettings ConfiguredOpenAI-compatible Service.Button Provide local action; remind when the app is open;Synced block Supporting local renewal andCAS The site is open to the public and the local editors suspend automatic refreshments.
+- 103 Markdown extensions have local execution paths; 12 Outside Markdown scope items are last and cannot be enabled. The notdown_* specification is notion_*, old keys are compatible, new keys take priority, and pages are not migrated in batches.
+- MMD / YAML share product identity but different encodings; Mention agent, Inline media, Database reference objects and Existing content have been removed, Inline raw source remains. Old databases and unknown inputs remain original.
 
-## 逐项清单
+<a id="能力与边界"></a>
 
-| ID | 名称与别名 | 现有载体 / 编辑能力 | 状态 / 阶段 | 边界 |
+## Capabilities and limitations
+
+status represents an itemized local contract; stage retains the roadmap implementation grouping and does not indicate that it is still to be implemented. direct = direct editing, source = source code editing, reference = reference load, text = text rules, preserved = original text rollback. Actual availability depends on dialect and extension switches, and it cannot be inferred from parsable that all properties have forms.
+
+There is no second persistent AST, and the Page / CAS / MyBase contracts remain unchanged. Model calling and local citeproc API are added, but remote synchronization is not added. The real model is configured by the user and tested using mock endpoints. Raw TeX is not executed in the browser, and the bookmark meta information is filled in manually. citeproc requires native Pandoc. For detailed formats and boundaries, see [ Local Objects and Services ](../reference/LOCAL-OBJECTS.md).
+
+<a id="逐项清单"></a>
+
+## Itemized inventory
+
+| ID | Names and aliases | Existing vector/editing capabilities | status/stage | Boundaries |
 | --- | --- | --- | --- | --- |
 | block.paragraph | Paragraph; text; empty block | paragraph (direct) | implemented / P0 | Empty paragraphs are content; spacing is not. Children use the nesting adapter. |
 | block.heading | Heading; header; heading 1; heading 2; heading 3; heading 4; heading 5; heading 6 | heading (direct) | implemented / P0 |  |
@@ -104,8 +114,10 @@ status 表示逐项描述的本地契约；stage 保留 roadmap 实施分组，�
 | character.backslash_escape | Backslash escape; escape | text (text) | implemented / P0 |  |
 | character.smart_typography | Smart typography; smart punctuation | text (text; smart) | implemented / P2 | Dialect-controlled smart punctuation, legacy dash rules and ordinary text editing; a text-processing capability, not a separate node. |
 
-## 验证与维护
+<a id="验证与维护"></a>
 
-注册表来源：src/document/content-objects.ts。测试覆盖对象数量与分类、上下文识别、真实示例、Callout 原编码和撤销、TOC 层级与导出、扩展开关、CRLF、未知内容及代码围栏边界。浏览器验证全表与别名、折叠持久化、正文输入收取、目录实时更新、统一菜单及临时知识库保存。完整验收运行 npm test、npm run build、npm run test:e2e。
+## Validation and maintenance
 
-更新注册表后运行 node --import tsx docs/fixtures/content-object-roadmap.ts 重新生成本文件。旧 BLOCK-MODEL-REVIEW / CONTENT-CAPABILITIES 保留为历史讨论与方言快照；对象边界以本清单为准。
+Registry source: src/document/content-objects.ts. The test covers the number and classification of objects, context recognition, real examples, Callout original encoding and undoing, TOC hierarchy and export, expansion switches, CRLF, unknown content and code fence boundaries. The browser verifies full tables and aliases, folds persistence, receives text input, updates directories in real time, and saves unified menus and temporary vaults. Complete acceptance runs npm test, npm run build, npm run test:e2e.
+
+After updating the registry, run node -- import tsx docs/fixtures/content-object-roadmap.ts to regenerate this file. Old BLOCK-MODEL-REVIEW / CONTENT-CAPABILITIES are retained as historical discussions and dialect snapshots; object boundaries are subject to this listing.

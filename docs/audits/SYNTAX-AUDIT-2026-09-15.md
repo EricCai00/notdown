@@ -1,122 +1,144 @@
-# 用户附加语法清单核对：62 条
+<a id="用户附加语法清单核对62-条"></a>
 
-> 本文保留改造前的审计结果；当前实现请看 [62 条支持矩阵](../reference/PRODUCT-SYNTAX.md)。以下“当前／未实现”均指这次改造之前。
+# Review of the 62 additional syntax requirements
 
-2026-09-15，针对用户提交的 Typora、Obsidian、PHP Markdown Extra、MultiMarkdown 清单逐条检查。
+**English** · [简体中文](SYNTAX-AUDIT-2026-09-15.zh-CN.md)
 
-## 结论与之前说明的纠正
+> This article retains the audit results before the transformation; for the current implementation, please see the [ 62 support matrix ](../reference/PRODUCT-SYNTAX.md). The following "current/unrealized" all refer to before this transformation.
 
-**没有全部实现。** 上次接入的是九个可选择的预设和一部分核心规则；“方言已实现”的说法过于宽泛。43 个注册开关也不表示各方言的所有语法都已实现，其中 12 个是 Notdown 自有扩展，三种元数据开关仅识别并保留原文。
+2026-09-15, check the Typora, Obsidian, PHP Markdown Extra, MultiMarkdown lists submitted by the user one by one.
 
-当前没有 Typora 或 Obsidian 专用预设。`markdown_mmd` 的默认配置来自 Pandoc 的同名 reader，并未调用 MultiMarkdown 自身解析器，也未完整实现 MultiMarkdown 产品语法。类似地，PHP Extra 预设只实现了一部分 PHP Extra 功能。
+<a id="结论与之前说明的纠正"></a>
 
-本次把全部 62 条样例交给主编辑器实际使用的 `parseNative`，检查语义节点和原文往返，并检查 schema、HTML 显示和页面导航代码。Typora／Obsidian 样例在 GFM、Pandoc Markdown、Notion 默认配置下核对；PHP Extra 和 MultiMarkdown 样例在对应预设下核对。具体源文与解析结果见 [机器核对记录](../data/user-syntax-audit-2026-09-15.json)。**源码能够原样保存不等于语法得到支持；存在链接节点不等于能够正确导航。** 这不是 62 项浏览器视觉验收。
+## Conclusions and corrections to earlier descriptions
 
-## 逐条结果
+**Not all implemented.** The last time I accessed it was nine selectable presets and a portion of the core rules; "dialects implemented" is too broad a statement. 43 registration switches do not mean that all grammars of each dialect have been implemented. 12 is Notdown's own extension, and the three metadata switches only recognize and retain the original text.
 
-编号按用户清单顺序。表中“支持”仅指该样例的核心语义，仍受说明中的方言和开关约束。
+There are currently no dedicated presets for Typora or Obsidian. The default configuration of `markdown_mmd` comes from Pandoc's reader with the same name. It does not call MultiMarkdown's own parser, nor does it fully implement the MultiMarkdown product syntax. Similarly, the PHP Extra preset implements only a subset of PHP Extra functionality.
 
-### Typora 条目（1–18）
+This time, all 62 samples are handed over to `parseNative`, which is actually used by the main editor, to check the semantic nodes and original text round-trips, and to check the schema, HTML display and page navigation codes. Typora/Obsidian samples are checked under the default configurations of GFM, Pandoc Markdown, and Notion; PHP Extra and MultiMarkdown samples are checked under the corresponding presets. For specific source text and analysis results, see [ machine verification record ](../data/user-syntax-audit-2026-09-15.json). Being able to save the **source code as it is does not mean that the syntax is supported; the existence of link nodes does not mean that it can be navigated correctly.** This is not a 62 item browser visual acceptance.
 
-| # | 语法 | 当前状态 | 实际表现／原因 |
+<a id="逐条结果"></a>
+
+## Results by item
+
+Numbering is in user list order. "Supported" in the table only refers to the core semantics of the sample and is still subject to the dialects and switches in the description.
+
+<a id="typora-条目118"></a>
+
+### Typora items (1–18)
+
+| # | Syntax | Current status | Actual performance/reasons |
 | --- | --- | --- | --- |
-| 1 | 独立 `$$` 数学块 | 支持 | `tex_math_dollars`；GFM、Pandoc Markdown、MMD、Notion 等默认开，解析成 equation 并由 KaTeX 显示 |
-| 2 | `[^fn1]` 和脚注定义 | 部分 | GFM、Pandoc、PHP Extra、MMD 可形成引用与说明块；没有统一数字编号、尾注汇集、返回链接。Notion 的同形引用是另一种 citation，不是这个脚注系统 |
-| 3 | YAML front matter | 仅识别保留 | GFM／Pandoc 的正文开头形成 opaque_block；不提取为页面属性，也不应用 layout。Notion 不支持这个正文扩展；文件外层的知识库 YAML 是另一层 |
-| 4 | `[toc]` | 未实现 | 显示普通文字。现有目录侧栏和 `<table_of_contents/>` 不等于支持这个写法 |
-| 5 | `> [!NOTE]` alert | 未实现 | 显示含 `[!NOTE]` 的普通引用；`alerts` 尚未注册原生规则。Notdown `<callout>` 是不同语法 |
-| 6 | `[link](#header-3)` | 部分 | 链接能解析，但页面标题没有按此规则生成 DOM ID，缺完整锚点跳转链路 |
-| 7 | `:smile:` | 支持但默认值不同 | GFM／CommonMark X／旧 GitHub 默认开 `emoji`；Pandoc Markdown 默认关，可开。Notion 暂无该名称转换，Notion 自定义 Emoji 也未接入 |
-| 8 | `$y=x^2$` | 支持 | `tex_math_dollars`，形成 inline_math；不是所有预设都默认开启 |
-| 9 | `H~2~O` | 支持但默认值不同 | `subscript`；Pandoc Markdown、MMD、CommonMark X 默认开，GFM 默认关，Notion 不提供此开关 |
-| 10 | `X^2^` | 支持但默认值不同 | 同上，对应 `superscript`；只说明有闭合符号的形式 |
-| 11 | `==highlight==` | 未实现 | 普通文字；现有颜色／下划线标记没有对应的 `==` reader/writer |
-| 12 | `iframe` 嵌入 | 未实现播放，显示层主动过滤 | 可以形成 HTML 块并保留源码，但 HTML allowlist 明确隐藏 iframe；缺独立的隔离嵌入视图，不是打开 `raw_html` 就会播放 |
-| 13 | `sequence` 围栏图 | 未实现图形渲染 | 普通 code_block；没有 sequence 渲染器 |
-| 14 | `flow` 围栏图 | 未实现图形渲染 | 普通 code_block；没有 flow 渲染器 |
-| 15 | `mermaid` 围栏图 | 未实现图形渲染 | 普通 code_block；没有 Mermaid 渲染器，语言名得到保留不代表图形实现 |
-| 16 | `###header` | 可通过现有规则表达 | `markdown*` 家族关闭 `space_in_atx_header` 可读成标题；Strict／PHP Extra／MMD 默认无需空格。Typora 的 Strict Mode 设置不是这里的 Markdown Strict 预设 |
-| 17 | 编号项后两空格普通续行 | 部分／预设差异 | GFM／Pandoc 样例是同一项的段落续行；Notion 是自己的按行块规则，未实现 Typora 专用宽松模式 |
-| 18 | 编号项后两空格子编号项 | 未实现 Typora 专用兼容 | 没有 Typora 两空格层级规则；当前 Markdown 基础规则把此样例读成同级项，不能据此宣称支持 Typora 子列表 |
+| 1 | Standalone `$$` math block | Supported | `tex_math_dollars`; GFM, Pandoc Markdown, MMD, Notion, etc. are turned on by default, parsed into equation and displayed by KaTeX |
+| 2 | `[^fn1]`and footnote definition | Partial | GFM, Pandoc, PHP Extra, and MMD can form quotation and description blocks; there is no unified numbering, endnote collection, or return link. The isomorphic reference of Notion is another citation, not this footnote system |
+| 3 | YAML front matter | Recognize only reserved | The beginning of the text of GFM/Pandoc forms opaque_block; it is not extracted as a page attribute and layout is not applied. Notion does not support this text extension; the vault YAML outside the file is another layer |
+| 4 | `[toc]` | Not implemented | Display normal text. The existing directory sidebar and `<table_of_contents/>` do not support this writing method. |
+| 5 | `> [!NOTE]` alert | Not implemented | Displays a normal reference with `[!NOTE]`; `alerts` has not yet registered a native rule. Notdown `<callout>` are different syntaxes |
+| 6 | `[link](#header-3)` | Partial | The link can be parsed, but the page title is not generated DOM ID according to this rule, and the complete anchor point jump link is missing. |
+| 7 | `:smile:` | Supported but different default values | GFM/CommonMark X/old GitHub is on by default, `emoji`; Pandoc Markdown is off by default and can be on. Notion does not have this name conversion yet, and Notion custom Emoji has not been connected either. |
+| 8 | `$y=x^2$` | Supported | `tex_math_dollars`, producing inline_math; not enabled by default in every preset |
+| 9 | `H~2~O` | Supported but different default values | `subscript`; Pandoc Markdown, MMD, and CommonMark X are on by default, GFM is off by default, and Notion does not provide this switch. |
+| 10 | `X^2^` | Supported but different default values | Same as above, corresponding to `superscript`; only the form with closed symbols is explained. |
+| 11 | `==highlight==` | Not implemented | Normal text; existing color/underline mark has no corresponding `==` reader/writer |
+| 12 | `iframe`Embed | Playback is not implemented, and the display layer actively filters | HTML blocks can be formed and the source code is retained, but HTML allowlist explicitly hides iframe; it lacks an independent isolated embedded view, and `raw_html` will not be played when it is opened. |
+| 13 | `sequence` fenced diagram | Graphics rendering not implemented | Normal code_block; no sequence renderer |
+| 14 | `flow` fenced diagram | Graphics rendering not implemented | Normal code_block; no flow renderer |
+| 15 | `mermaid` fenced diagram | Graphics rendering not implemented | Ordinary code_block; no Mermaid renderer, the language name is reserved and does not represent the graphics implementation |
+| 16 | `###header` | Expressible through existing rules | `markdown*` family closure `space_in_atx_header` The title is legible;Strict／PHP Extra／MMD By default, no space is required.Typora ofStrict Mode The setting is not here.Markdown Strict Default |
+| 17 | Ordinary line continuation with two spaces after the numbered item | Partial/default differences | The GFM/Pandoc sample is a paragraph continuation of the same item; Notion is its own line-by-line block rule and does not implement the Typora-specific relaxed mode. |
+| 18 | Two spaces after the numbered item numbered item | Typora exclusive compatibility is not implemented | There is no Typora two-space level rule; the current Markdown base rule reads this example as a sibling and cannot claim to support the Typora sublist on this basis. |
 
-### Obsidian 条目（19–22）
+<a id="obsidian-条目1922"></a>
 
-| # | 语法 | 当前状态 | 实际表现／原因 |
+### Obsidian items (19–22)
+
+| # | Syntax | Current status | Actual performance/reasons |
 | --- | --- | --- | --- |
-| 19 | 多行 `%%` 注释 | 未实现 | 作为可见文字显示，未建立注释块或隐藏逻辑 |
-| 20 | `%%comment%%` | 未实现 | 作为可见文字显示，未建立注释标记 |
-| 21 | `[[note title]]` | 部分 | Notion 可形成 page_link；其他预设可开 `wikilinks_title_after_pipe`。不是完整 Obsidian 链接系统，标题／块定位、嵌入及文件路径规则未齐 |
-| 22 | `[note title](note%20title.md)` | 部分 | 普通链接语法能解析；没有把这种文件名链接解析为知识库 UUID 页面并导航的完整适配 |
+| 19 | Multi-line `%%` comments | Not implemented | Displayed as visible text, no comment blocks or hidden logic established |
+| 20 | `%%comment%%` | Not implemented | Displayed as visible text, no comment markers created |
+| 21 | `[[note title]]` | Partial | Notion can form page_link; other presets can open `wikilinks_title_after_pipe`. Not a complete Obsidian linking system, header/block positioning, embedding and file path rules are not complete |
+| 22 | `[note title](note%20title.md)` | Partial | Ordinary link syntax can be parsed; there is no complete adaptation to parse this kind of file name link into a vault UUID page and navigate it |
 
-### PHP Markdown Extra 条目（23–34）
+<a id="php-markdown-extra-条目2334"></a>
 
-| # | 语法 | 当前状态 | 实际表现／原因 |
+### PHP Markdown Extra items (23–34)
+
+| # | Syntax | Current status | Actual performance/reasons |
 | --- | --- | --- | --- |
-| 23 | 段落后 `<div>` | 支持 HTML 预览 | 样例形成段落加 HTML 块；实际是块级 HTML，不是行内 span。内部标签源码通过 HTML 显示规则处理 |
-| 24 | `<div markdown="1">` | 未实现混合解析 | 形成 HTML 块，内部 `*true*` 不作为 Markdown 强调。缺 `markdown_attribute` reader |
-| 25 | 标题 `{#heading-id}` 与链接 | 未实现属性和目标绑定 | `{#heading-id}` 留在标题文字里；没有对应锚点 |
-| 26 | 标题 `{.main}` | 未实现 | 属性文字保留；没有 class 语义 |
-| 27 | 标题 `{lang=fr}` | 未实现 | 属性文字保留；没有通用属性 reader。外部软件是否接受该属性集合还取决于具体版本 |
-| 28 | 链接／图片 `{#id .class}` | 未实现属性 | 基础链接和图片可识别，但花括号作为尾随文字 |
-| 29 | 引用定义后的属性 | 未实现 | 该样例退化为段落；缺带属性引用定义的解析及关联 |
-| 30 | `~~~ .html` | 部分 | 代码块成立，`.html` 留在 params；未提供完整 fenced attributes 的类名／语言语义 |
-| 31 | `~~~ {.html #example-1}` | 部分 | 代码块成立，属性串保留，但不生成 code ID／class，也不保证按其中语言高亮 |
-| 32 | 定义列表与多个定义 | 支持 | `definition_lists` 默认开；术语及多个 definition_description 成立，可编辑 |
-| 33 | `*[HTML]: ...` | 支持这种缩写定义 | `abbreviations` 默认开。定义本身不显示正文；需在后续正文出现 `HTML`，才会出现缩写说明。只有这行时看不到文字是正常结果 |
-| 34 | 连续 `3. / 4. / 5.` | 发现缺陷，已修正 | 原先被错误合并为一项：段落打断限制也拦截了同级列表边界。本次修复并补连续项目测试。显示从 3 开始还须启用 `startnum`；PHP Extra 预设按 Pandoc 快照默认关 |
+| 23 | after paragraph`<div>` | HTML preview supported | The example forms a paragraph and adds a HTML block; it is actually a block-level HTML, not an inline span. Internal label source code is processed through HTML display rules |
+| 24 | `<div markdown="1">` | Mixed parsing not implemented | Forming the HTML block, internal `*true*` is not emphasized as Markdown. Missing `markdown_attribute` reader |
+| 25 | Title `{#heading-id}` and link | Attributes and target binding not implemented | `{#heading-id}` remains in heading text; no corresponding anchor |
+| 26 | heading `{.main}` | Not implemented | Attribute literals are reserved; no class semantics |
+| 27 | heading `{lang=fr}` | Not implemented | Property literals are reserved; there is no generic property reader . Whether external software accepts this property set also depends on the specific version. |
+| 28 | link / image `{#id .class}` | Attributes not implemented | Base links and images are recognized, but curly braces are used as trailing text |
+| 29 | Reference the defined attribute | Not implemented | This example degenerates into a paragraph; it lacks parsing and association of attribute reference definitions. |
+| 30 | `~~~ .html` | Partial | Code block established, `.html` remains in params; full fenced attributes class name/language semantics not provided |
+| 31 | `~~~ {.html #example-1}` | Partial | The code block is established and the attribute string is retained, but code ID/class is not generated, nor is it guaranteed to be highlighted according to the language. |
+| 32 | Definition lists with multiple definitions | Supported | `definition_lists`On by default; terms and multiple definition_description are established and can be edited |
+| 33 | `*[HTML]: ...` | Support this abbreviation definition | `abbreviations`On by default. The definition itself does not display the text; `HTML` must appear in the subsequent text before the abbreviation description will appear. It is a normal result that no text can be seen when there is only this line. |
+| 34 | continuous`3. / 4. / 5.` | Defect found and fixed | Originally merged into one item by mistake: Paragraph break restrictions also intercept sibling list boundaries. This repair and supplement of continuous project testing. It shows that starting from 3, `startnum` must be enabled; PHP Extra is defaulted to Pandoc and the snapshot is turned off by default. |
 
-### MultiMarkdown 条目（35–62）
+<a id="multimarkdown-条目3562"></a>
 
-| # | 语法 | 当前状态 | 实际表现／原因 |
+### MultiMarkdown items (35–62)
+
+| # | Syntax | Current status | Actual performance/reasons |
 | --- | --- | --- | --- |
-| 35 | `[>MMD]`、`[>(MD) Markdown]` 缩写 | 未实现 | 某些形式会被读成普通引用链接；PHP Extra 的 `*[HTML]` 插件不能实现这套语法 |
-| 36 | `[locator][#Doe:2006]` | 未实现引文 | 缺 MMD citation 解析、文献数据与排版；样例引用键 `Doe:2006` 与定义键 `Doe2006` 也不一致 |
-| 37 | `[][#Doe:2006]` | 未实现引文 | 同上，包括样例键不一致问题 |
-| 38 | `[Not cited][#citekey]` | 未实现引文 | 没有“纳入参考文献但不在正文引用”的语义 |
-| 39 | 行内完整文献 | 未实现引文 | 未解析为引文／文献条目 |
-| 40 | BibTeX citation 三种形式 | 未实现 | 未接入 BibTeX 查询和 citation writer |
-| 41 | CriticMarkup 删除 | 未实现 | `{--text--}` 是普通文字，不具有修订语义 |
-| 42 | CriticMarkup 添加 | 未实现 | `{++text++}` 是普通文字 |
-| 43 | CriticMarkup 替换 | 未实现且会误解释内部语法 | `{~~text~>text~~}` 的一部分被下标插件识别；未改时源码保留，但不能保证编辑后保持未知语法的内部含义 |
-| 44 | CriticMarkup 高亮 | 未实现 | `{==text==}` 不具有高亮／修订语义 |
-| 45 | CriticMarkup 评论 | 未实现 | `{>>text<<}` 不具有评论语义 |
-| 46 | `[header-id]` 标题交叉引用 | 未实现 | 标题里的标记保持文字，隐式引用未建立 |
-| 47 | 行末反斜杠换行 | 已有规则，MMD 默认关 | `escaped_line_breaks` 可开；Pandoc `markdown_mmd` 默认关，因此样例保留反斜杠并显示软换行 |
-| 48 | `{{file.txt}}` | 未实现 | 没有文件展开处理、依赖索引和刷新链路 |
-| 49 | `{{file.*}}` | 未实现 | 没有通配文件展开及目标格式选择 |
-| 50 | glossary 三种形式 | 未实现 | 部分标记被当作普通链接，未产生术语表语义 |
-| 51 | 独立图片 | 部分 | 产生 paragraph(image)，不是完整 Figure／题注块；`/path/to/img.jpg` 是占位资源地址，解析成功不表示该图片实际存在 |
-| 52 | 引用链接／图片属性 | 未实现 | 带属性的引用定义未识别，连带正文引用不能按预期解析 |
-| 53 | 行内链接属性 | 未实现 | 样例退化为文字，缺 MMD 链接属性语法 |
-| 54 | 双反斜杠数学 | 未实现 | `tex_math_double_backslash` 未注册；美元公式插件不识别这种定界符 |
-| 55 | `100m^2` 无闭合上标 | 未实现 | 已有 `superscript` 只支持成对符号；缺 `short_subsuperscripts` |
-| 56 | `x~z` 无闭合下标 | 未实现 | 同上 |
-| 57 | 元数据变量 `[%foo]` | 未实现替换 | 开头 `foo: foo-test` 仅保留为元数据源码块，正文变量不求值 |
-| 58 | 行内／围栏 raw format | 未实现原始格式语义 | `{=html}` 是尾随文字，`{=latex}` 是普通 code params；缺 `raw_attribute`，不会按指定输出格式注入原文 |
-| 59 | 智能标点 | 已有规则，MMD 默认关 | 可开 `smart`；目前复用 markdown-it，细节不是完整 MMD 或 Pandoc typography |
-| 60 | `{{TOC}}` | 未实现此写法 | 普通文字；不能用现有目录能力替代语法实现的验收 |
-| 61 | `{{TOC:2}}`／范围 | 未实现 | 未解析目录指令及层级参数 |
-| 62 | 分组表头、跨列、分区、题注表格 | 部分基础表格，不支持该复合样例 | 只识别中间普通管道表格；分组行、后半段和题注成为文字，缺跨列／分区／Caption 语义与 writer |
+| 35 | `[>MMD]`, `[>(MD) Markdown]` abbreviation | Not implemented | Some forms are read as ordinary reference links; PHP Extra `*[HTML]` Plugins cannot implement this set of syntax |
+| 36 | `[locator][#Doe:2006]` | Citations not implemented | MMD citation analysis, literature data and typesetting are missing; the sample reference key `Doe:2006` and the definition key `Doe2006` are also inconsistent |
+| 37 | `[][#Doe:2006]` | Citations not implemented | Same as above, including sample key inconsistencies |
+| 38 | `[Not cited][#citekey]` | Citations not implemented | There is no semantics of “incorporating references but not citing them in the text” |
+| 39 | Complete inline bibliography entry | Citations not implemented | Not parsed as a citation / bibliography entry |
+| 40 | BibTeX citation three forms | Not implemented | Not connected to BibTeX query and citation writer |
+| 41 | CriticMarkup Delete | Not implemented | `{--text--}` is plain text, without revision semantics |
+| 42 | CriticMarkup added | Not implemented | `{++text++}` is plain text |
+| 43 | CriticMarkup replacement | Not implemented; internal syntax is misinterpreted | `{~~text~>text~~}`Part of it is recognized by the subscript plug-in; the source code is retained when unchanged, but there is no guarantee that the internal meaning of the unknown syntax will be maintained after editing. |
+| 44 | CriticMarkup Highlight | Not implemented | `{==text==}` has no highlight / revision semantics |
+| 45 | CriticMarkup comments | Not implemented | `{>>text<<}` has no comment semantics |
+| 46 | `[header-id]` heading cross-reference | Not implemented | Tags in titles remain text, implicit references are not established |
+| 47 | Backslash line breaks at line end | Existing rule, off by default in MMD | `escaped_line_breaks`Can be turned on; Pandoc `markdown_mmd` is off by default, so the example retains backslashes and displays soft line breaks |
+| 48 | `{{file.txt}}` | Not implemented | No file expansion processing, dependent indexing and refresh links |
+| 49 | `{{file.*}}` | Not implemented | No wildcard file expansion or target-format selection |
+| 50 | glossary three forms | Not implemented | Some tags are treated as ordinary links and no glossary semantics are generated |
+| 51 | independent pictures | Partial | Generates paragraph (image), which is not a complete Figure/caption block; `/path/to/img.jpg` is a placeholder resource address. Successful parsing does not mean that the image actually exists. |
+| 52 | Reference link/image attribute | Not implemented | Attributed reference definition is not recognized and the accompanying body reference cannot be resolved as expected |
+| 53 | Inline link properties | Not implemented | The sample is reduced to text and lacks the MMD link attribute syntax. |
+| 54 | double backslash math | Not implemented | `tex_math_double_backslash`Not registered; the dollar formula plugin does not recognize this delimiter |
+| 55 | `100m^2` unclosed superscript | Not implemented | Existing `superscript` only supports paired symbols; missing`short_subsuperscripts` |
+| 56 | `x~z` unclosed subscript | Not implemented | Same as above |
+| 57 | metadata variables`[%foo]` | Replacement not implemented | The beginning of `foo: foo-test` is only retained as a metadata source code block, and the text variables are not evaluated. |
+| 58 | Row/Fence raw format | Raw format semantics not implemented | `{=html}`is the trailing text, `{=latex}` is the ordinary code params; without `raw_attribute`, the original text will not be injected according to the specified output format. |
+| 59 | Smart punctuation | Existing rule, off by default in MMD | `smart` can be opened; currently reused markdown-it, the details are not complete MMD or Pandoc typography |
+| 60 | `{{TOC}}` | This writing method is not implemented | Ordinary text; existing directory capabilities cannot be substituted for acceptance of syntax implementations |
+| 61 | `{{TOC:2}}`/range | Not implemented | TOC directive and level parameters not parsed |
+| 62 | Tables with grouped headers, column spans, sections and captions | Partial basic table support; this composite example is unsupported | Only the middle ordinary pipeline table is recognized; the grouped rows, second half and caption become text, lacking the cross-column/partition/Caption semantics and writer |
 
-## 为什么没有：四种不同情况
+<a id="为什么没有四种不同情况"></a>
 
-1. **开发范围未完成。** 属性、引用、简写上下标、HTML 中的 Markdown 等需要对应 reader/writer；目前没有写完。不是框架做不到，也不能用已有开关数量代替兼容性完成度。
-2. **语义存在，但指定写法没有接入。** 已有目录和 callout 块，不代表支持 `[toc]`、`{{TOC}}`、`[!NOTE]`；同样，PHP Extra 缩写与 MMD 缩写不能共用一个表面相似的规则。
-3. **需要解析之外的处理。** 图表需要 renderer；文件展开需要文件读取与依赖刷新；引文需要文献解析和排版；属性需要语义保存、编辑、写回及实际显示。仅转成 AST 或注册扩展名不会自动获得这些能力。
-4. **确有默认值／实现缺陷。** Emoji、smart、反斜杠换行等有规则但特定预设默认关；连续列表被合并则是错误，不能解释成正常方言差异。iframe 是显示层明确过滤的元素，不能把“保留 HTML”宣传成“支持任意嵌入”。
+## Why an item is absent: four different cases
 
-另一个问题是：现有“尚未实现”面板只与 Pandoc 快照比较，因此 **不是完整生态缺口清单**。它不会自动列出 Typora／Obsidian／MultiMarkdown 产品的所有附加功能。后续应建立独立的语法能力清单，分别记录解析、显示、编辑、写回、默认值和原文保留状态，再将预设映射到能力。
+1. **The development scope is not complete.** The first is the "City of the Dead".HTML In the middleMarkdown We need to respondreader/writer；The framework cannot be done, nor can it replace compatibility completeness with the number of switches that already exist.
+2. **The semantics exist, but the specified writing method is not connected.** There is already a directory and callout block, which does not mean it is supported. `[toc]`、`{{TOC}}`、`[!NOTE]`;Similarly, the PHP Extra abbreviation and the MMD abbreviation cannot share a superficially similar rule.
+3. **Processing other than parsing is required.** Charts require renderer; file expansion requires file reading and dependency refreshing; citations require document parsing and formatting; attributes require semantic saving, editing, writing back, and actual display. Simply converting to AST or registering an extension does not automatically gain these capabilities.
+4. **Definitely a default value/implementation flaw.** Emoji, smart, backslash line breaks, etc. have rules but are off by default by specific defaults; it is an error if consecutive lists are merged and cannot be interpreted as normal dialect differences. iframe is an element explicitly filtered by the display layer, and "retaining HTML" cannot be promoted as "supporting arbitrary embedding".
 
-## 后续实现应怎样验收
+Another problem: the existing "not yet implemented" panel only compares to the Pandoc snapshot, so **is not the full ecological gap list of** . It does not automatically list all additional features for Typora/Obsidian/MultiMarkdown products. In the future, an independent grammar capability list should be established to record parsing, display, editing, writeback, default value and original text retention status respectively, and then map the presets to capabilities.
 
-优先补已有语义可承接的写法（alerts、目录、高亮、注释、简写上下标），随后补锚点／属性、HTML 混合解析；图表、跨文件展开、引文、复杂表格分别实现相应模块。每项都需要用户样例的正反例、扩展开关、编辑后重开和显示验证。
+<a id="后续实现应怎样验收"></a>
 
-未知语法也需要避免被其他插件拆开误读，CriticMarkup 替换样例就是当前缺口。**原文保留、局部识别、完整功能必须分开报告**。本次没有把上述缺失功能批量实现；完成的是逐项核对，以及连续列表缺陷修复。
+## Acceptance criteria for later implementations
 
-## 外部规范核对来源
+Prioritize the existing semantically acceptable writing methods (alerts, table of contents, highlighting, comments, abbreviation superscript and subscript), then add anchor points/attributes, HTML hybrid parsing; implement corresponding modules for charts, cross-file expansion, citations, and complex tables respectively. Each item requires positive and negative examples of user samples, expansion switches, reopening after editing, and display verification.
 
-- Typora 的目录、数学、HTML 等是产品附加语法，详见 [Typora Markdown Reference](https://support.typora.io/Markdown-Reference/)；图表还需要相应渲染能力，见 [Typora diagrams](https://support.typora.io/Draw-Diagrams-With-Markdown/)。
-- Obsidian 的注释和 callout 是具体语法，见 [基本语法](https://obsidian.md/help/syntax)与 [Callouts](https://obsidian.md/help/callouts)。
-- PHP Extra 的属性、HTML 混合解析、定义列表与缩写见 [官方说明](https://michelf.ca/projects/php-markdown/extra/)。
-- MMD 引文、CriticMarkup、缩写等见 [MultiMarkdown 语法说明](https://fletcher.github.io/MultiMarkdown-4/syntax)；跨文件展开见 [File Transclusion](https://fletcher.github.io/MultiMarkdown-6/syntax/transclusion.html)。这些为版本化语法资料，不代表 Notdown 已通过其兼容测试。
-- Pandoc reader 与扩展见 [Pandoc 手册](https://pandoc.org/MANUAL.html#pandocs-markdown)。Notdown 采用其预设快照，具体执行的是自有原生 codec，不能由预设名字推导完整兼容性。
+Unknown syntax also needs to be avoided from being disassembled and misread by other plug-ins. The CriticMarkup replacement example is the current gap. **original text retention, partial recognition, and complete functions must be reported separately for**. This time, the above missing functions were not implemented in batches; what was completed was item-by-item verification and continuous list defect repair.
+
+<a id="外部规范核对来源"></a>
+
+## External specification sources
+
+- Typora's directory, mathematics, HTML, etc. are additional syntax for the product, see [ Typora Markdown Reference ](https://support.typora.io/Markdown-Reference/) for details; charts also require corresponding rendering capabilities, see [ Typora diagrams ](https://support.typora.io/Draw-Diagrams-With-Markdown/).
+- The comments of Obsidian and callout are specific syntax, see [ basic syntax ](https://obsidian.md/help/syntax) and [ Callouts ](https://obsidian.md/help/callouts).
+- PHP Extra properties, HTML mixed analysis, definitions list and abbreviations [Official explanation](https://michelf.ca/projects/php-markdown/extra/)。
+- For MMD citations, CriticMarkup, abbreviations, etc., see [ MultiMarkdown syntax description ](https://fletcher.github.io/MultiMarkdown-4/syntax); for cross-file expansion, see [ File Transclusion ](https://fletcher.github.io/MultiMarkdown-6/syntax/transclusion.html). These are versioned syntax information and do not mean that Notdown has passed its compatibility testing.
+- Pandoc reader and extensions see [ Pandoc manual ](https://pandoc.org/MANUAL.html#pandocs-markdown). Notdown uses its default snapshot and specifically implements its own native codec. Complete compatibility cannot be deduced from the default name.

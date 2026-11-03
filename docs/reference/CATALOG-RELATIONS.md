@@ -1,54 +1,66 @@
-# 对象、方言与扩展目录
+<a id="对象方言与扩展目录"></a>
 
-2026-09-22。Block Explorer 的对象、Markdown variant、extension 现在可以两两双向跳转。详情使用带状态的 URL fragment，支持复制地址、刷新与浏览器前进／后退；搜索词、类别和所选方言在返回时恢复。Child structures 单列行、单元格、题注、列、列表分组、定义术语、脚注正文和引用定义，双向链接所属对象；Existing content 板块已移除；Inline raw source 纳入 Content objects，行内文件引入归入 File transclusion。Mention agent 与 Inline media 已移除。MMD metadata 已归入 YAML front matter 的独立编码；Database reference 对象已移除。未实现对象不因此获得插入入口。
+# Content object, dialect and extension catalog
 
-Content objects 是产品语义；底层节点是编辑模型。三类列表项各自使用独立节点，Heading 的级别和折叠状态使用属性，所有表格编码共享结构化表格。字符类中的实体、转义和智能标点是文本规则，不额外生成节点；hard_break 保留显式换行语义。ProseMirror mark 是行内格式机制：strong 表示粗体，highlight 表示高亮并输出 HTML `<mark>`，两者不同。
+**English** · [简体中文](CATALOG-RELATIONS.zh-CN.md)
 
-不再把 doc、text、nested_block 或 syntax_block 等技术机制展示为产品对象：doc/text 维持文档和文本，nested_block 支持普通段落及标题的子块，syntax 载体承接尚未直接编辑的具体对象及原文。删除这些机制会损坏文档结构或恢复路径。它们不提供独立的产品插入入口。Inline raw source 已加入正式清单，File transclusion 共用块级和行内位置；Agent 提及、Inline media 和 Existing content 已移除。详见[来源与限制](../architecture/METADATA-AND-COMPATIBILITY.md)。
+2026-09-22. The objects of Block Explorer, Markdown variant, and extension can now jump in both directions. Details Use stateful URL fragment with support for copying addresses, refreshing, and browser forward/backward; search terms, categories, and selected dialects are restored on return. Child structures single-column rows, cells, captions, columns, list groupings, definition terms, footnote text and reference definitions, bidirectional link objects; Existing content sections have been removed; Inline raw source has been incorporated into Content objects, and inline file introductions have been incorporated into File transclusion. Mention agent and Inline media have been removed. MMD metadata has been subsumed into a separate encoding of YAML front matter; the Database reference object has been removed. Unimplemented objects do not therefore gain access to insertion.
 
-## 分类依据
+Content objects is product semantics; the underlying node is the edit model. Each of the three types of list items uses independent nodes, the level and folding state of Heading use attributes, and all table codes share a structured table. Entities, escapes, and smart punctuation in character classes are text rules and do not generate additional nodes; hard_break retains explicit line breaking semantics. ProseMirror mark is an inline formatting mechanism: strong means bold, highlight means highlighting and outputting HTML `<mark>`, they are different.
 
-扩展列表另外按当前 variant 的语法规范／官方文档与 Pandoc 默认状态分组；工作簿的来源分类继续作为独立筛选条件。编辑页设置与 Block Explorer 共用同一份依据，细节见[扩展依据与分组](./EXTENSION-PROVENANCE.md)。
+Technical mechanisms such as doc, text, nested_block or syntax_block are no longer presented as product objects: doc/text maintains documents and texts, nested_block supports sub-blocks of ordinary paragraphs and headings, and syntax carriers accept specific objects and original texts that have not yet been directly edited. Removing these mechanisms can damage the document structure or recovery path. They do not provide independent access for product insertion. Inline raw source has been added to the official list, File transclusion shares block-level and inline positions; mentions of Agent, Inline media and Existing content have been removed. See [ Sources and Limitations ](../architecture/METADATA-AND-COMPATIBILITY.md) for details.
 
-来源为用户提供的 `markdown & notion.xlsx`，`extensions!A2:N117`（sheet 名是复数）。仓库中的 [只读快照](../data/extension-workbook.json) 保留 115 行、来源列、11 个方言列和原生注册列，附原始行号及采集日期。原工作簿没有被修改，运行应用不依赖用户桌面文件。
+<a id="分类依据"></a>
 
-| 来源类别 | 数量 | 含义 |
+## Classification criteria
+
+The expanded list is additionally grouped by the current syntax specification/official documentation of variant and the default status of Pandoc; the source classification of the workbook continues to serve as an independent filtering condition. The edit page settings share the same basis as Block Explorer. For details, see [ Extended Basis and Grouping ](EXTENSION-PROVENANCE.md).
+
+The sources are `markdown & notion.xlsx` and `extensions!A2:N117` provided by the user (the name sheet is plural). The [ read-only snapshot ](../data/extension-workbook.json) in the warehouse retains the 115 row, source column, 11 dialect column and native registration column, with the original row number and collection date. The original workbook has not been modified, and running the application does not depend on the user's desktop files.
+
+| Source Category | Count | meaning |
 | --- | ---: | --- |
-| Pandoc manual | 89 | 表中“Pandoc 手册”条目，包括已实现、待实现及非 Markdown 项目 |
-| Notdown product extensions | 14 | 表中“Notdown 产品扩展”；是 Notdown 的配置分组，不表示这些语法由 Notdown 发明 |
-| Notdown Notion extensions | 12 | 表中“Notdown Notion 扩展”；Notion 编码及部分 Notdown 兼容路径 |
+| Pandoc manual | 89 | "Pandoc manual" entries in the table, including implemented, to-be-implemented and non-Markdown projects |
+| Notdown product extensions | 14 | "Notdown product extension" in the table; is a configuration grouping of Notdown and does not mean that these syntaxes were invented by Notdown |
+| Notdown Notion extensions | 12 | "Notdown Notion extension" in the table; Notion encoding and some Notdown compatible paths |
 
-来源类别与内容对象的 block / metadata / inline / character 类别互相独立。旧的 `Extension.kind = block | syntax` 保留为实现字段，不再用来代替目录中的来源类别。扩展通过关联对象显示其用途，同一个扩展可以涉及块、行内及字符处理。
+The source category is independent of the block / metadata / inline / character category of the content object. The old `Extension.kind = block | syntax` is retained as an implementation field and is no longer used in place of the source category in the catalog. Extensions show their purpose through associated objects, and the same extension can involve block, inline, and character processing.
 
-当前 103 个 Markdown 扩展均已注册并有本地执行路径；12 个 Outside Markdown scope 项始终排最后且不能启用。注册不表示 Pandoc 全部规则已复刻，具体能力见扩展详情及 [本地对象与服务](./LOCAL-OBJECTS.md)。当前默认状态始终来自现有 `enabled` / `supportsOption`；工作簿里的“开／可／—”及斜线组合单独标为 Workbook reference，不覆盖本地配置。
+Currently, 103 Markdown extensions are registered and have local execution paths; 12 Outside Markdown scope items are always ranked last and cannot be enabled. Registration does not mean that all the rules of Pandoc have been reproduced. For specific capabilities, please see the extension details and [ Local Objects and Services ](LOCAL-OBJECTS.md). The current default state always comes from the existing `enabled` / `supportsOption`; the "on/can/-" and slash combination in the workbook are individually marked as Workbook reference and do not overwrite the local configuration.
 
-## 关系和能力
+<a id="关系和能力"></a>
 
-- Object ↔ Extension：从对象注册表的 adapter 自动生成编码关系；补充空行要求、属性、转义、编号等语法修饰关系。已接入修饰器标为 Syntax modifier。
-- Object ↔ Variant：显示当前注册模型在默认配置、可选扩展开启时的路径，以及对应的直接编辑／源码编辑／原文保留等模式。无路径也明确显示，可用于查看后续缺口。
-- Variant ↔ Extension：全部 115 个参考条目可以互相返回；每项明确标出默认启用、可选、不适用、待实现或非 Markdown 范围。列出某扩展不代表方言支持它。
-- 外部文档在新标签页打开；对象详情可经编码扩展或方言链接追到官方文档。这里只描述本地注册路径，不宣称复制上游产品全部行为。
+## Relationships and capabilities
 
-## notion_* 规范命名
+- Object ↔ Extension: Automatically generate coding relationships from adapter in the object registry; supplement grammatical modification relationships such as blank line requirements, attributes, escaping, and numbering. The connected modifier is marked Syntax modifier.
+- Object ↔ Variant: Displays the path of the currently registered model in the default configuration, when optional extensions are turned on, and the corresponding direct editing/source code editing/original text retention and other modes. No paths are also clearly shown, which can be used to view subsequent gaps.
+- Variant ↔ Extension: All 115 reference entries can return each other; each item is clearly marked as enabled by default, optional, not applicable, to be implemented, or non-Markdown scope. Listing an extension does not imply that the dialect supports it.
+- External documentation opens in a new tab; object details can be traced to official documentation via encoding extensions or dialect links. This article only describes the local registration path and does not claim to copy all the behaviors of the upstream product.
 
-按用户要求，12 个键已统一为 notion_columns、notion_callouts、notion_toggles、notion_tables、notion_pages、notion_mentions、notion_media、notion_databases、notion_synced、notion_toc、notion_nesting、notion_colors。
+<a id="notion_-规范命名"></a>
 
-旧 notdown_* 键继续可读、可搜索；规范键与旧键并存时规范键优先。配置写回使用规范键，未知键保留，没有批量改写知识库。工作簿快照保留原始名称及状态，方言默认值不变。
+## Canonical notion_* names
 
-名称表示语法分组，不等于官方认证：nesting 同时支持旧 :::nest；databases 只保留原始标签，没有数据库产品对象。Callout 的 alerts / notion_callouts 和 TOC 的 toc_directives / notion_toc 按编码分别控制。Synced block 的本地刷新和 CAS 发布不表示跨端同步。
+According to user requirements, the 12 keys have been unified into notion_columns, notion_callouts, notion_toggles, notion_tables, notion_pages, notion_mentions, notion_media, notion_databases, notion_synced, notion_toc, notion_nesting, and notion_colors.
 
-## 参考链接
+The old notdown_* key continues to be readable and searchable; when the canonical key and the old key coexist, the canonical key takes precedence. Configuration writeback uses canonical keys, unknown keys are retained, and there is no batch rewriting of the vault. Workbook snapshots retain the original name and status, and the dialect defaults remain unchanged.
 
-参考了工作簿的 `merged`、`markdown`、`extended`、`notion`、`variants`、`pandoc` 等 sheet。对象身份继续以原 80 项清单加上 Inline raw source，共 81 项为准，参考表中的语法归属不直接变成本地功能声明。
+The name represents a grammatical grouping, not equivalent to official certification:nesting Supporting the old:::nest；databases Only the original tags are retained, and there are no database product objects.Callout ofalerts / notion_callouts andTOC oftoc_directives / notion_toc The code is controlled by code.Synced block The local refresh andCAS The release does not indicate cross-end sync.
 
-2026-09-21 核对并加入目录的主要官方来源：
+<a id="参考链接"></a>
 
-- [Pandoc manual](https://pandoc.org/MANUAL.html)：扩展卡片尽量链接具体章节；`subscript` / `superscript` 等合并章节使用真实锚点。预设仍以项目已有 3.11 快照为准。
-- [Notion enhanced Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown)：标签、引用和富文本属性的命名依据。
-- [Typora Markdown reference](https://support.typora.io/Markdown-Reference/) 与 [Obsidian formatting syntax](https://obsidian.md/help/syntax)：产品语法参考。
-- [MultiMarkdown 6 syntax](https://fletcher.github.io/MultiMarkdown-6/syntax/)：与工作簿的 v6 对齐，未擅自切换版本；表格、引文、元数据、transclusion 等直接链接章节。
-- [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/)、[GFM specification](https://github.github.com/gfm/)、[PHP Markdown Extra](https://michelf.ca/projects/php-markdown/extra/)、[Original Markdown](https://daringfireball.net/projects/markdown/syntax)：对应方言的官方语法入口。
+## Reference links
 
-网页只作说明来源；不在应用启动时请求或加载这些网页，不向外发送笔记内容。
+Reference is made to `merged`, `markdown`, `extended`, `notion`, `variants`, `pandoc`, etc. sheet of the workbook. The object identity continues to be based on the original 80 item list plus Inline raw source, for a total of 81 items. The syntax attribution in the reference table does not directly become a local function declaration.
 
-2026-09-22 后续：新增 `notion_underline`，与 `notion_colors` 分离；九个 Notion 功能适配由 `local_*` 改名为 `notion_*`，旧 ID 为兼容别名，正式名优先。`local_figure` 是通用图片题注适配，保留 Markdown 分类。详见 [分类审计](../audits/EXTENSION-CLASSIFICATION-AUDIT-2026-09-22.md)。
+2026-09-21 checks and adds to the main official sources of the catalog:
+
+- [Pandoc manual ](https://pandoc.org/MANUAL.html): Expansion cards try to link specific chapters; `subscript` / `superscript` and other merged chapters use real anchor points. The default is still based on the existing 3.11 snapshot of the project.
+- [Notion enhanced Markdown ](https://developers.notion.com/guides/data-apis/enhanced-markdown): Naming basis for labels, references and rich text properties.
+- [Typora Markdown reference ](https://support.typora.io/Markdown-Reference/) and [ Obsidian formatting syntax ](https://obsidian.md/help/syntax): Product syntax reference.
+- [MultiMarkdown 6 syntax ](https://fletcher.github.io/MultiMarkdown-6/syntax/): Aligned with v6 of the workbook, without switching versions without authorization; tables, citations, metadata, transclusion, etc. are directly linked to chapters.
+- [CommonMark 0.31.2 ](https://spec.commonmark.org/0.31.2/), [ GFM specification ](https://github.github.com/gfm/), [ PHP Markdown Extra ](https://michelf.ca/projects/php-markdown/extra/), [ Original Markdown ](https://daringfireball.net/projects/markdown/syntax): The official grammar entry corresponding to the dialect.
+
+The web pages are only used to describe the source; these web pages are not requested or loaded when the application is started, and the note content is not sent out.
+
+2026-09-22 follow-up: Add `notion_underline`, separated from `notion_colors`; nine Notion function adaptations are renamed from `local_*` to `notion_*`, the old ID is a compatible alias, and the official name takes precedence. `local_figure` is a general image caption adaptation, retaining the Markdown classification. For details, see [ Classification Audit ](../audits/EXTENSION-CLASSIFICATION-AUDIT-2026-09-22.md).

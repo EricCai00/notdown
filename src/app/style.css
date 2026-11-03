@@ -1052,7 +1052,7 @@ dialog textarea {
 .search-result:hover {
   background: #f6f6f6;
 }
-.search-result span {
+.search-result > span:not(.page-link-icon) {
   flex: 1;
   min-width: 0;
 }
@@ -1537,7 +1537,7 @@ kbd {
 .main-nav > button:hover {
   background: var(--hover);
 }
-.main-nav > button span {
+.main-nav > button #page-count {
   margin-left: auto;
   border-radius: 4px;
   font-size: 12px;
@@ -1631,6 +1631,7 @@ kbd {
 .trash-list > div > span { overflow-wrap: anywhere; }
 .trash-row-actions { display: flex; flex-shrink: 0; gap: 6px; }
 .trash-row-actions .danger { color: #b34236; }
+.trash-actions .danger { color: #b34236; border: 1px solid #e8c3bf; }
 .trash-row-actions button:disabled { opacity: .5; cursor: wait; }
 #favorite-pages:not(:empty) { margin-bottom: 20px; }
 .tree-row {
@@ -1792,7 +1793,7 @@ kbd {
   color: #9b9a97;
   padding: 6px 10px;
 }
-.local-badge span {
+.local-badge > span:first-child {
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -2698,7 +2699,8 @@ kbd {
   transform: rotate(90deg);
 }
 .child-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 12px;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -2711,6 +2713,17 @@ kbd {
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
+}
+.child-card > .page-link-icon {
+  justify-self: center;
+  max-width: 20px;
+  max-height: 20px;
+}
+.child-card > span:not(.page-link-icon) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .child-card:hover,
 .backlink:hover {
@@ -3099,6 +3112,26 @@ dialog label {
   font-size: 14px;
   color: #787774;
 }
+.footnote-insert-form {
+  display: grid;
+  gap: 14px;
+}
+.footnote-insert-form select,
+.footnote-insert-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e3e2e0;
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--bg, white);
+  font: inherit;
+}
+.footnote-insert-form textarea {
+  min-height: 112px;
+  resize: vertical;
+}
 dialog label > input:not([type="checkbox"]) {
   display: block;
   width: 100%;
@@ -3185,6 +3218,16 @@ dialog .muted,
   font-size: 14px;
   color: var(--text);
 }
+.search-result > .page-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  font-size: 18px;
+  line-height: 1;
+}
 .search-result:hover,
 .search-result:focus-visible,
 .search-result.selected,
@@ -3208,6 +3251,7 @@ dialog .muted,
 .search-result svg {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
   color: #787774;
 }
 .search-section-label {

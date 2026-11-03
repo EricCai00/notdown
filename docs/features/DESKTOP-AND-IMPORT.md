@@ -1,55 +1,65 @@
-# Windows 桌面版与 Markdown 文件夹导入
+<a id="windows-桌面版与-markdown-文件夹导入"></a>
 
-当前范围为本地使用：Windows x64 Electron 安装包、知识库选择和文件夹复制导入。编辑器继续使用单一 ProseMirror 文档及自有 Markdown codec；Electron 复用现有 Node 服务与 `createVault`，没有引入另一套正文存储。
+# Windows desktop and Markdown folder import
 
-## 使用流程
+**English** · [简体中文](DESKTOP-AND-IMPORT.zh-CN.md)
 
-桌面原生控件沿用应用的浅色主题，确保 Windows 深色系统主题下最小化、最大化和还原按钮的悬停背景清晰可见。
+The current scope is for local use: Windows x64 Electron installation package, vault selection and folder copy import. The editor continues to use a single ProseMirror document and its own Markdown codec; Electron reuses the existing Node service and `createVault` without introducing another set of text storage.
 
-网页标签、应用窗口和知识库欢迎页的产品标题统一为 **Notdown**，不附加 slogan。欢迎页仅保留新建、打开知识库所需的操作提示。
+<a id="使用流程"></a>
 
-桌面启动后在系统托盘显示 Notdown 图标。点击窗口 **×** 会先保存页面与数据库待处理输入，再隐藏窗口，保留当前知识库、标签和本地服务；保存失败、组字未结束或发生冲突时保持窗口打开。点击托盘图标或 **Open Notdown** 恢复已有窗口，已最小化的窗口会还原。
+## Usage
 
-正常启动只使用同一用户配置的一个应用实例；再次启动会显示已有窗口，不新建欢迎窗口或重复启动知识库服务。同一实例仍可打开多个知识库窗口。要真正退出，使用托盘菜单或应用菜单中的 **Quit Notdown**：全部知识库保存成功后才退出，有一处失败则保留所有窗口及草稿。退出检查期间暂停所有知识库输入，避免先保存的窗口又产生新编辑。欢迎页也可隐藏到托盘；选定知识库后自动移除已完成任务的欢迎页。
+Desktop native controls follow the app's light theme, ensuring that the hover backgrounds of the minimize, maximize, and restore buttons are clearly visible under Windows's dark system theme.
 
-托盘驻留不增加后台云同步能力；云同步仍受[当前功能范围](CLOUD-SYNC.md)约束。
+The product titles of web page labels, application windows and vault welcome pages are unified as **Notdown** without appending slogan. The welcome page only retains the operation prompts required to create and open the vault.
 
-更新安装或替换程序文件前，先使用 **Quit Notdown** 完整退出；关闭窗口本身不会退出驻留进程。
+After the desktop is started, the Notdown icon is displayed in the system tray. Clicking on the window **×** will first save the page and database pending input, and then hide the window, retaining the current vault, tags and local services; keep the window open if the save fails, the group word is not completed, or a conflict occurs. Click the tray icon or **Open Notdown** to restore existing windows. Minimized windows will be restored.
 
-桌面版的 **Web bookmark** 自动读取系统对目标网址生效的 HTTP／HTTPS 代理、PAC 和绕过规则，无需在 Notdown 重复填写端口。Windows 上浏览器版的本地服务也读取 Windows 系统代理；其他系统的独立 Node 服务仍使用直连。调整系统代理后，可点击书签的 **Refresh bookmark** 重试。请求仍校验并固定目标公网地址，每次跳转重新校验；不共享浏览器登录态，代理也不能保证通过网站验证。仅配置 SOCKS 的代理目前不支持，应使用代理软件提供的 HTTP／混合端口。
+Normal startup only uses one application instance configured by the same user; restarting again will display the existing window without creating a new welcome window or starting the vault service repeatedly. Multiple vault windows can still be open on the same instance. To actually exit, use **Quit Notdown** in the tray menu or application menu: Exit after successfully saving all vaults, and retain all windows and drafts if one fails. All vault input is suspended during the exit check to avoid new edits to the window that was saved first. The welcome page can also be hidden in the tray; after selecting the vault, the welcome page for completed tasks will be automatically removed.
 
-书签图片依次选择网页声明的 Open Graph 图片、Twitter 图片、`image_src`、JSON-LD 主图及 `itemprop="image"`；无效候选会跳过。Bangumi 的作品详情页另识别作品信息区内的封面，不从普通正文中任取第一张图，避免误用头像或广告。封面按卡片区域裁剪，竖版海报不撑高卡片。已有书签可点击 **Refresh bookmark** 补取封面；图片无法加载时保留可用的文字卡片。自动预览不改写页面，手动刷新仍遵循当前方言的书签保存规则。
+Tray residency does not increase the background cloud synchronization capability; cloud synchronization is still subject to the current functional scope of [ and ](CLOUD-SYNC.md).
 
-浏览器版可点击侧栏顶部的知识库名称，或 **Workspace settings → Manage knowledge bases**，新建、打开和切换知识库。新库默认按名称创建在数据目录中，也可填写新的或已有空文件夹的绝对路径；打开已有库需填写包含 `pages/` 的根目录。路径属于运行本地服务的电脑，浏览器不弹出系统目录选择器。已知知识库会显示在列表中；不可用目录不会自动重建。
+Before updating, installing or replacing program files, use **Quit Notdown** to exit completely; closing the window itself will not exit the resident process.
 
-切换前保存当前页面和数据库的待处理编辑；保存失败或冲突时停止切换。勾选 **Open in a new tab** 可保留当前标签页。每库使用独立 URL（`/v/<标识>/`），正文请求、附件、历史及同步配置绑定该 URL，其他标签页继续使用各自的库；服务重启后可重新打开已记录的 URL。根地址继续使用启动时配置的知识库。最近目录记录在数据目录的 `.browser-vaults.json`，不改写 `.env`，也不改变下次启动的默认库。各库仍仅允许一个服务进程写入。
+The desktop version of **Web bookmark** automatically reads the system's HTTP/HTTPS proxy, PAC and bypass rules that are effective for the target URL, without having to repeatedly fill in the port in Notdown. The browser-based local service on Windows also reads the Windows system proxy; independent Node services on other systems still use direct connections. After adjusting the system proxy, you can click **Refresh bookmark** of the bookmark to try again. The request still verifies and fixes the target public network address, and re-verifies each jump; the browser login status is not shared, and the proxy cannot guarantee to pass website verification. Proxies configured with SOCKS only are not currently supported, the HTTP/mixed port provided by the proxy software should be used.
 
-1. 安装并启动 Notdown。首次欢迎页选择 **Create new vault**，在系统目录选择器中选择或新建空文件夹。
-2. 已有 Notdown 知识库使用 **Open existing vault**；目录必须包含 `pages/`。欢迎页记录最近十个目录，失效目录会报错，不会自动新建替代库。
-3. 点击 **Private pages** 旁的 **+** 或 Vault 页面的 **New page** 开始写作。正文写入 `pages/*.md`，通用页面属性写入 `metadata.json`；数据库各自保存在 `databases/*.json`，Wiki Home 保留真实 Markdown。文档内 YAML／Pandoc title block 可覆盖页面默认属性，详见[知识库元数据](VAULT-METADATA.md)。新建桌面知识库不自动填充演示内容；旧数据库不会因安装升级而自动迁移。
-4. 要带入已有笔记，点击侧栏 **Import → Import Markdown folder**，选择 GFM、Obsidian 或 Notdown 作为缺省方言，再选择源目录。同一 **Import** 入口也提供 **Import from Notion API**。
-5. 预览页面、附件、无效文件及链接提示。存在无效文件时必须明确选择跳过，才能提交可读文件。点击 **Import copies** 前会保存当前页，冲突会阻止导入。
+The bookmark image selects the Open Graph image, Twitter image, `image_src`, JSON-LD main image and `itemprop="image"` declared on the web page in sequence; invalid candidates will be skipped. The work details page of Bangumi also identifies the cover in the work information area, and does not randomly select the first picture from the ordinary text to avoid misuse of avatars or advertisements. The cover is cut according to the card area, and the vertical poster does not support the card. If you already have bookmarks, you can click **Refresh bookmark** to replace the cover; if the image cannot be loaded, the available text card will be retained. Automatic preview does not rewrite the page, and manual refresh still follows the bookmark saving rules of the current dialect.
 
-欢迎页的 **Your Notdown vaults** 显示统一数据目录及其已有知识库。填写 **New vault name** 后点击 **Create vault here**，会新建“数据目录／库名”，不复用已有同名目录。库名不能包含路径分隔符或 Windows 保留名称；各库的正文、附件、配置、同步身份和历史互相独立。数据目录与环境变量见[选择知识库](../architecture/DEVELOPMENT.md#选择知识库)。
+In the browser version, you can click the name of the vault at the top of the sidebar, or **Workspace settings → Manage knowledge bases** to create, open and switch vaults. The new library is created in the data directory by name by default. You can also fill in the absolute path of a new or existing empty folder; to open an existing library, you need to fill in the root directory containing `pages/`. The path belongs to the computer running the local service, and the browser does not pop up the system directory selector. Known vaults appear in the list; unavailable directories are not automatically rebuilt.
 
-需要长期文本历史时，可在 **Settings - History** 启用本机 Git；安装版仍需要另外安装 Git 才能启用此可选功能。正常保存不依赖 Git。页面菜单的 **Page history** 支持预览与恢复，范围和限制见[历史与恢复](VAULT-METADATA.md#自动历史与版本恢复)。
+Save pending edits to the current page and database before switching; stop switching if saving fails or conflicts. Check **Open in a new tab** to keep the current tab. Each library uses an independent URL (`/v/<标识>/`). Text requests, attachments, history and synchronization configurations are bound to this URL. Other tabs continue to use their respective libraries; the recorded URL can be reopened after the service is restarted. The root address continues to use the vault configured at startup. The latest directory is recorded in `.browser-vaults.json` of the data directory, `.env` is not overwritten, and the default library for next startup is not changed. Each library still only allows one service process to write.
 
-导入功能也可在浏览器模式使用。桌面点击左上角知识库名称或 **Workspace settings → Manage knowledge bases**，先保存当前页，再打开欢迎窗口；现有库保持独立窗口，不在原编辑器内替换库及 revision。主窗口使用与系统窗口按钮合并的标签栏，不显示 File / Edit 菜单；知识库操作仍从侧栏进入。同一知识库的页面与数据库可在应用内标签页中打开，操作见[标签页与窗口](WRITING-AND-NAVIGATION.md#标签页与窗口)。每库独立本地服务、会话分区及访问令牌；未携带令牌的本地 HTTP 请求被拒绝。窗口关闭通过受限 preload 请求编辑器收取并保存输入，失败或冲突时保持窗口打开。
+1. Install and start Notdown. Select **Create new vault** on the first welcome page, select or create a new empty folder in the system directory selector.
+2. There is already a Notdown repository using **Open existing vault**; the directory must contain `pages/`. The welcome page records the last ten directories. An error will be reported for invalid directories, and a replacement library will not be automatically created.
+3. Click **Private pages** next to **+** or Vault page **New page** Start writing. Text writing `pages/*.md`, write general page attributes `metadata.json`;The databases are respectively stored in `databases/*.json`, Wiki Home retains the real Markdown . YAML/Pandoc title block in the document can override the default attributes of the page. For details, see[vault metadata](VAULT-METADATA.md). New desktop vaults will not be automatically populated with demo content; old databases will not be automatically migrated due to installation upgrades.
+4. To bring in existing notes, click **Import → Import Markdown folder** in the sidebar, select GFM, Obsidian or Notdown as the default dialect, and then select the source directory. The same **Import** entry also provides **Import from Notion API** .
+5. Preview pages, attachments, invalid files and link prompts. When there are invalid files, you must explicitly choose to skip them before you can submit readable files. The current page will be saved before clicking **Import copies**, and conflicts will prevent the import.
 
-## 导入和恢复边界
+welcome page **Your Notdown vaults** Displays the unified data catalog and its existing vault. fill in **New vault name** click after **Create vault here**, a new "data directory/library name" will be created and the existing directory with the same name will not be reused. Library names cannot contain path separators or Windows reserved names; each library's body, attachments, configuration, synchronization identity, and history are independent of each other. See the data directory and environment variables[Selecting a vault](../architecture/DEVELOPMENT.md#selecting-a-vault)。
 
-- 每批最多 500 个文件、总计 20 MiB；单个 Markdown 最多 10 MiB。支持 UTF-8 `.md` / `.markdown`，其他文件作为附件复制；界面排除隐藏文件及隐藏目录。
-- 原目录只读。导入根目录及子目录转换为父子页面；每页获得新的稳定导入 ID，不沿用源文件中的页面身份。有效的已有 `syntax` 设置优先于所选缺省方言。
-- 保留未知 YAML 字段和注释；规范化副本中的 `id`、`title`、`parent`、`icon`、`properties`、`bodyFormat`、`syntax`，清除旧的收藏、删除、排序、更新时间状态。所有原始字段与文件字节均保存在原件归档中。
-- 只修改解析得到的 Markdown 链接、图片及引用定义的目标范围；不全局替换正文、代码围栏或未知语法。标准相对页面链接改为 `#page/<id>`，新附件改为 `assets/<带连字符的 UUID>.<扩展名>`，与上传、Notion 下载使用相同的内容确定 UUIDv5 命名；附件查询及锚点保留。旧附件和原链接继续兼容，不批量迁移。页面锚点及查询参数暂不支持，会在预览提示并从副本链接中省略。
-- Wiki 链接和原始 HTML 保留原写法，需要手动检查；不会自动完成 Obsidian 工作区或 Notion 导出包迁移。未解析的目标保留原文并给出提示。附件原文件名登记到附件库；规范化常见扩展名，其他简单字母数字扩展名保留，无法识别时使用 `.bin`。相同内容及规范扩展名复用同一文件，已有附件不自动迁移。
-- 导入预览只在内存中保留，30 分钟过期，每个服务最多三批；提交时使用预览的内容快照，不重新读取变化中的源目录。
-- 同一导入格式版本下，相同名称、方言、相对路径和内容产生相同导入批次。已完成批次再次提交不会重复创建或覆盖导入后编辑的页面；源内容改变则形成新的导入副本，不作为同步更新。
-- 写入通过 `createVault.importBatch` 串行执行。导入只新建文件，不更新已有页面，因此不接受覆盖 revision；之后的编辑仍使用 `baseRevision` 与冲突分支。
-- `.history/imports/<批次 SHA-256>/manifest.json` 记录源路径与 `<编号>.source` 原件的对应、页面 ID、提示及完成状态。恢复原件时按 manifest 路径复制这些字节即可；目前没有专用恢复界面。
-- 提交先归档原件，再写附件及页面，最后标记完成。它不是整批原子事务；中断可能留下已导入的部分。重新选择相同内容可继续；已存在且不同的内容会阻止继续，不强行覆盖。单文件以临时文件同步落盘、硬链接发布，要求目标文件系统支持硬链接（Windows 推荐 NTFS）；不支持时明确失败并保留恢复材料。
+When long term text history is required, this can be found at **Settings - History** Enables native Git; installed versions still require additional installation of Git to enable this optional feature. Normal saving does not depend on Git. page menu **Page history** Supports preview and recovery, please see the scope and limitations[History and Restoration](VAULT-METADATA.md#automatic-history-and-version-recovery)。
 
-## 开发与验证
+The import function is also available in browser mode. Click the name of the vault in the upper left corner of the desktop or **Workspace settings → Manage knowledge bases**, save the current page first, and then open the welcome window; the existing library remains an independent window, and the library and revision are not replaced in the original editor. The main window uses a tab bar merged with the system window buttons, and does not display the File / Edit menu; vault operations are still entered from the side bar. Pages and databases in the same vault can be opened in the in-app tab. For operations, see[Tabs and windows](WRITING-AND-NAVIGATION.md#tabs-and-windows). Each database has independent local services, session partitions and access tokens; local HTTP requests without tokens are rejected. The window is closed by restricting preload requests to the editor to receive and save input, and keep the window open on failure or conflict.
+
+<a id="导入和恢复边界"></a>
+
+## Import and recovery limitations
+
+- Each batch can have a maximum of 500 files and a total of 20 MiB; a single Markdown can have a maximum of 10 MiB. Supports UTF-8 `.md` / `.markdown`, other files are copied as attachments; the interface excludes hidden files and hidden directories.
+- The original directory is read-only. The imported root directory and subdirectories are converted into parent-child pages; each page gets a new stable import ID, and the page identity in the source file is not inherited. Valid existing `syntax` settings take precedence over the selected default dialect.
+- Keep unknown YAML fields and comments; normalize `id`, `title`, `parent`, `icon`, `properties`, `bodyFormat`, `syntax` in the copy, clear old collection, delete, sort, update time status. All original fields and file bytes are preserved in the original archive.
+- Only modify the target range of the parsed Markdown links, images and reference definitions; do not globally replace the text, code fences or unknown syntax. The standard relative page link is changed to `#page/<id>`, and the new attachment is changed to `assets/<带连字符的 UUID>.<扩展名>`. The same content is used for uploading and Notion downloading to determine the UUIDv5 naming; attachment query and anchor point are retained. Old attachments and original links will continue to be compatible and will not be migrated in batches. Page anchors and query parameters are not currently supported and will be prompted in the preview and omitted from the copy link.
+- Wiki links and original HTML retain their original writing and require manual inspection; migration of Obsidian workspaces or Notion export packages will not be done automatically. Unparsed targets retain the original text and give a prompt. The original file name of the attachment is registered in the attachment library; common extensions are standardized, and other simple alphanumeric extensions are retained. `.bin` is used when unrecognizable. The same file can be reused with the same content and standard extension, and existing attachments will not be automatically migrated.
+- The import preview is stored in memory only.30 Minutes of expiration, up to three sets per service; use of preview content snapshots when submitting, without re-reading the source directory in changes.
+- Under the same import format version, the same name, dialect, relative path and content produce the same import batch. Submitting a completed batch again will not re-create or overwrite pages edited after importing; changes in source content will form a new imported copy and will not be treated as a synchronous update.
+- Writing is performed serially via `createVault.importBatch`. The import only creates new files and does not update existing pages, so overwriting revision is not accepted; subsequent edits still use `baseRevision` and conflicting branches.
+- `.history/imports/<批次 SHA-256>/manifest.json`Record the correspondence between the source path and the original `<编号>.source`, page ID, prompts and completion status. When restoring the original, just copy these bytes according to the manifest path; there is currently no dedicated recovery interface.
+- To submit, archive the original document first, then write attachments and pages, and finally mark it as complete. It is not an atomic transaction for the entire batch; interruptions may leave imported parts behind. Re-select the same content to continue; existing and different content will prevent continuation and will not be forcibly overwritten. Single files are synchronously downloaded to disk as temporary files and released as hard links. The target file system is required to support hard links (Windows is recommended, NTFS is recommended); if it is not supported, it will fail explicitly and the recovery materials will be retained.
+
+<a id="开发与验证"></a>
+
+## Development and validation
 
 ```sh
 npm ci
@@ -59,10 +69,10 @@ npm run desktop:dist
 npm run test:desktop
 ```
 
-`desktop:build` 先通过 `desktop:runtime` 检查或下载 Electron 二进制，再将前端构建至 `desktop-dist/frontend/`，主进程、本地服务与 preload 构建至 `desktop-dist/`。桌面前端产物独立于浏览器的 `dist/`，避免开发时互相覆盖。首次源码启动需要网络；已有匹配版本时不会重复下载。需要代理的环境可为 Node 配置 `HTTPS_PROXY` 与 `NODE_USE_ENV_PROXY=1`。`desktop:pack` 输出解包应用，`desktop:dist` 输出 NSIS 安装包，均位于 `.run/desktop-release/`。安装包不携带仓库的用户 `vault/`；卸载不删除知识库目录。
+`desktop:build` Pass first `desktop:runtime` Check or download the Electron binary and build the front end to `desktop-dist/frontend/`, the main process, local service and preload are built to `desktop-dist/`. Desktop front-end products are browser-independent `dist/`, to avoid overwriting each other during development. The first source code startup requires an Internet connection; if a matching version already exists, it will not be downloaded again. The environment that requires a proxy can be configured for Node `HTTPS_PROXY` with `NODE_USE_ENV_PROXY=1`。`desktop:pack` Output unpacking application,`desktop:dist` Output NSIS installation packages, both located in `.run/desktop-release/`. Users whose installation package does not carry a warehouse `vault/`; Uninstalling does not delete the vault directory.
 
 Desktop packaging excludes `node_modules/@capacitor/**`. Mobile-only native packages and generated Android build trees are not desktop runtime dependencies; including them can introduce paths that the Windows updater cannot rename while replacing an older installation.
 
-`tests/unit/markdown-import.test.ts` 覆盖原文、YAML、链接、重复导入、部分恢复和 HTTP 预览提交。`tests/e2e/import-folder.spec.ts` 使用独立 Chrome 与临时知识库。`tests/e2e/desktop.test.ts` 使用隔离的 Electron 用户配置与临时目录，验证首次建库、关闭保存、冲突阻止关闭、最近目录和多库隔离；可设置 `NOTDOWN_PACKAGED_EXE` 为解包后的 exe 以验证实际打包产物。
+`tests/unit/markdown-import.test.ts`Covers original text, YAML, links, duplicate imports, partial recovery and HTTP preview submissions. `tests/e2e/import-folder.spec.ts` uses standalone Chrome with a temporary vault. `tests/e2e/desktop.test.ts` uses the isolated Electron user configuration and temporary directory to verify the first library creation, shutdown and save, conflict prevention shutdown, recent directory and multi-library isolation; `NOTDOWN_PACKAGED_EXE` can be set to unpacked exe to verify the actual packaged product.
 
-当前安装包未签名，没有自动更新；macOS/Linux 安装包尚未提供。多设备同步仍为需配置的[实验性功能](CLOUD-SYNC.md)。Electron 单实例约束不能替代跨进程文件锁：同一库仍只允许一个服务进程，不要同时用开发服务、MCP 独立进程或另一桌面配置写入同一库。桌面关闭保存不能保证断电、强制终止时尚未提交的输入不丢失。
+The current installation package is not signed, there is no automatic update; macOS/Linux installation package is not yet available.[Experimental functionality](CLOUD-SYNC.md)The Electron single-instance constraint cannot replace the cross-process file lock: the same library still allows only one service process, not writing to the same library with the same development service; the MCP independent process or another desktop configuration cannot be used simultaneously.

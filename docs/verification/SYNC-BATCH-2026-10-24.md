@@ -1,41 +1,53 @@
-# 同步批量落盘优化（2026-10-24）
+<a id="同步批量落盘优化2026-10-24"></a>
 
-## 改动
+# Sync batch-write optimization (2026-10-24)
 
-首次下载及后续增量变更继续使用现有云端协议。每批最多 100 条资源；引擎将正文和旧版本的内存／恢复负担限制在 8 MiB，较大的单资源保留逐项路径。普通页面、属性和联系人批量读取本地版本，原版本匹配的资源集中提交；附件保留原分块校验路径。
+**English** · [简体中文](SYNC-BATCH-2026-10-24.zh-CN.md)
 
-同批共用一次写入锁内的页面扫描，`metadata.json` 集中写入一次。一个恢复日志保留各资源的前后原始版本；各文件仍按原字节比较后替换，恢复接受原字节或已经完成的字节。并发修改、文件名占用、页面循环关系仍会停止相关写入并保留冲突，不刷新版本强制重试。
+<a id="改动"></a>
 
-Android 新增有界原生 `replaceMany` 存储操作：单调用最多 128 个文件、合计 32 MiB 原始字节；全部预检后逐个 fsync 和原子替换。调用前恢复日志已持久化，进程中断可重放；包含删除或超过原生边界的记录继续使用原恢复路径。普通文件 API 和原有单资源适配器继续兼容。
+## Change
 
-## 本机性能对照
+The first download and subsequent incremental changes continue to use the existing cloud protocol. Maximum 100 resources per batch; engine limits memory/recovery burden to 8 MiB for text and older versions, retaining itemized paths for larger single resources. The local versions of ordinary pages, properties and contacts are read in batches, and resources matching the original versions are submitted centrally; attachments retain the original block verification path.
 
-复现：`node --import tsx tests/unit/sync-batch-benchmark.ts`。两条路径均使用相同共用核心、内存测试云端和独立临时磁盘库，数据为 200 页、3,433,690 字节正文。旧路径禁用新批量适配接口，对应上一版已减少单次写入扫描的逐资源实现。
+The same batch shares a page scan within the write lock, and `metadata.json` is written once. A recovery log retains the original before and after versions of each resource; each file is still compared and replaced according to the original bytes, and recovery accepts the original bytes or completed bytes. Concurrent modifications, file name occupation, and page cycle relationships will still stop related writing and retain conflicts, and force retry without refreshing the version.
 
-| 项目 | 逐资源路径 | 批量路径 |
+Android adds bounded native `replaceMany` storage operation: single call up to 128 files, total 32 MiB raw bytes; fsync and atomic replacement one by one after all preflights. The recovery log has been persisted before the call and can be replayed if the process is interrupted; records that contain deletions or exceed native boundaries continue to use the original recovery path. Common file API continues to be compatible with the original single resource adapter.
+
+<a id="本机性能对照"></a>
+
+## Native performance comparison
+
+Reproduction: `node --import tsx tests/unit/sync-batch-benchmark.ts`. Both paths use the same shared core, memory test cloud and independent temporary disk library. The data is 200 page, 3, 433, 690 byte text. The old path disables the new batch adaptation interface, corresponding to the per-resource implementation that reduced single write scans in the previous version.
+
+| Project | per resource path | batch path |
 | --- | ---: | ---: |
-| 总耗时 | 75,924 ms | 3,128 ms |
-| 全库扫描 | 401 | 5 |
-| 文件读取 | 41,607 | 424 |
-| `metadata.json` 替换 | 200 | 2 |
-| 被追踪的文件系统调用 | 93,693 | 2,616 |
+| Total time spent | 75,924 ms | 3,128 ms |
+| Full database scan | 401 | 5 |
+| file reading | 41,607 | 424 |
+| `metadata.json`replace | 200 | 2 |
+| Traced file system calls | 93,693 | 2,616 |
 
-日志：`.run/logs/sync-batch-benchmark.log`。这是桌面 Node 文件适配器的观测，不是网络速度、Android 真机首次下载计时或生产性能承诺；没有模拟原生桥接延迟。执行时机器还在运行其他检查，耗时只作为该次对照，结构性操作数量另由测试约束。
+Log: `.run/logs/sync-batch-benchmark.log`. This is an observation from the desktop Node file adapter, not network speed, real Android first download timing, or production performance commitment; native bridge latency is not simulated. During execution, the machine is still running other checks, and the time taken is only used as a comparison. The number of structural operations is also limited by the test.
 
-## 验证
+<a id="验证"></a>
 
-- 完整单元检查最终为 1007 项，1002 通过、5 跳过、0 失败：`.run/logs/sync-batch-unit-final.log`。
-- 批量相关覆盖：200 页两次属性提交、字节保留、下载比较后并发修改、批次写到一半退出、恢复遇外部编辑、文件名碰撞、循环关系、原生适配重放，以及旧大页面缩短时的批次大小限制。
-- Supabase／WebDAV 两项浏览器跨端同步、离线编辑和冲突回传通过：`.run/logs/sync-batch-browser-sync.log`；该命令同时完成桌面 TypeScript 和 Vite 构建。
-- 移动端完整回归最终 13 项通过：`.run/logs/sync-batch-mobile-confirm.log`。首次同步用例含两页批量落盘后延迟附件、断网与重试。初次为 10 通过、1 失败，双窗口用例被前台自动刷新提前更新了旧版本；单独复查通过后，用例明确保持离线以制造旧草稿，最终完整确认通过。
-- TypeScript 最终检查通过：`.run/logs/sync-batch-typecheck-final.log`。
-- Android Gradle 构建成功，11 项 JVM 单元检查无失败，含 3 项新增原生批量预检、重放和路径保护检查：`.run/logs/sync-batch-android.log`、`.run/logs/sync-batch-android-final.log`。
+## Validation
 
-初次完整单元运行曾出现一项 transclusion 读取错误；该项单独复查及随后完整检查均通过，没有修改相关实现。
+- The full unit check ends with 1007 entries, 1002 passed, 5 skipped, 0 failed: `.run/logs/sync-batch-unit-final.log` .
+- Batch-related coverage: 200 page attribute submission twice, byte retention, concurrent modification after download comparison, batch exit halfway through writing, external editing when recovery occurs, file name collision, cyclic relationship, native adaptation replay, and batch size limit when old large pages are shortened.
+- Supabase/WebDAV cross-end browser synchronization, offline editing and conflict postback pass: `.run/logs/sync-batch-browser-sync.log`; this command completes the construction of desktop TypeScript and Vite at the same time.
+- The final 13 item for the complete return of the mobile terminal passed: `.run/logs/sync-batch-mobile-confirm.log`. The first synchronization use case includes delayed attachments, disconnection and retry after two pages are placed in batches. The first time it passed 10 and failed 1, the dual-window use case was automatically refreshed by the front desk and updated the old version in advance; after passing the independent review, the use case was explicitly kept offline to create an old draft, and was finally confirmed to be passed completely.
+- TypeScript Final check passed: `.run/logs/sync-batch-typecheck-final.log`.
+- Android Gradle was built successfully, 11 item JVM unit check has no failure, including 3 item newly added native batch preflight, replay and path protection check: `.run/logs/sync-batch-android.log`, `.run/logs/sync-batch-android-final.log`.
 
-## 安装与范围
+A transclusion read error occurred during the initial full unit run; this individual review and subsequent full checks passed without modifications to the implementation.
 
-已通过 `adb install -r` 覆盖安装并启动，安装 APK 哈希与产物一致：`.run/logs/sync-batch-install.log`。覆盖前后均确认 219 页、271 条同步基线与游标 274 保留；没有清除应用数据。此前真实首次同步已经完成，所以没有重置手机库来测量新版首次下载时间。
+<a id="安装与范围"></a>
 
-- 安装包：`.run/android-release/Notdown-Android-batch-sync-2026-10-24.apk`。
+## Installation and scope
+
+Installed and started with `adb install -r` override, the installation hash of APK is consistent with the product: `.run/logs/sync-batch-install.log` . Before and after overwriting, confirm that the 219 page, 271 synchronization baselines, and cursor 274 are retained; no application data is cleared. The real first synchronization has been completed before, so there is no reset of the mobile phone library to measure the first download time of the new version.
+
+- Installation package: `.run/android-release/Notdown-Android-batch-sync-2026-10-24.apk`.
 - SHA-256：`B12B24A9B5830EF40331EE2B25BBF4AC1800400212346B21D056BC35F37F25D2`。

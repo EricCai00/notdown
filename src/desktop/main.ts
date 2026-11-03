@@ -1,3 +1,4 @@
+import { locationSettingsPath, saveVaultLocation } from "../../server/vault-location-settings.js";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, safeStorage, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -7,6 +8,7 @@ import type { Server } from "node:http";
 import { createApp } from "../../server/app.js";
 import { createManagedVaultFolder, listManagedVaults, loadLocalEnv, resolveVaultLocation } from "../../server/vault-location.js";
 import { DesktopLifecycle } from "./lifecycle.js";
+import { createUILanguageStore } from "./ui-language.js";
 import { readNotionClipboard } from "./notion-clipboard.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -30,7 +32,7 @@ app.setName("Notdown");
 // Test invocations use a separate profile; packaged user launches always use Electron's normal profile.
 if (!app.isPackaged && process.env.NOTDOWN_DESKTOP_PROFILE) app.setPath("userData", path.resolve(process.env.NOTDOWN_DESKTOP_PROFILE));
 if (!app.isPackaged && !process.env.NOTDOWN_DESKTOP_PROFILE) loadLocalEnv();
-const dataPath = resolveVaultLocation(!app.isPackaged && process.env.NOTDOWN_DESKTOP_PROFILE
+let dataPath = resolveVaultLocation(!app.isPackaged && process.env.NOTDOWN_DESKTOP_PROFILE
   ? { ...process.env, NOTDOWN_DATA_PATH: path.join(process.env.NOTDOWN_DESKTOP_PROFILE, "vault-data"), VAULT_PATH: undefined }
   : process.env).dataPath;
 
@@ -43,6 +45,7 @@ function trusted(event: IpcMainInvokeEvent | Electron.IpcMainEvent, welcomeOnly 
   throw new Error("Untrusted desktop request");
 }
 const settingsPath = () => path.join(app.getPath("userData"), "vaults.json");
+const uiLanguageStore = createUILanguageStore(() => path.join(app.getPath("userData"), "interface-language.json"));
 const notionTokenPath = () => path.join(app.getPath("userData"), "notion-import-token.bin");
 function requireTokenEncryption() {
   if (!safeStorage.isEncryptionAvailable() || process.platform === "linux" && safeStorage.getSelectedStorageBackend() === "basic_text")
@@ -76,12 +79,12 @@ function writeNotionToken(input: unknown) {
 async function recents(): Promise<string[]> {
   try {
     const data = JSON.parse(await fs.readFile(settingsPath(), "utf8"));
-    return Array.isArray(data) ? data.filter((item): item is string => typeof item === "string" && path.isAbsolute(item)).slice(0, 10) : [];
+    return Array.isArray(data) ? data.filter((item): item is string => typeof item === "string" && path.isAbsolute(item)).slice(0, 1000) : [];
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.warn("Recent vaults could not be read", error); return []; }
 }
 function remember(root: string) {
   recentsQueue = recentsQueue.catch(() => {}).then(async () => {
-    const recent = [root, ...(await recents()).filter(p => p !== root)].slice(0, 10);
+    const recent = [root, ...(await recents()).filter(p => p !== root)].slice(0, 1000);
     await fs.mkdir(app.getPath("userData"), { recursive: true });
     const temp = `${settingsPath()}.tmp`;
     await fs.writeFile(temp, JSON.stringify(recent, null, 2));
@@ -223,12 +226,48 @@ else {
         }
       } });
     ipcMain.handle("app:quit", event => { trusted(event); void desktopLifecycle.requestQuit(); });
+    ipcMain.handle("ui:language:get", event => { trusted(event); return uiLanguageStore.get(); });
+    ipcMain.handle("ui:language:set", async (event, value: unknown) => {
+      trusted(event); await uiLanguageStore.set(value);
+      for (const { primary } of vaults.values()) if (!primary.isDestroyed()) primary.webContents.send("ui:language:changed", value);
+    });
     ipcMain.handle("notion:token:get", event => { trusted(event); return readNotionToken(); });
     ipcMain.handle("notion:clipboard:get", async event => { trusted(event); return readNotionClipboard(await clipboard.read()); });
     ipcMain.handle("notion:token:set", (event, token: unknown) => { trusted(event); return writeNotionToken(token); });
     ipcMain.handle("vault:welcome", event => { trusted(event); showWelcome(); });
     ipcMain.handle("vault:recents", event => { trusted(event, true); return recents(); });
-    ipcMain.handle("vault:managed", async event => { trusted(event, true); return { dataPath, vaults: await listManagedVaults(dataPath) }; });
+    ipcMain.handle("vault:managed", async event => {
+      trusted(event, true);
+      const entries = new Map<string, { name: string; path: string }>();
+      for (const selected of [...(await recents()), ...(await listManagedVaults(dataPath)).map(v => v.path)]) {
+        const root = await fs.realpath(selected).catch(() => selected);
+        entries.set(process.platform === "win32" ? root.toLowerCase() : root, { name: path.basename(root), path: root });
+      }
+      return { dataPath, vaults: [...entries.values()] };
+    });
+    ipcMain.handle("vault:location", async (event, input: unknown) => {
+      trusted(event, true);
+      for (const entry of await listManagedVaults(dataPath)) await remember(entry.path);
+      dataPath = await saveVaultLocation(locationSettingsPath(), input);
+    });
+    ipcMain.handle("vault:browse", async event => {
+      const owner = trusted(event, true);
+      const result = await dialog.showOpenDialog(owner, { properties: ["openDirectory", "createDirectory"] });
+      return result.canceled ? null : result.filePaths[0] || null;
+    });
+    ipcMain.handle("vault:submit", async (event, input: { mode?: unknown; name?: unknown; path?: unknown }) => {
+      const owner = trusted(event, true);
+      if (!input || !["create", "open"].includes(String(input.mode))) throw new Error("Invalid vault action");
+      let selected: string;
+      if (input.mode === "create") {
+        if (typeof input.name !== "string" || input.path && (typeof input.path !== "string" || !path.isAbsolute(input.path))) throw new Error("Invalid vault location");
+        selected = await createManagedVaultFolder(typeof input.path === "string" && input.path ? input.path : dataPath, input.name);
+      } else {
+        if (typeof input.path !== "string" || !path.isAbsolute(input.path)) throw new Error("Choose an absolute folder path.");
+        selected = input.path;
+      }
+      await openVault(selected, input.mode === "create"); owner.destroy();
+    });
     ipcMain.handle("vault:create-managed", async (event, name: unknown) => {
       const owner = trusted(event, true);
       if (typeof name !== "string") throw new Error("Enter a vault name.");

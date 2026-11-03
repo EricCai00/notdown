@@ -1,10 +1,11 @@
 {
   "name": "notdown",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "type": "module",
   "main": "desktop-dist/main.mjs",
   "scripts": {
+    "docs:check": "node scripts/check-docs.mjs",
     "dev": "concurrently -k -n vault,web \"tsx watch server/index.ts\" \"vite --host 127.0.0.1 --port 4317 --strictPort\"",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",

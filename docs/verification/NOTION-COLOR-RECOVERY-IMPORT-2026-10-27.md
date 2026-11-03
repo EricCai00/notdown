@@ -1,27 +1,37 @@
-# Notion 导入双颜色补全（2026-10-27）
+<a id="notion-导入双颜色补全2026-10-27"></a>
 
-## 行为
+# Dual-color recovery during Notion import (2026-10-27)
 
-Notion API 导入预览现在先核对同批 Markdown v2 与 Block API 的互补文字色／背景色，再按用户的桌面缓存选择补缺。Notdown 与 Notion Markdown 均使用既有嵌套 `span color` 保存双颜色，不在官方模式新写自定义属性。预览警告说明补全来源与跳过原因。
+**English** · [简体中文](NOTION-COLOR-RECOVERY-IMPORT-2026-10-27.zh-CN.md)
 
-缓存选项更新为 **Restore missing colors and Notdown reminders from this computer's Notion desktop cache**。关闭时不读取缓存，公开 API 互补仍启用；开启时复用原有固定路径、只读事务、账户／工作区隔离和块数／字节限制。提醒仍只为 Notdown 添加自定义属性。颜色与日期共用一次页面块扫描和缓存读取；关闭后代导入不会因为样式扫描而导入子页面。
+<a id="行为"></a>
 
-仅新导入副本采用补全，旧笔记不自动改写。恢复原件和采用的缓存标记写入 `color-recovery/<pageId>.json`，与原始 API 归档一起参与批次身份；相同快照可重复提交而不覆盖本地编辑。
+## behavior
 
-## 匹配与范围
+The Notion API import preview now first checks the complementary text color/background color of Markdown v2 and Block API in the same batch, and then fills the gap according to the user's desktop cache selection. Both Notdown and Notion Markdown use the existing nested `span color` to save dual colors, and do not write new custom attributes in the official mode. The preview warning explains the source of completion and the reason for skipping.
 
-- 当前自动范围为顶层段落与标题的纯文字和已知文字 mark。完整块文字在两份来源中都必须唯一；块类型、代码、粗体、斜体、删除线、下划线、链接必须匹配。
-- 修改仅发生于编辑器核验的精确源码范围；重新解析后检查文字、全部非颜色格式及每个字符的两项颜色。代码围栏、未知容器、原子提及和其他源码不通过全局替换修改。
-- 同通道颜色矛盾、重复块、非文字对象和无法定位的表格／分栏等嵌套范围保留原文并提示。明确存在但不能验证的缓存不被当作当前云端事实。
-- 缓存必须匹配块 ID、类型、完整文字、其他行内格式及编辑时间；亚分钟时间要求精确相等，分钟时间只可核对同一分钟。未知标记、矛盾标记及重复身份不推断。各接口不构成云端原子快照。
+The cache options are updated to **Restore missing colors and Notdown reminders from this computer ' s Notion desktop cache** . When turned off, the cache is not read, and public API complementation is still enabled; when turned on, the original fixed path, read-only transactions, account/workspace isolation, and block/byte limits are reused. Reminder that custom properties are still only added for Notdown. Colors and dates share a page block scan and cache read; turning off descendant import will not import subpages due to style scans.
 
-## 验证
+Only newly imported copies will be completed, old notes will not be automatically rewritten. The restored original and adopted cache tag is written to `color-recovery/<pageId>.json` , participating in the batch identity along with the original API archive; the same snapshot can be submitted repeatedly without overwriting local edits.
 
-- `npm test`：1,102 通过、5 跳过、0 失败。
-- 最终补充身份／块类型边界后，`notion-color-import`、`notion-desktop-cache`、`notion-v2-import` 定向 23 项通过。覆盖公开 API 互补、缓存补缺、Unicode run 范围、格式冲突、重复文字、未知注释、旧缓存、时间精度、来源归档、幂等与本地编辑保护。
-- 隔离前端生产构建通过，包含 TypeScript 检查。测试中新增的颜色辅助函数类型声明曾导致一次构建失败，已修正并重新构建通过。
-- 独立 Chrome 与临时知识库：`notion-v2-import.spec.ts`、`notion-import.spec.ts` 共 15 项通过。两种方言均验证关闭缓存时公开 API 补色、开启缓存时补缺、选择更改使预览失效、提交和重新打开后的双颜色，以及既有 Notion 链接与导入冲突保护。检查了生成截图。
-- 用户指定 Minor tests 的真实归档和本机只读缓存再次通过新补全模块验证：公开 API 恢复 2 个双颜色范围，缓存补缺 0，警告 0。没有重新使用真实 token 发起在线导入，也没有修改用户知识库。
-- 桌面构建、最终类型检查与重新打包通过。安装包为 `.run/desktop-release/Notdown-Setup-0.1.3-color-import-x64.exe`（205,186,920 bytes），包含先前子页面、code-tag 及双颜色编辑修复；未自动替换用户正在运行的安装版。
+<a id="匹配与范围"></a>
 
-未运行完整浏览器套件。真实样本只验证该归档与缓存可对齐，不保证任意时期快照都可混用。相关日志为 `.run/logs/notion-color-import-*.log`，实际样本结果为 `.run/logs/notion-color-import-live.json`，浏览器产物位于 `test-results/notion-color-import/`。
+## Matches and ranges
+
+- The current automatic scope is plain text and known text mark for top-level paragraphs and headings. Full block text must be unique in both sources; block type, code, bold, italics, strikethrough, underline, and links must match.
+- Modifications only occur within the exact source code range verified by the editor; text, all non-color formatting, and two colors per character are checked after reparsing. Code fences, unknown containers, atomic mentions, and other source code are not modified through global replacement.
+- Nested ranges such as color conflicts in the same channel, repeated blocks, non-text objects, and tables/columns that cannot be positioned retain the original text and prompt. Caches that clearly exist but cannot be verified are not considered current cloud facts.
+- The cache must match block ID, type, complete text, other inline formats, and editing time; sub-minute times are required to be exactly equal, and minute times can only be checked against the same minute. Unknown marks, contradictory marks, and duplicate identities are not inferred. Each interface does not constitute an atomic snapshot of the cloud.
+
+<a id="验证"></a>
+
+## Validation
+
+- `npm test`: 1, 102 passed, 5 skipped, 0 failed.
+- After final addition of identity/block type boundaries, `notion-color-import`, `notion-desktop-cache`, `notion-v2-import` directed 23 entries are passed. Covers public API complementation, cache filling, Unicode run scope, format conflicts, duplicate text, unknown annotations, old caches, time precision, source archiving, idempotence and local editing protection.
+- Isolated frontend production build passes, contains TypeScript check. The new color helper function type declaration in the test caused a build failure. This has been corrected and the rebuild passed.
+- Independent Chrome and temporary vault: `notion-v2-import.spec.ts` and `notion-import.spec.ts`, a total of 15 items passed. Both dialects verify exposure of API complementary colors when caching is turned off, gap filling when caching is on, select changes to invalidate previews, dual colors after submission and reopening, and existing Notion link and import conflict protection. Checked generating screenshots.
+- The real archive and native read-only cache of user-specified Minor tests is again verified with the new completion module: expose API , restore 2 dual color ranges, cache fill 0 , warn 0 . No online import was initiated again using real token, and no user vault was modified.
+- Desktop build, final type checking and repackaging passed. The installation package is `.run/desktop-release/Notdown-Setup-0.1.3-color-import-x64.exe` (205, 186, 920 bytes), including previous subpages, code-tag and dual-color editing repairs; it does not automatically replace the installation version that the user is running.
+
+Not running the full browser suite. The real sample only verifies that the archive and cache can be aligned, and does not guarantee that snapshots from any period can be mixed. The relevant log is `.run/logs/notion-color-import-*.log`, the actual sample result is `.run/logs/notion-color-import-live.json`, and the browser product is located at `test-results/notion-color-import/`.

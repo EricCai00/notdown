@@ -1,3 +1,4 @@
+import { setUIText } from "../../shared/i18n";
 import { api } from "../../shared/types";
 import type { ChildPageSettingsSnapshot } from "../../shared/child-page-settings";
 
@@ -8,17 +9,17 @@ export async function mountChildPageSettings(container: HTMLElement, host: {
 }) {
   const section = document.createElement("section");
   section.className = "settings-section child-page-settings";
-  section.innerHTML = '<h3>Child pages</h3><p role="status">Loading child page settings…</p>';
+  section.innerHTML = `<h3 data-i18n="Child pages">Child pages</h3><p role="status" data-i18n="Loading child page settings…">Loading child page settings…</p>`;
   container.append(section);
   let state: ChildPageSettingsSnapshot;
   try { state = await api<ChildPageSettingsSnapshot>("/child-pages/settings"); }
-  catch { section.querySelector("p")!.textContent = "Restart the local server to use child page settings."; return; }
+  catch { setUIText(section.querySelector("p")!, "Restart the local server to use child page settings."); return; }
   if (!section.isConnected) return;
-  section.innerHTML = `<h3>Child pages</h3>
-    <label class="switch-row"><span>Allow child pages without a block in the parent page</span><input type="checkbox" name="allowUninserted"></label>
-    <p>Turning this off adds missing child page entries to the end of every parent page in this vault. Future saves keep entries present.</p>
-    <label class="switch-row"><span>Automatically insert child page blocks</span><input type="checkbox" name="autoInsert"></label>
-    <p>Insert an entry when a child page is created or moved into a parent. Required while child pages without entries are disallowed. Other Markdown dialects use standalone page links. Database records and database blocks keep their own behavior.</p>
+  section.innerHTML = `<h3 data-i18n="Child pages">Child pages</h3>
+    <label class="switch-row"><span data-i18n="Allow child pages without a block in the parent page">Allow child pages without a block in the parent page</span><input type="checkbox" name="allowUninserted"></label>
+    <p data-i18n="Turning this off adds missing child page entries to the end of every parent page in this vault. Future saves keep entries present.">Turning this off adds missing child page entries to the end of every parent page in this vault. Future saves keep entries present.</p>
+    <label class="switch-row"><span data-i18n="Automatically insert child page blocks">Automatically insert child page blocks</span><input type="checkbox" name="autoInsert"></label>
+    <p data-i18n="Insert an entry when a child page is created or moved into a parent. Required while child pages without entries are disallowed. Other Markdown dialects use standalone page links. Database records and database blocks keep their own behavior.">Insert an entry when a child page is created or moved into a parent. Required while child pages without entries are disallowed. Other Markdown dialects use standalone page links. Database records and database blocks keep their own behavior.</p>
     <p role="status" aria-live="polite"></p>`;
   const allow = section.querySelector<HTMLInputElement>('[name="allowUninserted"]')!;
   const auto = section.querySelector<HTMLInputElement>('[name="autoInsert"]')!;
@@ -35,7 +36,7 @@ export async function mountChildPageSettings(container: HTMLElement, host: {
     void (async () => {
       try {
         host.busy(true);
-        if (!await host.beforeChange()) { status.textContent = "Save or resolve the current page before changing child page settings."; return; }
+        if (!await host.beforeChange()) { setUIText(status, "Save or resolve the current page before changing child page settings."); return; }
         status.textContent = settings.allowUninserted ? "Saving…" : "Adding missing child page entries…";
         state = await api<ChildPageSettingsSnapshot>("/child-pages/settings", { method: "PUT", body: JSON.stringify({ settings, baseRevision: state.revision }) });
         await host.afterChange();

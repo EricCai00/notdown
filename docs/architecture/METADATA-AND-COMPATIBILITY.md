@@ -1,43 +1,53 @@
-# 元数据与表外格式的依据
+<a id="元数据与表外格式的依据"></a>
 
-# 当前存储规则（2026-09-24）
+# Metadata and formats outside the source workbook
 
-页面应用属性现统一保存在 `vault/metadata.json`；文首 YAML / Pandoc title block 覆盖默认值，完整源文件直接作为正文。以下旧版外层 YAML 与隔离规则被 [Vault metadata 契约](../features/VAULT-METADATA.md) 替代。
+**English** · [简体中文](METADATA-AND-COMPATIBILITY.zh-CN.md)
+
+<a id="当前存储规则2026-09-24"></a>
+
+# Current storage rules (2026-09-24)
+
+Page application attributes are now uniformly stored in `vault/metadata.json`; the first YAML / Pandoc title block override the default value, and the complete source file is directly used as the text. The following legacy outer YAML and isolation rules are replaced by the [ Vault metadata contract ](../features/VAULT-METADATA.md).
 
 
-2026-09-23 修订：Raw Source 不再是独立对象。`{=html}` 合并到 HTML block / Inline HTML，其他格式和 raw TeX 归入 Unsupported；全部保留原编码和可恢复源码。当前目录共 78 项（41 block、2 metadata、31 inline、4 character），下文旧数量与归类以此为准。
+2026-09-23 Revision: Raw Source is no longer a standalone object.`{=html}` The United StatesHTML block / Inline HTML，Other formats andraw TeX IncludedUnsupported；All of the original coding and recoverable source code are retained.78 The following is a list of articles related to41 block、2 metadata、31 inline、4 character），The following is a list of the oldest numbers and classifications.
 
-2026-09-21。对象身份与编码形式分开；官方语法依据不等于 Notdown 已接入相应服务。
+2026-09-21. The object identity is separated from the encoding form; the official syntax basis is not equal to Notdown and has been connected to the corresponding service.
 
-## YAML front matter 与 MultiMarkdown metadata
+<a id="yaml-front-matter-与-multimarkdown-metadata"></a>
 
-MMD metadata **不是完整 YAML**。官方称可选分隔符用于改善 YAML 兼容性，而不是声明使用完整 YAML 数据模型。按内容语义，现将它归入 `metadata.yaml_front_matter`，不再单列 MultiMarkdown title block 对象；`mmd_title_block` 配置键仍保留。
+## YAML front matter and MultiMarkdown metadata
 
-MMD 编码遵循以下规则：
+MMD metadata **is not the complete YAML**. Officially, the optional delimiter is used to improve YAML compatibility, rather than stating the use of the full YAML data model. According to content semantics, it is now classified as `metadata.yaml_front_matter` and is no longer a separate MultiMarkdown title block object; the `mmd_title_block` configuration key is still retained.
 
-- 只能出现在正文文档最开头，前面不能有空行；首行可选 `---`，末行可选 `---` 或 `...`，空行结束元数据。
-- 键必须顶格，以 ASCII 字母或数字开头，其余仅 ASCII 字母、数字、空格、连字符、下划线，以冒号结束。
-- 处理时键忽略大小写并去除空格；`Base Header Level` 与 `baseheaderlevel` 是同一键。
-- 值是纯文本字符串，可以多行。带冒号的续行必须缩进；空值也允许。数字、布尔量、列表写法和 Markdown 标记不自动转成 YAML 类型或富文本。
-- MMD 预设在启用 `mmd_title_block` 时优先按 MMD 处理其分隔符；其他预设显式开启 YAML 时仍使用 YAML 解析。关闭扩展保留源码。
+MMD encoding follows the following rules:
 
-编码来源保存在编辑节点 `metadataForm`。编辑保持来源；文件原文及 CRLF 保留规则不变。Notdown 文件外层页面 YAML 和正文中的 metadata 是不同的存储范围，正文中的 Title/Icon 等不会自动覆盖页面属性。页面 YAML 继续使用原来的完整 YAML 处理，不施加 MMD 限制。
+- It can only appear at the very beginning of the text document, and there cannot be a blank line in front of it; the first line can be optional `---`, the last line can be optional `---` or `...`, and the blank line ends the metadata.
+- The key must start with ASCII letters or numbers, and the rest must be ASCII letters, numbers, spaces, hyphens, and underscores, and end with a colon.
+- Keys are processed ignoring case and stripping spaces; `Base Header Level` and `baseheaderlevel` are the same key.
+- The value is a plain text string and can be multiple lines. Continuation lines with colons must be indented; null values ​​are allowed. Numbers, booleans, list writing, and Markdown tags are not automatically converted to YAML types or rich text.
+- MMD is enabled by default `mmd_title_block` Priority byMMD Processing its separator; other default openingsYAML Still in useYAML Resolve. Close the extension to retain the source code.
 
-依据：[MultiMarkdown metadata](https://fletcher.github.io/MultiMarkdown-6/syntax/metadata.html)、[Pandoc YAML metadata](https://pandoc.org/MANUAL.html#extension-yaml_metadata_block)。
+The encoding source is saved in the editing node `metadataForm`。Editors keep the source; documents and documentsCRLF The rules of the game remain the same.Notdown The outer layer of the fileYAML And in the realmetadata The data is stored in a different storage range, in the originalTitle/Icon The page will not automatically cover the page properties.YAML Continue to use the original fullnessYAML Treatment, not impositionMMD The limitations.
+
+Sources: [MultiMarkdown metadata](https://fletcher.github.io/MultiMarkdown-6/syntax/metadata.html), [Pandoc YAML metadata](https://pandoc.org/MANUAL.html#extension-yaml_metadata_block).
 
 ## Database reference
 
-当前未实现数据库，所以已移除 `block.database_reference` 注册项及 `database` 专用节点。已有 `<database>` 标签保留为 Unsupported 原文，不批量改写文件。`notdown_databases` 暂留为旧配置兼容键，目录标明 source preservation；它不启用数据库对象或执行器。行内数据库提及属于既有 Mention page or data source，未在本次删除范围内。
+A database is not currently implemented, so the `block.database_reference` registry and `database` dedicated node have been removed. Existing `<database>` tags are retained as Unsupported original text, and files are not rewritten in batches. `notdown_databases` is left as a legacy configuration compatibility key and the directory is labeled source preservation; it does not enable database objects or executors. The in-line database mentions belong to the existing Mention page or data source and are not included in this deletion.
 
-## 2026-09-22 清理结果
+<a id="2026-09-22-清理结果"></a>
 
-Existing content 板块已移除。正式清单为 81 项；误拼别名 date ot reminder 已删除。
+## Cleanup results for 2026-09-22
 
-| 条目 | 当前归属与实际边界 | 依据 |
+Existing content section has been removed. The official list is item 81; the misspelled alias date ot reminder has been removed.
+
+| Item | Current belonging and actual boundaries | Evidence |
 | --- | --- | --- |
-| Inline file transclusion | 支持行内位置，但不是另一种引入语义；现并入 File transclusion，保留块级和行内两个载体。上游在解析 Markdown 前直接查找并替换源字符串中的标记，没有要求行首或独占一行。Notdown 的本地文本预览仍有许可路径、循环和越界限制，不宣称完整上游预处理语义。 | [MMD File Transclusion](https://fletcher.github.io/MultiMarkdown-6/syntax/transclusion.html)、[官方实现的标记查找](https://github.com/fletcher/MultiMarkdown-6/blob/master/src/transclude.c#L122-L139) |
-| Raw Source | `{=html}` 归入 HTML block / Inline HTML；其他格式归入 Unsupported。保留原编码并支持源码编辑，HTML 使用过滤预览，不执行其他目标格式。 | [Pandoc raw_attribute](https://pandoc.org/MANUAL.html#extension-raw_attribute) |
-| Inline media | 已移除对象、节点及本地链接转播放器规则。普通音视频 Markdown 链接继续保留标签与路径；播放器使用 Audio / Video 的现有块级媒体标签。没有依据将原本“整段只有一个链接”的本地约定称为官方行内类型。 | [Notion Media blocks](https://developers.notion.com/guides/data-apis/enhanced-markdown#media-blocks) |
-| Mention agent | 按用户要求移除产品对象和提及解析；已有标签按字面文本或原始 HTML 保留，未修改内容保留原文。编辑文本后允许转义角括号，重新打开保留标签及未知属性，不再产生 Agent 提及对象。 | 用户决定；不提供 Agent 服务 |
+| Inline file transclusion | Supports inline positioning, but not another import semantic; now merged into File transclusion, retaining both block-level and inline vectors. The upstream finds and replaces the tokens in the source string directly before parsing Markdown, without requiring the beginning of the line or being on its own line. Notdown's local text preview still has permission path, loop and out-of-bounds restrictions and does not claim full upstream preprocessing semantics. | [MMD File Transclusion ](https://fletcher.github.io/MultiMarkdown-6/syntax/transclusion.html), [ official implementation of mark search](https://github.com/fletcher/MultiMarkdown-6/blob/master/src/transclude.c#L122-L139) |
+| Raw Source | `{=html}`Classified as HTML block / Inline HTML; other formats are classified as Unsupported. Retain the original coding and support source code editing. HTML uses filtered preview and does not implement other target formats. | [Pandoc raw_attribute](https://pandoc.org/MANUAL.html#extension-raw_attribute) |
+| Inline media | Object, node and local link to player rules have been removed. Ordinary audio and video Markdown links continue to retain tags and paths; the player uses the existing block-level media tags of Audio / Video. There is no basis for calling the original local convention of "only one link for the entire paragraph" an official inline type. | [Notion Media blocks](https://developers.notion.com/guides/data-apis/enhanced-markdown#media-blocks) |
+| Mention agent | Product objects and mention parsing are removed according to user requirements; existing tags are retained as literal text or original HTML, and unmodified content retains the original text. Allows escaping angle brackets after editing text, reopens reserved tags and unknown attributes, and no longer generates Agent mention objects. | User decision; no Agent service provided |
 
-上述清理没有批量改写知识库。旧的目录链接回到 Content objects；inline.file_transclusion 链接转到 File transclusion。
+The above cleanup did not rewrite the vault in batches. The old directory links back to Content objects; inline.file_transclusion links back to File transclusion.

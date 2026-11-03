@@ -1,43 +1,51 @@
 # Meeting notes design QA — 2026-09-27
 
+**English** · [简体中文](MEETING-NOTES-DESIGN-QA-2026-09-27.zh-CN.md)
+
 final result: passed
 
-范围：用户提供的 8 张 Notion Meeting notes 截图中的会议卡片与菜单；接入当前 Notdown 编辑器，不复制外围 Playground 页面、照片或 Notion 专属服务。
+Scope: Conference cards and menus in 8 Notion Meeting notes screenshots provided by users; access the current Notdown editor and do not copy peripheral Playground pages, photos or Notion exclusive services.
 
-## 视觉对照
+<a id="视觉对照"></a>
 
-使用独立 Chrome 与临时知识库。桌面 viewport 1440 × 1000、deviceScaleFactor 1；空卡片额外以 880 CSS px 宽截图，与参考图 1 中 880 px 卡片区域对齐。窄屏使用 600 × 900。参考图与实现截图在同一次视觉比较输入中打开；对语言菜单另做一次修复后比较。
+## visual contrast
 
-证据位于 `test-results/meeting-empty.png`、`meeting-language.png`、`meeting-instructions.png`、`meeting-narrow.png`。运行日志位于 `.run/logs/meeting-*.log`。这些均为本地验证产物，不属于用户 vault。
+Use independenceChrome The table with the temporary knowledge library.viewport 1440 × 1000、deviceScaleFactor 1；The empty card is extra880 CSS px Broad-screen, with reference charts1 In the middle880 px Card area alignment.600 × 900。Reference diagrams and implementation shots are opened in the same visual comparison input; language menus are corrected and compared again.
 
-| 检查面 | 结果 |
+The evidence is located at `test-results/meeting-empty.png`, `meeting-language.png`, `meeting-instructions.png`, `meeting-narrow.png`. The run log is located at `.run/logs/meeting-*.log`. These are local verification products and do not belong to user vault.
+
+| inspection surface | result |
 | --- | --- |
-| 字体与层级 | 28 px 标题、灰色相对日期、17 px 菜单、较轻占位与说明文字；复用项目字体与 Lucide 图标。 |
-| 布局与间距 | 圆角描边、标题分隔线、左侧 Notes 胶囊、右侧设置和蓝色主按钮、正文空态及底部指令/同意说明。窄屏底栏换行，无横向溢出。 |
-| 颜色 | 中性描边、白底、灰色占位、蓝色主操作与日期选中态，菜单有独立边框和柔和阴影。 |
-| 图片与图标 | 会议卡片不含位图资产；使用现有图标库，不把参考页下方照片复制进笔记块。 |
-| 文案 | 使用真实 Notdown 服务边界；占位为 AI can summarize，不冒充 Notion AI，也不承诺自动执行或实时录音。 |
+| Fonts and levels | 28 px title, gray relative date, 17 px menu, lighter placeholder and description text; reuse project font and Lucide icon. |
+| layout and spacing | Rounded stroke, title divider, Notes capsule on the left, settings and blue main button on the right, empty text and instructions/agreement instructions at the bottom. Narrow screen bottom bar wraps, no horizontal overflow. |
+| Color | Neutral stroke, white background, gray placeholder, blue main operation and date selection state, menu has independent border and soft shadow. |
+| Pictures and Icons | Meeting cards do not contain bitmap assets; use the existing icon library and do not copy the photo below the reference page into the note block. |
+| copywriting | Use the real Notdown service boundary; the placeholder is AI can summarize, do not pretend to be Notion AI, and do not promise automatic execution or real-time recording. |
 
-修复循环：首次截图发现编辑器通用占位与会议占位重叠（P2），已在会议正文限定范围抑制通用占位，后续同宽截图确认不再重叠。语言子菜单在屏幕右边缘遮住父菜单（P2），已按可用空间翻转至左侧，修复后重新截图确认父菜单及语言列表可读。
+Fix the loop: In the first screenshot, it was found that the editor's general placeholder overlaps with the conference placeholder (P2). The general placeholder has been suppressed within the limited range of the conference body. Subsequent screenshots of the same width confirm that there is no overlap. The language submenu covers the parent menu (P2) on the right edge of the screen. It has been flipped to the left according to the available space. After repairing, take a screenshot again to confirm that the parent menu and language list are readable.
 
-剩余 P3：人物/设置/笔图标沿用现有 Lucide 变体，标题行和空态高度有少量像素差异；不阻塞当前产品实现。高级日期范围、提醒、实时录音、Notion 专属演示/反馈、跨页面 Move to 不在本次实现内，见功能文档。
+Remaining P3: The character/settings/pen icons follow the existing Lucide variant, with a small pixel difference in the title row and empty state height; does not block the current product implementation. Advanced date range, reminder, real-time recording, Notion exclusive demonstration/feedback, cross-page Move to are not included in this implementation, please see the functional documentation.
 
-## 功能与保存
+<a id="功能与保存"></a>
+
+## Function and save
 
 - `npm test`：841 passed、5 skipped、0 failed。
-- `npm run build`：通过；最终菜单修正再次通过 `npm run typecheck` 与独立目录 Vite build。
-- `npm run test:e2e -- ...`：覆盖会议、服务、官方容器、对象编辑与块属性，共 17 passed、1 failed。失败是 `object-editing.spec.ts` 的表格用例等待 `Merge right` 按钮超时，未涉及会议卡片；不将其记为整套浏览器测试通过。
-- 最终会议专项：5 passed。验证日期、语言、默认和自定义指令保存重开、未知属性保留、上传/同意/转写/摘要、原笔记保留、延迟响应恢复、官方方言不写扩展、窄屏和稳定标签链接。
-- 专项外的服务/官方容器回归也已通过；未连接用户浏览器或用户知识库。
+- `npm run build`: Passed; final menu fix passed `npm run typecheck` again with independent directory Vite build.
+- `npm run test:e2e -- ...`: Covers conferences, services, official containers, object editing and block attributes, totaling 17 passed and 1 failed. The failure is when `object-editing.spec.ts`'s form use case times out waiting for the `Merge right` button and does not involve the meeting card; it is not counted as a pass for the entire set of browser tests.
+- Final conference project: 5 passed. Verification date, language, default and custom instructions are saved and reopened, unknown attributes are retained, upload/agree/transcription/summary, original notes are retained, delayed response recovery, official dialect does not write extensions, narrow screen and stable label links.
+- The return of services/official containers outside the project has also been passed; the user browser or user vault is not connected.
 
-源码与实现边界见 [Meeting notes](../features/MEETING-NOTES.md)。
+For the boundary between source code and implementation, see [ Meeting notes ](../features/MEETING-NOTES.md).
 
-## 同日修正：复用 mention 日历
+<a id="同日修正复用-mention-日历"></a>
 
-此前独立实现会议日历没有复用已有日期组件，现已删除该实现及专属样式，会议标题直接绑定 `DateMentionView`，使用相同的 `date.css`。本节替代上文关于日期范围与提醒未实现的边界：Notdown 会议日期支持既有范围、时间、格式、时区和本地提醒；官方方言仅开放开始/结束日期，不写入扩展属性。
+## Same day fix: reuse mention calendar
 
-- 视觉证据：`test-results/inline-shared-calendar.png` 与 `test-results/meeting-shared-calendar.png`，两个面板的控件和样式相同；自动化同时比较完整面板 HTML，并检查 420 px 视口内的定位。
-- 交互回归：会议日期、会议笔记、正文日期、官方 MCP 容器共 15 passed、0 failed。覆盖保存重开、未知属性与其他日期保留、撤销/重做、清除后撤销、重新添加、视图切换和官方方言限制。日志：`.run/logs/meeting-date-final-e2e.log`。
-- 单元及服务测试：846 passed、5 skipped、0 failed，日志：`.run/logs/meeting-date-unit.log`。
-- 最终 `npm run build` 通过，仅有既有的大体积 chunk 提示，日志：`.run/logs/meeting-date-production-build.log`。
-- 关闭面板后恢复编辑器焦点，撤销接入现有统一历史；不把多次设置变更描述为一次整体撤销。
+Previously, the conference calendar was independently implemented without reusing the existing date component. This implementation and exclusive style have been deleted. The conference title is directly bound to `DateMentionView` and uses the same `date.css`. This section replaces the above unrealized boundaries about date ranges and reminders: Notdown meeting dates support existing ranges, times, formats, time zones, and local reminders; the official dialect only opens start/end dates and does not write extended attributes.
+
+- Visual evidence: `test-results/inline-shared-calendar.png` and `test-results/meeting-shared-calendar.png` , the controls and styles of both panels are identical; the automation simultaneously compares the full panel HTML and checks the positioning within the 420 px viewport.
+- Interaction regression: meeting date, meeting notes, text date, official MCP container totaling 15 passed and 0 failed. Overrides save-reopen, unknown properties with other date retention, undo/redo, undo after clear, re-add, view switching and official dialect restrictions. Log: `.run/logs/meeting-date-final-e2e.log`.
+- Unit and service tests: 846 passed, 5 skipped, 0 failed, log: `.run/logs/meeting-date-unit.log`.
+- Finally `npm run build` passed, only the existing large volume chunk prompts, log: `.run/logs/meeting-date-production-build.log`.
+- After closing the panel, restore the editor focus and undo access to the existing unified history; do not describe multiple setting changes as an overall undo.

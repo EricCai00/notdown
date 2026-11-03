@@ -1,3 +1,4 @@
+import { setUIAttribute, t } from "../shared/i18n";
 import { parseRoute, routeHash, type PageRoute } from "../features/pages/page-navigation";
 
 export type TabViewState = { mode: string; scroll: number; sourceScroll: number };
@@ -152,10 +153,10 @@ export function renderWorkspaceTabs(host: HTMLElement, model: WorkspaceTabs,
     info.icon.classList.add("workspace-tab-icon");
     const text = document.createElement("span"); text.textContent = info.title;
     button.append(info.icon, text);
-    if (active && pending) { const dot = document.createElement("span"); dot.className = "workspace-tab-dirty"; dot.setAttribute("aria-hidden", "true"); button.setAttribute("aria-description", "Unsaved changes"); button.append(dot); }
+    if (active && pending) { const dot = document.createElement("span"); dot.className = "workspace-tab-dirty"; dot.setAttribute("aria-hidden", "true"); setUIAttribute(button, "aria-description", "Unsaved changes"); button.append(dot); }
     button.onclick = () => { void model.activate(tab.id); };
     const close = document.createElement("button"); close.type = "button"; close.className = "workspace-tab-close";
-    close.textContent = "×"; close.setAttribute("aria-label", `Close tab: ${info.title}`); close.dataset.tabFocus = `close-${tab.id}`;
+    close.textContent = "×"; close.setAttribute("aria-label", t("Close tab: {title}", { title: info.title })); close.dataset.tabFocus = `close-${tab.id}`;
     close.disabled = model.busy; close.onclick = () => { void model.close(tab.id); };
     item.onauxclick = event => { if (event.button === 1) { event.preventDefault(); void model.close(tab.id); } };
     item.ondragstart = event => { event.dataTransfer?.setData("application/x-notdown-tab", tab.id); };

@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../shared/i18n";
 import "./application-menu.css";
 
 export type ApplicationMenuGroup = { label: string; items: { action: string; label: string; shortcut?: string; disabled?: boolean }[] };
@@ -9,7 +10,7 @@ export function mountApplicationMenu(trigger: HTMLButtonElement, groups: () => A
   menu.className = "application-menu";
   menu.popover = "auto";
   menu.role = "menu";
-  menu.setAttribute("aria-label", "Notdown menu");
+  setUIAttribute(menu, "aria-label", "Notdown menu");
   trigger.setAttribute("aria-haspopup", "menu");
   trigger.setAttribute("aria-controls", menu.id);
   trigger.setAttribute("aria-expanded", "false");
@@ -18,13 +19,13 @@ export function mountApplicationMenu(trigger: HTMLButtonElement, groups: () => A
   const open = (last = false) => {
     menu.replaceChildren();
     for (const group of groups()) {
-      const section = document.createElement("div"); section.role = "group"; section.setAttribute("aria-label", group.label);
-      const heading = document.createElement("div"); heading.className = "application-menu-heading"; heading.textContent = group.label; section.append(heading);
+      const section = document.createElement("div"); section.role = "group"; setUIAttribute(section, "aria-label", group.label);
+      const heading = document.createElement("div"); heading.className = "application-menu-heading"; setUIText(heading, group.label); section.append(heading);
       for (const item of group.items) {
         const button = document.createElement("button"); button.type = "button"; button.role = "menuitem"; button.tabIndex = -1;
         button.dataset.action = item.action; button.disabled = !!item.disabled;
-        button.setAttribute("aria-label", item.label);
-        const label = document.createElement("span"); label.textContent = item.label; button.append(label);
+        setUIAttribute(button, "aria-label", item.label);
+        const label = document.createElement("span"); setUIText(label, item.label); button.append(label);
         if (item.shortcut) { const hint = document.createElement("kbd"); hint.textContent = item.shortcut; button.append(hint); }
         section.append(button);
       }
@@ -57,4 +58,11 @@ export function mountApplicationMenu(trigger: HTMLButtonElement, groups: () => A
     }
   });
   window.addEventListener("resize", () => { if (menu.matches(":popover-open")) menu.hidePopover(); });
+  return () => {
+    if (!menu.matches(":popover-open")) return;
+    const commands = new Map(groups().flatMap(group => group.items).map(item => [item.action, item]));
+    menu.querySelectorAll<HTMLButtonElement>("button[data-action]").forEach(button => {
+      button.disabled = !!commands.get(button.dataset.action!)?.disabled;
+    });
+  };
 }

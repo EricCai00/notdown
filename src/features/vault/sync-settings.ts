@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import { api, escape as e } from "../../shared/types";
 import type { SyncStatus } from "../../sync/service";
 import type { SyncProgress } from "../../sync/engine";
@@ -17,23 +18,23 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
   existingOnly?: boolean; onStatus?(status: SyncStatus): Promise<void>;
 } = {}) {
   const section = document.createElement("section"); section.className = "settings-section sync-settings";
-  section.setAttribute("aria-label", "Cloud sync");
-  section.innerHTML = `<h3>Cloud sync</h3><p>Your notes stay on this device and remain editable offline. Connect the same cloud notebook on your other devices.</p>
-    <p class="sync-summary" data-sync-summary role="status">Loading sync settings…</p>
+  setUIAttribute(section, "aria-label", "Cloud sync");
+  section.innerHTML = `<h3 data-i18n="Cloud sync">Cloud sync</h3><p data-i18n="Your notes stay on this device and remain editable offline. Connect the same cloud notebook on your other devices.">Your notes stay on this device and remain editable offline. Connect the same cloud notebook on your other devices.</p>
+    <p class="sync-summary" data-sync-summary role="status" data-i18n="Loading sync settings…">Loading sync settings…</p>
     <div class="sync-progress" data-sync-progress hidden>
-      <p data-sync-stage role="status" aria-live="polite"></p><progress aria-label="Current sync step"></progress>
+      <p data-sync-stage role="status" aria-live="polite"></p><progress aria-label="Current sync step" data-i18n-aria-label="Current sync step"></progress>
       <p class="sync-progress-current" data-sync-current></p><p data-sync-counts></p><p class="sync-progress-time" data-sync-time></p>
     </div>
-    <form data-sync-login><label>Sync provider<select name="provider"><option value="supabase">Supabase</option><option value="webdav">Nutstore / WebDAV</option></select></label>
-    <label><span data-url-label>Supabase project URL</span><input name="url" type="url" placeholder="https://your-project.supabase.co" required autocomplete="url"></label>
-    <label data-key-label>Publishable key<input name="key" required autocomplete="off" spellcheck="false"></label>
-    <label data-folder-label hidden>Remote notebook folder<input name="folder" placeholder="Notdown/My-notebook" value="Notdown/My-notebook" autocomplete="off" spellcheck="false"></label>
-    <label><span data-account-label>Email</span><input name="email" type="email" required autocomplete="username"></label><label><span data-password-label>Password</span><input name="password" type="password" required autocomplete="current-password"></label>
-    <p data-login-help>Use an account created in your configured Supabase project. The password is used only to sign in.</p><button class="secondary-button" type="submit">Sign in</button></form>
-    <form data-sync-connect hidden><label>Cloud notebook<select name="vault"></select></label><label data-new-name>New notebook name<input name="name" maxlength="200" value="My notebook"></label>
-    <p>This connects the current local notebook. Its pages and attachments will sync with the selected cloud notebook; conflicting edits are preserved for review.</p>
-    <button class="primary-button" type="submit">Enable sync</button></form>
-    <div class="sync-actions" data-sync-actions hidden><button class="primary-button" type="button" data-sync-run>Sync now</button><button class="secondary-button" type="button" data-sync-pause>Pause sync</button><button class="secondary-button" type="button" data-sync-sign-in-again>Sign in again</button><button class="secondary-button" type="button" data-sync-disconnect>Disconnect</button></div>
+    <form data-sync-login><label><span data-i18n="Sync provider">Sync provider</span><select name="provider"><option value="supabase">Supabase</option><option value="webdav" data-i18n="Nutstore / WebDAV">Nutstore / WebDAV</option></select></label>
+    <label><span data-url-label data-i18n="Supabase project URL">Supabase project URL</span><input name="url" type="url" placeholder="https://your-project.supabase.co" required autocomplete="url"></label>
+    <label data-key-label><span data-i18n="Publishable key">Publishable key</span><input name="key" required autocomplete="off" spellcheck="false"></label>
+    <label data-folder-label hidden><span data-i18n="Remote notebook folder">Remote notebook folder</span><input name="folder" placeholder="Notdown/My-notebook" value="Notdown/My-notebook" autocomplete="off" spellcheck="false"></label>
+    <label><span data-account-label data-i18n="Email">Email</span><input name="email" type="email" required autocomplete="username"></label><label><span data-password-label data-i18n="Password">Password</span><input name="password" type="password" required autocomplete="current-password"></label>
+    <p data-login-help data-i18n="Use an account created in your configured Supabase project. The password is used only to sign in.">Use an account created in your configured Supabase project. The password is used only to sign in.</p><button class="secondary-button" type="submit" data-i18n="Sign in">Sign in</button></form>
+    <form data-sync-connect hidden><label><span data-i18n="Cloud notebook">Cloud notebook</span><select name="vault"></select></label><label data-new-name><span data-i18n="New notebook name">New notebook name</span><input name="name" maxlength="200" value="My notebook"></label>
+    <p data-i18n="This connects the current local notebook. Its pages and attachments will sync with the selected cloud notebook; conflicting edits are preserved for review.">This connects the current local notebook. Its pages and attachments will sync with the selected cloud notebook; conflicting edits are preserved for review.</p>
+    <button class="primary-button" type="submit" data-i18n="Enable sync">Enable sync</button></form>
+    <div class="sync-actions" data-sync-actions hidden><button class="primary-button" type="button" data-sync-run data-i18n="Sync now">Sync now</button><button class="secondary-button" type="button" data-sync-pause data-i18n="Pause sync">Pause sync</button><button class="secondary-button" type="button" data-sync-sign-in-again data-i18n="Sign in again">Sign in again</button><button class="secondary-button" type="button" data-sync-disconnect data-i18n="Disconnect">Disconnect</button></div>
     <output class="sync-feedback" data-sync-feedback aria-live="polite"></output><div data-sync-conflicts></div>`;
   const actions = container.querySelector(".dialog-actions"); if (actions) actions.before(section); else container.append(section);
   const feedback = section.querySelector<HTMLOutputElement>("[data-sync-feedback]")!;
@@ -41,9 +42,9 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
   const connect = section.querySelector<HTMLFormElement>("[data-sync-connect]")!;
   const select = connect.elements.namedItem("vault") as HTMLSelectElement;
   if (options.existingOnly) {
-    section.querySelector("h3 + p")!.textContent = "Connect the existing cloud notebook from your computer. After the first download, you can edit it offline on this device.";
+    setUIText(section.querySelector("h3 + p")!, "Connect the existing cloud notebook from your computer. After the first download, you can edit it offline on this device.");
     connect.querySelector<HTMLElement>("[data-new-name]")!.hidden = true;
-    connect.querySelector("p")!.textContent = "Download your existing cloud notebook. Future edits sync with your computer in both directions.";
+    setUIText(connect.querySelector("p")!, "Download your existing cloud notebook. Future edits sync with your computer in both directions.");
   }
   const field = (form: HTMLFormElement, name: string) => form.elements.namedItem(name) as HTMLInputElement;
   let status: SyncStatus;
@@ -52,7 +53,7 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
   function renderSummary(running = status?.running ?? false) {
     if (!status) return;
     const summary = section.querySelector<HTMLElement>("[data-sync-summary]")!;
-    summary.textContent = !status.signedIn ? "Not connected" : `${status.email ?? "Signed in"}${status.vaultName ? ` · ${status.vaultName}` : ""} · ${running ? "Syncing…" : status.enabled ? "Sync enabled" : "Sync paused"}${status.lastSyncedAt ? ` · Last sync ${new Date(status.lastSyncedAt).toLocaleString()}` : ""}`;
+    setUIText(summary, !status.signedIn ? "Not connected" : `${status.email ?? "Signed in"}${status.vaultName ? ` · ${status.vaultName}` : ""} · ${running ? "Syncing…" : status.enabled ? "Sync enabled" : "Sync paused"}${status.lastSyncedAt ? ` · Last sync ${new Date(status.lastSyncedAt).toLocaleString()}` : ""}`);
     if (status.signedIn && status.provider === "webdav") summary.textContent += ` · WebDAV: ${status.folder}`;
   }
   function renderProgress(value: ProgressStatus) {
@@ -106,12 +107,12 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
   const provider = login.elements.namedItem("provider") as HTMLSelectElement;
   function providerFields(resetUrl = false) {
     const dav = provider.value === "webdav";
-    login.querySelector("[data-url-label]")!.textContent = dav ? "WebDAV server URL" : "Supabase project URL";
+    setUIText(login.querySelector("[data-url-label]")!, dav ? "WebDAV server URL" : "Supabase project URL");
     login.querySelector<HTMLElement>("[data-key-label]")!.hidden = dav; field(login, "key").required = !dav;
     login.querySelector<HTMLElement>("[data-folder-label]")!.hidden = !dav; field(login, "folder").required = dav;
-    login.querySelector("[data-account-label]")!.textContent = dav ? "WebDAV account" : "Email"; field(login, "email").type = dav ? "text" : "email";
-    login.querySelector("[data-password-label]")!.textContent = dav ? "Application password" : "Password";
-    field(login, "password").setAttribute("aria-label", dav ? "Application password" : "Password");
+    setUIText(login.querySelector("[data-account-label]")!, dav ? "WebDAV account" : "Email"); field(login, "email").type = dav ? "text" : "email";
+    setUIText(login.querySelector("[data-password-label]")!, dav ? "Application password" : "Password");
+    setUIAttribute(field(login, "password"), "aria-label", dav ? "Application password" : "Password");
     login.querySelector("[data-login-help]")!.textContent = dav
       ? options.existingOnly ? "Use your Nutstore application password and the same remote folder as your computer."
         : "For Nutstore, use the application password from Account → Security → Third-party applications. Both devices must use the same remote folder. Connection testing creates and removes a temporary test folder; notebook sync preserves original files."
@@ -137,7 +138,7 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
       select.replaceChildren(...(options.existingOnly ? [] : [new Option("Create a new cloud notebook", "")]), ...vaults.map(vault => new Option(vault.name, vault.id)));
       if (options.existingOnly && !vaults.length) {
         select.add(new Option("No existing cloud notebook found", ""));
-        feedback.textContent = "Create and sync this notebook on your computer first, then sign in here using the same server and remote folder.";
+        setUIText(feedback, "Create and sync this notebook on your computer first, then sign in here using the same server and remote folder.");
       }
     }
     if (status.error) feedback.textContent = status.error;
@@ -167,8 +168,8 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
     if (!await hooks.beforeSync()) throw new Error("Finish or save your current edit before connecting sync.");
     if (options.existingOnly && !select.value) throw new Error("Choose an existing cloud notebook created on your computer.");
     status = await post<SyncStatus>("connect", { vaultId: select.value || undefined, name: field(connect, "name").value });
-    if (options.existingOnly) feedback.textContent = "Downloading your cloud notebook… Keep the app open until the first sync completes.";
-    await runSync(); await hooks.afterSync?.(); feedback.textContent = "First sync completed.";
+    if (options.existingOnly) setUIText(feedback, "Downloading your cloud notebook… Keep the app open until the first sync completes.");
+    await runSync(); await hooks.afterSync?.(); setUIText(feedback, "First sync completed.");
   }); };
   section.querySelector<HTMLButtonElement>("[data-sync-run]")!.onclick = () => void action(async () => {
     if (!status.enabled) throw new Error("Resume sync before syncing this notebook.");
@@ -182,7 +183,7 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
     login.hidden = false; field(login, "url").value = status.url; field(login, "key").value = status.key;
     field(login, "email").value = status.email ?? ""; field(login, "password").focus();
   };
-  section.querySelector<HTMLButtonElement>("[data-sync-disconnect]")!.onclick = () => void action(async () => { await post("disconnect"); feedback.textContent = "Disconnected. Your local notes and cloud notebook are preserved."; });
+  section.querySelector<HTMLButtonElement>("[data-sync-disconnect]")!.onclick = () => void action(async () => { await post("disconnect"); setUIText(feedback, "Disconnected. Your local notes and cloud notebook are preserved."); });
 
   async function conflicts() {
     const entries = await api<(SyncConflict & { localRevision: string })[]>("/sync/conflicts");
@@ -200,24 +201,24 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
       const panel = document.createElement("details"); panel.className = "sync-conflict";
       panel.dataset.conflictId = entry.id; panel.dataset.localRevision = entry.localRevision; panel.dataset.remoteVersion = String(entry.remote.version);
       const name = entry.local.value?.metadata?.title || entry.remote.item.value?.metadata?.title || entry.key;
-      panel.innerHTML = `<summary>${e(name)}</summary><p>Compare this device with the cloud version. Both originals remain in history.</p>
-        <div class="conflict-legend"><span class="diff-count-removed">− This device${entry.local.value === null ? " (deleted)" : ""}</span><span class="diff-count-added">+ Cloud${entry.remote.item.value === null ? " (deleted)" : ""}</span></div>
-        <div class="conflict-diff">${diffHTML(source(entry.local), source(entry.remote.item))}</div><details><summary>Last shared version</summary><pre data-base></pre></details>
-        <div data-merge></div><div class="sync-actions"><button type="button" class="secondary-button" data-choice="local">Keep this device</button><button type="button" class="secondary-button" data-choice="remote">Use cloud version</button></div>`;
+      panel.innerHTML = `<summary>${e(name)}</summary><p data-i18n="Compare this device with the cloud version. Both originals remain in history.">Compare this device with the cloud version. Both originals remain in history.</p>
+        <div class="conflict-legend"><span class="diff-count-removed"><span data-i18n="− This device">− This device</span>${entry.local.value === null ? " (deleted)" : ""}</span><span class="diff-count-added"><span data-i18n="+ Cloud">+ Cloud</span>${entry.remote.item.value === null ? " (deleted)" : ""}</span></div>
+        <div class="conflict-diff">${diffHTML(source(entry.local), source(entry.remote.item))}</div><details><summary data-i18n="Last shared version">Last shared version</summary><pre data-base></pre></details>
+        <div data-merge></div><div class="sync-actions"><button type="button" class="secondary-button" data-choice="local" data-i18n="Keep this device">Keep this device</button><button type="button" class="secondary-button" data-choice="remote" data-i18n="Use cloud version">Use cloud version</button></div>`;
       panel.querySelector("[data-base]")!.textContent = source(entry.base);
       const merge = panel.querySelector<HTMLElement>("[data-merge]")!;
       let body: HTMLTextAreaElement | undefined, metadata: HTMLTextAreaElement | undefined, bodyEdited = false;
       const template = entry.local.value ? entry.local : entry.remote.item;
       if (template.value && template.kind !== "asset") {
-        const details = document.createElement("details"), summary = document.createElement("summary"); summary.textContent = "Edit merged version"; details.append(summary);
+        const details = document.createElement("details"), summary = document.createElement("summary"); setUIText(summary, "Edit merged version"); details.append(summary);
         const label = document.createElement("label"); label.textContent = template.kind === "metadata" ? "Merged resource (JSON)" : "Merged source";
         body = document.createElement("textarea"); body.rows = 8; body.value = source(template); body.setAttribute("aria-label", label.textContent); body.oninput = () => { bodyEdited = true; }; label.append(body); details.append(label);
         if (template.kind === "page") {
-          const metadataLabel = document.createElement("label"); metadataLabel.textContent = "Merged page properties (JSON)";
+          const metadataLabel = document.createElement("label"); setUIText(metadataLabel, "Merged page properties (JSON)");
           metadata = document.createElement("textarea"); metadata.rows = 5; metadata.value = JSON.stringify(template.value.metadata, null, 2); metadata.setAttribute("aria-label", metadataLabel.textContent); metadataLabel.append(metadata); details.append(metadataLabel);
           const originalProperties = document.createElement("pre"); originalProperties.textContent = `Cloud properties:\n${JSON.stringify(entry.remote.item.value?.metadata ?? null, null, 2)}`; details.append(originalProperties);
         }
-        const save = document.createElement("button"); save.type = "button"; save.className = "primary-button"; save.textContent = "Save merged version"; save.dataset.choice = "merged"; details.append(save); merge.append(details);
+        const save = document.createElement("button"); save.type = "button"; save.className = "primary-button"; setUIText(save, "Save merged version"); save.dataset.choice = "merged"; details.append(save); merge.append(details);
       }
       panel.querySelectorAll<HTMLButtonElement>("[data-choice]").forEach(button => { button.onclick = () => void action(async () => {
         if (!await hooks.beforeSync()) throw new Error("Save or recover your current draft before resolving this conflict.");
@@ -228,7 +229,7 @@ export async function mountSyncSettings(container: HTMLElement, hooks: SyncHooks
           else { merged.value!.source = bodyEdited ? body!.value : template.value!.source; if (metadata) merged.value!.metadata = JSON.parse(metadata.value); }
         }
         await post("resolve", { id: entry.id, choice: button.dataset.choice, baseRevision: entry.localRevision, merged });
-        await hooks.afterSync?.(); feedback.textContent = "Conflict resolved locally. The chosen version will be uploaded on the next sync.";
+        await hooks.afterSync?.(); setUIText(feedback, "Conflict resolved locally. The chosen version will be uploaded on the next sync.");
       }); });
       list.append(panel);
     }

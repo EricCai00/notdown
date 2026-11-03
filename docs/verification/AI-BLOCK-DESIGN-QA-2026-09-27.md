@@ -1,5 +1,7 @@
 # AI block design QA — 2026-09-27
 
+**English** · [简体中文](AI-BLOCK-DESIGN-QA-2026-09-27.zh-CN.md)
+
 final result: passed
 
 ## Follow-up: generated result and preset state

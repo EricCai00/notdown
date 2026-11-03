@@ -1,14 +1,18 @@
-# 2026-09-25 可执行块与 inline 语言选择
+<a id="2026-09-25-可执行块与-inline-语言选择"></a>
 
-R、Python、Julia、Observable JS 共用 `block.executable_chunk` 与 `inline.executable_expression` 两种对象。插入菜单只有 Executable Chunk 和 Executable Expression，选语言后在原选区插入；现有对象点击语言名称可切换。R Markdown 方言提供 R，Quarto/Notdown 提供四种语言。普通代码围栏保持展示用途。
+# 2026-09-25 executable block and inline language selection
 
-旧 R Markdown 原文、未知 knitr 头部选项、inline 空白和标记均保留。显式切换语言不翻译或执行代码，只有开头的 Quarto 选项注释前缀随语言变化；无法转换的 R 头部保留为普通注释。切换可撤销，结果仍不写入正文。
+**English** · [简体中文](EXECUTABLE-LANGUAGE-2026-09-25.zh-CN.md)
 
-验证范围：
+R, Python, Julia, and Observable JS share two objects, `block.executable_chunk` and `inline.executable_expression`. The insert menu only has Executable Chunk and Executable Expression. After selecting the language, insert it in the original selection; click the language name of the existing object to switch. R Markdown dialect is provided in R and Quarto/Notdown is provided in four languages. Ordinary code fences remain for display purposes.
 
-- `npm test`：741 项，739 通过、2 跳过、0 失败；跳过为 Windows 符号链接能力和未启用的 Julia 运行测试。日志 `.run/logs/unified-unit-all-runtimes.log`。
-- 设置 `NOTDOWN_TEST_JULIA=1` 后补验语言模型及真实运行：13 项全部通过，包括 Julia、Python 和混合 R/Python 会话。日志 `.run/logs/unified-language-runtimes.log`。
-- `npm run test:e2e -- tests/e2e/executable-language.spec.ts tests/e2e/quarto.spec.ts tests/e2e/rmarkdown.spec.ts tests/e2e/block-catalog.spec.ts`：构建成功，28 项独立 Chrome 测试全部通过。覆盖插入选区、语言切换、撤销重做、保存重载、旧 R 头部、方言限制、真实 R/Python/OJS 执行与目录合并。日志 `.run/logs/unified-browser-verified.log`。此处为相关浏览器回归，未宣称全仓浏览器套件通过。
-- 检查插入语言选择器和 inline 浮层截图：`.run/logs/unified-insertion.png`、`.run/logs/unified-inline.png`。
+The old R Markdown text, unknown knitr header options, inline whitespace and flags are preserved. Explicitly switching languages ​​does not translate or execute the code, only the Quarto option comment prefix at the beginning changes with the language; R headers that cannot be converted remain as ordinary comments. The switch can be undone, but the result is still not written into the text.
 
-浏览器与服务测试使用临时知识库，未写入用户 vault。解释器配置仍为后端环境变量，尚无应用内设置页，详见 [语言与运行环境](../features/QUARTO.md#语言与运行环境)。
+Verification scope:
+
+- `npm test`: 741 entry, 739 passed, 2 skipped, 0 failed; skips running test for Windows symlink capability and Julia not enabled. Log `.run/logs/unified-unit-all-runtimes.log`.
+- After setting `NOTDOWN_TEST_JULIA=1`, post-test language model and real operation: all 13 items passed, including Julia, Python and mixed R/Python sessions. Log `.run/logs/unified-language-runtimes.log`.
+- `npm run test:e2e -- tests/e2e/executable-language.spec.ts tests/e2e/quarto.spec.ts tests/e2e/rmarkdown.spec.ts tests/e2e/block-catalog.spec.ts`: The build was successful, and all 28 independent Chrome tests passed. Covers insert selection, language switching, undo redo, save reload, old R headers, dialect restrictions, real R/Python/OJS execution and catalog merging. Log `.run/logs/unified-browser-verified.log`. This is the return of relevant browsers, and it is not claimed that the full warehouse browser suite has passed.
+- Check the insert language selector and inline overlay screenshot: `.run/logs/unified-insertion.png`, `.run/logs/unified-inline.png`.
+
+Browsers and services test using temporary vault that are not written into user vault. The interpreter configuration is still a backend environment variable, and no pages are set up in-app, see details. [Languages and runtimes](../features/QUARTO.md#languages-and-runtimes)。

@@ -17,8 +17,9 @@ const project = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-const frontendDir = path.resolve(project, process.env.NOTDOWN_E2E_FRONTEND_DIR || "dist");
-await fs.access(path.join(frontendDir, "index.html"));
+const development = process.env.NOTDOWN_E2E_DEV === "1";
+const frontendDir = development ? undefined : path.resolve(project, process.env.NOTDOWN_E2E_FRONTEND_DIR || "dist");
+if (frontendDir) await fs.access(path.join(frontendDir, "index.html"));
 const temporaryRoot = path.resolve(os.tmpdir());
 const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-e2e-"));
 // Browser tests use a private stand-in; native Windows recycling is tested separately.
@@ -51,6 +52,17 @@ await vault.create({
   body: `Before [[${target.id}|链接目标]] after.\n\n::page{id="${target.id}"}\n`,
 });
 
+// Exercise Vite's stylesheet insertion order against the same isolated vault.
+const vite = development ? await (async () => {
+  const { createServer } = await import("vite");
+  const { default: config } = await import("../../vite.config.js");
+  const settings = config({ command: "serve", mode: "development", isSsrBuild: false, isPreview: false });
+  const server = await createServer({ ...settings, configFile: false,
+    server: { ...settings.server, proxy: undefined, middlewareMode: true, hmr: false },
+  });
+  app.use(server.middlewares);
+  return server;
+})() : undefined;
 const port = Number(process.env.NOTDOWN_E2E_PORT || 4329);
 const server = app.listen(port, "127.0.0.1", () => {
   console.log(
@@ -64,6 +76,7 @@ async function shutdown() {
   shuttingDown = true;
   server.closeAllConnections();
   await new Promise<void>((resolve) => server.close(() => resolve()));
+  await vite?.close();
   const targetPath = path.resolve(vaultPath);
   if (
     path.dirname(targetPath) !== temporaryRoot ||

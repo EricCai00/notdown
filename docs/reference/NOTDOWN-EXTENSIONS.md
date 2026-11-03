@@ -1,50 +1,60 @@
-# Notdown 保留的自定义正文扩展
+<a id="notdown-保留的自定义正文扩展"></a>
 
-Notdown 优先使用已有 Markdown 方言与官方 Notion Markdown；只有对应能力无法完整表达时，才保留下列补充。依据：[Notion v1](https://developers.notion.com/guides/data-apis/enhanced-markdown)、[Notion v2](https://developers.notion.com/guides/data-apis/notion-flavored-markdown)、[已核实的 MCP 规范](NOTION-MCP-SYNTAX.md)。本地可编辑、可重开不等于 Notion 云端会接受或保留补充字段。
+# Retained Notdown extensions and official alternatives
 
-## 已采用官方替代的写法
+**English** · [简体中文](NOTDOWN-EXTENSIONS.zh-CN.md)
 
-| 旧本地表达 | 当前写入与保留内容 |
+Notdown gives priority to the existing Markdown dialect and official Notion Markdown; only when the corresponding ability cannot be fully expressed, the following supplements will be retained. Based on: [ Notion v1 ](https://developers.notion.com/guides/data-apis/enhanced-markdown), [ Notion v2 ](https://developers.notion.com/guides/data-apis/notion-flavored-markdown), [ Verified MCP specification ](NOTION-MCP-SYNTAX.md). Local editable and reopenable does not equal Notion. The cloud will accept or retain supplementary fields.
+
+<a id="已采用官方替代的写法"></a>
+
+## Syntax replaced by official alternatives
+
+| old local expression | Current writing and retention content |
 | --- | --- |
-| `span bg_color` | 嵌套 `span color`，背景名带 `_bg`；保留两个颜色通道。 |
-| `web-embed url/caption` | `<embed source="URL">题注</embed>`；保留 URL、题注及必要布局字段。 |
-| `bookmark url/caption` | `<bookmark source="URL">题注</bookmark>`；保留 URL、题注及手工预览信息。 |
-| `tabs active`、`tab title` | 官方 tabs/tab，标题写正文；保留顺序和内容，选中页签属于界面状态。 |
-| `meeting-notes title/transcript` | 标题正文与官方 notes/transcript 分区；服务设置统一放现有 `meeting-config`。 |
-| `column width-ratio` | 官方 `ratio` 百分比；保留有效列宽和未知属性。 |
-| 整段 ISO 日期时间、旧时区别名 | 能精确表达时转成官方日期、时间、时区分列，不取整或猜测。 |
-| 折叠/标题的 `open="true/false"` | 正文不再写展开状态，展开与收起属于界面状态。 |
+| `span bg_color` | Nested `span color`, background name with `_bg`; retain two color channels. |
+| `web-embed url/caption` | `<embed source="URL">题注</embed>`;Retain URL, caption and necessary layout fields. |
+| `bookmark url/caption` | `<bookmark source="URL">题注</bookmark>`;Retain URL, caption and manual preview information. |
+| `tabs active`、`tab title` | Official tabs/tab, the title is written as the text; the order and content are retained, and the selected tab belongs to the interface state. |
+| `meeting-notes title/transcript` | The title text is the same as the official notes/transcript partition; the service settings are unified into the existing `meeting-config`. |
+| `column width-ratio` | Official `ratio` percent; retains valid column widths and unknown properties. |
+| The entire ISO date and time, old time distinguished name | Ability to accurately express time into official date, time, and time zone format without rounding or guessing. |
+| folded/titled`open="true/false"` | The expanded state is no longer written in the text. Expanded and collapsed belong to the interface state. |
 
-Notdown 合集可读这些官方载体，无须把整页切为 v2。严格 `notion-markdown` 仍按所选版本处理。`span underline="true"` 是官方 v1，`u` 是官方 v2，都不是项目自创。
+The Notdown collection can read these official carriers without cutting the entire page into v2. Strict `notion-markdown` is still processed as the selected version. `span underline="true"` is the official v1, and `u` is the official v2, neither of which is self-created by the project.
 
-旧载体停止作为新建、编辑输出；历史及未知原文可恢复保留。本次仅按用户授权迁移 Default、Notion test 的可验证 Notdown 正文。代码、未知容器内的例子不转换；冲突属性和无效边界不猜测。
+The old carrier is stopped as a new build, edit output; history and unknown origin can be restored. This time, it is only migrated with user permission.Default、Notion test The validation ofNotdown The code, the example in the unknown container, is not converted; the conflict properties and ineffective boundaries are not guessed.
 
-## 保留的块和行内载体
+<a id="保留的块和行内载体"></a>
 
-| 写法 | 内容 | 为什么官方语法不能完整替代 |
+## Retained block and inline representations
+
+| Writing method | Content | Why the official grammar cannot be completely replaced |
 | --- | --- | --- |
-| `<page-link url="…">标题</page-link>` | 非拥有关系的页面块 | 官方 page 表示子页面；普通链接能导航，但不能表示同一块类型和拥有关系语义。 |
-| `<breadcrumb path="…"/>` | 可选页面 ID 路径；空值自动取祖先链 | 官方 Markdown 没有动态本地层级导航；固定链接不能随层级更新。 |
-| `<button label="…" icon="…" variant="…" actions="JSON"/>` | 本地动作步骤；旧 action/target 可恢复 | 官方 Markdown 不能承载本地插入块、打开目标等动作协议。 |
-| `<ai-block prompt="…" model="…" generate="…" using="…" context="…" search="…">正文</ai-block>` | 服务配置与参与生成的区域 | 官方 Markdown 没有本地 AI 服务及生成区域契约。 |
-| `<mention-link url="…">标签</mention-link>` | 可创建的本地行内预览对象、自定义标签 | 官方 v2 link-preview 是只读标记，缺少本地预览的创建和标签契约；普通链接是另一种行内对象。 |
+| `<page-link url="…">标题</page-link>` | Non-owning page blocks | Official page represents subpages; ordinary links can navigate, but cannot represent the same block type and ownership semantics. |
+| `<breadcrumb path="…"/>` | Optional page ID path; empty value automatically takes the ancestor chain | Official Markdown does not have dynamic local level navigation; fixed links cannot be updated with levels. |
+| `<button label="…" icon="…" variant="…" actions="JSON"/>` | Local action steps; old action/target can be restored | Official Markdown cannot carry action protocols such as local insert blocks and open targets. |
+| `<ai-block prompt="…" model="…" generate="…" using="…" context="…" search="…">正文</ai-block>` | Service configuration and areas involved in generation | Official Markdown does not have local AI service and generation zone contracts. |
+| `<mention-link url="…">标签</mention-link>` | Createable local inline preview objects, custom labels | Official v2 link-preview is a read-only markup that lacks local preview creation and labeling contracts; normal links are another inline object. |
 
-URL、名称和动作均是语法数据，不自动授权外部访问或执行。未知动作/字段不会作为任意脚本执行。
+URL, names, and actions are syntax data and do not automatically authorize external access or execution. Unknown actions/fields are not executed as arbitrary scripts.
 
-## 官方标签上的必要补充
+<a id="官方标签上的必要补充"></a>
 
-| 位置 | 保留字段 | 官方格式的缺口 |
+## Necessary additions to official tags
+
+| Location | reserved fields | Official format gap |
 | --- | --- | --- |
-| bookmark | `title/description/icon/image` | 手工填写、离线保存或抓取的卡片预览信息。来源与题注已用官方编码。 |
-| link-preview | 本地卡片的 `title/description/image/caption` | 本地显示信息；不能把本地创建行为冒充为 Notion 只读标记的写入能力。 |
-| embed | `title/width/height/align` | 附件名称、预览尺寸及对齐。 |
-| 日期 | `reminder/reminder-offset/date-format/time-format` | 提醒与本地显示偏好。官方 date 的 time-zone、v1 timeZone 本来就是官方字段。 |
-| 日期的精度/时区例外 | 旧 ISO `start/end`、旧 `time-zone` | 秒/毫秒、固定偏移或相互冲突的字段不能总是无损变为 HH:mm + IANA 时区；核验失败时保留原值，不取整。 |
-| synced block/reference | `id/source-revision/snapshot-hash/auto-refresh/auto-sync` | 本地块定位、CAS 版本、快照与刷新策略；官方 URL 不提供本地同步协议。 |
-| meeting-notes | `meeting-config` JSON | 本地转写/生成服务、音频附件、语言、提示词配置；旧 audio/language 合并到此配置。 |
-| 代码题注 | fence 的 `caption` 属性 | 属性定界复用 Pandoc；caption 的本地显示语义不是官方 Notion 代码属性。 |
+| bookmark | `title/description/icon/image` | Card preview information filled in manually, saved offline, or captured. Sources and captions have been officially coded. |
+| link-preview | local card`title/description/image/caption` | Local display information; local creation behavior cannot be passed off as write capability of Notion read-only tags. |
+| embed | `title/width/height/align` | Attachment name, preview size and alignment. |
+| Date | `reminder/reminder-offset/date-format/time-format` | Reminders and local preferences.date oftime-zone、v1 timeZone It is the official field. |
+| Date precision/time zone exceptions | old ISO `start/end`, old`time-zone` | Seconds/milliseconds, fixed offset or conflicting fields cannot always be converted to HH:mm + IANA time zone losslessly; the original value is retained without rounding when verification fails. |
+| synced block/reference | `id/source-revision/snapshot-hash/auto-refresh/auto-sync` | Local block positioning, CAS version, snapshot and refresh strategy; official URL does not provide local synchronization protocol. |
+| meeting-notes | `meeting-config` JSON | Local transcription/generation service, audio attachment, language, prompt word configuration; old audio/language merged into this configuration. |
+| Code caption | fence's `caption` Attributes | Property delimitation reuses Pandoc; the native display semantics of caption are not official Notion code properties. |
 
-示例：官方载体只为确实缺失的信息附加属性。
+Example: Official carriers only attribute missing information.
 
 ```md
 <bookmark source="https://example.com" title="手工标题" description="离线说明">题注</bookmark>
@@ -52,14 +62,16 @@ URL、名称和动作均是语法数据，不自动授权外部访问或执行�
 <embed source="assets/example.html" width="80%" height="400" align="center">说明</embed>
 ```
 
-表格跨度、题注、对齐能用 Pandoc/MultiMarkdown 表达时复用已有语法，不另造 XML 表格协议。未知额外字段仍保留，不凭名称自动执行。
+Table span, caption, and alignment can be expressed in Pandoc/MultiMarkdown by reusing existing syntax without creating a new XML table protocol. Unknown extra fields are still retained and are not automatically executed by name.
 
-## 地址、版本与开关
+<a id="地址版本与开关"></a>
 
-`#page/<uuid>`、`person://<uuid>` 是本地地址约定，借用链接/提及载体，不是新的 Markdown 定界语法，也不冒充 Notion 的页面或 user:// 身份。
+## Addresses, versions and switches
 
-自定义行为仅限 `syntax.variant: notdown`，遵守相关扩展开关。其他方言的显式 true 不能越界开启本地协议；严格官方模式不赋予补充字段本地语义。未知原文、无效边界和冲突字段可恢复保留。
+`#page/<uuid>`, `person://<uuid>` is a local address convention, borrowed from a link/mention carrier, not a new Markdown delimited syntax, nor does it pretend to be a Notion page or user:// identity.
 
-旧 `:::nest`、`:::columns`、`::page`、`html-embed`、独立 figure 属性载体与 Lab bookmark 围栏已停止生成。围栏、HTML、Pandoc 属性、CriticMarkup、Obsidian、Quarto、R Markdown 等已有语法不属于项目自创。
+Custom behavior is limited to `syntax.variant: notdown` and must comply with relevant extension switches. Explicit true in other dialects cannot cross-border to enable local protocols; strict official mode does not give supplementary fields local semantics. Unknown source text, invalid boundaries, and conflicting fields can be restored to preservation.
 
-实现：[载体规范化](../../src/document/canonical-notion.ts)、[显式转换与一致性检查](../../src/document/canonical-source.ts)、[属性边界](../../src/document/notdown-boundary.ts)。迁移与历史结论见 [2026-10-27 审计](../audits/CUSTOM-SYNTAX-AUDIT-2026-10-27.md)。
+Generation of the old `:::nest` , `:::columns` , `::page` , `html-embed` , standalone figure attribute vectors, and Lab bookmark fences has been discontinued. Fences, HTML, Pandoc attributes, CriticMarkup, Obsidian, Quarto, R Markdown and other existing syntaxes are not self-created by the project.
+
+Implementation: [ vector normalization ](../../src/document/canonical-notion.ts), [ explicit conversion and consistency check ](../../src/document/canonical-source.ts), [ attribute boundary ](../../src/document/notdown-boundary.ts). For migration and historical conclusions, see [ 2026-10-27 audit ](../audits/CUSTOM-SYNTAX-AUDIT-2026-10-27.md).

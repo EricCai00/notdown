@@ -1,10 +1,14 @@
-# 旧 Markdown 格式 v0.2（仅用于兼容读取）
+<a id="旧-markdown-格式-v02仅用于兼容读取"></a>
 
-新正文规范见 [FORMAT.md](../FORMAT.md)。本文为旧文件的解析依据，不再生成这些私有指令。
+# Legacy body format contract
 
-设计原则：正文直接存为 UTF-8 Markdown。渲染、树、大纲、思维导图和块拖动是同一份正文的视图。不会为块编辑另存一份必须保持同步的 JSON 正文。本文规定正文层；页面 ID、父页和属性由 vault 的 YAML front matter 管理。
+**English** · [简体中文](FORMAT-LEGACY.zh-CN.md)
 
-页面文件为 `vault/pages/<uuid>.md`，格式如下：
+See [ FORMAT.md ](../FORMAT.md) for new text specifications. This article is the basis for parsing old files, and these private instructions are no longer generated.
+
+Design principle: The text is directly stored as UTF-8 Markdown. Render, tree, outline, mind map, and block drag are views of the same text. There is no separate copy of the JSON text that must be kept synchronized for block editing. This article specifies the text layer; page ID, parent page and attributes are managed by vault's YAML front matter.
+
+The page file is `vault/pages/<uuid>.md` and the format is as follows:
 
 ```md
 ---
@@ -22,13 +26,15 @@ updated: "2026-09-12T05:00:00.000Z"
 这里是普通 Markdown。
 ```
 
-`parent` 为唯一父页面的 ID 或 `null`；移动页面只改属性，不依赖文件夹重命名。后端保留未知 YAML 字段/注释，单改元信息时严格保留正文。REST 的 `revision` 是整个文件的 SHA-256，写入必须提供 `baseRevision`，避免覆盖另一个编辑器或 AI 的更新。修订历史位于 `.history/<pageId>/<revision>.md`，冲突副本位于 `.history/conflicts/`。
+`parent`It is ID or `null` of the only parent page; moving the page only changes the attributes and does not rely on folder renaming. The backend retains unknown YAML fields/comments, and strictly retains the text when changing metadata. The REST of `revision` is the SHA-256 of the entire file, and the writer must provide the `baseRevision` to avoid overwriting updates from another editor or AI. The revision history is at `.history/<pageId>/<revision>.md` and the conflicting copy is at `.history/conflicts/`.
 
-## 标准语法
+<a id="标准语法"></a>
 
-基础采用 CommonMark，包含 markdown-it 的表格和删除线支持。标题、列表、引用、围栏代码、图片和普通文件链接使用既有语法。不开放正文原始 HTML；它会显示为文本。未知扩展保留源码，不自动删除。
+## Standard syntax
 
-支持 GFM 风格任务列表：`- [ ] 未完成`、`- [x] 已完成`（大写 `X` 也支持）。只有真实列表项首段开头的标记会渲染为复选框；普通段落、转义文本和代码里的 `[ ]` / `[x]` 保持原样。阅读视图与 HTML 导出的复选框不可点击，编辑状态应在编辑器中修改；大纲标题省略任务标记。
+The base uses CommonMark, including table and strikethrough support for markdown-it. Titles, lists, quotes, fence codes, images, and regular file links use the established syntax. Do not open the body of raw HTML; it will be displayed as text. Unknown extensions retain their source code and will not be automatically deleted.
+
+Supports GFM style task lists: `- [ ] 未完成`, `- [x] 已完成` (uppercase `X` is also supported). Only the markup at the beginning of the first paragraph of the actual list item is rendered as a checkbox; normal paragraphs, escaped text, and `[ ]` / `[x]` in code remain unchanged. The check boxes for reading view and HTML export are not clickable, and the editing status should be modified in the editor; the outline title omits the task mark.
 
 ```md
 # 页面标题
@@ -42,25 +48,31 @@ updated: "2026-09-12T05:00:00.000Z"
 [演示](assets/demo.mp4)
 ```
 
-单独一段的本地音视频链接显示为播放器和附件链接；支持 mp3、m4a、ogg、wav、mp4、webm、mov。远程音视频链接仍是普通链接，图片沿用 Markdown 图片语法。HTML 导出包含样式和正文，附件保持相对引用，尚不打包附件或导出全库。
+A single local audio and video link is displayed as a player and attachment link; supports mp3, m4a, ogg, wav, mp4, webm, mov. Remote audio and video links are still ordinary links, and pictures follow the Markdown picture syntax. The HTML export includes styles and text, and attachments remain relative references. Attachments are not yet packaged or the entire library is exported.
 
-## 页面链接
+<a id="页面链接"></a>
+
+## Page links
 
 ```md
 相关内容见 [[页面ID]]、[[页面标题]] 或 [[页面ID|显示文字]]。
 ```
 
-优先使用稳定页面 ID，以免重命名后失效。标题链接按提供的页面索引解析；同名标题时取索引中的首项，不自动猜测。显示文字是纯文本，始终进行 HTML 转义。渲染目标为 `#page/<编码后的ID>`。代码块、行内代码和反斜杠转义的 `\[[文字]]` 不创建链接，也不进入图谱引用索引。
+Give priority to using the stable page ID to avoid invalidation after renaming. The title link is parsed according to the provided page index; when the title has the same name, the first item in the index is taken and no automatic guessing is performed. Display text is plain text, always HTML escaped. The render target is `#page/<编码后的ID>` . Code blocks, inline code, and backslash-escaped `\[[文字]]` do not create links and do not enter the graph reference index.
 
-## 子页面入口
+<a id="子页面入口"></a>
+
+## Child-page entries
 
 ```md
 ::page{id="550e8400-e29b-41d4-a716-446655440000"}
 ```
 
-该指令必须单独占一行，渲染为可打开的子页面卡片。它表示正文中的入口，不隐式迁移页面、创建页面或修改父子关系；真正的唯一父页关系属于页面属性。删除入口不会删除子页面。卡片标题从页面索引读取，找不到页面时显示 ID。
+This directive must occupy a separate line and be rendered as an openable subpage card. It represents an entry in the body and does not implicitly migrate pages, create pages, or modify parent-child relationships; the true only parent-page relationship belongs to the page attribute. Deleting an entry will not delete the subpages. Card titles are read from the page index and ID is displayed when the page is not found.
 
-## 两栏
+<a id="两栏"></a>
+
+## Two columns
 
 ```md
 :::columns
@@ -77,15 +89,19 @@ updated: "2026-09-12T05:00:00.000Z"
   :::
 ```
 
-只支持两栏，必须有且只有一个 `:::column` 分隔符。不允许嵌套分栏。开始、分隔和结束标记必须分别占一行；最多允许三个前导空格。小屏幕自动堆叠为一栏。
+Only two columns are supported and there must be exactly one `:::column` delimiter. Nested columns are not allowed. Opening, delimiting, and closing tags must each occupy one line; up to three leading spaces are allowed. Small screens automatically stack into one column.
 
-围栏代码内部的 `:::column` 或 `:::` 只是代码。缺少分隔符/结束符、出现三栏或嵌套时，整个扩展以转义后的原文显示，不猜测结构。块拖动将完整分栏视为一个块。
+The code inside the fence `:::column` or `:::` It's just code. When there's no separator/terminator, there's a threesome or nesting, and the entire extension is shown in translated text, without guessing the structure. Block drag will make the entire block look like a block.
 
-## 块与源码保留
+<a id="块与源码保留"></a>
 
-### 普通文本的父子块
+## Blocks and source preservation
 
-普通文本和标题可拥有子块。`Tab` 将当前块放入前一块，`Shift+Tab` 提升一级；父块拖动会携带子块。列表项沿用标准 Markdown 缩进。普通文本层级用有限扩展保存，避免四空格被解释成代码：
+<a id="普通文本的父子块"></a>
+
+### Parent and child blocks in plain text
+
+Normal text and headings can have subblocks. `Tab` puts the current block into the previous block, and `Shift+Tab` advances one level; dragging the parent block will carry the child block. List items follow standard Markdown indentation. Ordinary text levels are saved with limited expansion to avoid four spaces being interpreted as code:
 
 ```md
 :::nest
@@ -97,24 +113,30 @@ updated: "2026-09-12T05:00:00.000Z"
 :::endnest
 ```
 
-父块是一段普通文字或标题；子区是普通 Markdown，也能包含另一个完整的 `:::nest`。显式分隔符使空父块、空子块仍可保留。代码围栏内的标记不参与嵌套解析；缺少结束符的原文安全保留。行内换行使用标准 Markdown 硬换行（两个空格后换行）：`Shift+Enter` 在块内插入硬换行，`Enter` 创建新块；代码块内使用普通换行。
+The parent block is an ordinary text or title; the child area is an ordinary Markdown, which can also contain another complete `:::nest`. Explicit delimiters allow empty parent blocks and empty child blocks to remain. Tags within code fences do not participate in nested parsing; original text that lacks terminators is safely retained. Inline breaks use standard Markdown hard line breaks (line break after two spaces): `Shift+Enter` inserts a hard line break within a block, `Enter` creates a new block; normal line breaks are used within code blocks.
 
-### 顶层源码切片
+<a id="顶层源码切片"></a>
 
-`parseBlocks()` 使用语法 token 的行区间切片，不以空行粗暴拆块。围栏代码、含空行的列表、表格、引用和分栏作为完整顶层块。首块包含正文开头空白，其余块包含自身后面的空白；切片拼接严格还原输入，包括 CRLF。
+### Top-level source slices
 
-`moveBlock(source, fromIndex, toIndex)` 中 `toIndex` 指移动后的最终位置。函数移动完整切片，不重排列表项、不格式化块内容。对于重排后新出现的相邻块，已有空白不足一个空行时，补充最少的换行以建立空行边界；使用原文的换行风格，所有原有字符保持不变。原本相邻的块保留已有分隔，位置未变的操作直接返回原文。
+`parseBlocks()`Use the line interval slicing with syntax token, and do not use blank lines to roughly split the blocks. Fence code, lists with blank lines, tables, quotes, and columns as complete top-level blocks. The first block contains the blank space at the beginning of the text, and the remaining blocks contain the blank space after itself; slice splicing strictly restores the input, including CRLF.
 
-例如 `# A\n\nparagraph` 的末段移到开头后成为 `paragraph\n\n# A\n\n`，不会拼成 `paragraph# A`。源码切片拼接仍是严格字节保留，实际块重排则允许为保护 Markdown 意义而增加必要的分隔换行。相邻的同类列表仍遵循 CommonMark 的列表合并规则，不用额外私有标记强行拆开它们。
+`moveBlock(source, fromIndex, toIndex)`The middle `toIndex` refers to the final position after movement. The function moves the entire slice without reordering the list items or formatting the block contents. For adjacent blocks that appear after rearrangement, when there is less than one blank line in the existing space, add minimal line breaks to establish a blank line boundary; use the original line wrapping style, and all original characters remain unchanged. The original adjacent blocks remain separated, and the operations whose positions have not changed directly return to the original text.
 
-此字节保留保证适用于源码切片与块重排。Vditor 的富文本编辑可能规范化普通 Markdown 表达，不能把编辑器任意模式之间的转换宣称为字节级无损。自定义扩展应始终保留源码出口。
+For example, the last paragraph of `# A\n\nparagraph` is moved to the beginning and becomes `paragraph\n\n# A\n\n`, and will not be spelled as `paragraph# A`. Source code slice splicing is still strictly byte-preserving, and the actual block rearrangement allows the necessary delimiting newlines to be added to protect Markdown meaning. Adjacent lists of the same type still follow CommonMark's list merging rules, without additional private tags to force them apart.
 
-## AI 与属性
+This byte preservation guarantee applies to source code slicing and chunk reordering. Vditor rich text editing may normalize ordinary Markdown expressions, and conversions between arbitrary modes of the editor cannot be claimed to be byte-level lossless. Custom extensions should always retain source code exports.
 
-AI 可以直接读取正文，并通过 vault API 使用版本检查写入。双链与子页面卡片是不同关系：双链形成引用图，父页属性形成树。页面标题不是主键。
+<a id="ai-与属性"></a>
 
-已检查本地 MyBase 的真实 Notation 和 Query 规范，并实现元数据导出适配器；详见 [MyBase 集成契约](./MYBASE.md)。当前未嵌入 MyBase 执行器或查询服务。页面属性与 MyBase 的具体映射由单一适配层管理；未知属性和未知正文语法不能作为清理对象自动丢弃。数据库视图应由这些属性派生，避免重复存储正文。
+## AI and properties
 
-## 已验证的核心边界
+AI can read the text directly and write it using version checking via vault API. Double links and child page cards have different relationships: double links form a reference graph, and parent page attributes form a tree. Page title is not the primary key.
 
-自动测试覆盖源码切片与重排、CRLF、列表/围栏/表格、代码中的伪双链、页面指令、合法分栏、嵌套/三栏/未闭合分栏、未知扩展、标题/列表大纲、媒体和 HTML/危险 URL 注入。
+Local MyBase has been checked for true Notation and Query specifications, and the metadata export adapter has been implemented; see [ MyBase integration contract ](MYBASE.md) for details. There are currently no MyBase executors or query services embedded. The specific mapping of page attributes to MyBase is managed by a single adaptation layer; unknown attributes and unknown body syntax cannot be automatically discarded as cleanup objects. Database views should be derived from these properties to avoid duplicate storage of the body.
+
+<a id="已验证的核心边界"></a>
+
+## Verified core boundaries
+
+Automatic testing covers source code slicing and rearrangement, CRLF, lists/fences/tables, pseudo double links in code, page instructions, legal columns, nested/three columns/unclosed columns, unknown extensions, title/list outline, media and HTML/ dangerous URL injection.

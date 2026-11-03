@@ -1,5 +1,7 @@
 # Markdown vault API
 
+**English** · [简体中文](API.zh-CN.md)
+
 ## Browser knowledge base management
 
 Browser service status includes `vaultManagement: true`. `GET /api/vaults` returns `{ dataPath, vaults: [{ name, path, url }] }`. `POST /api/vaults/open` takes `{ mode: "create", name, path? }` or `{ mode: "open", path }`, and returns `{ name, path, url }`. Paths are absolute paths on the local service computer; a custom create path must be new or empty, and existing vaults must contain a real `pages/` directory. Opening does not change the default vault or any other request's binding. Local-origin and JSON-write guards also protect these endpoints. Electron and Android do not expose them.
@@ -34,9 +36,11 @@ For WebDAV, `sign-in` accepts `{ provider: "webdav", url, folder, email, passwor
 
 `POST /api/rmarkdown/run` accepts only `{ source: string }` and returns `{ html, log }`. This explicitly executes trusted R Markdown with the local account's permissions, using a fresh R process and temporary working directory. It does not write vault content or revisions. Limits: 128,000 source characters, two concurrent runs, 60 seconds, 8 MB console output and 8 MB HTML. Disconnecting aborts execution; errors return 400 (input), 408 (timeout), 413 (output limit), 422 (R error), 429 (busy), or 503 (Rscript unavailable). HTML must be displayed in a sandboxed frame; the application blocks scripts and network resources. See [R Markdown](../features/R-MARKDOWN.md).
 
-# 页面存储修订（2026-09-24）
+<a id="页面存储修订2026-09-24"></a>
 
-页面 `body` 现为完整 Markdown 文件（包括用户或旧文件已有的 YAML / Pandoc title block），不再剥离或生成应用 YAML。通用 metadata 保存在 `vault/metadata.json`；返回的页面字段包含文档覆盖后的有效值。`baseRevision` 同时校验正文及该页 JSON metadata。详见 [Vault metadata](../features/VAULT-METADATA.md)。
+# Page storage revision (2026-09-24)
+
+Page `body` is now the complete Markdown file, including YAML / Pandoc title blocks already present in user or legacy files. Application YAML is neither stripped nor generated. Shared metadata lives in `vault/metadata.json`; returned page fields contain the effective values after document overrides. `baseRevision` validates both the body and that page's JSON metadata. See [Vault metadata](../features/VAULT-METADATA.md).
 
 
 The backend listens on `127.0.0.1:4318` by default. Set `PORT` and `VAULT_PATH` to change the port and vault location. Requests from browsers are limited to the configured local origins; `ALLOWED_ORIGINS` accepts a comma-separated list. Write requests require JSON. This local service is not an authenticated public sync server.
@@ -155,6 +159,7 @@ System recycling requires a revision map covering the exact current subtree, a t
 | `GET /api/data-sources?includeTrashed=true` | — | Source summaries including recoverable sources, with owner revision and `trashed`; default listing excludes trashed sources |
 | `POST /api/data-sources/:id/move` | `{baseRevision,databaseRevision,targetDatabaseId,targetRevision}` | Original owner's updated `DatabaseSnapshot`; transfers the same source to an active ordinary database, updates record parents and linked owner references in one CAS transaction, preserving Markdown bytes |
 | `POST /api/data-sources/:id/trash` | `{baseRevision,databaseRevision,trashed:boolean}` | Owner's updated `DatabaseSnapshot`; soft-deletes or restores the source and derives page visibility without rewriting Markdown. Restore adds a Table view when the owner has no view for the source |
+| `POST /api/data-sources/:id/recycle` | `{baseRevision,databaseRevision,baseRevisions:{[pageId]:revision}}` | `{recycled,deletedAssets,warnings,databaseRevision}`; recycle a trashed ordinary source's exact record subtrees, then archive and remove its definition and owned views. Foreign views remain unavailable links. Stops on conflicts or OS errors; completed files remain recoverable |
 | `POST /api/databases/:id/views` | `{baseRevision,name?,dataSourceId?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | 201 updated `DatabaseSnapshot`; revision belongs to the database |
 | `PUT /api/database-views/:id` | `{baseRevision,name?,type?:"table",propertyIds?,filters?,sorts?,rowOrder?}` | Updated `DatabaseView`; source/database identity stays unchanged |
 | `POST /api/database-views/:id/delete` | `{baseRevision,databaseRevision,trashSource?:boolean,sourceRevision?:string}` | Updated `DatabaseSnapshot`; view-only deletion can leave no views while preserving sources/pages. Last-source-view deletion can also soft-delete its owned ordinary source with a matching source revision. Conflicts retain recovery proposals |

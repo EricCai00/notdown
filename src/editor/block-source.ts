@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../shared/i18n";
 import type { Node as PMNode } from "prosemirror-model";
 import { EditorState } from "@codemirror/state";
 import { EditorView, lineNumbers, keymap } from "@codemirror/view";
@@ -74,16 +75,16 @@ export function openBlockSource(source: string, onClose: () => void, signal?: Ab
   const copy = document.createElement("button");
   copy.type = "button";
   copy.append(createElement(Copy), document.createTextNode("Copy"));
-  copy.setAttribute("aria-label", "Copy source");
+  setUIAttribute(copy, "aria-label", "Copy source");
   copy.className = "pm-block-source-copy";
   copy.onclick = async () => {
     try {
       await navigator.clipboard.writeText(source);
-      status.textContent = "Copied";
+      setUIText(status, "Copied");
     } catch {
       editor.focus();
       editor.dispatch({ selection: { anchor: 0, head: editor.state.doc.length } });
-      status.textContent = "Copy unavailable. Press Ctrl+C / ⌘C to copy.";
+      setUIText(status, "Copy unavailable. Press Ctrl+C / ⌘C to copy.");
     }
   };
   const actions = document.createElement("div");
@@ -94,14 +95,14 @@ export function openBlockSource(source: string, onClose: () => void, signal?: Ab
   const sections = document.createElement("div"); sections.className = "pm-source-sections";
   let referenceEditor: EditorView | undefined;
   if (reference) {
-    const label = document.createElement("h3"); label.textContent = "Inline reference";
+    const label = document.createElement("h3"); setUIText(label, "Inline reference");
     sections.append(label, mount);
     const referenceHeader = document.createElement("div"); referenceHeader.className = "pm-source-section-heading";
-    const referenceLabel = document.createElement("h3"); referenceLabel.textContent = "Reference source";
-    const copyReference = document.createElement("button"); copyReference.type = "button"; copyReference.textContent = "Copy"; copyReference.setAttribute("aria-label", "Copy reference source");
+    const referenceLabel = document.createElement("h3"); setUIText(referenceLabel, "Reference source");
+    const copyReference = document.createElement("button"); copyReference.type = "button"; setUIText(copyReference, "Copy"); setUIAttribute(copyReference, "aria-label", "Copy reference source");
     copyReference.disabled = !reference.source;
-    copyReference.onclick = () => { void navigator.clipboard.writeText(reference.source).then(() => { status.textContent = "Reference source copied"; }).catch(() => {
-      referenceEditor?.focus(); referenceEditor?.dispatch({ selection: { anchor: 0, head: referenceEditor.state.doc.length } }); status.textContent = "Press Ctrl+C / ⌘C to copy.";
+    copyReference.onclick = () => { void navigator.clipboard.writeText(reference.source).then(() => { setUIText(status, "Reference source copied"); }).catch(() => {
+      referenceEditor?.focus(); referenceEditor?.dispatch({ selection: { anchor: 0, head: referenceEditor.state.doc.length } }); setUIText(status, "Press Ctrl+C / ⌘C to copy.");
     }); };
     referenceHeader.append(referenceLabel, copyReference); sections.append(referenceHeader);
     if (reference.description) { const hint = document.createElement("p"); hint.className = "pm-source-description"; hint.textContent = reference.description; sections.append(hint); }

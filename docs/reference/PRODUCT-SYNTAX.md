@@ -1,179 +1,193 @@
-# 产品方言附加语法：当前实现与 62 条验收清单
+<a id="产品方言附加语法当前实现与-62-条验收清单"></a>
 
-2026-09-22 方言边界修正：各方言默认值按上游规范独立定义，仅 Pandoc 自身预设沿用 Pandoc 3.11 快照。九种本地对象改为默认关闭的独立插件，在页面语法面板开启；旧正文不迁移、不删除。已实现默认规则隔离、显式启用、解析／命令／目录统一门控；尚未宣称完整上游一致性或跨端同步。详见[方言核对与插件说明](./DIALECT-CONFORMANCE.md)；下文历史说明如与之冲突，以此修订为准。
+# Product syntax
 
-2026-09-15。本次新增 Typora、Obsidian 独立预设，共 **11 个原生预设、70 个注册扩展**。此文更新先前的[缺口审计](../audits/SYNTAX-AUDIT-2026-09-15.md)，不表示复刻所有产品或完整 Pandoc reader。
+**English** · [简体中文](PRODUCT-SYNTAX.zh-CN.md)
 
-## 使用与编辑方式
+2026-09-22 dialect boundary correction: each dialect's default value is independently defined according to the upstream specification, and only Pandoc's own default default follows the Pandoc 3.11 snapshot. Nine types of local objects have been changed to independent plug-ins that are turned off by default and turned on in the page syntax panel; old text will not be migrated or deleted. Default rule isolation, explicit enablement, and parsing/command/directory unified gating have been implemented; full upstream consistency or cross-end synchronization has not been claimed. For details, see [ Dialect Checking and Plug-in Description ](DIALECT-CONFORMANCE.md); if the historical description below conflicts with it, this revision shall prevail.
 
-补充用户截图验收：Typora 有序列表中的 `[ ]` / `[x]` 显示为文字，只有无序任务显示复选框；嵌套时按当前项所属列表判断。Typora 默认关闭 `all_symbols_escapable`，支持原始 Markdown 标点及 `$ < > = ^ | ~` 的转义，其余标点前的反斜杠保留；`smart` 默认关闭，避免把截图中的直引号自动替换为弯引号。显式开启这些扩展可覆盖默认值。这些是按当前用户应用实测收紧的规则，不作为所有 Typora 版本的通用保证。
+2026-09-15。This is a new additionTypora、Obsidian Independent pre-set, total**11 default default, 70 registered extension**The article updates previously.[The gap audit](../audits/SYNTAX-AUDIT-2026-09-15.md)The code does not represent a complete or complete Pandoc reader reproduction.
 
-2026-09-20 对照修正：Typora 预设默认开启 `hard_line_breaks`，保留编辑视图中的单换行；可关闭以对照合并空格的行为。此开关当前也影响 HTML 导出，尚未实现 Typora 独立的编辑／导出空白设置。按用户应用实测，Typora 有序列表仅识别 `1.`，`1)` 保留为文字；CommonMark/GFM 的右括号规则不变。普通、引用、裸网址及尖括号自动链接均提供链接外观，编辑区 Ctrl/⌘ + 点击打开 HTTP(S)／邮件链接。
+<a id="使用与编辑方式"></a>
 
-选择对应方言，在“扩展”面板启用表中注明的选项。切换仅重新解释同一 Markdown；源文件和 YAML syntax 仍通过 baseRevision 保存。普通文本、标题、提示块、修订标记支持页面编辑；2026-09-21 起，MMD 表格共用结构化表格模型，单元格及题注支持直接编辑，保留跨度、分组与原有多行内容。图表、元数据、HTML 混合块和文件嵌入提供预览与“编辑源码”，仍可整体拖动和共同撤销。行内注释、术语与嵌入通过源码视图编辑。日常输入不调用 Pandoc。
+## Usage and editing
 
-PHP Extra/MMD 的 Pandoc 同名开关默认值保留 3.11 快照；产品专用能力在此基础上补充。因此列表中有些功能需要手动打开，不能把“未默认启用”当作“未实现”。下面逐行按实际注册表标注。
+Added user screenshot reception: in the Typora sequence list `[ ]` / `[x]` Displays as text, with only an unordered task showing a check box; judges by the list of current items when embedded. Typora default closes `all_symbols_escapable`supporting the original Markdown pointers and `$ < > = ^ | ~` The transition, the reversal of the slope before the remaining points of the mark, is retained;`smart` By default, close and avoid automatically replacing the direct quotation in the screenshot with the quotation. Open these extensions to cover the default values. These are the rules that tighten according to the current user application test, not as a general guarantee for all versions of Typora.
 
-## 62 条原始样例
+2026-09-20 comparison correction: Typora turns on `hard_line_breaks` by default, retaining single line breaks in the edit view; it can be turned off to compare the behavior of merging spaces. This switch currently also affects HTML exports, Typora independent edit/export blank settings have not yet been implemented. According to actual user application measurements, the Typora ordered list only recognizes `1.`, and `1)` is retained as text; the right bracket rules of CommonMark/GFM remain unchanged. Ordinary, quoted, naked URL and angle bracket automatic links all provide link appearance. In the editing area, Ctrl/ ⌘ + click to open HTTP (S)/email link.
 
-验证原始样例的语义节点／关键输出、原文往返、相邻块编辑后的保留；外部资源另用真实临时文件和浏览器验证。不是每条样例都含有效资源或引用。
+Select the corresponding dialect and enable the options noted in the table in the Extensions panel. Switching only reinterprets the same Markdown; the source file and YAML syntax are still saved via baseRevision. Ordinary text, titles, prompt blocks, and revision marks support page editing; starting from 2026-09-21, MMD tables share the structured table model. Cells and captions support direct editing, retaining spans, groups, and original multi-line content. Diagrams, metadata, HTML mix blocks and file embeddings are available for preview and "edit source" and can still be dragged and co-undone in their entirety. Inline comments, terminology, and embeddings are edited through source view. Pandoc is not called for daily input.
 
-| # | 方言／语法 | 规则 | 默认／需设置 | 显示与编辑说明 |
+The default value of PHP Extra/MMD's Pandoc switch with the same name retains the 3.11 snapshot; product-specific capabilities are supplemented on this basis. Therefore, some functions in the list need to be turned on manually, and "not enabled by default" cannot be regarded as "not implemented". The following is marked line by line according to the actual registry.
+
+<a id="62-条原始样例"></a>
+
+## 62 original examples
+
+Verify the semantic nodes/key output of the original sample, the original text round trip, and the retention of adjacent blocks after editing; external resources are also verified using real temporary files and browsers. Not every example contains valid resources or references.
+
+| # | Dialect/Grammar | rules | Default/Required settings | Show and edit instructions |
 | --- | --- | --- | --- | --- |
-| 1 | Typora：math block | `tex_math_dollars` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 2 | Typora：footnote | `footnotes` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 3 | Typora：YAML front matter | `yaml_metadata_block`、`metadata_values` | 默认可用 | 正文元数据表；块内源码编辑；不改外层页面 YAML |
-| 4 | Typora：table of contents | `toc_directives` | 默认可用 | 随标题更新，可点击跳转 |
-| 5 | Typora：callout / GitHub style alert | `alerts` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 6 | Typora：internal link | `auto_identifiers` | 默认可用 | 页内锚点；生成 ID 由标题取得 |
-| 7 | Typora：emoji | `emoji` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 8 | Typora：inline math | `tex_math_dollars` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 9 | Typora：subscript | `subscript` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 10 | Typora：superscript | `superscript` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 11 | Typora：highlight | `highlight` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 12 | Typora：embed content | `html_embed` | 默认可用 | HTTP(S) iframe 隔离显示；远端可能禁止嵌入 |
-| 13 | Typora：sequence diagram | `diagrams` | 默认可用 | sequence 常用箭头语法转 Mermaid；块内源码编辑 |
-| 14 | Typora：flowchart | `diagrams` | 默认可用 | flow 常用节点／连线语法转 Mermaid；块内源码编辑 |
-| 15 | Typora：mermaid | `diagrams` | 默认可用 | 本地 Mermaid SVG；无内容显示空图表 |
-| 16 | Typora：without Strict Mode | `space_in_atx_header` | 默认关闭（符合样例） | 此例要求关闭 space_in_atx_header；Typora 默认关闭 |
-| 17 | Typora：without Strict Mode | `typora_loose_lists` | 默认可用 | 两空格续行保留同一项 |
-| 18 | Typora：without Strict Mode | `typora_loose_lists` | 默认可用 | 两空格子列表；嵌套列表可编辑 |
-| 19 | Obsidian：block comment | `comments` | 默认可用 | 正文隐藏；源码视图编辑 |
-| 20 | Obsidian：inline comment | `comments` | 默认可用 | 正文隐藏；源码视图编辑 |
-| 21 | Obsidian：internal link (Wikilink) | `wikilinks_title_after_pipe` | 默认可用 | 链接匹配本地页面标题／ID |
-| 22 | Obsidian：internal link (Markdown) | `基础链接／本地页面路由` | 默认可用 | 相对 .md 链接匹配本地页面；不打开任意磁盘文件 |
-| 23 | PHP Markdown Extra：inline HTML | `raw_html` | 默认可用 | HTML 预览；标签在 HTML 源码字段编辑 |
-| 24 | PHP Markdown Extra：markdown Inside HTML Blocks | `raw_html`、`markdown_attribute` | 默认可用 | HTML 内 Markdown 预览；整个块源码编辑 |
-| 25 | PHP Markdown Extra：special attributes | `header_attributes` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 26 | PHP Markdown Extra：special attributes | `header_attributes` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 27 | PHP Markdown Extra：special attributes | `header_attributes` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 28 | PHP Markdown Extra：special attributes | `link_attributes` | 默认可用 | 属性保留；class 加前缀，ID 作用域隔离 |
-| 29 | PHP Markdown Extra：special attributes | `link_attributes` | 默认可用 | 这是引用定义，需加 [文本][ref] 才能看见链接；不单独显示 |
-| 30 | PHP Markdown Extra：fenced code block | `fenced_code_blocks`、`fenced_code_attributes` | 需开启 `fenced_code_attributes` | 解析、显示与原文保留；文字可直接编辑 |
-| 31 | PHP Markdown Extra：fenced code block | `fenced_code_blocks`、`fenced_code_attributes` | 需开启 `fenced_code_attributes` | 解析、显示与原文保留；文字可直接编辑 |
-| 32 | PHP Markdown Extra：definition list | `definition_lists` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 33 | PHP Markdown Extra：abbreviation | `abbreviations` | 默认可用 | 这是缩写定义，需在正文使用 HTML 才显示提示 |
-| 34 | PHP Markdown Extra：ordered list | `startnum` | 需开启 `startnum` | 解析、显示与原文保留；文字可直接编辑 |
-| 35 | MultiMarkdown：abbreviation | `mmd_abbreviations` | 默认可用 | 缩写提示；定义在块内源码编辑 |
-| 36 | MultiMarkdown：citation | `mmd_citations` | 默认可用 | 原例 Doe:2006 与定义 Doe2006 不一致，显示未定义提示 |
-| 37 | MultiMarkdown：citation | `mmd_citations` | 默认可用 | 原例引用键不一致，需修正为相同键 |
-| 38 | MultiMarkdown：citation | `mmd_citations` | 默认可用 | 抑制正文引文文字；仍可进入文献清单 |
-| 39 | MultiMarkdown：inline citation | `mmd_citations` | 默认可用 | 内联书目信息显示 |
-| 40 | MultiMarkdown：BibTeX citation | `mmd_citations` | 默认可用 | 设置 bibliography: refs.bib 并提供真实条目后显示文献；未解析键不虚构 |
-| 41 | MultiMarkdown：deletion | `critic_markup` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 42 | MultiMarkdown：addition | `critic_markup` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 43 | MultiMarkdown：substitution | `critic_markup` | 默认可用 | 新文字可编辑；旧文字保留在标记和提示中 |
-| 44 | MultiMarkdown：highlighting | `critic_markup` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 45 | MultiMarkdown：comment | `critic_markup` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 46 | MultiMarkdown：cross-reference | `mmd_header_identifiers`、`implicit_header_references` | 默认可用 | 标题 ID 与隐式链接 |
-| 47 | MultiMarkdown：escaped newline | `escaped_line_breaks` | 需开启 `escaped_line_breaks` | 解析、显示与原文保留；文字可直接编辑 |
-| 48 | MultiMarkdown：file transluction | `transclusion` | 默认可用 | 知识库内只读嵌入；依赖文件每 4 秒检查，缺失显示错误 |
-| 49 | MultiMarkdown：wildcard extention | `transclusion` | 默认可用 | 优先 .html，其次 .md、.txt；非合并所有扩展名 |
-| 50 | MultiMarkdown：glossary | `glossary` | 默认可用 | 术语提示、行内解释及定义 |
-| 51 | MultiMarkdown：image block | `implicit_figures` | 默认可用 | 独立图片与题注预览；原例路径为占位地址，需实际图片 |
-| 52 | MultiMarkdown：link and image attribute | `mmd_link_attributes` | 默认可用 | 宽高与 class 属性保留／应用允许的显示属性 |
-| 53 | MultiMarkdown：link and image attribute | `mmd_link_attributes` | 默认可用 | 解析、显示与原文保留；文字可直接编辑 |
-| 54 | MultiMarkdown：math | `tex_math_double_backslash` | 默认可用 | 双反斜杠行内与块公式；KaTeX 显示 |
-| 55 | MultiMarkdown：superscript | `short_subsuperscripts` | 默认可用 | 连续字母／数字为简写上标 |
-| 56 | MultiMarkdown：subscript | `short_subsuperscripts` | 默认可用 | 连续字母／数字为简写下标 |
-| 57 | MultiMarkdown：metadata "variable" | `mmd_title_block`、`metadata_values`、`metadata_variables` | 默认可用 | 正文元数据值替换；修改元数据立即刷新显示 |
-| 58 | MultiMarkdown：raw source | `raw_attribute` | 默认可用 | HTML 清理后显示；LaTeX 等非 HTML 原始格式显示源码，不执行 TeX |
-| 59 | MultiMarkdown：smart typography | `smart` | 需开启 `smart` | 解析、显示与原文保留；文字可直接编辑 |
-| 60 | MultiMarkdown：table of contents | `toc_directives` | 默认可用 | 全篇目录 |
-| 61 | MultiMarkdown：table of contents | `toc_directives` | 默认可用 | N 表示该标题级别，N-M 表示范围 |
-| 62 | MultiMarkdown：table | `mmd_tables` | 默认可用 | 统一结构化表格；单元格/题注直接编辑，保留分组表头、跨行跨列、分区及多行内容；新增合并单元格的控件待实现 |
+| 1 | Typora：math block | `tex_math_dollars` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 2 | Typora：footnote | `footnotes` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 3 | Typora：YAML front matter | `yaml_metadata_block`、`metadata_values` | Available by default | Text metadata table; source code editing within the block; do not change the outer page YAML |
+| 4 | Typora：table of contents | `toc_directives` | Available by default | Updated with title, click to jump |
+| 5 | Typora：callout / GitHub style alert | `alerts` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 6 | Typora：internal link | `auto_identifiers` | Available by default | In-page anchor point; generated ID obtained from title |
+| 7 | Typora：emoji | `emoji` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 8 | Typora：inline math | `tex_math_dollars` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 9 | Typora：subscript | `subscript` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 10 | Typora：superscript | `superscript` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 11 | Typora：highlight | `highlight` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 12 | Typora：embed content | `html_embed` | Available by default | HTTP (S) iframe is displayed in isolation; the remote end may prohibit embedding |
+| 13 | Typora：sequence diagram | `diagrams` | Available by default | sequence commonly used arrow syntax to Mermaid; source code editing within the block |
+| 14 | Typora：flowchart | `diagrams` | Available by default | flow common node/connection syntax converted to Mermaid; source code editing within the block |
+| 15 | Typora：mermaid | `diagrams` | Available by default | Local Mermaid SVG; empty chart displayed with no content |
+| 16 | Typora：without Strict Mode | `space_in_atx_header` | Off by default (in line with the sample) | This example requires space_in_atx_header to be turned off; Typora is turned off by default |
+| 17 | Typora：without Strict Mode | `typora_loose_lists` | Available by default | Two-space continuation lines retain the same item |
+| 18 | Typora：without Strict Mode | `typora_loose_lists` | Available by default | Two-empty grid list; nested list editable |
+| 19 | Obsidian：block comment | `comments` | Available by default | Text hidden; source code view editing |
+| 20 | Obsidian：inline comment | `comments` | Available by default | Text hidden; source code view editing |
+| 21 | Obsidian：internal link (Wikilink) | `wikilinks_title_after_pipe` | Available by default | Link matches local page title/ID |
+| 22 | Obsidian：internal link (Markdown) | `基础链接／本地页面路由` | Available by default | Relative .md links match local pages; do not open any disk files |
+| 23 | PHP Markdown Extra：inline HTML | `raw_html` | Available by default | HTML preview; tags are edited in the HTML source field |
+| 24 | PHP Markdown Extra：markdown Inside HTML Blocks | `raw_html`、`markdown_attribute` | Available by default | HTML InsideMarkdown Preview; editing the entire block |
+| 25 | PHP Markdown Extra：special attributes | `header_attributes` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 26 | PHP Markdown Extra：special attributes | `header_attributes` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 27 | PHP Markdown Extra：special attributes | `header_attributes` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 28 | PHP Markdown Extra：special attributes | `link_attributes` | Available by default | Attributes are retained; class is prefixed, ID is scope isolated |
+| 29 | PHP Markdown Extra：special attributes | `link_attributes` | Available by default | This is a reference definition. You need to add [text][ref] to see the link; it will not be displayed separately. |
+| 30 | PHP Markdown Extra：fenced code block | `fenced_code_blocks`、`fenced_code_attributes` | Need to be turned on`fenced_code_attributes` | Parsing, display and original text are retained; text can be edited directly |
+| 31 | PHP Markdown Extra：fenced code block | `fenced_code_blocks`、`fenced_code_attributes` | Need to be turned on`fenced_code_attributes` | Parsing, display and original text are retained; text can be edited directly |
+| 32 | PHP Markdown Extra：definition list | `definition_lists` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 33 | PHP Markdown Extra：abbreviation | `abbreviations` | Available by default | This is an abbreviation definition. You need to use HTML in the text to display the prompt. |
+| 34 | PHP Markdown Extra：ordered list | `startnum` | Need to be turned on`startnum` | Parsing, display and original text are retained; text can be edited directly |
+| 35 | MultiMarkdown：abbreviation | `mmd_abbreviations` | Available by default | Abbreviation hint; defined in block source code editor |
+| 36 | MultiMarkdown：citation | `mmd_citations` | Available by default | The original example Doe:2006 is inconsistent with the definition of Doe2006, and an undefined prompt is displayed. |
+| 37 | MultiMarkdown：citation | `mmd_citations` | Available by default | The reference keys of the original example are inconsistent and need to be corrected to the same key. |
+| 38 | MultiMarkdown：citation | `mmd_citations` | Available by default | Suppress text citations; still enter the literature list |
+| 39 | MultiMarkdown：inline citation | `mmd_citations` | Available by default | Inline bibliographic information display |
+| 40 | MultiMarkdown：BibTeX citation | `mmd_citations` | Available by default | Display the literature after setting bibliography: refs.bib and providing a real entry; unresolved keys are not fictitious |
+| 41 | MultiMarkdown：deletion | `critic_markup` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 42 | MultiMarkdown：addition | `critic_markup` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 43 | MultiMarkdown：substitution | `critic_markup` | Available by default | New text is editable; old text remains in tags and tips |
+| 44 | MultiMarkdown：highlighting | `critic_markup` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 45 | MultiMarkdown：comment | `critic_markup` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 46 | MultiMarkdown：cross-reference | `mmd_header_identifiers`、`implicit_header_references` | Available by default | Title ID with implicit linkage |
+| 47 | MultiMarkdown：escaped newline | `escaped_line_breaks` | Need to be turned on`escaped_line_breaks` | Parsing, display and original text are retained; text can be edited directly |
+| 48 | MultiMarkdown：file transluction | `transclusion` | Available by default | Read-only embedding in the vault; dependent files are checked every 4 seconds, and an error is displayed if missing |
+| 49 | MultiMarkdown：wildcard extention | `transclusion` | Available by default | Prioritize .html, followed by .md, .txt; all extensions are not merged |
+| 50 | MultiMarkdown：glossary | `glossary` | Available by default | Terminology tips, insider explanations and definitions |
+| 51 | MultiMarkdown：image block | `implicit_figures` | Available by default | Independent image and caption preview; the original path is a placeholder address and the actual image is required |
+| 52 | MultiMarkdown：link and image attribute | `mmd_link_attributes` | Available by default | Width, height and class attributes are retained/apply allowed display attributes |
+| 53 | MultiMarkdown：link and image attribute | `mmd_link_attributes` | Available by default | Parsing, display and original text are retained; text can be edited directly |
+| 54 | MultiMarkdown：math | `tex_math_double_backslash` | Available by default | Double backslash inline and block formulas; KaTeX displays |
+| 55 | MultiMarkdown：superscript | `short_subsuperscripts` | Available by default | Consecutive letters/numbers are abbreviated superscripts |
+| 56 | MultiMarkdown：subscript | `short_subsuperscripts` | Available by default | Consecutive letters/numbers are abbreviated subscripts |
+| 57 | MultiMarkdown：metadata "variable" | `mmd_title_block`、`metadata_values`、`metadata_variables` | Available by default | Text metadata value replacement; modified metadata immediately refreshes the display |
+| 58 | MultiMarkdown：raw source | `raw_attribute` | Available by default | HTML is displayed after cleaning; LaTeX and other non-HTML original formats display the source code, and TeX is not executed. |
+| 59 | MultiMarkdown：smart typography | `smart` | Need to be turned on`smart` | Parsing, display and original text are retained; text can be edited directly |
+| 60 | MultiMarkdown：table of contents | `toc_directives` | Available by default | Full table of contents |
+| 61 | MultiMarkdown：table of contents | `toc_directives` | Available by default | N represents the title level, N-M represents the scope |
+| 62 | MultiMarkdown：table | `mmd_tables` | Available by default | Unified structured tables; direct editing of cells/captions, retaining group headers, cross-row and cross-column content, partitions, and multi-row content; new controls for merging cells to be implemented |
 
-## 扩展接受范围与默认值
+<a id="扩展接受范围与默认值"></a>
 
-“开”=接受且默认开启，“关”=可开启，“—”=原生未接受该开关。Notion codec 独立，只提供已接入的原有 Notdown 开关及任务、删除线、美元公式。Typora/Obsidian 是 Notdown 产品预设，不是 Pandoc 的 reader 名。
+## Accepted extensions and defaults
 
-| 扩展 | typora | obsidian | notion-markdown | commonmark | gfm | markdown | commonmark_x | markdown_strict | markdown_phpextra | markdown_mmd | markdown_github |
+“Open the door=Accept and open by default, link to link=It's open, man.—”=The original didn't accept the switch.Notion codec Independence, only providing accessed originalsNotdown Switches and tasks, deleting lines, dollar formula.Typora/Obsidian YesNotdown Product pre-set, notPandoc ofreader The name.
+
+| Expand | typora | obsidian | notion-markdown | commonmark | gfm | markdown | commonmark_x | markdown_strict | markdown_phpextra | markdown_mmd | markdown_github |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `alerts` | 开 | 开 | — | 关 | 开 | 关 | 开 | 关 | 关 | 关 | 开 |
-| `highlight` | 开 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `comments` | 关 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `toc_directives` | 开 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `diagrams` | 开 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `html_embed` | 开 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `header_attributes` | 开 | 开 | — | — | — | 开 | — | 关 | 开 | 关 | 关 |
-| `link_attributes` | 开 | 开 | — | — | — | 开 | — | 关 | 开 | 关 | 关 |
-| `fenced_code_attributes` | 开 | 开 | — | — | — | 开 | — | 关 | 关 | 关 | 关 |
-| `mmd_link_attributes` | 关 | 关 | — | — | — | 关 | — | 关 | 关 | 开 | 关 |
-| `markdown_attribute` | 关 | 关 | — | — | — | 关 | — | 关 | 开 | 开 | 关 |
-| `auto_identifiers` | 开 | 开 | — | — | — | 开 | — | 关 | 关 | 开 | 开 |
-| `mmd_header_identifiers` | 关 | 关 | — | — | — | 关 | — | 关 | 关 | 开 | 关 |
-| `implicit_header_references` | 关 | 关 | — | 关 | 关 | 开 | 开 | 关 | 关 | 开 | 关 |
-| `short_subsuperscripts` | 关 | 关 | — | — | — | 关 | — | 关 | 关 | 开 | 关 |
-| `tex_math_double_backslash` | 关 | 关 | — | — | — | 关 | — | 关 | 关 | 开 | 关 |
-| `raw_attribute` | 关 | 关 | — | 关 | 关 | 开 | 开 | 关 | 关 | 开 | 关 |
-| `implicit_figures` | 关 | 关 | — | 关 | 关 | 开 | 关 | 关 | 关 | 开 | 关 |
-| `mmd_tables` | 关 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `mmd_abbreviations` | 关 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `mmd_citations` | 关 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `critic_markup` | 关 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `transclusion` | 关 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `glossary` | 关 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `metadata_values` | 开 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `metadata_variables` | 关 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 开 | 关 |
-| `typora_loose_lists` | 开 | 关 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `blank_before_header` | 关 | — | — | — | — | 开 | — | 关 | 关 | 关 | 关 |
-| `blank_before_blockquote` | 关 | — | — | — | — | 开 | — | 关 | 关 | 关 | 关 |
-| `space_in_atx_header` | 关 | — | — | — | — | 开 | — | 关 | 关 | 关 | 开 |
-| `lists_without_preceding_blankline` | 开 | — | — | — | — | 关 | — | 关 | 关 | 关 | 开 |
-| `startnum` | 开 | — | — | — | — | 开 | — | 关 | 关 | 关 | 关 |
-| `backtick_code_blocks` | 开 | — | — | — | — | 开 | — | 关 | 关 | 开 | 开 |
-| `fenced_code_blocks` | 开 | — | — | — | — | 开 | — | 关 | 开 | 关 | 开 |
-| `escaped_line_breaks` | 开 | — | — | — | — | 开 | — | 关 | 关 | 关 | 关 |
-| `all_symbols_escapable` | 开 | — | — | — | — | 开 | — | 关 | 关 | 开 | 开 |
-| `intraword_underscores` | 开 | — | — | — | — | 开 | — | 关 | 开 | 开 | 开 |
-| `ignore_line_breaks` | 关 | 关 | — | — | — | 关 | — | 关 | 关 | 关 | 关 |
-| `smart` | 开 | 关 | — | 关 | 关 | 开 | 开 | 关 | 关 | 关 | 关 |
-| `subscript` | 开 | 关 | — | 关 | 关 | 开 | 开 | 关 | 关 | 开 | 关 |
-| `superscript` | 开 | 关 | — | 关 | 关 | 开 | 开 | 关 | 关 | 开 | 关 |
-| `abbreviations` | 关 | 关 | — | — | — | 关 | — | 关 | 开 | 关 | 关 |
-| `emoji` | 开 | 开 | — | 关 | 开 | 关 | 开 | 关 | 关 | 关 | 开 |
-| `yaml_metadata_block` | 开 | 开 | — | 关 | 开 | 开 | 开 | 关 | 关 | 关 | 关 |
-| `pandoc_title_block` | 关 | 关 | — | — | — | 开 | — | 关 | 关 | 关 | 关 |
-| `mmd_title_block` | 关 | 关 | — | — | — | 关 | — | 关 | 关 | 开 | 关 |
-| `raw_html` | 开 | 开 | — | 开 | 开 | 开 | 开 | 开 | 开 | 开 | 开 |
-| `definition_lists` | 关 | 关 | — | 关 | 关 | 开 | 开 | 关 | 开 | 开 | 关 |
-| `footnotes` | 开 | 开 | — | 关 | 开 | 开 | 开 | 关 | 开 | 开 | 开 |
-| `line_blocks` | 关 | 关 | — | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 |
-| `fenced_divs` | 关 | 关 | — | 关 | 关 | 开 | 开 | 关 | 关 | 关 | 关 |
-| `pipe_tables` | 开 | 开 | — | 关 | 开 | 开 | 开 | 关 | 开 | 开 | 开 |
-| `strikeout` | 开 | 开 | 开 | 关 | 开 | 开 | 开 | 关 | 关 | 关 | 开 |
-| `task_lists` | 开 | 开 | 开 | 关 | 开 | 开 | 开 | 关 | 关 | 关 | 开 |
-| `autolink_bare_uris` | 开 | 开 | — | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 开 |
-| `hard_line_breaks` | 开 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `tex_math_dollars` | 开 | 开 | 开 | 关 | 开 | 开 | 开 | 关 | 关 | 开 | 关 |
-| `wikilinks_title_after_pipe` | 关 | 开 | — | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_columns` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_callouts` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_toggles` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_tables` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_pages` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_mentions` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_media` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_databases` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_synced` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_toc` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_nesting` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
-| `notdown_colors` | 关 | 关 | 开 | 关 | 关 | 关 | 关 | 关 | 关 | 关 | 关 |
+| `alerts` | open | open | — | close | open | close | open | close | close | close | open |
+| `highlight` | open | open | — | close | close | close | close | close | close | close | close |
+| `comments` | close | open | — | close | close | close | close | close | close | close | close |
+| `toc_directives` | open | open | — | close | close | close | close | close | close | open | close |
+| `diagrams` | open | open | — | close | close | close | close | close | close | close | close |
+| `html_embed` | open | close | — | close | close | close | close | close | close | close | close |
+| `header_attributes` | open | open | — | — | — | open | — | close | open | close | close |
+| `link_attributes` | open | open | — | — | — | open | — | close | open | close | close |
+| `fenced_code_attributes` | open | open | — | — | — | open | — | close | close | close | close |
+| `mmd_link_attributes` | close | close | — | — | — | close | — | close | close | open | close |
+| `markdown_attribute` | close | close | — | — | — | close | — | close | open | open | close |
+| `auto_identifiers` | open | open | — | — | — | open | — | close | close | open | open |
+| `mmd_header_identifiers` | close | close | — | — | — | close | — | close | close | open | close |
+| `implicit_header_references` | close | close | — | close | close | open | open | close | close | open | close |
+| `short_subsuperscripts` | close | close | — | — | — | close | — | close | close | open | close |
+| `tex_math_double_backslash` | close | close | — | — | — | close | — | close | close | open | close |
+| `raw_attribute` | close | close | — | close | close | open | open | close | close | open | close |
+| `implicit_figures` | close | close | — | close | close | open | close | close | close | open | close |
+| `mmd_tables` | close | close | — | close | close | close | close | close | close | open | close |
+| `mmd_abbreviations` | close | close | — | close | close | close | close | close | close | open | close |
+| `mmd_citations` | close | close | — | close | close | close | close | close | close | open | close |
+| `critic_markup` | close | close | — | close | close | close | close | close | close | open | close |
+| `transclusion` | close | open | — | close | close | close | close | close | close | open | close |
+| `glossary` | close | close | — | close | close | close | close | close | close | open | close |
+| `metadata_values` | open | open | — | close | close | close | close | close | close | open | close |
+| `metadata_variables` | close | close | — | close | close | close | close | close | close | open | close |
+| `typora_loose_lists` | open | close | — | close | close | close | close | close | close | close | close |
+| `blank_before_header` | close | — | — | — | — | open | — | close | close | close | close |
+| `blank_before_blockquote` | close | — | — | — | — | open | — | close | close | close | close |
+| `space_in_atx_header` | close | — | — | — | — | open | — | close | close | close | open |
+| `lists_without_preceding_blankline` | open | — | — | — | — | close | — | close | close | close | open |
+| `startnum` | open | — | — | — | — | open | — | close | close | close | close |
+| `backtick_code_blocks` | open | — | — | — | — | open | — | close | close | open | open |
+| `fenced_code_blocks` | open | — | — | — | — | open | — | close | open | close | open |
+| `escaped_line_breaks` | open | — | — | — | — | open | — | close | close | close | close |
+| `all_symbols_escapable` | open | — | — | — | — | open | — | close | close | open | open |
+| `intraword_underscores` | open | — | — | — | — | open | — | close | open | open | open |
+| `ignore_line_breaks` | close | close | — | — | — | close | — | close | close | close | close |
+| `smart` | open | close | — | close | close | open | open | close | close | close | close |
+| `subscript` | open | close | — | close | close | open | open | close | close | open | close |
+| `superscript` | open | close | — | close | close | open | open | close | close | open | close |
+| `abbreviations` | close | close | — | — | — | close | — | close | open | close | close |
+| `emoji` | open | open | — | close | open | close | open | close | close | close | open |
+| `yaml_metadata_block` | open | open | — | close | open | open | open | close | close | close | close |
+| `pandoc_title_block` | close | close | — | — | — | open | — | close | close | close | close |
+| `mmd_title_block` | close | close | — | — | — | close | — | close | close | open | close |
+| `raw_html` | open | open | — | open | open | open | open | open | open | open | open |
+| `definition_lists` | close | close | — | close | close | open | open | close | open | open | close |
+| `footnotes` | open | open | — | close | open | open | open | close | open | open | open |
+| `line_blocks` | close | close | — | close | close | open | close | close | close | close | close |
+| `fenced_divs` | close | close | — | close | close | open | open | close | close | close | close |
+| `pipe_tables` | open | open | — | close | open | open | open | close | open | open | open |
+| `strikeout` | open | open | open | close | open | open | open | close | close | close | open |
+| `task_lists` | open | open | open | close | open | open | open | close | close | close | open |
+| `autolink_bare_uris` | open | open | — | close | open | close | close | close | close | close | open |
+| `hard_line_breaks` | open | open | — | close | close | close | close | close | close | close | close |
+| `tex_math_dollars` | open | open | open | close | open | open | open | close | close | open | close |
+| `wikilinks_title_after_pipe` | close | open | — | close | close | close | close | close | close | close | close |
+| `notdown_columns` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_callouts` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_toggles` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_tables` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_pages` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_mentions` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_media` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_databases` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_synced` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_toc` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_nesting` | close | close | open | close | close | close | close | close | close | close | close |
+| `notdown_colors` | close | close | open | close | close | close | close | close | close | close | close |
 
-## 明确边界
+<a id="明确边界"></a>
 
-- 62 条是本次具体语法验收范围，不是 Typora、Obsidian、PHP Extra、MMD 全语法一致性保证。尚未接入 Obsidian 插件 API、Dataview、完整 vault 链接／媒体解析或 CSS 主题。
-- sequence/flow 适配常用节点、消息和连线，不等于完整 js-sequence-diagrams/flowchart.js 引擎；不支持的语句显示错误或回退源码。Mermaid 首次使用才加载，复杂图仍可能较慢；尚无大文档性能基准、Worker 或真正增量解析。
-- 引文支持 MMD 定义、内联条目、定位符与知识库内 BibTeX 文件，当前使用作者／年份／标题等固定格式；没有 citeproc、任意 CSL 风格、完整 BibTeX 宏语言。键必须相同。元数据没有覆盖任意 MMD 输出控制指令。
-- transclusion 只读取知识库内文件／页面；拒绝越界路径、符号链接越界、循环与过深嵌套，单文件 256 KB、展开约 512 KB、最多 8 层。嵌入是只读投影，不反向写入被嵌入文件。
-- 属性保存完整原值，但只应用允许的 ID、class、lang、title、宽高。ID/class 带前缀，任意 CSS、事件与全局样式不执行。iframe 单独启用且隔离，不能保证目标网站允许嵌入。
-- HTML 静态导出为图表保留代码、iframe 保留链接、文件嵌入保留路径；不会在导出时偷偷读取外部资源。浏览器交互预览更丰富。原始 TeX 块保留代码；数学公式走 KaTeX。
-- 全套 Pandoc 简单／多行／网格表格、fancy/example lists、inline_notes、raw_tex、native_divs、完整 citations/citeproc 和 Pandoc JSON AST 双向转换仍未实现。未注册开关在面板单列，不执行。
+## Explicit limitations
 
-## 参考与代码
+- 62 is the specific grammar acceptance range this time, not the full grammar consistency guarantee for Typora, Obsidian, PHP Extra and MMD. Not yet connected to the Obsidian plug-ins API, Dataview, full vault links/media parsing, or CSS themes.
+- sequence/flow adapts to common nodes, messages and connections, and is not equal to the complete js-sequence-diagrams/flowchart.js engine; unsupported statements will display errors or fall back to the source code. Mermaid loads for first use and may still be slow on complex graphs; there are no large document performance benchmarks, Worker or true incremental parsing yet.
+- Citation supports MMD definitions, inline entries, locators and BibTeX files in the vault. Currently, fixed formats such as author/year/title are used; there is no citeproc, any CSL style, and the complete BibTeX macro language. The keys must be the same. The metadata does not override any MMD output control instructions.
+- transclusion only reads files/pages in the vault; rejects out-of-bounds paths, out-of-bounds symbolic links, loops and deep nesting. Single file 256 KB, expands about 512 KB, up to 8 levels. Embedding is a read-only projection, and the embedded file is not written back.
+- The attribute retains the complete original value, but only applies the allowed ID, class, lang, title, width and height. ID/class is prefixed, any CSS, events and global styles are not executed. iframe is individually enabled and isolated, and there is no guarantee that the target website will allow embedding.
+- HTML static export retains code for charts, iframe retains links, and file embedding retains paths; external resources will not be secretly read during export. The browser interactive preview is richer. Original TeX blocks remain code; math formulas go to KaTeX.
+- The full set of Pandoc simple/multi-row/grid tables, fancy/example lists, inline_notes, raw_tex, native_divs, full citations/citeproc and Pandoc JSON AST bidirectional conversions are still not implemented. Unregistered switches are placed in a single column on the panel and are not executed.
 
-对照 [Pandoc 3.11 Markdown reader](https://github.com/jgm/pandoc/blob/3.11/src/Text/Pandoc/Readers/Markdown.hs) 的 referenceKey、attributes、header、superscript/subscript 和 short_subsuperscripts 规则，以及 [Extensions 默认值](https://github.com/jgm/pandoc/blob/3.11/src/Text/Pandoc/Extensions.hs)。借鉴规则并在 TypeScript 中实现，没有复制 Haskell reader 或运行它作为逐键编辑内核。
+<a id="参考与代码"></a>
 
-复杂表格使用 [markdown-it-multimd-table](https://github.com/redbug312/markdown-it-multimd-table)，图表使用本地 [Mermaid](https://mermaid.js.org/config/usage)。目录级别范围按 [MultiMarkdown 官方目录说明](https://fletcher.github.io/MultiMarkdown-6/syntax/toc.html)；单个 N 限制为该级别。产品规则在 src/markdown-engine/products.ts；预览在 product-view.ts，文件解析在 server/syntax-files.ts。
+## References and code
 
-验收文件：tests/unit/product-syntax.test.ts、tests/unit/syntax-files.test.ts、tests/e2e/product-syntax.spec.ts。完整运行结果见 [验证记录](../verification/VERIFICATION.md)。
+Compares the [ Pandoc 3.11 Markdown reader ](https://github.com/jgm/pandoc/blob/3.11/src/Text/Pandoc/Readers/Markdown.hs) rules for referenceKey , attributes , header , superscript/subscript , and short_subsuperscripts , and the [ Extensions default value ](https://github.com/jgm/pandoc/blob/3.11/src/Text/Pandoc/Extensions.hs) . Take the rules and implement them in TypeScript, without copying Haskell reader or running it as a key-by-key editing kernel.
+
+Complex tables use [ markdown-it-multimd-table ](https://github.com/redbug312/markdown-it-multimd-table) and charts use local [ Mermaid ](https://mermaid.js.org/config/usage). The directory level range is [ MultiMarkdown official directory description ](https://fletcher.github.io/MultiMarkdown-6/syntax/toc.html); a single N is limited to this level. Product rules are in src/markdown-engine/products.ts; preview is in product-view.ts, and file parsing is in server/syntax-files.ts.
+
+Acceptance documents: tests/unit/product-syntax.test.ts, tests/unit/syntax-files.test.ts, tests/e2e/product-syntax.spec.ts. For complete running results, see [ verification record ](../verification/VERIFICATION.md).

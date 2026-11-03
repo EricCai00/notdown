@@ -27,6 +27,7 @@ type Host = {
   updateRecord(id: string, input: PageInput, revision: string): Promise<Page>;
   detachRecord(id: string, revision: string): Promise<Page>;
   conflictRecord(id: string, input: PageInput, revision: string): Promise<never>;
+  recyclePage(id: string, baseRevision: string, baseRevisions: Record<string, string>): Promise<{ recycled: string[]; deletedAssets: string[]; warnings: string[] }>;
   convertWikiPage(id: string, revision: string, resources: DatabaseResources, expectedMetadata: string | null, wiki: boolean): Promise<Page>;
   convertDisplay(parent: Page, databaseId: string, inline: boolean, baseRevision: string): Promise<Page>;
 };
@@ -305,6 +306,46 @@ export function createDatabases(host: Host) {
         ctx.databases[owner.id] = stamped({ ...ctx.databases[owner.id], viewIds: [...owner.viewIds, viewId] });
       }
       await save(ctx); return snapshot(await context(), owner.id);
+    }),
+    recycleSource: (id: string, input: { baseRevision: string; databaseRevision: string; baseRevisions: Record<string, string> }) => host.serialize(async () => {
+      base(input?.baseRevision); base(input?.databaseRevision); assertId(id);
+      const ctx = await context(), item = ctx.dataSources[id];
+      if (!item) throw new VaultError(404, "Data source not found");
+      const owner = sourceOwner(ctx, item);
+      if (item.revision !== input.baseRevision) return conflict(item, input, input.baseRevision);
+      if (owner.revision !== input.databaseRevision) return conflict(owner, input, input.databaseRevision);
+      if (!item.trashed || isWikiDatabase(owner)) throw new VaultError(422, "Move an ordinary data source to Trash before deleting it");
+      const selected = new Map(ctx.pages.filter(page => page.dataSourceId === id).map(page => [page.id, page]));
+      for (let changed = true; changed;) {
+        changed = false;
+        for (const page of ctx.pages) if (page.parent && selected.has(page.parent) && !selected.has(page.id)) { selected.set(page.id, page); changed = true; }
+      }
+      if (!object(input.baseRevisions) || Object.keys(input.baseRevisions).length !== selected.size || [...selected.keys()].some(id => !own(input.baseRevisions, id)))
+        throw new VaultError(409, "The data source pages changed. Reopen Trash before deleting.");
+      for (const page of selected.values()) {
+        base(input.baseRevisions[page.id]);
+        if (page.revision !== input.baseRevisions[page.id]) return host.conflictRecord(page.id, {}, input.baseRevisions[page.id]);
+      }
+      await archive("database-transactions", { operation: "recycle-source", source: item, owner, before: ctx.before, beforeFiles: host.resourceFiles(), baseRevisions: input.baseRevisions });
+      const result = { recycled: [] as string[], deletedAssets: [] as string[], warnings: [] as string[] };
+      for (const page of selected.values()) {
+        if (page.parent && selected.has(page.parent)) continue;
+        const subtree = new Map([[page.id, page.revision]]);
+        for (let changed = true; changed;) { changed = false; for (const child of selected.values()) if (child.parent && subtree.has(child.parent) && !subtree.has(child.id)) { subtree.set(child.id, child.revision); changed = true; } }
+        const deleted = await host.recyclePage(page.id, page.revision, Object.fromEntries(subtree));
+        result.recycled.push(...deleted.recycled); result.deletedAssets.push(...deleted.deletedAssets); result.warnings.push(...deleted.warnings);
+      }
+      const fresh = await context(), source = fresh.dataSources[id], database = fresh.databases[owner.id];
+      if (!source || source.revision !== input.baseRevision) return conflict(source, input, input.baseRevision);
+      if (!database || database.revision !== input.databaseRevision) return conflict(database, input, input.databaseRevision);
+      if (fresh.pages.some(page => page.dataSourceId === id)) throw new VaultError(409, "The data source pages changed. Reopen Trash before deleting.");
+      // Keep foreign views as unavailable links, including in legacy metadata.
+      fresh.dataSources[id] = stamped({ ...source, trashed: false, unavailable: true });
+      const removedViews = new Set(database.viewIds.filter(viewId => fresh.views[viewId]?.dataSourceId === id));
+      for (const viewId of removedViews) delete fresh.views[viewId];
+      fresh.databases[owner.id] = stamped({ ...database, dataSourceIds: database.dataSourceIds.filter(sourceId => sourceId !== id), viewIds: database.viewIds.filter(viewId => !removedViews.has(viewId)) });
+      await save(fresh);
+      return { ...result, databaseRevision: (await context()).databases[owner.id].revision };
     }),
     moveSource: (id: string, input: { baseRevision: string; databaseRevision: string; targetDatabaseId: string; targetRevision: string }) => host.serialize(async () => {
       base(input?.baseRevision); base(input?.databaseRevision); base(input?.targetRevision); assertId(input.targetDatabaseId);

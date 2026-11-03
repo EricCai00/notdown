@@ -1,47 +1,61 @@
-# 手机方言与 0.1.1 构建验证（2026-10-26）
+<a id="手机方言与-011-构建验证2026-10-26"></a>
 
-## 范围
+# Mobile dialect and 0.1.1 build validation (2026-10-26)
 
-- 手机普通页面及数据库记录：Notebook options 显示当前方言，打开 Page dialect 后可选择与桌面相同的 14 个方言、四个分组；R Markdown、Quarto 保留。
-- 切换前收取并保存待处理输入；发生冲突时停止切换并保留两份可恢复内容。切换重设已知扩展，未知配置继续保留。
-- 桌面和手机共用配置链路：只更新 YAML 中已有的 `syntax` / `bodyFormat` 覆盖字段，保留未知字段、注释、BOM、CRLF、别名定义、保留换行的 YAML 标量及后续正文。不自动添加应用 YAML。源码同步、撤销、保存重开覆盖同一配置变更。
-- 修复从普通 Markdown 切到 Notdown 时 JSON 默认方言与正文覆盖配置可能不一致的保存问题。手机 Markdown 导入优先采用文件声明的有效方言。
-- 本次源码提交按用户要求包含当前工作区累计的同步、数据库、导入、历史、多知识库与移动交互改动。本文的验证范围不替代各专题已有的能力边界。
+**English** · [简体中文](MOBILE-DIALECT-AND-RELEASE-2026-10-26.zh-CN.md)
 
-## 版本与产物
+<a id="范围"></a>
+
+## range
+
+- Mobile phone normal page and database records: Notebook options displays the current dialect. After opening Page dialect, you can select the same 14 dialects and four groups as those on the desktop; R Markdown and Quarto are reserved.
+- Collect and save pending input before switching; stop switching when a conflict occurs and keep two recoverable copies. Switch to reset known extensions and unknown configurations will remain.
+- Desktop and mobile sharing configuration links: only updates to existing ones in YAML `syntax` / `bodyFormat` Cover fields, retain unknown fields, comments, BOM, CRLF, other name definitions, retain the changed YAML metrics and the following text. Do not automatically add YAML applications. Source code sync, withdraw, save and re-cover the same configuration changes.
+- Repair from the normalMarkdown Cutting throughNotdown The timeJSON The default dictionary may not match the configuration of the original text.Markdown Importing the valid dialect of prioritizing document declarations.
+- This source code submission includes the accumulated synchronization, database, import, history, multi-vault and mobile interaction changes in the current workspace according to user requirements. The verification scope of this article does not replace the existing capability boundaries of each topic.
+
+<a id="版本与产物"></a>
+
+## Versions and products
 
 - npm / Windows：`0.1.1`；Android：`versionName 0.1.1`、`versionCode 2`。
 - Windows x64 NSIS：`.run/desktop-release/Notdown-Setup-0.1.1-x64.exe`。
-- Android debug APK：`.run/android-release/Notdown-Android-0.1.1-debug.apk`；同时保留构建脚本的 `Notdown-Android-debug.apk`。
-- 安装包与本地日志不进入 Git；发布源码不等于发布 GitHub Release。
+- Android debug APK : `.run/android-release/Notdown-Android-0.1.1-debug.apk` ; while retaining `Notdown-Android-debug.apk` of the build script.
+- The installation package and local logs do not enter Git; publishing the source code does not mean publishing GitHub Release.
 
-## 自动验证
+<a id="自动验证"></a>
 
-| 验证 | 结果 |
+## Automatic verification
+
+| Validation | result |
 | --- | --- |
-| `npm test`，最终源码 | 1,044 通过，5 跳过，0 失败 |
-| 手机完整 Chrome 触屏回归 | 37 通过 |
-| 最终手机构建的方言源码保留、未知设置及冲突回归 | 2 通过 |
-| 最终桌面前端的编辑工作区与 Block Explorer | 14 通过 |
-| 打包 Windows 应用的隔离知识库回归 | 4 通过 |
-| Android 构建与 JVM 文件存储测试 | Gradle 成功 |
-| Windows 安装包 | NSIS 构建成功，打包 EXE 版本 0.1.1 |
+| `npm test`, the final source code | 1, 044 passed, 5 skipped, 0 failed |
+| Complete Chrome touch screen returns for mobile phones | 37 passed |
+| The dialect source code retention, unknown settings and conflict regression of the final mobile phone build | 2 passed |
+| The final desktop front-end editing workspace with Block Explorer | 14 passed |
+| Isolated vault regression for packaged Windows applications | 4 passed |
+| Android build and JVM file storage test | Gradle success |
+| Windows installation package | NSIS was built successfully and packaged EXE version 0.1.1 |
 
-手机方言面板已查看截图，未出现横向溢出；选择器可显示 Quarto，源码、保存状态与菜单值一致。测试使用临时知识库、独立浏览器或隔离 Electron 配置，不连接用户浏览器或用户知识库。打包应用测试显式设置临时数据目录，避免读取本机实际知识库列表。
+The screenshot of the mobile phone dialect panel has been viewed, and there is no horizontal overflow; the selector can display Quarto, and the source code and save status are consistent with the menu value. Testing uses a temporary repository, a standalone browser, or an isolated Electron configuration without connecting to the user browser or user repository. Packaged application tests explicitly set the temporary data directory to avoid reading the actual local vault list.
 
-## 浏览器全量限制
+<a id="浏览器全量限制"></a>
 
-不能宣称浏览器全量通过。本轮较早构建的 690 项套件在完成 158 项（151 通过、7 失败）后停止，剩余用例未完成。失败包括：
+## Full browser limit
 
-- `dialect-boundaries.spec.ts` 三项仍期待在 CommonMark、GFM 或官方 Notion 中启用 Notdown 补充插件；当前方言边界不允许这样做。
-- `editor.spec.ts` 的两项嵌套文本旧结构断言，以及长大纲、页面提及各一项；后两项未在本轮定位修复。
+It cannot be claimed that the browser passed all the tests. The 690 item suite built earlier in this round stopped after completing the 158 item (151 passed, 7 failed) and the remaining use cases were not completed. Failures include:
 
-随后扩展的定向浏览器运行是 26 通过、2 失败；失败为 `notdown-boundary.spec.ts` 的官方 Notion 控件断言、`notdown-dialect.spec.ts` 的扩展分组控件断言。这些失败未通过放宽方言边界绕过。本轮新增的桌面 YAML 方言切换、源码同步与撤销用例通过。
+- `dialect-boundaries.spec.ts` Three things are still expected in theCommonMark、GFM or officialNotion ActivatedNotdown Additional plugins; the current language boundaries do not allow this.
+- `editor.spec.ts`Two nested text old structure assertions, as well as one item each for long outline and page mention; the latter two are not fixed in this round of positioning.
 
-本地原始日志见 `.run/logs/release-0.1.1-browser.log`、`.run/logs/release-0.1.1-dialect-browser-final.log`；通过的最终检查分别见同目录的 `release-0.1.1-unit-final.log`、`release-0.1.1-mobile-final.log`、`release-0.1.1-mobile-dialect-final.log`、`release-0.1.1-workspace-final.log`、`release-0.1.1-desktop-test.log` 及两端 `*-final-build.log`。
+The next extension to the targeted browser was 26 through, 2 failed; the failure was a failure to make the browser run as a standard. `notdown-boundary.spec.ts` The official Notion controller claims,`notdown-dialect.spec.ts` The expansion of the distribution controls claimed that these failures were not circumvented by the language boundaries of the language. The newly added desktop YAML language switching, source code synchronization and cancellation use cases were adopted.
 
-## 设备边界
+See `.run/logs/release-0.1.1-browser.log` and `.run/logs/release-0.1.1-dialect-browser-final.log` for the local original logs; see `release-0.1.1-unit-final.log`, `release-0.1.1-mobile-final.log`, `release-0.1.1-mobile-dialect-final.log`, `release-0.1.1-workspace-final.log`, `release-0.1.1-desktop-test.log` in the same directory and `*-final-build.log` at both ends for the final checks that passed.
 
-本机 Windows 已通过 NSIS 静默升级，安装器退出码为 0；安装后的 EXE 为 `0.1.1.0`，卸载项版本为 `0.1.1`。安装目录 `resources/app.asar` 的 SHA-256 与通过测试的打包产物一致。安装包及 APK 的 SHA-256 留在 `.run/logs/release-0.1.1-artifact-hashes.json`。
+<a id="设备边界"></a>
 
-本轮 ADB 未检测到连接设备，因此只生成并核对 APK，不宣称已安装到手机或完成真实 Android WebView 验收。R、Python、Julia、Pandoc 执行仍需桌面服务；云同步仍是实验性前台功能，无后台同步保证。
+## device boundaries
+
+The Windows of this machine has been silently upgraded through NSIS, the installer exit code is 0; the EXE after installation is `0.1.1.0`, and the uninstall item version is `0.1.1`. The installation directory `resources/app.asar` and SHA-256 are consistent with the packaged product that passed the test. Install packages and APK's SHA-256 remain in `.run/logs/release-0.1.1-artifact-hashes.json`.
+
+This round of ADB does not detect the connected device, so it only generates and checks APK, and does not claim to have been installed on the phone or complete the real Android WebView acceptance. The execution of R, Python, Julia, and Pandoc still requires desktop services; cloud synchronization is still an experimental front-end function, and there is no background synchronization guarantee.

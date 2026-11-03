@@ -1,3 +1,4 @@
+import { t, uiLanguage } from "../../shared/i18n";
 import { escape as e, type Page } from "../../shared/types";
 import { refreshIcons } from "../../shared/icons";
 
@@ -21,7 +22,7 @@ export function pageActionsHTML(page: Page, attribute = "data-page-action") {
   ];
   return items.filter(([action]) => !(action === "turn-into-wiki" && (page.databaseId || page.dataSourceId || page.trashed)) && !(action === "undo-wiki" && !page.wiki) && !(page.databaseId && action === "duplicate") && !(page.dataSourceId && !page.wikiMember && action === "move") &&
     !(action === "insert-parent" && (!page.parent || page.dataSourceId || page.databaseId)))
-    .map(([action, icon, label]) => `${action === "link" || action === "trash" ? "<hr>" : ""}<button type="button" role="menuitem" ${attribute}="${action}" class="${action === "trash" ? "danger" : ""}"><i data-lucide="${icon}"></i><span>${label}</span></button>`).join("");
+    .map(([action, icon, label]) => `${action === "link" || action === "trash" ? "<hr>" : ""}<button type="button" role="menuitem" ${attribute}="${action}" class="${action === "trash" ? "danger" : ""}"><i data-lucide="${icon}"></i><span data-i18n="${label}">${t(label)}</span></button>`).join("");
 }
 
 export function showPageContextMenu(page: Page, x: number, y: number, anchor: HTMLElement, act: (action: PageAction) => void) {
@@ -29,9 +30,9 @@ export function showPageContextMenu(page: Page, x: number, y: number, anchor: HT
   const menu = document.createElement("div");
   menu.className = "page-context-menu";
   menu.setAttribute("role", "menu");
-  menu.setAttribute("aria-label", `Page actions for ${page.title}`);
+  menu.setAttribute("aria-label", t("Page actions for {title}", { title: page.title }));
   const date = new Date(page.updated);
-  menu.innerHTML = `<div class="page-context-heading">Page<span>${e(page.title)}</span></div>${pageActionsHTML(page)}<hr><div class="page-context-footer">Last edited ${e(Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("en-US"))}<br>${page.body.replace(/\s/g, "").length.toLocaleString()} characters</div>`;
+  menu.innerHTML = `<div class="page-context-heading"><span data-i18n="Page">Page</span><span>${e(page.title)}</span></div>${pageActionsHTML(page)}<hr><div class="page-context-footer"><span data-i18n="Last edited">Last edited</span> ${e(Number.isNaN(date.getTime()) ? "—" : date.toLocaleString(uiLanguage()))}<br>${page.body.replace(/\s/g, "").length.toLocaleString()} <span data-i18n="characters">characters</span></div>`;
   document.body.append(menu);
   refreshIcons();
   menu.style.left = `${Math.max(8, Math.min(x, innerWidth - menu.offsetWidth - 8))}px`;

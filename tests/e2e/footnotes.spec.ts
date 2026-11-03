@@ -57,7 +57,11 @@ for (const variant of ["notdown", "markdown"]) test(`${variant}: inline footnote
   await expect(notes.first()).toContainText("edited");
   // The last inline reference owns its definition; deleting it removes both.
   await editor.locator(":scope > p").first().click();
-  await page.keyboard.press("End");
+  // Soft wraps differ by dialect; place the caret after the reference atom.
+  await refs.last().evaluate(element => {
+    const range = document.createRange(); range.setStartAfter(element); range.collapse(true);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+  });
   await page.keyboard.press("Backspace");
   await expect(refs).toHaveCount(3);
   await expect(notes).toHaveCount(2);
@@ -77,8 +81,11 @@ for (const mode of ["document", "split"]) for (const bibliography of [false, tru
   const count = await paragraphs.count();
   const footer = bibliography ? page.locator(".md-bibliography") : editor.locator(".pm-footnotes");
   await expect(footer).toBeVisible();
+  // Click the editor's trailing space, including the bibliography's padding,
+  // rather than the page shell beyond the editing pane.
+  const tailAnchor = bibliography ? footer.locator(":scope > ol") : footer;
   for (let i = 0; i < 4; i++) {
-    const last = (await footer.boundingBox())!;
+    const last = (await tailAnchor.boundingBox())!;
     await page.mouse.click(last.x + 100, last.y + last.height + 40);
     await expect(paragraphs).toHaveCount(count + 1);
     await expect(paragraphs.last()).toHaveText("");
@@ -87,7 +94,7 @@ for (const mode of ["document", "split"]) for (const bibliography of [false, tru
   await expect(paragraphs.last()).toHaveText("New tail");
   // Once the previous tail has content, a later click may create the next block.
   for (let i = 0; i < 3; i++) {
-    const last = (await footer.boundingBox())!;
+    const last = (await tailAnchor.boundingBox())!;
     await page.mouse.click(last.x + 100, last.y + last.height + 40);
     await expect(paragraphs).toHaveCount(count + 2);
   }

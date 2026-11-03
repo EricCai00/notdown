@@ -1,0 +1,38 @@
+import { test, expect } from "@playwright/test";
+import { createBlockDatabase } from "./database-fixture";
+
+test("list rows use compact metadata and persist visibility and order", async ({ page, request }, info) => {
+  const data = await createBlockDatabase(request);
+  await page.goto('/#database/' + data.database.id);
+  await page.getByRole('button', { name: 'New view', exact: true }).click();
+  await page.getByRole('dialog', { name: 'New view' }).getByRole('button', { name: 'List', exact: true }).click();
+  await page.getByRole('button', { name: 'Create view', exact: true }).click();
+  const rows = page.locator('.database-layout-list .database-record-card');
+  await expect(rows).toHaveCount(15);
+  await expect(rows.first()).toHaveCSS('display', 'flex');
+  await expect(rows.first()).toHaveCSS('border-bottom-width', '0px');
+  await page.getByRole('button', { name: 'View settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Property visibility', exact: true }).click();
+  const menu = page.getByRole('dialog', { name: 'Property visibility', exact: true });
+  await menu.getByRole('button', { name: 'Hide all', exact: true }).click();
+  await expect(menu.getByRole('switch', { name: 'Name', exact: true })).toBeDisabled();
+  await menu.getByRole('textbox').fill('Markdown');
+  await expect(menu.getByRole('switch', { name: 'Name', exact: true })).toHaveCount(0);
+  await menu.getByRole('switch', { name: 'In Markdown', exact: true }).click();
+  await menu.getByRole('switch', { name: 'Markdown Syntax', exact: true }).click();
+  await menu.getByRole('textbox').fill('');
+  await menu.locator('.database-visibility-row').filter({ has: page.getByRole('switch', { name: 'Markdown Syntax', exact: true }) }).getByRole('button', { name: 'Move up', exact: true }).click();
+  await menu.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(rows.first().locator('.database-card-property')).toHaveCount(2);
+  const before = await rows.first().locator('.database-card-property').allTextContents();
+  await page.reload();
+  await expect(rows.first().locator('.database-card-property')).toHaveText(before);
+  await page.screenshot({ path: info.outputPath('list-desktop.png'), fullPage:true });
+  await rows.first().locator('.database-card-properties').click();
+  await expect(page.locator('.database-peek-mount')).toBeVisible();
+  await page.getByRole('button', { name:'Close record', exact:true }).click();
+  await page.setViewportSize({width:390,height:844});
+  const bounds = await rows.first().evaluate(el => ({width:el.getBoundingClientRect().width, scroll:el.scrollWidth}));
+  expect(bounds.scroll).toBeLessThanOrEqual(Math.ceil(bounds.width));
+  await page.screenshot({ path: info.outputPath('list-narrow.png'), fullPage:true });
+});

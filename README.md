@@ -21,7 +21,7 @@ Notdown is a local note-taking app that combines block editing with Markdown fil
 
 ## Features
 
-- **Write your way.** Keep pages in tabs on desktop or in your browser. Use Page, Source and Split views, slash commands, inline formatting, and blocks you can select and move.
+- **Write your way.** Keep pages in tabs on desktop or in your browser, with English and Simplified Chinese workspace interfaces. Use Page, Source and Split views, slash commands, inline formatting, and blocks you can select and move.
 - **Connect your notes.** Nested pages, search, favorites, backlinks, an outline, a mind map and a page graph.
 - **Work with rich content.** Images and media, tables, callouts, equations, Mermaid diagrams, footnotes and citations, with selectable Markdown dialects. Browse and reuse local files in the [attachment library](docs/features/MEDIA-AND-EMBEDS.md).
 - **Organize structured information.** Full-page and inline databases offer five layouts and typed properties on desktop and Android. Wikis combine an editable Home with page views; each page remains a Markdown file.
@@ -39,6 +39,8 @@ npm ci
 ```
 
 ### Windows desktop
+
+Download the Windows x64 installer from [GitHub Releases](https://github.com/EricCai00/Notdown/releases). To run the desktop app from source:
 
 ```sh
 npm run desktop
@@ -76,7 +78,7 @@ Use one running service per vault. Back up the whole vault folder to include att
 
 ## Current status
 
-Notdown is an actively developed local application prototype. The interface is currently English only.
+Notdown is an actively developed local application prototype.
 
 - **Device sync:** experimental foreground sync supports Supabase or WebDAV on desktop and Android. There is no bundled cloud service, end-to-end encryption, or real-time collaboration. See [setup and limits](docs/features/CLOUD-SYNC.md).
 - **Format support:** compatibility varies by dialect; complex or unsupported content may need source editing.
@@ -85,7 +87,7 @@ Notdown is an actively developed local application prototype. The interface is c
 
 ## Documentation
 
-Detailed guides are currently mostly in Chinese.
+Read the documentation in [English](docs/README.md) or [简体中文](docs/README.zh-CN.md).
 
 | I want to… | Read |
 | --- | --- |

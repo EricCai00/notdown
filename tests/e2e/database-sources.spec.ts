@@ -24,7 +24,7 @@ test("creating sources keeps schemas and rows separate, supports cancellation an
   await page.screenshot({ path: info.outputPath("new-source.png") });
   await button(page, "Create data source").click();
   await expect(page.getByRole("tab", { name: "Independent tasks", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("heading", { level: 2, name: "Current data source: Independent tasks", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Independent tasks", exact: true })).toBeVisible();
   await button(page, "Add row").click();
   await page.getByLabel("Row title", { exact: true }).fill("Independent record");
   await button(page, "Create row").click();
@@ -34,7 +34,7 @@ test("creating sources keeps schemas and rows separate, supports cancellation an
   expect(current.pages[0]).toMatchObject({ dataSourceId: source.id, parent: target.hostPage.id });
   expect(source.properties.map((item: any) => item.name)).toEqual(["Name"]);
   await page.getByRole("tab", { name: "Table", exact: true }).click();
-  await expect(page.locator(".database-source-title")).toHaveText("Source management");
+  await expect(page.getByLabel("Data source title", { exact: true })).toHaveValue("Source management");
   await expect(button(page, "Open Independent record")).toHaveCount(0);
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Source", exact: true }).click();
@@ -77,20 +77,20 @@ test("source relationships are searchable and link to their exact database views
   await page.screenshot({ path: info.outputPath("source-catalog.png"), fullPage: true });
   await row.getByRole("link", { name: "Open Roadmap in Overview mapping", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#database/${target.database.id}\\?view=${linked.views[1].id}$`));
-  await expect(page.locator(".database-source-title")).toHaveText("Roadmap");
+  await expect(page.getByLabel("Data source title", { exact: true })).toHaveValue("Roadmap");
 });
 
 test("two title levels follow the active source and honor explicit visibility after reload", async ({ page, request }, info) => {
   const target = await database(request, "Two level titles");
   await request.post(`/api/databases/${target.database.id}/data-sources`, { data: { baseRevision: target.database.revision, title: "Second collection" } });
   await page.goto(`/#database/${target.database.id}`);
-  await expect(page.locator(".database-source-title")).toHaveText("Two level titles");
+  await expect(page.getByLabel("Data source title", { exact: true })).toHaveValue("Two level titles");
   await page.getByRole("tab", { name: "Second collection", exact: true }).click();
-  const title = page.locator(".database-source-title"); await expect(title).toHaveText("Second collection");
+  const title = page.locator(".database-source-title"); await expect(title.locator("input")).toHaveValue("Second collection");
   const headingBounds = await page.locator(".database-heading").boundingBox(), sourceBounds = await title.boundingBox(), tabsBounds = await page.getByRole("tablist", { name: "Database views" }).boundingBox();
   expect(sourceBounds!.y).toBeGreaterThan(headingBounds!.y); expect(tabsBounds!.y).toBeGreaterThan(sourceBounds!.y);
-  await button(page, "Current data source: Second collection").click();
-  await expect(dialog(page, "Manage data sources")).toBeVisible(); await page.keyboard.press("Escape");
+  await page.getByLabel("Data source title", { exact: true }).click();
+  await expect(dialog(page, "Manage data sources")).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("two-level-titles.png"), fullPage: true });
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Layout", exact: true }).click();
@@ -98,7 +98,7 @@ test("two title levels follow the active source and honor explicit visibility af
   await expect(toggle).toHaveAttribute("aria-checked", "true"); await toggle.click();
   await dialog(page, "Layout").getByRole("button", { name: "Done", exact: true }).click();
   await expect(title).toHaveCount(0); await page.reload(); await expect(title).toHaveCount(0);
-  await page.getByRole("tab", { name: "Table", exact: true }).click(); await expect(title).toHaveText("Two level titles");
+  await page.getByRole("tab", { name: "Table", exact: true }).click(); await expect(title.locator("input")).toHaveValue("Two level titles");
 });
 
 test("linking shares original records and fields, keeps ownership, and is not offered twice", async ({ page, request }, info) => {

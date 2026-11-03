@@ -1,3 +1,4 @@
+import { setUIText, setUIAttribute } from "../../shared/i18n";
 import { createElement, X, ChevronLeft, ChevronRight, Check, type IconNode } from "lucide";
 import "./database-popover.css";
 
@@ -29,10 +30,10 @@ export class DatabasePopover {
   }
   panel(title: string, anchor = this.anchor, level = 0, width = 292, trackChanges = true, floating = false): HTMLElement {
     this.trim(level);
-    const panel = document.createElement("section"); panel.className = "database-popover"; panel.style.width = `${width}px`; panel.dataset.level = String(level); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", title);
+    const panel = document.createElement("section"); panel.className = "database-popover"; panel.style.width = `${width}px`; panel.dataset.level = String(level); panel.setAttribute("role", "dialog"); setUIAttribute(panel, "aria-label", title);
     const header = document.createElement("header"); header.className = "database-popover-header";
     if (level) header.append(menuButton("Back", ChevronLeft, () => this.trim(level), "", false, "database-popover-back"));
-    const label = document.createElement("span"); label.textContent = title; header.append(label);
+    const label = document.createElement("span"); setUIText(label, title); header.append(label);
     const close = menuButton("Close", X, () => { void this.dismiss(); }, "", false, "database-popover-close"); header.append(close); panel.append(header);
     const status = document.createElement("p"); status.className = "database-popover-status"; status.setAttribute("role", "status"); panel.append(status);
     if (trackChanges) { panel.addEventListener("input", () => this.dirty = true); panel.addEventListener("change", () => this.dirty = true); }
@@ -99,23 +100,26 @@ export class DatabasePopover {
     const done = menuButton(commitLabel, undefined, () => void this.close()); done.className = "database-popover-done"; footer.append(done); panel.append(footer);
   }
 }
-export function menuButton(label: string, icon?: IconNode, action?: (button: HTMLButtonElement) => void, value = "", submenu = false, className = "database-popover-row") {
-  const button = document.createElement("button"); button.type = "button"; button.className = className; button.setAttribute("aria-label", label);
+export function menuButton(label: string, icon?: IconNode, action?: (button: HTMLButtonElement) => void, value = "", submenu = false, className = "database-popover-row", localize = true) {
+  const button = document.createElement("button"); button.type = "button"; button.className = className;
+  if (localize) setUIAttribute(button, "aria-label", label); else button.setAttribute("aria-label", label);
   if (icon) button.append(menuIcon(icon));
-  const text = document.createElement("span"); text.className = "database-popover-label"; text.textContent = label; button.append(text);
+  const text = document.createElement("span"); text.className = "database-popover-label";
+  if (localize) setUIText(text, label); else text.textContent = label;
+  button.append(text);
   if (value) { const hint = document.createElement("span"); hint.className = "database-popover-value"; hint.textContent = value; button.append(hint); }
   if (submenu) { button.append(menuIcon(ChevronRight)); button.setAttribute("aria-haspopup", "dialog"); }
   button.onclick = () => action?.(button); return button;
 }
-export function menuToggle(label: string, checked: boolean, change: (checked: boolean) => void) {
-  const button = menuButton(label); button.setAttribute("role", "switch"); button.setAttribute("aria-checked", String(checked));
+export function menuToggle(label: string, checked: boolean, change: (checked: boolean) => void, localize = true) {
+  const button = menuButton(label, undefined, undefined, "", false, "database-popover-row", localize); button.setAttribute("role", "switch"); button.setAttribute("aria-checked", String(checked));
   const track = document.createElement("span"); track.className = "database-popover-switch"; button.append(track);
   button.onclick = () => { checked = !checked; button.setAttribute("aria-checked", String(checked)); change(checked); }; return button;
 }
 export function menuInput(label: string, value: string, change: (value: string) => void, icon?: IconNode) {
   const row = document.createElement("div"); row.className = "database-popover-name"; if (icon) row.append(menuIcon(icon));
-  const input = document.createElement("input"); input.setAttribute("aria-label", label); input.placeholder = label; input.value = value; input.maxLength = 500;
+  const input = document.createElement("input"); setUIAttribute(input, "aria-label", label); setUIAttribute(input, "placeholder", label); input.value = value; input.maxLength = 500;
   input.oninput = () => change(input.value); row.append(input); return row;
 }
-export function menuSection(panel: HTMLElement, label?: string) { const section = document.createElement("div"); section.className = "database-popover-section"; if (label) { const title = document.createElement("p"); title.className = "database-popover-caption"; title.textContent = label; section.append(title); } panel.append(section); return section; }
-export function menuChoice(label: string, chosen: boolean, select: () => void, icon?: IconNode) { const button = menuButton(label, icon, select); if (chosen) button.append(menuIcon(Check)); button.setAttribute("aria-pressed", String(chosen)); return button; }
+export function menuSection(panel: HTMLElement, label?: string, localize = true) { const section = document.createElement("div"); section.className = "database-popover-section"; if (label) { const title = document.createElement("p"); title.className = "database-popover-caption"; if (localize) setUIText(title, label); else title.textContent = label; section.append(title); } panel.append(section); return section; }
+export function menuChoice(label: string, chosen: boolean, select: () => void, icon?: IconNode, localize = true) { const button = menuButton(label, icon, select, "", false, "database-popover-row", localize); if (chosen) button.append(menuIcon(Check)); button.setAttribute("aria-pressed", String(chosen)); return button; }

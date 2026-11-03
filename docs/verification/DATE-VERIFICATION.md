@@ -1,23 +1,31 @@
-# Date / reminder 交互验证
+<a id="date--reminder-交互验证"></a>
 
-2026-09-22。本次以用户提供的日期空态截图、[Notion 日期提醒说明](https://www.notion.com/en-gb/help/reminders)和 [@ 提及指南](https://www.notion.com/help/guides/reminders-and-mentions)为交互参考。Notdown 使用自己的 ProseMirror 节点视图与 Markdown codec，不接入 Notion 通知服务。
+# Date / reminder interaction validation
 
-## 实现与边界
+**English** · [简体中文](DATE-VERIFICATION.zh-CN.md)
 
-- `/date` 插入行内 `@Mention a date…` 空态，并打开 Today / Remind me 菜单；普通日期显示相对日期，提醒有时钟图标和蓝色／到期红色。
-- 正文 `@` 支持 today、tomorrow、yesterday、今天／明天／昨天、ISO 日期、英文星期，以及 `@remind tomorrow 9am` 等明确日期时间组合。不是通用自然语言日期解析器；代码块、行内代码、邮件地址不触发日期替换。
-- 日期弹层提供翻月、日历选日、起止日期、时间、提醒提前量、日期和时间显示格式。支持本地时区、UTC 和固定偏移；不提供完整 IANA 地区时区目录。
-- 日历支持方向键、Home/End、PageUp/PageDown、Enter，Escape 和点击外部关闭。有效字段输入立即进入文档事务；错误日期／倒置区间不覆盖上一个有效值。
-- 使用原来的 `<mention-date>` 与 CAS 保存，保留未知属性及导入标签文字（显示在日期提示中）；日期标签根据 `start` 生成。源码切换、撤销与刷新都保留日期。导入的独立提醒时间不会因编辑日期而被擅自改为相对提醒。
-- 本地提醒沿用现有应用内调度，应用打开时触发，重新打开补发；没有邮件、重复提醒或应用关闭时的操作系统后台调度。
+2026-09-22. This time, we use the date blank screenshot provided by the user, [ Notion date reminder description ](https://www.notion.com/en-gb/help/reminders) and [ @ mention guide ](https://www.notion.com/help/guides/reminders-and-mentions) as cross reference. Notdown uses its own ProseMirror node view and Markdown codec and does not access the Notion notification service.
 
-## 自动验证
+<a id="实现与边界"></a>
 
-- `tests/unit/date-mention.test.ts`：5 项通过，涵盖本地日期、闰年、英文／中文输入、无效日期、代码边界、Markdown 未知属性及代码围栏保留、提醒绝对时间、损坏导入属性。
-- `npm run test:e2e -- tests/e2e/date.spec.ts tests/e2e/object-editing.spec.ts --output test-results/date-final-browser --reporter=list`：构建通过。弹层避让修订前 11 项全部通过；修订后 9 项通过、2 项失败，失败位于定义列表和同步块测试。5 项日期交互及 1 项提醒去重测试全部通过。独立临时知识库，Chrome 独立无界面实例，端口 4344。
-- 浏览器覆盖：菜单插入、起止日期、时间／时区／提前提醒保存与刷新；源码切换；键盘选日、撤销；窄屏可达性；空态取消；导入无效日期修正；代码中输入保持字面内容；到期提醒跨刷新去重。
-- 截图：`test-results/date-quick.png`、`test-results/date-calendar.png`。已检查日期空态、快捷菜单、日期区间、提醒设置与弹层布局。
+## Realization and boundaries
 
-完整工作区回归的日志位于 `.run/date-unit-final.log` 与 `.run/date-e2e-full.log`。最新单元测试 413 项通过、2 项失败、1 项跳过；失败位于 `tests/unit/notdown-dialect.test.ts` 的默认扩展和 Lab 预览断言。执行期间工作区的扩展分类／方言代码存在同时进行的变更；完整回归结果与上述日期定向验证分别记录，不把日期外的失败描述为全部通过。
+- `/date`Insert in-line `@Mention a date…` empty state and open Today / Remind me menu; normal date shows relative date, reminder with clock icon and blue/red due date.
+- Text `@` supports today, tomorrow, yesterday, today/tomorrow/yesterday, ISO date, English week, and `@remind tomorrow 9am` and other clear date and time combinations. Not a general-purpose natural language date parser; code blocks, inline code, and email addresses do not trigger date replacement.
+- The date pop-up layer provides month turning, calendar day selection, start and end dates, time, reminder advance amount, date and time display format. Supports local time zone, UTC, and fixed offset; full IANA regional time zone catalog is not provided.
+- The calendar supports arrow keys, Home/End, PageUp/PageDown, Enter, Escape and click outside to close. Valid field input immediately enters the document transaction; error dates/inversion intervals do not overwrite the last valid value.
+- Use the original `<mention-date>` and CAS to save, retain the unknown attributes and import label text (displayed in the date prompt); the date label is generated based on `start`. Source code switching, undoing and refreshing all retain dates. The imported independent reminder time will not be changed to a relative reminder without authorization due to editing date.
+- Local reminders follow the existing in-app scheduling, which is triggered when the app is opened and reissued when it is reopened; there are no emails, repeated reminders, or operating system background scheduling when the app is closed.
 
-完整浏览器回归计划执行 216 项，任务续接后原进程已结束且没有完成报告；日志最后记录 171 项通过、8 项失败，剩余 37 项未完成。因此本次只确认日期专项及上述已执行用例，不宣称全量浏览器回归通过。
+<a id="自动验证"></a>
+
+## Automatic verification
+
+- `tests/unit/date-mention.test.ts`: 5 items passed, covering local date, leap year, English/Chinese input, invalid date, code boundary, Markdown unknown attributes and code fence retention, reminder absolute time, damaged imported attributes.
+- `npm run test:e2e -- tests/e2e/date.spec.ts tests/e2e/object-editing.spec.ts --output test-results/date-final-browser --reporter=list`:Build passed. Before the revision, all 11 items of elastic layer avoidance passed; after the revision, 9 items passed and 2 items failed. The failure was in the definition list and synchronization block test. 5 date interaction and 1 reminder deduplication tests all passed. Independent temporary vault, Chrome independent interfaceless instance, port 4344.
+- Browser coverage: menu insertion, start and end dates, time/time zone/advance reminder save and refresh; source code switching; keyboard date selection and cancellation; narrow screen accessibility; empty state cancellation; import invalid date correction; input in the code maintains literal content; expiration reminders remove duplication across refreshes.
+- Screenshot: `test-results/date-quick.png`, `test-results/date-calendar.png`. The date blank status, shortcut menu, date range, reminder settings and pop-up layout have been checked.
+
+The logs for full workspace regression are located at `.run/date-unit-final.log` and `.run/date-e2e-full.log`. Latest unit tests pass on 413, fail on 2, skip on 1; fail on default extension for `tests/unit/notdown-dialect.test.ts` and Lab preview assertions. There were concurrent changes to the workspace's extended classification/dialect code during execution; full regression results are logged separately from the date-directed validations above, and failures outside of dates are not described as all passes.
+
+The complete browser regression plan executes 216 items. After the task is continued, the original process has ended and there is no completion report; the log finally records that 171 items passed, 8 items failed, and the remaining 37 items are not completed. Therefore, this time we only confirm the date and the above-mentioned executed use cases, and do not declare that all browsers have been returned.

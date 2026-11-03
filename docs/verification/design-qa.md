@@ -1,5 +1,7 @@
 # Page header spacing matched to Notion references — 2026-09-23
 
+**English** · [简体中文](design-qa.zh-CN.md)
+
 Scope: icon, decoration action row and title on pages with an icon and no cover. This supersedes the previous beside-icon action placement. Existing page properties, editor toolbar and content width are outside this correction.
 
 - Source: `C:/Users/Eric/AppData/Local/Temp/codex-clipboard-5617e50c-1500-48d0-964f-f3318b465464.png` (630 × 391), supported by `codex-clipboard-464430e4-c532-4843-b63d-3af7142d9199.png` (713 × 433) and `codex-clipboard-bf71e1b0-8a2c-47f7-bcdb-af45a4a73486.png` (641 × 320) in the same temporary directory. These are cropped page regions; the full Notion viewport and content width cannot be inferred.
@@ -15,7 +17,7 @@ Scope: icon, decoration action row and title on pages with an icon and no cover.
 - Spacing/layout: icon, action row and title now form the reference's vertical sequence. Hover and idle states keep the title stationary. Natural glyph bounds remain inside the hover button; action buttons do not overlap the icon or title.
 - Colors/tokens: action text uses the product's existing #787774 neutral; existing title, white background and hover colors remain. Minor platform text rasterization differences are accepted.
 - Image quality/assets: real stored page Emoji and the existing Lucide action icon are retained. The bundled Noto floppy glyph differs in artwork from Notion's floppy glyph; replacing the application's user-selected Emoji system is outside this spacing task. No synthetic replacement assets were added.
-- Copy/content: fixture uses the reference's “同步数据” title. Only the existing Add cover action is shown; the reference's backlink/comment features are not introduced by this styling change.
+- Copy/content: fixture uses the reference ' s "Synchronization data" title. Only the existing Add cover action is shown ; the reference ' s backlink/comment features are not introduced by this styling change.
 - No remaining actionable P0/P1/P2 differences in this scoped header-spacing comparison. Full-page width, body layout and Notion-specific extra controls are excluded.
 
 ## Verification

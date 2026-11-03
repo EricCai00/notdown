@@ -1,3 +1,4 @@
+import { setUIAttribute } from "../../shared/i18n";
 import { Check, Ellipsis, Plus, Table2, Columns3, LayoutGrid, List, Calendar } from "lucide";
 import { DatabasePopover, menuButton, menuInput, menuSection, menuIcon } from "./database-popover";
 import type { DatabaseView } from "./database-model";
@@ -6,7 +7,7 @@ const icons = { table: Table2, board: Columns3, gallery: LayoutGrid, list: List,
 export function installViewOverflow(host: HTMLElement, hooks: { views: DatabaseView[]; selected?: string; select(id: string): void; edit(id: string, anchor: HTMLElement): void; create(): void; createSource?: () => void }) {
   const list = host.querySelector<HTMLElement>(".database-view-tabs")!, tabs = [...list.querySelectorAll<HTMLElement>("[data-db-tab]")];
   if (!tabs.length) return () => {};
-  const more = document.createElement("button"); more.type = "button"; more.className = "database-more-views"; more.setAttribute("aria-label", "More database views"); list.insertBefore(more, list.querySelector("[data-db-new-view]"));
+  const more = document.createElement("button"); more.type = "button"; more.className = "database-more-views"; setUIAttribute(more, "aria-label", "More database views"); list.insertBefore(more, list.querySelector("[data-db-new-view]"));
   let pop: DatabasePopover | undefined, frame = 0;
   const measure = () => {
     frame = 0; more.hidden = true; tabs.forEach(tab => tab.hidden = false);
@@ -25,7 +26,7 @@ export function installViewOverflow(host: HTMLElement, hooks: { views: DatabaseV
       rows.replaceChildren();
       for (const view of hooks.views.filter(view => view.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))) {
         const row = document.createElement("div"); row.className = "database-overflow-row";
-        const choose = menuButton(view.name, icons[view.type] ?? Table2, () => { pop?.destroy(); pop = undefined; hooks.select(view.id); }); choose.setAttribute("role", "menuitemradio"); choose.setAttribute("aria-checked", String(view.id === hooks.selected));
+        const choose = menuButton(view.name, icons[view.type] ?? Table2, () => { pop?.destroy(); pop = undefined; hooks.select(view.id); }, "", false, "database-popover-row", false); choose.setAttribute("role", "menuitemradio"); choose.setAttribute("aria-checked", String(view.id === hooks.selected));
         if (view.id === hooks.selected) choose.append(menuIcon(Check));
         const options = menuButton(`${view.name} view options`, Ellipsis, () => { pop?.destroy(); pop = undefined; hooks.edit(view.id, more); }); options.className = "database-source-details-button"; row.append(choose, options); rows.append(row);
       }

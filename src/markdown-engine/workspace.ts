@@ -1,3 +1,4 @@
+import { setUIText } from "../shared/i18n";
 import type { InternalReference } from "../document/internal-reference";
 import { Compartment, EditorState, Prec } from "@codemirror/state";
 import {
@@ -96,8 +97,8 @@ export class MarkdownWorkspace {
     this.session = new DocumentSession(options.source, options.config);
     this.mappingDoc = this.session.snapshot.doc;
     root.className = "markdown-workspace";
-    root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view"><button type="button" data-mode="source">Source</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="document">Page</button></div><label class="dialect-label">Dialect <select aria-label="Markdown dialect">${dialectGroups.map((group) => `<optgroup label="${group.label}">${group.dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</optgroup>`).join("")}</select></label><details class="syntax-options"><summary>Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling">Sync scrolling</label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane"><div class="pane-title">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane"><div class="pane-title">Page · Editable</div><div id="editor"></div></section></div>`;
-    root.querySelector(".syntax-options-panel")!.innerHTML = `<div class="extension-search"><input type="search" aria-label="Search extensions" placeholder="Search by name, ID, or description" autocomplete="off"><p class="extension-search-count" role="status"></p></div><div class="syntax-options-content"></div>`;
+    root.innerHTML = `<div class="editing-toolbar"><div class="editing-modes" role="group" aria-label="Editing view" data-i18n-aria-label="Editing view"><button type="button" data-mode="source" data-i18n="Source">Source</button><button type="button" data-mode="split" data-i18n="Split">Split</button><button type="button" data-mode="document" data-i18n="Page">Page</button></div><label class="dialect-label"><span data-i18n="Dialect">Dialect</span> <select aria-label="Markdown dialect" data-i18n-aria-label="Markdown dialect">${dialectGroups.map((group) => `<optgroup label="${group.label}">${group.dialects.map((v) => `<option value="${v.id}" ${v.native ? "" : "disabled"}>${v.label}</option>`).join("")}</optgroup>`).join("")}</select></label><details class="syntax-options"><summary data-i18n="Extensions">Extensions</summary><div class="syntax-options-panel"></div></details><label class="scroll-toggle"><input type="checkbox" checked aria-label="Sync scrolling" data-i18n-aria-label="Sync scrolling"><span data-i18n="Sync scrolling">Sync scrolling</span></label><span class="editing-state" aria-live="polite"></span></div><div class="editing-panes"><section class="source-pane" aria-label="Source pane" data-i18n-aria-label="Source pane"><div class="pane-title" data-i18n="Markdown source">Markdown source</div><div class="source-mount"></div></section><section class="page-pane" aria-label="Page pane" data-i18n-aria-label="Page pane"><div class="pane-title" data-i18n="Page · Editable">Page · Editable</div><div id="editor"></div></section></div>`;
+    root.querySelector(".syntax-options-panel")!.innerHTML = `<div class="extension-search"><input type="search" aria-label="Search extensions" placeholder="Search by name, ID, or description" autocomplete="off" data-i18n-placeholder="Search by name, ID, or description" data-i18n-aria-label="Search extensions"><p class="extension-search-count" role="status"></p></div><div class="syntax-options-content"></div>`;
     this.pagePane = root.querySelector(".page-pane")!;
     const newline = options.source.match(/\r\n|\n|\r/)?.[0] ?? "\n";
     this.source = new EditorView({
@@ -302,7 +303,7 @@ export class MarkdownWorkspace {
       () => this.scheduleScroll(),
       { signal, capture: true },
     );
-    root.querySelector('[aria-label="Sync scrolling"]')!.addEventListener(
+    root.querySelector('[data-i18n-aria-label="Sync scrolling"]')!.addEventListener(
       "change", () => { this.expected = undefined; this.scheduleScroll(); }, { signal },
     );
     root.querySelector(".syntax-options")!.addEventListener(
@@ -353,30 +354,28 @@ export class MarkdownWorkspace {
     (this.root.querySelector("select") as HTMLSelectElement).value =
       config.variant;
     panel.querySelector(".syntax-options-content")!.innerHTML =
-      `<p>Changing rules reinterprets the source. Disabled custom blocks retain their original text and can be edited in source view.</p><p>${config.variant === "notdown" ? "Notdown includes Notion-flavored Markdown syntax and enables all Notdown blocks by default. You can turn individual blocks off below." : "Dialect defaults follow the linked upstream specification. Notdown blocks are optional; choose the Notdown dialect to enable them by default."} ${escapeHtml(pandocDefaultVersion)} badges are comparison data only, not the defaults for other products. Built-in syntax is listed separately without switches.</p>${groupExtensions(filtered, config.variant)
+      `<p data-i18n="Changing rules reinterprets the source. Disabled custom blocks retain their original text and can be edited in source view.">Changing rules reinterprets the source. Disabled custom blocks retain their original text and can be edited in source view.</p><p>${config.variant === "notdown" ? "Notdown includes Notion-flavored Markdown syntax and enables all Notdown blocks by default. You can turn individual blocks off below." : "Dialect defaults follow the linked upstream specification. Notdown blocks are optional; choose the Notdown dialect to enable them by default."} ${escapeHtml(pandocDefaultVersion)} <span data-i18n="badges are comparison data only, not the defaults for other products. Built-in syntax is listed separately without switches.">badges are comparison data only, not the defaults for other products. Built-in syntax is listed separately without switches.</span></p>${groupExtensions(filtered, config.variant)
         .map(
           (group) =>
             `<section class="extension-group" data-extension-group="${group.id}"><h3>${group.label} <small>${group.entries.length}</small></h3>${group.entries
               .map(
                 (ext, index) =>
                   (group.id === "other" ? extensionCategoryHeading(group.entries, index) : "") + (group.id === "builtin"
-                    ? `<div class="extension-choice extension-builtin" data-builtin-extension="${ext.id}"><span><strong>${escapeHtml(ext.label)}</strong><code>${ext.id}</code>${extensionProvenanceHtml(config.variant, ext.id)}<small>Built into this dialect · no configurable switch</small><small>${escapeHtml(ext.description)}</small></span></div>`
+                    ? `<div class="extension-choice extension-builtin" data-builtin-extension="${ext.id}"><span><strong>${escapeHtml(ext.label)}</strong><code>${ext.id}</code>${extensionProvenanceHtml(config.variant, ext.id)}<small data-i18n="Built into this dialect · no configurable switch">Built into this dialect · no configurable switch</small><small>${escapeHtml(ext.description)}</small></span></div>`
                     : `<label class="extension-choice"><input type="checkbox" data-extension="${ext.id}" ${enabled(config, ext.id) ? "checked" : ""}><span><strong>${escapeHtml(ext.label)}</strong><code>${ext.id}</code>${extensionProvenanceHtml(config.variant, ext.id)}<small>${escapeHtml(ext.description)}</small></span></label>`),
               )
               .join("")}</section>`,
         )
         .join(
           "",
-        )}${count ? "" : '<p class="extension-search-empty">No matching extensions. Try another search.</p>'}<button type="button" data-reset-extensions>Reset dialect defaults</button>${
-        filteredPending.length
-          ? `<section class="pending-extensions"><h3>Extensions not yet implemented natively (${filteredPending.length})</h3><p>These extensions are not active. Their configuration and source are preserved. Compare full Pandoc parsing in Markdown Lab.</p>${filteredPending
+        )}${count ? "" : `<p class="extension-search-empty" data-i18n="No matching extensions. Try another search.">No matching extensions. Try another search.</p>`}<button type="button" data-reset-extensions data-i18n="Reset dialect defaults">Reset dialect defaults</button>${filteredPending.length
+          ? `<section class="pending-extensions"><h3><span data-i18n="Extensions not yet implemented natively (">Extensions not yet implemented natively (</span>${filteredPending.length})</h3><p data-i18n="These extensions are not active. Their configuration and source are preserved. Compare full Pandoc parsing in Markdown Lab.">These extensions are not active. Their configuration and source are preserved. Compare full Pandoc parsing in Markdown Lab.</p>${filteredPending
               .map(
                 (name) =>
                   `<div><code>${escapeHtml(name)}</code> · ${(config.extensions[name] ?? pandocDefaults[config.variant][name]) ? "Enabled in config (not implemented)" : "Disabled in config"}</div>`,
               )
               .join("")}</section>`
-          : ""
-      }<p>Available extensions depend on the dialect. The native reader does not fully reproduce Pandoc. ${config.variant === "markdown_github" ? "Pandoc has deprecated the legacy GitHub reader. Use GFM for new GitHub documents. " : ""}See Markdown Lab for full Pandoc comparison.</p>`;
+          : ""}<p><span data-i18n="Available extensions depend on the dialect. The native reader does not fully reproduce Pandoc.">Available extensions depend on the dialect. The native reader does not fully reproduce Pandoc.</span> ${config.variant === "markdown_github" ? "Pandoc has deprecated the legacy GitHub reader. Use GFM for new GitHub documents. " : ""}<span data-i18n="See Markdown Lab for full Pandoc comparison.">See Markdown Lab for full Pandoc comparison.</span></p>`;
     panel.dataset.variant = config.variant;
     if (variantChanged) panel.scrollTop = 0;
   }
@@ -435,7 +434,7 @@ export class MarkdownWorkspace {
       this.blocks.setEditable(true);
       this.pagePane.setAttribute("aria-busy", "false");
       this.scheduleScroll();
-      this.root.querySelector(".editing-state")!.textContent = "Editing locally";
+      setUIText(this.root.querySelector(".editing-state")!, "Editing locally");
     } catch (error) {
       this.options.onError(error);
     }
@@ -780,7 +779,7 @@ export class MarkdownWorkspace {
   }
   private canSyncScroll() {
     return !this.destroyed && !this.pending && !this.pendingSource && this.root.dataset.mode === "split" &&
-      (this.root.querySelector('[aria-label="Sync scrolling"]') as HTMLInputElement).checked;
+      (this.root.querySelector('[data-i18n-aria-label="Sync scrolling"]') as HTMLInputElement).checked;
   }
   private scroll(pane: "source" | "document") {
     // Remember manual scrolling while sync is disabled, so re-enabling it

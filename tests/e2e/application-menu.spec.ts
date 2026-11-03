@@ -35,6 +35,7 @@ test("vault heading is distinct from the application icon and sidebar groups hav
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator(".workspace-switch").click();
+  await page.locator("[data-create-panel] > summary").click();
   await expect(page.locator("[data-vault-create]")).toBeVisible();
 });
 

@@ -1,3 +1,5 @@
+import { setUIAttribute, setUIText, t, installUILanguage, languageChanged, languageReady } from "../shared/i18n";
+import { mountLanguageSettings } from "./language-settings";
 import { mountWikiViewPicker } from "../features/databases/wiki-view-picker";
 import { createDatabaseView } from "../features/databases/database-create-view";
 import { chooseDatabase } from "../features/databases/database-create";
@@ -155,6 +157,7 @@ let coverRepositionCleanup: (() => void) | undefined;
 let sidebarLayout: ReturnType<typeof installSidebarLayout>;
 let navigation: PageNavigation | undefined;
 let workspaceTabs: WorkspaceTabs | undefined;
+let refreshApplicationMenu: (() => void) | undefined;
 const backlinks = new PageBacklinks();
 
 function updateNavigationButtons() {
@@ -175,11 +178,12 @@ function renderTabs() {
     const page = route.kind === "page" ? (current?.id === route.id ? current : pages.find(page => page.id === route.id || page.legacyIds?.includes(route.id))) : undefined;
     const database = route.kind === "database" ? databases.find(database => database.id === route.id) : undefined;
     const host = database && pages.find(page => page.id === (database.pageId ?? database.id));
-    return { title: page?.title ?? host?.title ?? database?.title ?? (route.kind === "page" ? "Page unavailable" : route.kind === "database" ? "Databases" : route.view === "graph" ? "Graph" : "Vault"),
+    return { title: page?.title ?? host?.title ?? database?.title ?? t(route.kind === "page" ? "Page unavailable" : route.kind === "database" ? "Databases" : route.view === "graph" ? "Graph" : "Vault"),
       icon: pageIconElement(page?.icon ?? host?.icon ?? (route.kind === "database" ? "🗃️" : route.kind === "vault" ? "📚" : "📄")) };
   }, dirty || editorChanged || !!conflict);
   const add = document.querySelector<HTMLButtonElement>('[data-action="new-tab"]');
   if (add) add.disabled = workspaceTabs.busy;
+  refreshApplicationMenu?.();
 }
 // Keep existing preferences and window-specific drafts across the app rename.
 for (const storageName of ["localStorage", "sessionStorage"] as const) {
@@ -237,17 +241,19 @@ function recentPages(): string[] {
     return [];
   }
 }
+installUILanguage();
 const app = document.querySelector<HTMLDivElement>("#app")!;
+window.addEventListener(languageChanged, () => { renderTabs(); refreshBreadcrumbs(); updateCounts(); });
 const icon = (name: string, cls = "") =>
   `<i data-lucide="${name}" class="${cls}"></i>`;
 const button = (action: string, name: string, title: string, extra = "") =>
-  `<button class="icon-button" data-action="${action}" title="${title}" aria-label="${title}" ${extra}>${icon(name)}</button>`;
+  `<button class="icon-button" data-action="${action}" title="${e(t(title))}" aria-label="${e(t(title))}" data-i18n-title="${e(title)}" data-i18n-aria-label="${e(title)}" ${extra}>${icon(name)}</button>`;
 
 function toast(message: string) {
   document.querySelector(".toast")?.remove();
   const el = document.createElement("div");
   el.className = "toast";
-  el.textContent = message;
+  setUIText(el, message);
   document.body.append(el);
   setTimeout(() => el.remove(), 4500);
 }
@@ -287,7 +293,7 @@ function status(text: string, kind = "") {
   if (el) {
     if (el.className === kind && el.querySelector("span")?.textContent === text) return;
     el.className = kind;
-    el.innerHTML = `${icon(kind === "error" ? "circle-alert" : "circle-check")}<span>${e(text)}</span>`;
+    el.innerHTML = `${icon(kind === "error" ? "circle-alert" : "circle-check")}<span data-i18n="${e(text)}">${e(t(text))}</span>`;
     refreshIcons();
   }
 }
@@ -440,8 +446,8 @@ function renderSidebar() {
   const viewIcons: Record<string, string> = { table: "table-2", board: "columns-3", gallery: "layout-grid", list: "list", calendar: "calendar" };
   function viewRows(database: Database, depth: number): string {
     const state = readSidebarViews(database);
-    if (!state.views) return `<div class="tree-row" style="--depth:${depth}"><button class="tree-page" ${state.error ? `data-retry-sidebar-views="${e(database.id)}"` : "disabled"}>${icon(state.error ? "rotate-cw" : "loader")}<span>${state.error ? "Retry loading views" : "Loading views…"}</span></button></div>`;
-    return state.views.map(view => `<div class="tree-row ${databaseRoute?.id === database.id && activeViewId === view.id ? "active" : ""}" data-database-view-row="${e(view.id)}" style="--depth:${depth}"><button class="tree-page" data-open-database="${e(database.id)}" data-database-view="${e(view.id)}">${icon(viewIcons[view.type] ?? "table-2")}<span>${e(view.name)}</span></button></div>`).join("") || `<p class="empty-small">No views yet.</p>`;
+    if (!state.views) return `<div class="tree-row" style="--depth:${depth}"><button class="tree-page" ${state.error ? `data-retry-sidebar-views="${e(database.id)}"` : "disabled"}>${icon(state.error ? "rotate-cw" : "loader")}<span>${state.error ? t("Retry loading views") : t("Loading views…")}</span></button></div>`;
+    return state.views.map(view => `<div class="tree-row ${databaseRoute?.id === database.id && activeViewId === view.id ? "active" : ""}" data-database-view-row="${e(view.id)}" style="--depth:${depth}"><button class="tree-page" data-open-database="${e(database.id)}" data-database-view="${e(view.id)}">${icon(viewIcons[view.type] ?? "table-2")}<span>${e(view.name)}</span></button></div>`).join("") || `<p class="empty-small" data-i18n="No views yet.">No views yet.</p>`;
   }
   function rows(parent: string | null, depth: number): string {
     return (childrenByParent.get(parent) ?? [])
@@ -453,17 +459,17 @@ function renderSidebar() {
         const children = showViews ? !!database.viewIds.length : childrenByParent.has(p.id);
         const expanded = treeExpansion.isExpanded(p.id, depth, treePreferences.expandDepth);
         return `<div data-page-row="${e(p.id)}" ${p.databaseId ? `data-database-row="${e(p.databaseId)}"` : ""} class="tree-row ${activeId === p.id && !library ? "active" : ""}" style="--depth:${depth}" ${p.parent ? `data-tree-parent="${e(p.parent)}"` : ""}>
-        ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="Expand or collapse ${e(p.title)}" aria-expanded="${expanded}">${icon(expanded ? "chevron-down" : "chevron-right")}</button>` : ""}
+        ${children ? `<button class="tree-toggle" data-toggle="${e(p.id)}" aria-label="${e(t("Expand or collapse {title}", { title: p.title }))}" aria-expanded="${expanded}">${icon(expanded ? "chevron-down" : "chevron-right")}</button>` : ""}
         <button class="tree-page" draggable="${(!p.dataSourceId || p.wikiMember) && !tree.virtualIds.has(p.id)}" ${p.databaseId ? `data-open-database="${e(p.databaseId)}" data-open="${e(p.id)}"` : `data-open="${e(p.id)}"`}>${pageIcon(p)}<span>${e(p.title)}</span></button>
-        ${tree.virtualIds.has(p.id) ? "" : `<button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="Page actions for ${e(p.title)}" aria-haspopup="menu">${icon("ellipsis")}</button>`}${p.databaseId ? `<button class="tree-add" data-database-new-record="${e(p.databaseId)}" aria-label="Add database record">${icon("plus")}</button>` : `<button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page">${icon("plus")}</button>`}</div>${!expanded ? "" : showViews ? viewRows(database, depth + 1) : rows(p.id, depth + 1)}`;
+        ${tree.virtualIds.has(p.id) ? "" : `<button class="tree-menu" data-page-menu="${e(p.id)}" aria-label="${e(t("Page actions for {title}", { title: p.title }))}" aria-haspopup="menu">${icon("ellipsis")}</button>`}${p.databaseId ? `<button class="tree-add" data-database-new-record="${e(p.databaseId)}" aria-label="Add database record" data-i18n-aria-label="Add database record">${icon("plus")}</button>` : `<button class="tree-add" data-child="${e(p.id)}" aria-label="Add child page" data-i18n-aria-label="Add child page">${icon("plus")}</button>`}</div>${!expanded ? "" : showViews ? viewRows(database, depth + 1) : rows(p.id, depth + 1)}`;
       })
       .join("");
   }
   container.innerHTML =
-    rows(null, 0) || `<p class="empty-small">No pages yet.</p>`;
+    rows(null, 0) || `<p class="empty-small" data-i18n="No pages yet.">No pages yet.</p>`;
   const favorites = document.querySelector("#favorite-pages");
   if (favorites) favorites.innerHTML = tree.pages.some((page) => page.favorite)
-    ? `<div class="section-label">Favorites</div>${tree.pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="${!page.dataSourceId || page.wikiMember}" ${page.databaseId ? `data-open-database="${e(page.databaseId)}" data-open="${e(page.id)}"` : `data-open="${e(page.id)}"`}>${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="Page actions for ${e(page.title)}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
+    ? `<div class="section-label" data-i18n="Favorites">Favorites</div>${tree.pages.filter((page) => page.favorite).sort(comparePageOrder).map((page) => `<div class="tree-row" data-page-row="${e(page.id)}" style="--depth:0"><button class="tree-page" draggable="${!page.dataSourceId || page.wikiMember}" ${page.databaseId ? `data-open-database="${e(page.databaseId)}" data-open="${e(page.id)}"` : `data-open="${e(page.id)}"`}>${pageIcon(page)}<span>${e(page.title)}</span></button><button class="tree-menu" data-page-menu="${e(page.id)}" aria-label="${e(t("Page actions for {title}", { title: page.title }))}" aria-haspopup="menu">${icon("ellipsis")}</button></div>`).join("")}` : "";
   const count = document.querySelector("#page-count");
   if (count) count.textContent = String(pages.length);
   sidebarSnapshot = { container, key };
@@ -476,20 +482,20 @@ function shell() {
   app.inert = true;
   app.setAttribute("aria-busy", "true");
   app.innerHTML = `<aside class="sidebar" id="sidebar">
-    <button class="workspace-switch" data-action="vaults" aria-label="Open knowledge bases: ${e(vaultName)}" title="${e(vaultName)} · Manage knowledge bases"><span><strong>${e(vaultName)}</strong></span>${icon("chevrons-up-down")}</button>
-    <button class="search-launch" data-action="search">${icon("search")}<span>Search</span><kbd>Ctrl K</kbd></button>
-    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}Vault<span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}Databases</button><button data-action="attachments">${icon("paperclip")}Attachments</button><button data-action="people">${icon("user")}People</button><button data-action="graph">${icon("waypoints")}Graph</button><button data-action="conflicts">${icon("git-branch")}Conflicts and versions</button></nav>
-    <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root"><span>Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
-    <div class="sidebar-bottom"><button class="new-page" data-action="import">${icon("folder-input")}Import</button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}Trash</button><a class="markdown-lab-link" data-experimental="block-explorer" data-sidebar-hidden href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}Block Explorer${icon("arrow-up-right")}</a><a class="markdown-lab-link" data-experimental="markdown-lab" data-sidebar-hidden href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}Markdown Lab${icon("arrow-up-right")}</a><div class="local-badge"><span></span>Local Markdown vault</div><button data-action="settings">${icon("settings-2")}Workspace settings${icon("chevron-right")}</button></div>
-  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
+    <button class="workspace-switch" data-action="vaults" aria-label="${e(t("Open knowledge bases: {name}", { name: vaultName }))}" title="${e(t("{name} · Manage knowledge bases", { name: vaultName }))}"><span><strong>${e(vaultName)}</strong></span>${icon("chevrons-up-down")}</button>
+    <button class="search-launch" data-action="search">${icon("search")}<span data-i18n="Search">Search</span><kbd>Ctrl K</kbd></button>
+    <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}<span data-i18n="Vault">Vault</span><span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}<span data-i18n="Databases">Databases</span></button><button data-action="attachments">${icon("paperclip")}<span data-i18n="Attachments">Attachments</span></button><button data-action="people">${icon("user")}<span data-i18n="People">People</span></button><button data-action="graph">${icon("waypoints")}<span data-i18n="Graph">Graph</span></button><button data-action="conflicts">${icon("git-branch")}<span data-i18n="Conflicts and versions">Conflicts and versions</span></button></nav>
+    <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases" data-i18n="Check connection">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root" data-i18n-title="Drop a page here to move it to the vault root"><span data-i18n="Private pages">Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
+    <div class="sidebar-bottom"><button class="new-page" data-action="import">${icon("folder-input")}<span data-i18n="Import">Import</span></button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}<span data-i18n="Trash">Trash</span></button><a class="markdown-lab-link" data-experimental="block-explorer" data-sidebar-hidden href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}<span data-i18n="Block Explorer">Block Explorer</span>${icon("arrow-up-right")}</a><a class="markdown-lab-link" data-experimental="markdown-lab" data-sidebar-hidden href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}<span data-i18n="Markdown Lab">Markdown Lab</span>${icon("arrow-up-right")}</a><div class="local-badge"><span></span><span data-i18n="Local Markdown vault">Local Markdown vault</span></div><button data-action="settings">${icon("settings-2")}<span data-i18n="Workspace settings">Workspace settings</span>${icon("chevron-right")}</button></div>
+  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history" data-i18n-aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location" data-i18n="Markdown · Local files">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   app.classList.add("workspace-layout");
   document.body.classList.toggle("desktop-window", !!window.notdownDesktop);
   const chrome = document.createElement("header"); chrome.className = "workspace-chrome";
-  chrome.innerHTML = `<div class="workspace-chrome-tools"><button type="button" class="workspace-app-menu" aria-label="Notdown menu" title="Notdown menu"><img src="${notdownIcon}" width="18" height="18" alt=""></button></div><div class="workspace-tab-area"><div id="workspace-tabs" role="tablist" aria-label="Workspace tabs"></div><button type="button" class="workspace-new-tab" data-action="new-tab" aria-label="New tab" title="New tab">+</button><div class="workspace-drag-space"></div></div>`;
+  chrome.innerHTML = `<div class="workspace-chrome-tools"><button type="button" class="workspace-app-menu" aria-label="Notdown menu" title="Notdown menu" data-i18n-title="Notdown menu" data-i18n-aria-label="Notdown menu"><img src="${notdownIcon}" width="18" height="18" alt=""></button></div><div class="workspace-tab-area"><div id="workspace-tabs" role="tablist" aria-label="Workspace tabs" data-i18n-aria-label="Workspace tabs"></div><button type="button" class="workspace-new-tab" data-action="new-tab" aria-label="New tab" title="New tab" data-i18n-title="New tab" data-i18n-aria-label="New tab">+</button><div class="workspace-drag-space"></div></div>`;
   chrome.querySelector(".workspace-chrome-tools")!.append(app.querySelector('.topbar > [data-action="sidebar"]')!);
   chrome.querySelector(".workspace-tab-area")!.prepend(app.querySelector(".page-history")!);
   app.prepend(chrome);
-  mountApplicationMenu(chrome.querySelector<HTMLButtonElement>(".workspace-app-menu")!, () => {
+  refreshApplicationMenu = mountApplicationMenu(chrome.querySelector<HTMLButtonElement>(".workspace-app-menu")!, () => {
     const busy = !workspaceTabs || workspaceTabs.busy;
     return [
       { label: "File", items: [
@@ -515,10 +521,10 @@ function shell() {
   resizer.className = "sidebar-resizer";
   resizer.tabIndex = 0;
   resizer.setAttribute("role", "separator");
-  resizer.setAttribute("aria-label", "Resize sidebar");
+  setUIAttribute(resizer, "aria-label", "Resize sidebar");
   resizer.setAttribute("aria-orientation", "vertical");
   resizer.setAttribute("aria-controls", "sidebar");
-  resizer.title = "Drag to resize sidebar; double-click to reset";
+  setUIAttribute(resizer, "title", "Drag to resize sidebar; double-click to reset");
   app.append(resizer);
   applySidebarPreferences();
   for (const link of app.querySelectorAll<HTMLAnchorElement>(".markdown-lab-link")) link.setAttribute("href", vaultPageUrl(link.getAttribute("href")!.slice(1)));
@@ -690,11 +696,11 @@ function refreshBreadcrumbs() {
     const database = databases.find(item => item.id === databaseRoute?.id);
     const host = database && (pages.find(page => page.id === (database.pageId ?? database.id)) ?? { id: database.id, title: database.title, icon: database.icon, parent: database.parent, databaseId: database.id });
     if (host) header.replaceChildren(renderBreadcrumb(pages, host));
-    else header.innerHTML = `<a href="#databases" class="pm-breadcrumb-page">${icon("table-2")}<strong>Databases</strong></a>`;
+    else header.replaceChildren(renderBreadcrumb([], { id: "databases", title: t("Databases"), icon: "table-2" }, { currentHref: "#databases" }));
     return;
   }
   if (!current || library) {
-    header.innerHTML = `${icon("library")}<strong>Vault</strong>`;
+    header.replaceChildren(renderBreadcrumb([], { id: "vault", title: t("Vault"), icon: "library" }, { currentHref: "#vault/" + libraryView }));
     return;
   }
   const container = wikiPresentationPage(current);
@@ -736,26 +742,24 @@ function renderDocument() {
     `<div class="document-wrap ${wiki ? "wiki-page wiki-shell" : ""} ${view === "mindmap" ? "wide" : ""}">
     <div id="page-cover-region" class="page-cover-region"></div>
     <article class="document"><header class="page-header"><div id="page-decoration"></div><textarea id="page-title" class="page-title" rows="1" aria-label="Page title" placeholder="New page" ${presentation.id !== p.id ? 'readonly title="Rename this wiki from its collection view"' : ""}>${e(presentation.title)}</textarea></header>
-    <details class="page-properties"><summary>Properties${icon("chevron-down")}</summary><div class="properties"><div class="property-row"><span>${icon("folder-tree")}Parent page</span><select id="parent-select" aria-label="Parent page"><option value="">Vault root</option>${pages
+    <details class="page-properties"><summary><span data-i18n="Properties">Properties</span>${icon("chevron-down")}</summary><div class="properties"><div class="property-row"><span>${icon("folder-tree")}<span data-i18n="Parent page">Parent page</span></span><select id="parent-select" aria-label="Parent page" data-i18n-aria-label="Parent page"><option value="" data-i18n="Vault root">Vault root</option>${pages
       .filter((x) => x.id !== p.id)
       .map(
         (x) =>
           `<option value="${e(x.id)}" ${p.parent === x.id ? "selected" : ""}>${e(x.title)}</option>`,
       )
       .join("")}</select></div>
-    <div class="property-row"><span>${icon("tags")}Properties</span><button data-action="properties" class="property-values">${
-      p.dataSourceId ? '<span class="muted">Additional page properties…</span>' : Object.entries(p.properties || {})
+    <div class="property-row"><span>${icon("tags")}<span data-i18n="Properties">Properties</span></span><button data-action="properties" class="property-values">${p.dataSourceId ? `<span class="muted" data-i18n="Additional page properties…">Additional page properties…</span>` : Object.entries(p.properties || {})
         .slice(0, 4)
         .map(
           ([key, value]) =>
             `<span class="tag">${e(key)} · ${e(Array.isArray(value) ? value.join(", ") : String(value))}</span>`,
         )
-        .join("") || `<span class="muted">Add page properties</span>`
-    }</button></div><div id="page-metadata"></div></div></details>
-    <div id="database-page-properties"></div><div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents"></aside></div>`;
+        .join("") || `<span class="muted" data-i18n="Add page properties">Add page properties</span>`}</button></div><div id="page-metadata"></div></div></details>
+    <div id="database-page-properties"></div><div id="document-content" class="document-content"></div><div id="children-links"></div><div id="backlinks"></div></article><aside id="floating-toc" class="floating-toc" tabindex="0" aria-label="Page contents" data-i18n-aria-label="Page contents"></aside></div>`;
   if (wiki && wikiHomeSnapshot?.database.id === wiki.id) {
     const snapshot = wikiHomeSnapshot;
-    const nav = document.createElement("nav"); nav.className = "wiki-home-toolbar"; nav.setAttribute("aria-label", "Wiki views");
+    const nav = document.createElement("nav"); nav.className = "wiki-home-toolbar"; setUIAttribute(nav, "aria-label", "Wiki views");
     const picker = document.createElement("div"); picker.className = "wiki-picker-mount"; nav.append(picker);
     wikiPickerCleanup = mountWikiViewPicker(picker, snapshot, "home", {
       select: async id => { if (id !== "home") await navigation?.navigate({ kind: "database", id: wiki.id, viewId: id }); },
@@ -769,11 +773,11 @@ function renderDocument() {
       edit: async id => { if (id === "home") document.querySelector<HTMLDetailsElement>("#page-options")!.open = true; else if (await navigation?.navigate({ kind: "database", id: wiki.id, viewId: id })) databaseWorkspace?.showViewOptions(); },
       report,
     });
-    const search = document.createElement("button"); search.type = "button"; search.className = "wiki-home-search-button"; search.innerHTML = icon("search") + "Search"; search.setAttribute("aria-label", "Search wiki"); search.setAttribute("aria-expanded", "false"); nav.append(search);
+    const search = document.createElement("button"); search.type = "button"; search.className = "wiki-home-search-button"; search.innerHTML = icon("search") + "Search"; setUIAttribute(search, "aria-label", "Search wiki"); search.setAttribute("aria-expanded", "false"); nav.append(search);
     const results = document.createElement("div"); results.className = "wiki-home-search"; results.hidden = true;
-    const input = document.createElement("input"); input.type = "search"; input.placeholder = "Search wiki pages…"; input.setAttribute("aria-label", "Search wiki pages");
+    const input = document.createElement("input"); input.type = "search"; input.placeholder = "Search wiki pages…"; setUIAttribute(input, "aria-label", "Search wiki pages");
     const list = document.createElement("div"); results.append(input, list);
-    input.oninput = () => { const query = input.value.trim().toLocaleLowerCase(); list.replaceChildren(); if (!query) return; for (const page of snapshot.pages.filter(page => (page.title + " " + page.body).toLocaleLowerCase().includes(query))) { const button = document.createElement("button"); button.textContent = page.title; button.onclick = () => void openPage(page.id); list.append(button); } if (!list.childNodes.length) list.textContent = "No matching pages."; };
+    input.oninput = () => { const query = input.value.trim().toLocaleLowerCase(); list.replaceChildren(); if (!query) return; for (const page of snapshot.pages.filter(page => (page.title + " " + page.body).toLocaleLowerCase().includes(query))) { const button = document.createElement("button"); button.textContent = page.title; button.onclick = () => void openPage(page.id); list.append(button); } if (!list.childNodes.length) setUIText(list, "No matching pages."); };
     search.onclick = () => { results.hidden = !results.hidden; search.setAttribute("aria-expanded", String(!results.hidden)); if (!results.hidden) input.focus(); };
     input.onkeydown = event => { if (event.key === "Escape") { results.hidden = true; search.setAttribute("aria-expanded", "false"); search.focus(); } };
     document.querySelector(".page-header")!.after(nav, results);
@@ -803,15 +807,15 @@ function renderPageDecoration() {
   const rawPosition = p.properties?.coverPosition;
   const position = typeof rawPosition === "number" && Number.isFinite(rawPosition) ? Math.max(0, Math.min(100, rawPosition)) : 50;
   document.querySelector(".document-wrap")?.classList.toggle("has-page-cover", hasCover);
-  coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(vaultAssetUrl(cover))}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition">Reposition</button><a href="${e(vaultAssetUrl(cover))}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover">${icon("download")}</a></div>` : "";
-  const actions = `${hasIcon ? "" : `<button data-action="page-icon">${icon("smile")}Add icon</button>`}${hasCover ? "" : `<button data-action="page-cover">${icon("image")}Add cover</button>`}`;
-  host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon">${pageIcon(p)}</button>` : ""}${actions ? `<div class="page-decoration-actions">${actions}</div>` : ""}`;
+  coverHost.innerHTML = hasCover ? `<img class="page-cover" src="${e(vaultAssetUrl(cover))}" alt="Page cover" style="object-position: 50% ${position}%"><div class="page-cover-toolbar"><button type="button" data-action="page-cover" aria-label="Change cover" data-i18n="Change" data-i18n-aria-label="Change cover">Change</button><button type="button" data-action="cover-reposition" data-i18n="Reposition">Reposition</button><a href="${e(vaultAssetUrl(cover))}" download target="_blank" rel="noopener noreferrer" aria-label="Download cover" title="Download cover" data-i18n-title="Download cover" data-i18n-aria-label="Download cover">${icon("download")}</a></div>` : "";
+  const actions = `${hasIcon ? "" : `<button data-action="page-icon">${icon("smile")}<span data-i18n="Add icon">Add icon</span></button>`}${hasCover ? "" : `<button data-action="page-cover">${icon("image")}<span data-i18n="Add cover">Add cover</span></button>`}`;
+  host.innerHTML = `${hasIcon ? `<button class="page-emblem" data-action="page-icon" aria-label="Change page icon" data-i18n-aria-label="Change page icon">${pageIcon(p)}</button>` : ""}${actions ? `<div class="page-decoration-actions">${actions}</div>` : ""}`;
   if (p.id !== current.id) { host.querySelectorAll("button").forEach(button => { button.disabled = true; }); coverHost.querySelector(".page-cover-toolbar")?.remove(); }
   refreshIcons();
 }
 function pageOptions() {
   if (library)
-    return `<summary class="icon-button" aria-label="Workspace options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu"><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+    return `<summary class="icon-button" aria-label="Workspace options" data-i18n-aria-label="Workspace options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu"><button role="menuitem" data-action="settings">${icon("settings-2")}<span data-i18n="Settings">Settings</span></button></div>`;
   const modes: [View, string, string][] = [
     ["document", "file-text", "Page"],
     ["outline", "list-tree", "Outline"],
@@ -819,7 +823,7 @@ function pageOptions() {
     ["source", "code-xml", "Markdown source"],
     ["split", "columns-2", "Source and page"],
   ];
-  return `<summary class="icon-button" aria-label="Page options" title="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small>Page</small>${pageActionsHTML(wikiForPage(current) ? { ...wikiPresentationPage(current), wiki: true } : current, "data-current-page-action")}<hr>` : ""}<small>View</small>${current && !wikiForPage(current) ? `<button type="button" role="menuitemcheckbox" aria-checked="${current.fullWidth === true}" data-action="page-full-width">${icon("columns-2")}<span>Full width</span>${current.fullWidth ? icon("check") : ""}</button>` : ""}${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span>${label}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}Page history</button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}Page attachments</button><button role="menuitem" data-action="page-properties">${icon("tags")}Page properties</button><button role="menuitem" data-action="export">${icon("download")}Export HTML</button><button role="menuitem" data-action="export-text">${icon("file-text")}Export plain text</button><button role="menuitem" data-action="settings">${icon("settings-2")}Settings</button></div>`;
+  return `<summary class="icon-button" aria-label="Page options" title="Page options" data-i18n-title="Page options" data-i18n-aria-label="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small data-i18n="Page">Page</small>${pageActionsHTML(wikiForPage(current) ? { ...wikiPresentationPage(current), wiki: true } : current, "data-current-page-action")}<hr>` : ""}<small data-i18n="View">View</small>${current && !wikiForPage(current) ? `<button type="button" role="menuitemcheckbox" aria-checked="${current.fullWidth === true}" data-action="page-full-width">${icon("columns-2")}<span data-i18n="Full width">Full width</span>${current.fullWidth ? icon("check") : ""}</button>` : ""}${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span data-i18n="${e(label)}">${e(t(label))}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}<span data-i18n="Page history">Page history</span></button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}<span data-i18n="Page attachments">Page attachments</span></button><button role="menuitem" data-action="page-properties">${icon("tags")}<span data-i18n="Page properties">Page properties</span></button><button role="menuitem" data-action="export">${icon("download")}<span data-i18n="Export HTML">Export HTML</span></button><button role="menuitem" data-action="export-text">${icon("file-text")}<span data-i18n="Export plain text">Export plain text</span></button><button role="menuitem" data-action="settings">${icon("settings-2")}<span data-i18n="Settings">Settings</span></button></div>`;
 }
 function renderPageOptions() {
   document.querySelector("#page-options")!.innerHTML = pageOptions();
@@ -906,7 +910,7 @@ function renderContent() {
       current.bodyFormat,
       current.syntax,
     );
-    content.innerHTML = `<p class="view-description">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="${view === "mindmap" ? "mindmap" : "outline-view"}">${view === "mindmap" ? `<div class="mindmap-root">${e(current.title)}</div>` : ""}${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3>No outline yet</h3><p>Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button">Start editing</button></div>`}`;
+    content.innerHTML = `<p class="view-description" data-i18n="Generated from headings and lists in your Markdown.">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="${view === "mindmap" ? "mindmap" : "outline-view"}">${view === "mindmap" ? `<div class="mindmap-root">${e(current.title)}</div>` : ""}${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3 data-i18n="No outline yet">No outline yet</h3><p data-i18n="Add headings or lists to see your outline here.">Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button" data-i18n="Start editing">Start editing</button></div>`}`;
   }
   renderToc();
   refreshIcons();
@@ -931,11 +935,11 @@ function renderToc() {
     ...headings.map((h) => Number(h.tagName.slice(1))),
   );
   const previousScroll = toc.querySelector(".toc-list")?.scrollTop ?? 0;
-  toc.innerHTML = `<nav aria-label="Heading navigation"><ol class="toc-list">${headings
+  toc.innerHTML = `<nav aria-label="Heading navigation" data-i18n-aria-label="Heading navigation"><ol class="toc-list">${headings
     .map((heading, index) => {
       const level = Number(heading.tagName.slice(1));
       const text = heading.textContent?.trim() || "Untitled heading";
-      return `<li><button type="button" data-heading="${index}" style="--depth:${level - baseLevel}" title="${e(text)}" aria-label="${e(text)}"><span class="toc-line" aria-hidden="true"></span><span class="toc-text">${e(text)}</span></button></li>`;
+      return `<li><button type="button" data-heading="${index}" style="--depth:${level - baseLevel}" title="${e(text)}" aria-label="${e(text)}"><span class="toc-line" aria-hidden="true"></span><span class="toc-text">${e(t(text))}</span></button></li>`;
     })
     .join("")}</ol></nav>`;
   toc.classList.toggle(
@@ -1048,7 +1052,7 @@ function renderRelations() {
   const children = pages.filter((p) => p.parent === current!.id);
   const childrenOpen = childPageExpansion.get(pageId) ?? children.length <= 5;
   document.querySelector("#children-links")!.innerHTML = children.length
-    ? `<details class="relations child-pages" ${childrenOpen ? "open" : ""}><summary><h3>${icon("chevron-right", "child-pages-chevron")}${icon("files")}Child page <span>${children.length}</span></h3></summary>${children.map((p) => `<button class="child-card" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span>${icon("arrow-up-right")}</button>`).join("")}</details>`
+    ? `<details class="relations child-pages" ${childrenOpen ? "open" : ""}><summary><h3>${icon("chevron-right", "child-pages-chevron")}${icon("files")}<span data-i18n="Child page">Child page</span> <span>${children.length}</span></h3></summary>${children.map((p) => `<button class="child-card" data-open="${e(p.id)}">${pageIcon(p)}<span>${e(p.title)}</span>${icon("arrow-up-right")}</button>`).join("")}</details>`
     : "";
   const childPages = document.querySelector<HTMLDetailsElement>("#children-links > details");
   childPages?.querySelector("summary")?.addEventListener("click", () => {
@@ -1057,7 +1061,7 @@ function renderRelations() {
   });
   const incoming = backlinks.incoming(pages, current);
   document.querySelector("#backlinks")!.innerHTML = incoming.length
-    ? `<section class="relations"><h3>${icon("link-2")}Backlinks <span>${incoming.length}</span></h3>${incoming.map((p) => `<button class="backlink" data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button>`).join("")}</section>`
+    ? `<section class="relations"><h3>${icon("link-2")}<span data-i18n="Backlinks">Backlinks</span> <span>${incoming.length}</span></h3>${incoming.map((p) => `<button class="backlink" data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button>`).join("")}</section>`
     : "";
 }
 function updateCounts() {
@@ -1065,8 +1069,8 @@ function updateCounts() {
   if (el)
     el.textContent =
       current && !library
-        ? `${current.body.replace(/\s/g, "").length.toLocaleString()} characters · UTF-8`
-        : `${pages.length} pages · Markdown`;
+        ? t("{count} characters · UTF-8", { count: current.body.replace(/\s/g, "").length.toLocaleString() })
+        : t("{count} pages · Markdown", { count: pages.length });
 }
 
 async function showLibrary(selected = libraryView) {
@@ -1105,8 +1109,8 @@ function renderLibrary() {
     ["graph", "waypoints", "Graph"],
   ];
   document.querySelector("#main")!.innerHTML =
-    `<section class="library"><div class="library-intro"><div><h1>Vault</h1></div><button class="primary-button" data-action="new">${icon("plus")}New page</button></div>
-    <div class="library-toolbar"><div class="tabs">${modes.map(([v, i, label]) => `<button data-library-view="${v}" class="${libraryView === v ? "selected" : ""}">${icon(i)}${label}</button>`).join("")}</div><label class="library-search">${icon("search")}<input id="library-search" aria-label="Filter pages" placeholder="Filter pages…" value="${e(search)}" /></label></div>
+    `<section class="library"><div class="library-intro"><div><h1 data-i18n="Vault">Vault</h1></div><button class="primary-button" data-action="new">${icon("plus")}<span data-i18n="New page">New page</span></button></div>
+    <div class="library-toolbar"><div class="tabs">${modes.map(([v, i, label]) => `<button data-library-view="${v}" class="${libraryView === v ? "selected" : ""}">${icon(i)}<span data-i18n="${e(label)}">${e(t(label))}</span></button>`).join("")}</div><label class="library-search">${icon("search")}<input id="library-search" aria-label="Filter pages" placeholder="Filter pages…" value="${e(search)}"  data-i18n-placeholder="Filter pages…" data-i18n-aria-label="Filter pages"/></label></div>
     <div id="library-results">${libraryView === "gallery" ? galleryHTML(filtered) : libraryView === "list" ? listHTML(filtered) : libraryView === "graph" ? graphHTML(filtered) : libraryTreeHTML(filtered)}</div></section>`;
   const graphRoot = document.querySelector<HTMLElement>("#library-results .graph-view");
   if (graphRoot) graphCleanup = mountGraph(graphRoot, filtered, pages);
@@ -1131,10 +1135,10 @@ function galleryHTML(list: Page[]) {
             )}</p><div class="card-footer"><span>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title || "Child page" : "Root page")}</span>${icon("arrow-up-right")}</div></div></button>`,
         )
         .join("")}</div>`
-    : `<p class="empty-state">No matching pages.</p>`;
+    : `<p class="empty-state" data-i18n="No matching pages.">No matching pages.</p>`;
 }
 function listHTML(list: Page[]) {
-  return `<div class="table-scroll"><table class="pages-table"><thead><tr><th>Page name</th><th>Parent page</th><th>Properties</th><th>Last modified</th></tr></thead><tbody>${list
+  return `<div class="table-scroll"><table class="pages-table"><thead><tr><th data-i18n="Page name">Page name</th><th data-i18n="Parent page">Parent page</th><th data-i18n="Properties">Properties</th><th data-i18n="Last modified">Last modified</th></tr></thead><tbody>${list
     .map(
       (p) =>
         `<tr><td><button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button></td><td>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title : "—")}</td><td>${Object.entries(
@@ -1149,14 +1153,14 @@ function listHTML(list: Page[]) {
     .join("")}</tbody></table></div>`;
 }
 function libraryTreeHTML(list: Page[]) {
-  if (!list.length) return '<p class="empty-state">No matching pages.</p>';
+  if (!list.length) return `<p class="empty-state" data-i18n="No matching pages.">No matching pages.</p>`;
   const ids = new Set(list.map((p) => p.id));
   const seen = new Set<string>();
   const row = (p: Page, depth: number): string => {
     if (seen.has(p.id)) return "";
     seen.add(p.id);
     const children = list.filter(c => c.parent === p.id && !seen.has(c.id));
-    const content = `<button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button><span class="muted">${p.body.length} characters</span>`;
+    const content = `<button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button><span class="muted">${p.body.length} <span data-i18n="characters">characters</span></span>`;
     if (!children.length) return `<li><div class="library-tree-row"><span class="library-tree-chevron-space" aria-hidden="true"></span>${content}</div></li>`;
     // Roots are level 1. Open levels 1 and 2 to show exactly three levels.
     const open = libraryTreeExpansion.get(p.id) ?? depth < 2;
@@ -1178,9 +1182,9 @@ function modal(title: string, body: string, wide = false) {
   closeModal();
   const dialog = document.createElement("dialog");
   dialog.id = "dialog";
-  dialog.setAttribute("aria-label", title);
+  setUIAttribute(dialog, "aria-label", title);
   dialog.className = wide ? "wide-dialog" : "";
-  dialog.innerHTML = `<div class="dialog-heading"><h2>${e(title)}</h2>${button("close-dialog", "x", "Close")}</div>${body}`;
+  dialog.innerHTML = `<div class="dialog-heading"><h2 data-i18n="${e(title)}">${e(t(title))}</h2>${button("close-dialog", "x", "Close")}</div>${body}`;
   document.body.append(dialog);
   dialog.showModal();
   refreshIcons();
@@ -1277,7 +1281,7 @@ async function createDatabase(parent: string | null, mode?: "inline" | "full" | 
     databaseCreationBusy = false;
     app.inert = false;
     if (databaseRoute?.id && location.hash !== originalRoute) {
-      const title = document.querySelector<HTMLInputElement>('#main [aria-label="Database title"]');
+      const title = document.querySelector<HTMLInputElement>('#main [data-i18n-aria-label="Database title"]');
       title?.focus(); title?.select();
     }
   }
@@ -1316,7 +1320,7 @@ async function deleteChildPages(ids: string[], isCurrent: () => boolean): Promis
     return true;
   });
   const label = targets.length === 1 ? targets[0].title : `${targets[0].title} and ${targets.length - 1} more`;
-  const dialog = modal("Delete child pages", `<p>Delete ${e(label)}${targets.length > 1 ? ` (${targets.length} child pages)` : ""}?</p><p class="muted">These pages and their children will move to Trash. You can restore them from Trash.</p><div class="dialog-actions"><button type="button" class="secondary-button" data-action="close-dialog">Cancel</button><button type="button" class="primary-button danger" data-confirm-child-delete>Move to Trash</button></div>`);
+  const dialog = modal("Delete child pages", `<p><span data-i18n="Delete">Delete</span> ${e(label)}${targets.length > 1 ? ` (${targets.length} child pages)` : ""}?</p><p class="muted" data-i18n="These pages and their children will move to Trash. You can restore them from Trash.">These pages and their children will move to Trash. You can restore them from Trash.</p><div class="dialog-actions"><button type="button" class="secondary-button" data-action="close-dialog" data-i18n="Cancel">Cancel</button><button type="button" class="primary-button danger" data-confirm-child-delete data-i18n="Move to Trash">Move to Trash</button></div>`);
   return new Promise(resolve => {
     let submitting = false;
     dialog.addEventListener("close", () => { if (!submitting) resolve(false); }, { once: true });
@@ -1364,7 +1368,7 @@ async function loadDatabases(id?: string, isCurrent = () => true, viewId?: strin
     closeModal(); closePageContextMenu(); destroyEditor();
     current = null; library = false; dirty = false; pages = loadedPages;
     databaseRoute = { kind: "database", ...(id ? { id } : {}), ...(viewId ? { viewId } : {}) };
-    document.querySelector("#main")!.innerHTML = `<section class="database-workspace"><h1>Databases</h1><p>${e(databaseRestartMessage)}</p><button class="primary-button" data-action="retry-databases">Check connection</button></section>`;
+    document.querySelector("#main")!.innerHTML = `<section class="database-workspace"><h1 data-i18n="Databases">Databases</h1><p>${e(databaseRestartMessage)}</p><button class="primary-button" data-action="retry-databases" data-i18n="Check connection">Check connection</button></section>`;
     renderPageOptions();
     renderSidebar(); updateCounts(); status("Server update needed", "error");
     return true;
@@ -1408,7 +1412,7 @@ async function renderDatabasePageProperties(page: Page) {
   if (!host) return;
   if (page.databaseId) {
     if (isWikiDatabase(databases.find(database => database.id === page.databaseId))) return;
-    const button = document.createElement("button"); button.className = "primary-button"; button.textContent = "Open database";
+    const button = document.createElement("button"); button.className = "primary-button"; setUIText(button, "Open database");
     button.addEventListener("click", () => void navigation?.navigate({ kind: "database", id: page.databaseId })); host.append(button);
   }
   if (!page.dataSourceId) return;
@@ -1536,8 +1540,8 @@ function pageActionForm(page: Page, action: "rename" | "move") {
     }
   }
   const dialog = modal(action === "rename" ? "Rename page" : "Move page", `<form class="page-action-form">
-    ${action === "rename" ? `<label>Page name<input name="title" required maxlength="500" value="${e(page.title)}"></label>` : `<p class="muted">Move ${e(page.title)} and its child pages.</p><label>Destination<select name="parent"><option value="">Vault root</option>${pages.filter((candidate) => !descendants.has(candidate.id)).map((candidate) => `<option value="${e(candidate.id)}" ${candidate.id === page.parent ? "selected" : ""}>${e(candidate.title)}</option>`).join("")}</select></label>`}
-    <div class="dialog-actions"><button type="button" class="secondary-button" data-action="close-dialog">Cancel</button><button type="submit" class="primary-button">${action === "rename" ? "Save name" : "Move page"}</button></div></form>`);
+    ${action === "rename" ? `<label><span data-i18n="Page name">Page name</span><input name="title" required maxlength="500" value="${e(page.title)}"></label>` : `<p class="muted"><span data-i18n="Move">Move</span> ${e(page.title)} <span data-i18n="and its child pages.">and its child pages.</span></p><label><span data-i18n="Destination">Destination</span><select name="parent"><option value="" data-i18n="Vault root">Vault root</option>${pages.filter((candidate) => !descendants.has(candidate.id)).map((candidate) => `<option value="${e(candidate.id)}" ${candidate.id === page.parent ? "selected" : ""}>${e(candidate.title)}</option>`).join("")}</select></label>`}
+    <div class="dialog-actions"><button type="button" class="secondary-button" data-action="close-dialog" data-i18n="Cancel">Cancel</button><button type="submit" class="primary-button">${action === "rename" ? "Save name" : "Move page"}</button></div></form>`);
   const input = dialog.querySelector<HTMLInputElement>("input");
   input?.select();
   dialog.querySelector("form")!.addEventListener("submit", (event) => {
@@ -1600,7 +1604,7 @@ async function handlePageAction(page: Page, action: PageAction) {
     url.hash = pageUrl(page.id);
     try { await navigator.clipboard.writeText(url.href); toast("Page link copied."); }
     catch {
-      const dialog = modal("Copy page link", `<label>Page link<input readonly value="${e(url.href)}"></label><p class="muted">Select and copy this link.</p>`);
+      const dialog = modal("Copy page link", `<label><span data-i18n="Page link">Page link</span><input readonly value="${e(url.href)}"></label><p class="muted" data-i18n="Select and copy this link.">Select and copy this link.</p>`);
       dialog.querySelector("input")?.select();
     }
   } else if (action === "rename" || action === "move") pageActionForm(page, action);
@@ -1617,10 +1621,24 @@ async function showTrash() {
   const all = await api<Page[]>("/pages?includeTrashed=true");
   const entries = all.filter((page) => page.trashed && !page.dataSourceTrashed);
   const sources = (await api<DatabaseSourceSummary[]>("/data-sources?includeTrashed=true")).filter(source => source.trashed);
-  const dialog = modal("Trash", `<p class="muted">Restore returns a page and its children to the vault. Delete moves their Markdown files and attachments that lose their last reference to the Windows Recycle Bin. Shared attachments are kept.</p>${!info.capabilities?.systemRecycleBin ? '<p class="muted">System Recycle Bin requires an up-to-date Windows server.</p>' : ""}<div class="trash-list">${entries.length ? entries.map((page) => `<div><span>${e(page.title)}</span><div class="trash-row-actions"><button class="secondary-button" data-restore="${e(page.id)}">${icon("undo-2")}Restore</button><button class="secondary-button danger" data-recycle="${e(page.id)}" title="Move to system Recycle Bin" ${info.capabilities?.systemRecycleBin ? "" : "disabled"}>${icon("trash-2")}Delete</button></div></div>`).join("") : '<p class="empty-small">Trash is empty.</p>'}</div>`);
+  const dialog = modal("Trash", `<p class="muted" data-i18n="Restore returns a page and its children to the vault. Delete moves their Markdown files and attachments that lose their last reference to the Windows Recycle Bin. Shared attachments are kept.">Restore returns a page and its children to the vault. Delete moves their Markdown files and attachments that lose their last reference to the Windows Recycle Bin. Shared attachments are kept.</p>${!info.capabilities?.systemRecycleBin ? `<p class="muted" data-i18n="System Recycle Bin requires an up-to-date Windows server.">System Recycle Bin requires an up-to-date Windows server.</p>` : ""}<div class="trash-list">${entries.length ? entries.map((page) => `<div><span>${e(page.title)}</span><div class="trash-row-actions"><button class="secondary-button" data-restore="${e(page.id)}">${icon("undo-2")}<span data-i18n="Restore">Restore</span></button><button class="secondary-button danger" data-recycle="${e(page.id)}" title="Move to system Recycle Bin" ${info.capabilities?.systemRecycleBin ? "" : "disabled"} data-i18n-title="Move to system Recycle Bin">${icon("trash-2")}<span data-i18n="Delete">Delete</span></button></div></div>`).join("") : `<p class="empty-small" data-i18n="Trash is empty.">Trash is empty.</p>`}</div>`);
   const list = dialog.querySelector(".trash-list")!;
-  if (sources.length) { list.querySelector(".empty-small")?.remove(); for (const source of sources) { const row = document.createElement("div"); row.innerHTML = `<span>${e(source.title)} · Data source · ${source.recordCount} pages</span><button class="secondary-button" data-restore-source="${e(source.id)}">Restore</button>`; list.append(row); } }
+  dialog.insertAdjacentHTML("beforeend", `<div class="dialog-actions trash-actions"><button type="button" class="secondary-button danger" data-empty-trash ${info.capabilities?.systemRecycleBin && (entries.length || sources.length) ? "" : "disabled"}>${icon("trash-2")}<span data-i18n="Empty Trash">Empty Trash</span></button></div>`);
+  refreshIcons();
+  if (sources.length) { list.querySelector(".empty-small")?.remove(); for (const source of sources) { const row = document.createElement("div"); row.innerHTML = `<span>${e(source.title)} <span data-i18n="· Data source ·">· Data source ·</span> ${source.recordCount} <span data-i18n="pages">pages</span></span><button class="secondary-button" data-restore-source="${e(source.id)}" data-i18n="Restore">Restore</button>`; list.append(row); } }
   dialog.addEventListener("click", (event) => {
+    if (pageActionBusy) return;
+    if ((event.target as Element).closest("[data-empty-trash]")) {
+      const confirmation = modal("Empty Trash?", `<p data-i18n="Clear all pages, child pages and data sources from Trash? You will no longer be able to restore them from Notdown's Trash.">Clear all pages, child pages and data sources from Trash? You will no longer be able to restore them from Notdown's Trash.</p><p class="muted" data-i18n="Page files and attachments that lose their last reference will move to the Windows Recycle Bin. Shared attachments are kept.">Page files and attachments that lose their last reference will move to the Windows Recycle Bin. Shared attachments are kept.</p><div class="dialog-actions trash-actions"><button type="button" class="secondary-button" data-cancel-empty-trash data-i18n="Cancel">Cancel</button><button type="button" class="secondary-button danger" data-confirm-empty-trash data-i18n="Empty Trash">Empty Trash</button></div>`);
+      confirmation.querySelector<HTMLButtonElement>("[data-cancel-empty-trash]")!.onclick = () => void showTrash().catch(report);
+      const confirm = confirmation.querySelector<HTMLButtonElement>("[data-confirm-empty-trash]")!;
+      confirm.onclick = () => {
+        if (pageActionBusy) return;
+        confirm.disabled = true; setUIText(confirm, "Emptying…");
+        void recycleTrashPages(entries, all, sources, true).catch(report).finally(() => { confirm.disabled = false; setUIText(confirm, "Empty Trash"); });
+      };
+      return;
+    }
     const sourceRestore = (event.target as Element).closest<HTMLButtonElement>("[data-restore-source]");
     if (sourceRestore) { const source = sources.find(source => source.id === sourceRestore.dataset.restoreSource); if (!source) return; sourceRestore.disabled = true; void api(`/data-sources/${source.id}/trash`, { method: "POST", body: JSON.stringify({ baseRevision: source.revision, databaseRevision: source.ownerRevision, trashed: false }) }).then(async () => { document.dispatchEvent(new Event("notdown-database-structure-changed")); await showTrash(); }).catch(report).finally(() => sourceRestore.disabled = false); return; }
     const recycle = (event.target as Element).closest<HTMLButtonElement>("[data-recycle]");
@@ -1628,8 +1646,8 @@ async function showTrash() {
       const target = entries.find((entry) => entry.id === recycle.dataset.recycle);
       if (!target || pageActionBusy) return;
       recycle.disabled = true;
-      recycle.textContent = "Deleting…";
-      void recycleTrashPage(target, all).catch(report).finally(() => { recycle.disabled = false; recycle.textContent = "Delete"; });
+      setUIText(recycle, "Deleting…");
+      void recycleTrashPage(target, all).catch(report).finally(() => { recycle.disabled = false; setUIText(recycle, "Delete"); });
       return;
     }
     const restore = (event.target as Element).closest<HTMLButtonElement>("[data-restore]");
@@ -1643,36 +1661,82 @@ async function showTrash() {
 }
 
 async function recycleTrashPage(page: Page, all: Page[]) {
+  return recycleTrashPages([page], all);
+}
+
+function trashSubtree(all: Page[], roots: Page[]): Map<string, string> {
+  const selected = new Map(roots.map(page => [page.id, page.revision]));
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const item of all) if (item.parent && selected.has(item.parent) && !selected.has(item.id)) {
+      selected.set(item.id, item.revision); changed = true;
+    }
+  }
+  return selected;
+}
+
+async function refreshTrashWorkspace(selected: Set<string>) {
+  pages = await refreshWorkspacePages();
+  renderSidebar();
+  if ((current && selected.has(current.id)) ||
+      (databaseRoute?.id && !databases.some(database => database.id === databaseRoute!.id))) {
+    destroyEditor(); current = null; dirty = false;
+    await showLibrary();
+  } else if (databaseRoute) {
+    await loadDatabases(databaseRoute.id, () => true, databaseRoute.viewId);
+  } else if (library) renderLibrary();
+  await showTrash();
+}
+
+async function recycleTrashPages(targets: Page[], all: Page[], sources: DatabaseSourceSummary[] = [], empty = false) {
   if (pageActionBusy) return;
   pageActionBusy = true;
   app.inert = true;
+  const dialog = document.querySelector<HTMLDialogElement>("#dialog");
+  const preventClose = (event: Event) => event.preventDefault();
+  if (dialog) { dialog.inert = true; dialog.setAttribute("aria-busy", "true"); dialog.addEventListener("cancel", preventClose); }
+  const selected = new Set<string>(), recycled = new Set<string>(), assets = new Set<string>(), warnings = new Set<string>();
+  const collect = (result: { recycled: string[]; deletedAssets?: string[]; warnings?: string[] }) => {
+    result.recycled.forEach(id => recycled.add(id));
+    result.deletedAssets?.forEach(path => assets.add(path));
+    result.warnings?.forEach(warning => warnings.add(warning));
+  };
   try {
     const info = await requirePageActions();
     if (!info.capabilities?.systemRecycleBin) throw new Error("System Recycle Bin requires an up-to-date Windows server.");
     if (!(await save())) return;
-    const selected = new Map([[page.id, page.revision]]);
-    for (let changed = true; changed;) {
-      changed = false;
-      for (const item of all) if (item.parent && selected.has(item.parent) && !selected.has(item.id)) {
-        selected.set(item.id, item.revision); changed = true;
-      }
+    const ownerRevisions = new Map<string, string>();
+    for (const source of sources) {
+      const subtree = trashSubtree(all, all.filter(page => page.dataSourceId === source.id));
+      subtree.forEach((_, id) => selected.add(id));
+      const result = await api<{ recycled: string[]; deletedAssets: string[]; warnings: string[]; databaseRevision: string }>(`/data-sources/${source.id}/recycle`, {
+        method: "POST", body: JSON.stringify({ baseRevision: source.revision, databaseRevision: ownerRevisions.get(source.ownerDatabaseId) ?? source.ownerRevision, baseRevisions: Object.fromEntries(subtree) }),
+      });
+      ownerRevisions.set(source.ownerDatabaseId, result.databaseRevision);
+      collect(result);
     }
-    const result = await api<{ deletedAssets?: string[]; warnings?: string[] }>(`/pages/${page.id}/recycle`, {
-      method: "POST",
-      body: JSON.stringify({ baseRevision: page.revision, baseRevisions: Object.fromEntries(selected) }),
+    const targetIds = new Set(targets.map(page => page.id)), parents = new Map(all.map(page => [page.id, page.parent]));
+    const roots = targets.filter(page => {
+      const seen = new Set([page.id]);
+      for (let parent = page.parent; parent && !seen.has(parent); parent = parents.get(parent) ?? null) {
+        if (targetIds.has(parent)) return false;
+        seen.add(parent);
+      }
+      return true;
     });
-    pages = await refreshWorkspacePages();
-    renderSidebar();
-    if ((current && selected.has(current.id)) ||
-        (databaseRoute?.id && !databases.some(database => database.id === databaseRoute!.id))) {
-      destroyEditor();
-      current = null;
-      dirty = false;
-      await showLibrary();
-    } else if (library) renderLibrary();
-    await showTrash();
-    toast(`Moved ${selected.size === 1 ? "page" : `${selected.size} pages`} to the Windows Recycle Bin.${result.deletedAssets?.length ? ` Removed ${result.deletedAssets.length} unreferenced attachment(s).` : ""}${result.warnings?.length ? " " + result.warnings.join(" ") : ""}`);
+    for (const page of roots) {
+      if (recycled.has(page.id)) continue;
+      const subtree = trashSubtree(all, [page]);
+      subtree.forEach((_, id) => selected.add(id));
+      collect(await api(`/pages/${page.id}/recycle`, { method: "POST", body: JSON.stringify({ baseRevision: page.revision, baseRevisions: Object.fromEntries(subtree) }) }));
+    }
+    await refreshTrashWorkspace(selected);
+    toast(`${empty ? "Trash emptied. " : ""}Moved ${recycled.size === 1 ? "page" : `${recycled.size} pages`} to the Windows Recycle Bin.${sources.length ? ` Cleared ${sources.length} data source(s).` : ""}${assets.size ? ` Removed ${assets.size} unreferenced attachment(s).` : ""}${warnings.size ? " " + [...warnings].join(" ") : ""}`);
+  } catch (error) {
+    await refreshTrashWorkspace(selected);
+    throw new Error(`${empty ? "Empty Trash stopped. Completed files are in the Windows Recycle Bin; remaining items are shown in Trash. " : ""}${error instanceof Error ? error.message : String(error)}`);
   } finally {
+    if (dialog) { dialog.inert = false; dialog.removeAttribute("aria-busy"); dialog.removeEventListener("cancel", preventClose); }
     app.inert = false;
     pageActionBusy = false;
   }
@@ -1707,11 +1771,11 @@ function showProperties() {
   captureEditor();
   const dialog = modal(
     "Page properties",
-    `<p class="muted">Properties are stored in vault metadata.json. YAML and Pandoc title blocks in the document override these defaults. Edit document overrides in source or Metadata details.</p><form id="properties-form"><label>Properties (JSON object)<textarea name="properties" class="code-input" rows="10" spellcheck="false">${e(JSON.stringify(current.properties, null, 2))}</textarea></label><p class="muted">Example: {"status": "In progress", "tags": ["Design", "Knowledge management"]}</p><div class="dialog-actions"><button type="submit" class="primary-button">Save properties</button></div></form>`,
+    `<p class="muted" data-i18n="Properties are stored in vault metadata.json. YAML and Pandoc title blocks in the document override these defaults. Edit document overrides in source or Metadata details.">Properties are stored in vault metadata.json. YAML and Pandoc title blocks in the document override these defaults. Edit document overrides in source or Metadata details.</p><form id="properties-form"><label><span data-i18n="Properties (JSON object)">Properties (JSON object)</span><textarea name="properties" class="code-input" rows="10" spellcheck="false">${e(JSON.stringify(current.properties, null, 2))}</textarea></label><p class="muted">Example: {"status": "In progress", "tags": ["Design", "Knowledge management"]}</p><div class="dialog-actions"><button type="submit" class="primary-button" data-i18n="Save properties">Save properties</button></div></form>`,
   );
   const initialCover = typeof current.properties.cover === "string" ? current.properties.cover : "";
-  const coverRow = document.createElement("label"), coverInput = document.createElement("input"); coverRow.textContent = "Cover image URL";
-  coverInput.name = "cover"; coverInput.setAttribute("aria-label", "Cover image URL"); coverInput.value = initialCover; coverRow.append(coverInput); dialog.querySelector("form")!.prepend(coverRow);
+  const coverRow = document.createElement("label"), coverInput = document.createElement("input"); setUIText(coverRow, "Cover image URL");
+  coverInput.name = "cover"; setUIAttribute(coverInput, "aria-label", "Cover image URL"); coverInput.value = initialCover; coverRow.append(coverInput); dialog.querySelector("form")!.prepend(coverRow);
   dialog.querySelector("form")!.addEventListener("submit", (event) => {
     event.preventDefault();
     try {
@@ -1852,8 +1916,8 @@ function startCoverReposition() {
   };
   region.classList.add("is-repositioning");
   region.tabIndex = 0;
-  region.setAttribute("aria-label", "Reposition cover with drag or arrow keys");
-  toolbar.innerHTML = `<button type="button" data-cover-position-save>Save position</button><button type="button" data-cover-position-cancel>Cancel</button>`;
+  setUIAttribute(region, "aria-label", "Reposition cover with drag or arrow keys");
+  toolbar.innerHTML = `<button type="button" data-cover-position-save data-i18n="Save position">Save position</button><button type="button" data-cover-position-cancel data-i18n="Cancel">Cancel</button>`;
   region.addEventListener("pointerdown", pointerDown);
   region.addEventListener("keydown", keydown);
   toolbar.addEventListener("click", click);
@@ -1862,10 +1926,10 @@ function startCoverReposition() {
 function showSettings() {
   const settingsDialog = modal(
     "Workspace settings",
-    `<div class="settings-section" data-settings-category="workspace"><h3>Vault storage</h3><p>Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section" data-settings-category="appearance"><h3>Reading experience</h3><label class="switch-row"><span>Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span>Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section" data-settings-category="advanced"><h3>About Notdown</h3><p>Local revision checks and conflict copies protect your edits. Configure Cloud sync in Sync &amp; history to connect your devices while the app is open.</p><p>MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog">Done</button></div>`,
+    `<div class="settings-section" data-settings-category="workspace"><h3 data-i18n="Vault storage">Vault storage</h3><p data-i18n="Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.">Content is saved in local Markdown files. Shared page metadata is saved in metadata.json in the same vault.</p><code class="vault-path">${e(vaultPath)}</code></div><div class="settings-section" data-settings-category="appearance"><h3 data-i18n="Reading experience">Reading experience</h3><label class="switch-row"><span data-i18n="Color headings by level">Color headings by level</span><input type="checkbox" id="color-headings" ${localStorage.getItem("notdown-color") === "on" ? "checked" : ""} /></label><label class="switch-row"><span data-i18n="Pin table of contents (hover to expand when off)">Pin table of contents (hover to expand when off)</span><input type="checkbox" id="pin-toc" ${localStorage.getItem("notdown-toc") === "pinned" ? "checked" : ""} /></label></div><div class="settings-section" data-settings-category="advanced"><h3 data-i18n="About Notdown">About Notdown</h3><p data-i18n="Local revision checks and conflict copies protect your edits. Configure Cloud sync in Sync &amp; history to connect your devices while the app is open.">Local revision checks and conflict copies protect your edits. Configure Cloud sync in Sync &amp; history to connect your devices while the app is open.</p><p data-i18n="MyBase supports metadata export. Queries and two-way property sync are not yet implemented.">MyBase supports metadata export. Queries and two-way property sync are not yet implemented.</p></div><div class="dialog-actions"><button class="secondary-button" data-action="mybase-export" data-i18n="Export page metadata for MyBase">Export page metadata for MyBase</button><button class="primary-button" data-action="close-dialog" data-i18n="Done">Done</button></div>`,
   );
   settingsDialog.classList.add("workspace-settings-dialog");
-  settingsDialog.setAttribute("aria-label", "Workspace settings");
+  setUIAttribute(settingsDialog, "aria-label", "Workspace settings");
   const settingsBody = document.createElement("div"); settingsBody.className = "settings-body";
   for (const child of Array.from(settingsDialog.children).slice(1)) settingsBody.append(child);
   settingsDialog.append(settingsBody);
@@ -1877,46 +1941,46 @@ function showSettings() {
   let pressedOutside = false;
   settingsDialog.addEventListener("pointerdown", event => { pressedOutside = outside(event); });
   settingsDialog.addEventListener("click", event => { if (pressedOutside && outside(event)) closeModal(); pressedOutside = false; });
-  const vaultButton = document.createElement("button"); vaultButton.type = "button"; vaultButton.className = "secondary-button"; vaultButton.dataset.action = "vaults"; vaultButton.textContent = "Manage knowledge bases";
+  const vaultButton = document.createElement("button"); vaultButton.type = "button"; vaultButton.className = "secondary-button"; vaultButton.dataset.action = "vaults"; setUIText(vaultButton, "Manage knowledge bases");
   settingsDialog.querySelector(".vault-path")?.after(vaultButton);
   const typingSection = document.createElement("div");
   typingSection.className = "settings-section";
   typingSection.dataset.settingsCategory = "editing";
   const typingHeading = document.createElement("h3");
-  typingHeading.textContent = "Editing";
+  setUIText(typingHeading, "Editing");
   const codeRow = document.createElement("label");
   codeRow.className = "switch-row";
-  codeRow.textContent = "Code block input";
+  setUIText(codeRow, "Code block input");
   const codeSelect = document.createElement("select");
-  codeSelect.setAttribute("aria-label", "Code block input");
+  setUIAttribute(codeSelect, "aria-label", "Code block input");
   for (const [value, label] of [["notion", "Notion"], ["markdown", "Markdown"]]) {
     const option = document.createElement("option");
-    option.value = value; option.textContent = label; codeSelect.append(option);
+    option.value = value; setUIText(option, label); codeSelect.append(option);
   }
   codeSelect.value = codeInputMode();
   const codeHint = document.createElement("p");
   const describeCodeInput = () => {
-    codeHint.textContent = codeSelect.value === "notion"
+    setUIText(codeHint, codeSelect.value === "notion"
       ? "Type three backticks to enter a code block immediately."
-      : "Type three backticks, optionally enter a language with suggestions, then press Enter. Three backticks followed by a space also creates a code block.";
+      : "Type three backticks, optionally enter a language with suggestions, then press Enter. Three backticks followed by a space also creates a code block.");
   };
   codeSelect.addEventListener("change", () => {
     setCodeInputMode(codeSelect.value as CodeInputMode); describeCodeInput();
   });
   describeCodeInput(); codeRow.append(codeSelect);
   const languageHint = document.createElement("p");
-  languageHint.textContent = "New code blocks reuse your last selected language unless you specify another one. Your input preference is saved on this device.";
+  setUIText(languageHint, "New code blocks reuse your last selected language unless you specify another one. Your input preference is saved on this device.");
   typingSection.append(typingHeading, codeRow, codeHint, languageHint);
   settingsDialog.querySelectorAll(".settings-section")[2]?.before(typingSection);
   const emojiRow = document.createElement("label");
   emojiRow.className = "switch-row";
-  emojiRow.textContent = "Emoji style";
+  setUIText(emojiRow, "Emoji style");
   const emojiSelect = document.createElement("select");
-  emojiSelect.setAttribute("aria-label", "Emoji style");
+  setUIAttribute(emojiSelect, "aria-label", "Emoji style");
   for (const { value, label } of emojiStyleOptions) {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = label;
+    setUIText(option, label);
     emojiSelect.append(option);
   }
   emojiSelect.value = emojiStyle();
@@ -1925,20 +1989,21 @@ function showSettings() {
   settingsDialog.querySelectorAll(".settings-section")[1]?.append(emojiRow);
   const listRow = document.createElement("label");
   listRow.className = "switch-row";
-  listRow.textContent = "Numbered list display";
+  setUIText(listRow, "Numbered list display");
   const listSelect = document.createElement("select");
-  listSelect.setAttribute("aria-label", "Numbered list display");
+  setUIAttribute(listSelect, "aria-label", "Numbered list display");
   for (const [value, label] of [["markdown", "Markdown · 1 → 1 → 1"], ["notion", "Notion · 1 → a → i → 1"]]) {
     const option = document.createElement("option");
-    option.value = value; option.textContent = label; listSelect.append(option);
+    option.value = value; setUIText(option, label); listSelect.append(option);
   }
   listSelect.value = numberedListDisplay();
   listSelect.addEventListener("change", () => setNumberedListDisplay(listSelect.value as NumberedListDisplay));
   listRow.append(listSelect);
   const listHint = document.createElement("p");
-  listHint.textContent = "Changes nested numbering for lists starting with numbers. Explicit letter and Roman numeral styles are preserved. Display only; Markdown source stays unchanged. Saved on this device.";
+  setUIText(listHint, "Changes nested numbering for lists starting with numbers. Explicit letter and Roman numeral styles are preserved. Display only; Markdown source stays unchanged. Saved on this device.");
   settingsDialog.querySelectorAll(".settings-section")[1]?.append(listRow, listHint);
   const groups = mountSettingsLayout(settingsDialog, settingsBody);
+  mountLanguageSettings(groups.workspace);
   void mountRuntimeSettings(groups.advanced);
   void mountServiceSettings(groups.connections);
   void mountSyncSettings(groups.sync, { beforeSync: save });
@@ -1973,7 +2038,7 @@ function showConflict() {
   const proposedBody = proposed?.body ?? draft?.body ?? "";
   const dialog = modal(
     "Two versions detected; both have been preserved",
-    `<p class="muted">Review the changed lines below. Unchanged sections are folded. Both original versions are preserved.</p><section class="conflict-section"><h3>Disk → Your edits</h3><div class="conflict-legend"><span class="diff-count-removed">− Version on disk</span><span class="diff-count-added">+ Your edits</span></div><div class="conflict-diff" data-conflict-diff aria-label="Conflict differences"></div></section><section class="conflict-section"><h3>Merged result</h3><p class="muted">Changes that will be saved, compared with the version on disk.</p><div class="conflict-diff" data-merged-diff aria-label="Merged differences"></div><details class="conflict-source"><summary>Edit merged content</summary><label for="merged-body">Full Markdown source</label><textarea id="merged-body" rows="8" class="code-input">${e(draft?.body ?? proposedBody)}</textarea></details></section><p class="muted">Your edited title and properties will be used. The complete disk metadata remains in history. Further file changes will preserve another conflict.</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">Resolve later</button><button class="primary-button" data-action="resolve-conflict">Save merged version</button></div>`,
+    `<p class="muted" data-i18n="Review the changed lines below. Unchanged sections are folded. Both original versions are preserved.">Review the changed lines below. Unchanged sections are folded. Both original versions are preserved.</p><section class="conflict-section"><h3 data-i18n="Disk → Your edits">Disk → Your edits</h3><div class="conflict-legend"><span class="diff-count-removed" data-i18n="− Version on disk">− Version on disk</span><span class="diff-count-added" data-i18n="+ Your edits">+ Your edits</span></div><div class="conflict-diff" data-conflict-diff aria-label="Conflict differences" data-i18n-aria-label="Conflict differences"></div></section><section class="conflict-section"><h3 data-i18n="Merged result">Merged result</h3><p class="muted" data-i18n="Changes that will be saved, compared with the version on disk.">Changes that will be saved, compared with the version on disk.</p><div class="conflict-diff" data-merged-diff aria-label="Merged differences" data-i18n-aria-label="Merged differences"></div><details class="conflict-source"><summary data-i18n="Edit merged content">Edit merged content</summary><label for="merged-body" data-i18n="Full Markdown source">Full Markdown source</label><textarea id="merged-body" rows="8" class="code-input">${e(draft?.body ?? proposedBody)}</textarea></details></section><p class="muted" data-i18n="Your edited title and properties will be used. The complete disk metadata remains in history. Further file changes will preserve another conflict.">Your edited title and properties will be used. The complete disk metadata remains in history. Further file changes will preserve another conflict.</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog" data-i18n="Resolve later">Resolve later</button><button class="primary-button" data-action="resolve-conflict" data-i18n="Save merged version">Save merged version</button></div>`,
     true,
   );
   mountConflictDiff(dialog, diskBody, proposedBody);
@@ -2034,7 +2099,7 @@ async function showConflicts() {
   const entries = await api<any[]>("/conflicts");
   const dialog = modal(
     "Conflicts and versions",
-    `<p class="muted">Every save checks the source file revision. Conflicting edits are preserved as separate Markdown files without overwriting the disk content.</p><div class="conflict-list">${entries.length ? entries.map((entry, i) => `<div><strong>${e(entry.proposed?.title || entry.title || entry.pageId || entry.id || entry.conflictId)}</strong><p>${e(entry.resolved ? "Merged" : "Both versions are preserved. Open them to merge manually.")}</p>${entry.resolved ? "" : `<button class="secondary-button" data-conflict-entry="${i}">Review and merge</button>`}</div>`).join("") : `<div class="empty-state">${icon("git-branch")}<h3>No conflicts</h3><p>Your notes are safely saved.</p></div>`}</div>`,
+    `<p class="muted" data-i18n="Every save checks the source file revision. Conflicting edits are preserved as separate Markdown files without overwriting the disk content.">Every save checks the source file revision. Conflicting edits are preserved as separate Markdown files without overwriting the disk content.</p><div class="conflict-list">${entries.length ? entries.map((entry, i) => `<div><strong>${e(entry.proposed?.title || entry.title || entry.pageId || entry.id || entry.conflictId)}</strong><p>${e(entry.resolved ? "Merged" : "Both versions are preserved. Open them to merge manually.")}</p>${entry.resolved ? "" : `<button class="secondary-button" data-conflict-entry="${i}" data-i18n="Review and merge">Review and merge</button>`}</div>`).join("") : `<div class="empty-state">${icon("git-branch")}<h3 data-i18n="No conflicts">No conflicts</h3><p data-i18n="Your notes are safely saved.">Your notes are safely saved.</p></div>`}</div>`,
   );
   dialog
     .querySelectorAll<HTMLButtonElement>("[data-conflict-entry]")
@@ -2077,7 +2142,7 @@ function showSearch() {
   captureEditor();
   const dialog = modal(
     "Search vault",
-    `<label class="dialog-search">${icon("search")}<input id="search-input" aria-label="Search vault" role="combobox" aria-expanded="true" aria-controls="search-results" placeholder="Search pages or content…" autocomplete="off" autofocus /><kbd>Esc</kbd></label><div class="search-section-label">Recently visited</div><div id="search-results" role="listbox" aria-label="Search results"></div><div class="search-hints"><span>↑ ↓ Select</span><span>Enter Open</span><span>Esc Close</span></div>`,
+    `<label class="dialog-search">${icon("search")}<input id="search-input" aria-label="Search vault" role="combobox" aria-expanded="true" aria-controls="search-results" placeholder="Search pages or content…" autocomplete="off" autofocus  data-i18n-placeholder="Search pages or content…" data-i18n-aria-label="Search vault"/><kbd>Esc</kbd></label><div class="search-section-label" data-i18n="Recently visited">Recently visited</div><div id="search-results" role="listbox" aria-label="Search results" data-i18n-aria-label="Search results"></div><div class="search-hints"><span data-i18n="↑ ↓ Select">↑ ↓ Select</span><span data-i18n="Enter Open">Enter Open</span><span data-i18n="Esc Close">Esc Close</span></div>`,
   );
   dialog.classList.add("search-dialog");
   const input = dialog.querySelector<HTMLInputElement>("#search-input")!;
@@ -2126,7 +2191,7 @@ function showSearch() {
             : "";
           return `<button id="result-${e(p.id)}" role="option" data-open="${e(p.id)}" data-result-index="${index}" class="search-result">${pageIcon(p)}<span><strong>${highlight(p.title, q)}</strong><small class="search-result-path">${e(parent?.title || "Private pages")}</small>${snippet ? `<small>${highlight(snippet, q)}</small>` : ""}</span>${icon("corner-down-left")}</button>`;
         })
-        .join("") || '<div class="search-empty">No matching pages found</div>';
+        .join("") || `<div class="search-empty" data-i18n="No matching pages found">No matching pages found</div>`;
     selection();
     refreshIcons();
   };
@@ -2250,14 +2315,14 @@ function showInsert() {
     dialog.id = "dialog";
     dialog.className = "inline-slash";
     dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-label", "Choose block type");
+    setUIAttribute(dialog, "aria-label", "Choose block type");
     dialog.innerHTML =
-      '<div class="dialog-heading"><h2>Insert content</h2></div><div class="insert-grid" role="listbox" aria-label="Block types"></div><div class="insert-footer"><button type="button" class="insert-close"><span>Close menu</span><kbd>esc</kbd></button></div>';
+      `<div class="dialog-heading"><h2 data-i18n="Insert content">Insert content</h2></div><div class="insert-grid" role="listbox" aria-label="Block types" data-i18n-aria-label="Block types"></div><div class="insert-footer"><button type="button" class="insert-close"><span data-i18n="Close menu">Close menu</span><kbd>esc</kbd></button></div>`;
     document.body.append(dialog);
   } else {
     dialog = modal(
       "Insert content",
-      `<label class="insert-search">${icon("search")}<input aria-label="Search block types" placeholder="Search block types…" /></label><div class="insert-grid" role="listbox" aria-label="Block types"></div>`,
+      `<label class="insert-search">${icon("search")}<input aria-label="Search block types" placeholder="Search block types…"  data-i18n-placeholder="Search block types…" data-i18n-aria-label="Search block types"/></label><div class="insert-grid" role="listbox" aria-label="Block types" data-i18n-aria-label="Block types"></div>`,
     );
   }
   dialog.classList.add("insert-dialog");
@@ -2302,10 +2367,10 @@ function showInsert() {
   const paint = () => {
     let previousGroup = "";
     list.innerHTML = filtered.map(([id, i, title, desc, , group], index) => {
-      const heading = group !== previousGroup ? '<div class="insert-group-heading" role="presentation">' + e(group) + '</div>' : "";
+      const heading = group !== previousGroup ? '<div class="insert-group-heading" role="presentation">' + e(t(group)) + '</div>' : "";
       previousGroup = group;
-      return heading + `<button id="insert-option-${id}" role="option" aria-selected="${index === selected}" data-insert="${id}" title="${e(desc)}" class="${index === selected ? "selected" : ""}">${icon(i)}<span><strong>${e(title)}</strong><small>${e(desc)}</small></span></button>`;
-    }).join("") || '<p class="muted">No matching blocks</p>';
+      return heading + `<button id="insert-option-${id}" role="option" aria-selected="${index === selected}" data-insert="${id}" title="${e(t(desc))}" class="${index === selected ? "selected" : ""}">${icon(i)}<span><strong>${e(t(title))}</strong><small>${e(t(desc))}</small></span></button>`;
+    }).join("") || `<p class="muted" data-i18n="No matching blocks">No matching blocks</p>`;
     refreshIcons();
     (input || dialog).setAttribute(
       "aria-activedescendant",
@@ -2321,10 +2386,10 @@ function showInsert() {
       .toLowerCase()
       .trim();
     filtered = items.filter((item) =>
-      item.join(" ").toLowerCase().includes(query),
+      [...item, t(item[2]), t(item[3]), t(item[5])].join(" ").toLowerCase().includes(query),
     );
     selected = 0;
-    if (inline) dialog.querySelector("h2")!.textContent = query ? "Filtered results" : "Insert content";
+    if (inline) setUIText(dialog.querySelector("h2")!, query ? "Filtered results" : "Insert content");
     paint();
     list.scrollTop = 0;
   };
@@ -2430,17 +2495,43 @@ function showInsert() {
   }
 }
 // Syntax that requires a value asks for real content instead of inserting a sample.
+function insertFootnoteInput() {
+  captureEditor(); workspace?.capture();
+  const owner = current, ownerWorkspace = workspace, ownerEditor = editor;
+  if (!owner || !ownerEditor) return;
+  const originalBody = owner.body;
+  const choices = footnoteChoices(workspace?.session.snapshot.doc ?? ownerEditor.getDocument());
+  const dialog = modal("Insert footnote", `<form><label><span data-i18n="Footnote">Footnote</span><select name="footnote" aria-label="Footnote" data-i18n-aria-label="Footnote"><option value="" data-i18n="New footnote">New footnote</option>${choices.map(note => `<option value="${e(note.label)}">${e(note.label)} — ${e(note.text)}</option>`).join("")}</select></label><label data-footnote-text><span data-i18n="Footnote text">Footnote text</span><textarea name="text" aria-label="Footnote text" data-i18n-aria-label="Footnote text" required></textarea></label><output role="status"></output><div class="dialog-actions"><button type="button" data-cancel data-i18n="Cancel">Cancel</button><button type="submit" data-i18n="Insert reference">Insert reference</button></div></form>`);
+  dialog.querySelector("form")!.classList.add("footnote-insert-form");
+  const select = dialog.querySelector<HTMLSelectElement>("select")!;
+  const text = dialog.querySelector<HTMLTextAreaElement>("textarea")!;
+  select.onchange = () => { text.required = !select.value; dialog.querySelector<HTMLElement>("[data-footnote-text]")!.hidden = !!select.value; };
+  dialog.querySelector<HTMLButtonElement>("[data-cancel]")!.onclick = () => { closeModal(); if (current === owner) ownerEditor.focus(); };
+  dialog.querySelector("form")!.onsubmit = event => {
+    event.preventDefault();
+    if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor || owner.body !== originalBody) {
+      setUIText(dialog.querySelector("output")!, "The page changed. Reopen the insertion dialog."); return;
+    }
+    if (!select.value && !text.value.trim()) return;
+    const value: FootnoteInput = select.value ? { label: select.value } : { text: text.value };
+    closeModal();
+    if (ownerWorkspace) ownerWorkspace.insertFootnote(value); else ownerEditor.insertFootnote(value);
+    captureEditor();
+  };
+  text.focus();
+}
+
 function insertContentInput(title: string, fields: string[], encode: (values: string[]) => string) {
   captureEditor();
   workspace?.capture();
   const owner = current, ownerWorkspace = workspace, ownerEditor = editor;
   const originalBody = current!.body;
-  const dialog = modal(title, `<form>${fields.map(label => `<label>${e(label)}<input aria-label="${e(label)}" required /></label>`).join("")}<output role="status"></output><button type="submit">Insert</button></form>`);
+  const dialog = modal(title, `<form>${fields.map(label => `<label>${e(label)}<input aria-label="${e(label)}" required /></label>`).join("")}<output role="status"></output><button type="submit" data-i18n="Insert">Insert</button></form>`);
   const inputs = [...dialog.querySelectorAll<HTMLInputElement>("form input")];
   dialog.querySelector("form")!.onsubmit = event => {
     event.preventDefault();
     if (current !== owner || workspace !== ownerWorkspace || editor !== ownerEditor || current!.body !== originalBody) {
-      dialog.querySelector("output")!.textContent = "The page changed. Reopen the insertion dialog."; return;
+      setUIText(dialog.querySelector("output")!, "The page changed. Reopen the insertion dialog."); return;
     }
     const values = inputs.map(input => input.value);
     if (values.some(value => !value.trim())) return;
@@ -2575,6 +2666,7 @@ async function handleInsert(id: string) {
   if (id === "definitions") {
     insertContentInput("Definition list", ["Term", "Definition"], ([term, definition]) => `\n\n${term}\n:   ${definition}\n\n`); return;
   }
+  if (id === "footnote") { insertFootnoteInput(); return; }
   const snippets: Record<string, string> = {
     emoji: '😀',
     synced_block: '\n<synced_block>\n<empty-block/>\n</synced_block>\n',
@@ -2582,7 +2674,6 @@ async function handleInsert(id: string) {
     diagram: "\n\n```mermaid\n\n```\n\n",
     alert: "\n\n> [!NOTE]\n>\n\n",
     html: "\n\n<div>\n</div>\n\n",
-    footnote: "",
     lines: "\n\n| \n| \n\n",
     div: "\n\n::: {.container}\n\n:::\n\n",
     text: "\n\n",
@@ -2622,13 +2713,6 @@ async function handleInsert(id: string) {
     snippets.toc = "\n\n[toc]\n\n";
   if (id === "callout" && workspace && !usesNotionSyntax(workspace.session.snapshot.config) && enabled(workspace.session.snapshot.config, "alerts"))
     snippets.callout = snippets.alert;
-  if (id === "footnote") {
-    let label = "note",
-      number = 1;
-    while (current!.body.includes("[^" + label + "]"))
-      label = "note" + ++number;
-    snippets.footnote = `[^${label}]\n\n[^${label}]:\n\n`;
-  }
   if (
     id === "table" &&
     workspace &&
@@ -2688,7 +2772,7 @@ async function handleInsert(id: string) {
     input.type = "file";
     input.accept = mediaAccept[id];
     input.tabIndex = -1;
-    input.setAttribute("aria-label", "Choose media file");
+    setUIAttribute(input, "aria-label", "Choose media file");
     // Hand focus to a connected, non-editable control before opening native UI.
     // A detached input.click() leaves the slash editor in its typing state.
     input.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
@@ -2984,8 +3068,8 @@ document.addEventListener("click", (event) => {
         showSettings();
         break;
       case "import": {
-        const dialog = modal("Import", `<p>Choose where to import your notes from.</p><div class="import-source-options"><button class="secondary-button" data-action="import-folder" aria-label="Import Markdown folder">${icon("folder-input")}<span>Import Markdown folder<small>Copy local Markdown files and attachments.</small></span></button><button class="secondary-button" data-action="import-notion" aria-label="Import from Notion API">${icon("globe")}<span>Import from Notion API<small>Import pages and databases from Notion.</small></span></button><button class="secondary-button" data-action="external-references" aria-label="External references">${icon("link")}<span>External references<small>Review unknown references and local links.</small></span></button></div>`);
-        dialog.setAttribute("aria-label", "Import");
+        const dialog = modal("Import", `<p data-i18n="Choose where to import your notes from.">Choose where to import your notes from.</p><div class="import-source-options"><button class="secondary-button" data-action="import-folder" aria-label="Import Markdown folder" data-i18n-aria-label="Import Markdown folder">${icon("folder-input")}<span><span data-i18n="Import Markdown folder">Import Markdown folder</span><small data-i18n="Copy local Markdown files and attachments.">Copy local Markdown files and attachments.</small></span></button><button class="secondary-button" data-action="import-notion" aria-label="Import from Notion API" data-i18n-aria-label="Import from Notion API">${icon("globe")}<span><span data-i18n="Import from Notion API">Import from Notion API</span><small data-i18n="Import pages and databases from Notion.">Import pages and databases from Notion.</small></span></button><button class="secondary-button" data-action="external-references" aria-label="External references" data-i18n-aria-label="External references">${icon("link")}<span><span data-i18n="External references">External references</span><small data-i18n="Review unknown references and local links.">Review unknown references and local links.</small></span></button></div>`);
+        setUIAttribute(dialog, "aria-label", "Import");
         break;
       }
       case "import-folder":
@@ -3322,6 +3406,7 @@ document.addEventListener("notdown-database-updated", event => {
 });
 
 async function boot() {
+  await languageReady();
   if (location.pathname.startsWith("/v/") && !vaultPrefix()) throw new Error("Invalid knowledge base URL. Open the root address to choose a vault.");
   if (vaultPrefix() === location.pathname) { location.replace(location.pathname + "/" + location.search + location.hash); return; }
   const [loaded, info] = await Promise.all([
@@ -3438,7 +3523,7 @@ async function boot() {
 void boot().catch((error) => {
   app.inert = false;
   app.removeAttribute("aria-busy");
-  app.innerHTML = `<div class="boot-error"><h1>Unable to open the vault</h1><p>${e(error instanceof Error ? error.message : error)}</p><p>Make sure the local server is running:<code>npm run dev</code></p><button onclick="location.reload()">Retry</button></div>`;
+  app.innerHTML = `<div class="boot-error"><h1 data-i18n="Unable to open the vault">Unable to open the vault</h1><p>${e(error instanceof Error ? error.message : error)}</p><p><span data-i18n="Make sure the local server is running:">Make sure the local server is running:</span><code>npm run dev</code></p><button onclick="location.reload()" data-i18n="Retry">Retry</button></div>`;
 });
 document.addEventListener(openPeopleEvent, event => {
   captureEditor();

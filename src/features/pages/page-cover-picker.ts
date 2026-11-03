@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import gallery from "./page-cover-gallery.json";
 import { refreshIcons } from "../../shared/icons";
 import { escape } from "../../shared/types";
@@ -26,13 +27,13 @@ export function openPageCoverPicker(anchor: HTMLElement, options: CoverPickerOpt
   const picker = document.createElement("div");
   picker.className = "page-cover-picker";
   picker.setAttribute("role", "dialog");
-  picker.setAttribute("aria-label", "Choose page cover");
-  picker.innerHTML = `<div class="page-cover-picker-tabs" role="tablist" aria-label="Cover source">
-    <button type="button" role="tab" data-cover-tab="gallery">Gallery</button>
-    <button type="button" role="tab" data-cover-tab="upload">Upload</button>
-    <button type="button" role="tab" data-cover-tab="link">Link</button>
+  setUIAttribute(picker, "aria-label", "Choose page cover");
+  picker.innerHTML = `<div class="page-cover-picker-tabs" role="tablist" aria-label="Cover source" data-i18n-aria-label="Cover source">
+    <button type="button" role="tab" data-cover-tab="gallery" data-i18n="Gallery">Gallery</button>
+    <button type="button" role="tab" data-cover-tab="upload" data-i18n="Upload">Upload</button>
+    <button type="button" role="tab" data-cover-tab="link" data-i18n="Link">Link</button>
     <button type="button" role="tab" data-cover-tab="unsplash"><i data-lucide="image"></i>Unsplash</button>
-    <button type="button" class="page-cover-remove" data-cover-remove ${options.cover ? "" : "disabled"}>Remove</button>
+    <button type="button" class="page-cover-remove" data-cover-remove ${options.cover ? "" : "disabled"} data-i18n="Remove">Remove</button>
   </div><div class="page-cover-picker-body" role="tabpanel"></div>`;
   document.body.append(picker);
   const body = picker.querySelector<HTMLElement>(".page-cover-picker-body")!;
@@ -89,13 +90,13 @@ export function openPageCoverPicker(anchor: HTMLElement, options: CoverPickerOpt
         }).join("")}</div></section>`;
       }).join("");
     } else if (tab === "upload") {
-      body.innerHTML = `<div class="page-cover-picker-form"><label class="page-cover-upload"><i data-lucide="upload"></i><strong>Upload an image</strong><span>PNG, JPEG, WebP, GIF or AVIF · up to 15 MB</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" aria-label="Upload cover image"></label><p class="page-cover-picker-error" role="alert"></p></div>`;
+      body.innerHTML = `<div class="page-cover-picker-form"><label class="page-cover-upload"><i data-lucide="upload"></i><strong data-i18n="Upload an image">Upload an image</strong><span data-i18n="PNG, JPEG, WebP, GIF or AVIF · up to 15 MB">PNG, JPEG, WebP, GIF or AVIF · up to 15 MB</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" aria-label="Upload cover image" data-i18n-aria-label="Upload cover image"></label><p class="page-cover-picker-error" role="alert"></p></div>`;
     } else {
       body.innerHTML = `<form class="page-cover-picker-form" data-cover-link-form>
-        ${tab === "unsplash" ? '<p>Find an image on <a href="https://unsplash.com/" target="_blank" rel="noopener noreferrer">Unsplash</a>, then paste its image URL here.</p>' : '<p>Paste an image URL or a vault asset path.</p>'}
-        <label>Cover image URL<input name="cover" aria-label="Cover image URL" placeholder="https://… or assets/…" value="${tab === "link" ? escape(options.cover) : ""}"></label>
+        ${tab === "unsplash" ? `<p><span data-i18n="Find an image on">Find an image on</span> <a href="https://unsplash.com/" target="_blank" rel="noopener noreferrer">Unsplash</a>, then paste its image URL here.</p>` : `<p data-i18n="Paste an image URL or a vault asset path.">Paste an image URL or a vault asset path.</p>`}
+        <label><span data-i18n="Cover image URL">Cover image URL</span><input name="cover" aria-label="Cover image URL" placeholder="https://… or assets/…" value="${tab === "link" ? escape(options.cover) : ""}" data-i18n-aria-label="Cover image URL"></label>
         <p class="page-cover-picker-error" role="alert"></p>
-        <button type="submit">Save cover</button>
+        <button type="submit" data-i18n="Save cover">Save cover</button>
       </form>`;
     }
     refreshIcons();
@@ -132,7 +133,7 @@ export function openPageCoverPicker(anchor: HTMLElement, options: CoverPickerOpt
     const value = form.querySelector<HTMLInputElement>("[name=cover]")!.value.trim();
     const error = form.querySelector<HTMLElement>(".page-cover-picker-error")!;
     if (!value || !isPageCoverPath(value)) {
-      error.textContent = "Use an HTTP(S) image URL or an assets/ path.";
+      setUIText(error, "Use an HTTP(S) image URL or an assets/ path.");
       return;
     }
     options.onSelect(value);
@@ -145,14 +146,14 @@ export function openPageCoverPicker(anchor: HTMLElement, options: CoverPickerOpt
     if (!file) return;
     const error = body.querySelector<HTMLElement>(".page-cover-picker-error")!;
     if (!/^image\/(?:png|jpeg|webp|gif|avif)$/.test(file.type) || file.size > 15 * 1024 * 1024) {
-      error.textContent = "Choose a supported image up to 15 MB.";
+      setUIText(error, "Choose a supported image up to 15 MB.");
       input.value = "";
       return;
     }
     input.disabled = true;
     void options.onUpload(file).then(close).catch(cause => {
       input.disabled = false;
-      error.textContent = "Upload failed. Please try again.";
+      setUIText(error, "Upload failed. Please try again.");
       options.onError(cause);
     });
   });

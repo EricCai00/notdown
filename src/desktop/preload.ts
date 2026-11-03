@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("notdownDesktop", {
+  uiLanguage: {
+    get: () => ipcRenderer.invoke("ui:language:get"),
+    set: (value: "en" | "zh-CN") => ipcRenderer.invoke("ui:language:set", value),
+    onChanged: (callback: (value: "en" | "zh-CN") => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, value: "en" | "zh-CN") => callback(value);
+      ipcRenderer.on("ui:language:changed", listener);
+      return () => ipcRenderer.removeListener("ui:language:changed", listener);
+    },
+  },
   notionImportClipboard: { get: () => ipcRenderer.invoke("notion:clipboard:get") },
   notionImportToken: {
     get: () => ipcRenderer.invoke("notion:token:get"),
@@ -19,6 +28,9 @@ contextBridge.exposeInMainWorld("notdownDesktop", {
   finishClose: (id: string, saved: boolean) => ipcRenderer.send("vault:close-result", id, saved === true),
 });
 contextBridge.exposeInMainWorld("notdownWelcome", {
+  browse: () => ipcRenderer.invoke("vault:browse"),
+  setLocation: (path: string) => ipcRenderer.invoke("vault:location", path),
+  submit: (input: object) => ipcRenderer.invoke("vault:submit", input),
   recents: () => ipcRenderer.invoke("vault:recents"),
   choose: (mode: "create" | "open") => ipcRenderer.invoke("vault:choose", mode),
   openRecent: (path: string) => ipcRenderer.invoke("vault:recent", path),

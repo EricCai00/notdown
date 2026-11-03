@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../shared/i18n";
 import { editorKind, isEditorKind } from "../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import { Plugin, type EditorState } from "prosemirror-state";
@@ -104,7 +105,7 @@ export function blockProperties(supplemental: () => boolean = () => false) {
         const title = (resolveContentObject(node)?.name || (isEditorKind(node, "tab") ? "Tab" : "Block")) + " properties";
         dialog.setAttribute("aria-label", title);
         const header = document.createElement("header"), heading = document.createElement("h2"), close = document.createElement("button");
-        heading.textContent = title; close.type = "button"; close.textContent = "×"; close.setAttribute("aria-label", "Close properties"); close.onclick = () => dialog.close();
+        heading.textContent = title; close.type = "button"; close.textContent = "×"; setUIAttribute(close, "aria-label", "Close properties"); close.onclick = () => dialog.close();
         header.append(heading, close);
         const form = document.createElement("form"), body = document.createElement("div"), footer = document.createElement("footer");
         body.className = "pm-block-property-fields";
@@ -118,8 +119,8 @@ export function blockProperties(supplemental: () => boolean = () => false) {
         }
         const output = document.createElement("output"); output.setAttribute("aria-live", "polite");
         const save = document.createElement("button"), cancel = document.createElement("button");
-        save.type = "submit"; save.textContent = "Save"; save.className = "primary";
-        cancel.type = "button"; cancel.textContent = "Cancel"; cancel.onclick = () => dialog.close();
+        save.type = "submit"; setUIText(save, "Save"); save.className = "primary";
+        cancel.type = "button"; setUIText(cancel, "Cancel"); cancel.onclick = () => dialog.close();
         footer.append(cancel, save); form.append(body, output, footer); dialog.append(header, form);
         const current = active = { pos, original: node, dialog, save, output, valid: true };
         dialog.onclose = () => { if (active === current) active = undefined; dialog.remove(); if (!active && !view.isDestroyed && view.dom.isConnected) view.focus(); };
@@ -139,7 +140,7 @@ export function blockProperties(supplemental: () => boolean = () => false) {
         update() {
           if (!active) return;
           if (!view.editable || !view.state.doc.nodeAt(active.pos)?.eq(active.original)) active.valid = false;
-          if (!active.valid) { active.save.disabled = true; active.output.textContent = "This block changed or was removed. Close and reopen its properties."; }
+          if (!active.valid) { active.save.disabled = true; setUIText(active.output, "This block changed or was removed. Close and reopen its properties."); }
         },
         destroy() { active?.dialog.remove(); active = undefined; openers.delete(view); },
       };

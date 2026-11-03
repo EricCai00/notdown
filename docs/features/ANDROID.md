@@ -1,73 +1,85 @@
-# Android 初版
+<a id="android-初版"></a>
 
-Notdown Android 与桌面版位于同一个仓库，使用同一份 npm 依赖、文档模型、ProseMirror / CodeMirror 编辑工作区、Markdown codec 和知识库核心。Android 原生工程由 Capacitor 管理；项目没有拆成 monorepo，也没有复制一套编辑器或保存规则。
+# Early Android build
 
-## 当前能力
+**English** · [简体中文](ANDROID.zh-CN.md)
 
-- 连接电脑已创建的云端知识库，在应用私有目录保存离线副本；连接完成后创建空白页面、编辑标题和正文、切换 Page / Source、按标题和内容搜索。
-- 点击式格式工具栏、块类型选择和图片附件；图片预览使用临时显示地址，文件中仍保存相对附件路径。
-- 在编辑过程中自动保存，并保留窗口独立的恢复草稿。版本不匹配时保留原文与提案，停止自动重试；界面可以将草稿另存为新页面。
-- 导入 `.md`、`.markdown`、`.rmd`、`.qmd` 文件，保留完整源码。R / Quarto 的解释器执行需要桌面端。
-- 导出知识库 ZIP，包括 `pages/`、`metadata.json`、附件、历史与未知文件；ZIP 恢复在电脑端完成，再同步到手机。手机不通过 ZIP 导入创建独立知识库。
-- Android 返回键先收起输入法，再关闭面板或返回页面列表；底部 **Hide keyboard** 也可收起键盘，退出到后台前收取待保存输入。
-- Notebook options → Cloud sync 提供实验性多设备同步，复用桌面同步引擎及冲突处理；配置与范围见[云同步说明](CLOUD-SYNC.md)。
+Notdown Android is located in the same repository as the desktop version and uses the same npm dependencies, document model, ProseMirror / CodeMirror editing workspace, Markdown codec and vault core. Android native projects are managed by Capacitor; the project is not split into monorepo, nor is a set of editors or saving rules copied.
 
-## 安装与使用
+<a id="当前能力"></a>
 
-目标为 Android 8.0 / API 26 及以上。当前产物是开发调试 APK，使用本机调试签名；尚无正式发布签名、应用商店发行或自动更新。构建命令和输出位置见[开发指南](../architecture/DEVELOPMENT.md#android-开发)。
+## Current capabilities
 
-首次打开必须配置 **Cloud sync**，使用与电脑相同的 Supabase 项目或 WebDAV 账号及远端目录，然后选择电脑已创建的云端知识库。手机不提供创建云端知识库或独立本地知识库的选项；尚未配置或首次下载失败时停留在设置页，返回键和关闭设置都不能绕过。WebDAV 目录中没有知识库时，先在电脑上创建并同步。
+- Connect to the cloud vault created on your computer and save an offline copy in the application private directory; after the connection is completed, create a blank page, edit the title and text, switch Page / Source, and search by title and content.
+- Click-and-click formatting toolbar, block type selection, and image attachments; image previews use temporary display addresses, and relative attachment paths are still saved in the file.
+- Automatically save during editing and keep window-independent recovery drafts. If the versions do not match, the original text and proposal will be retained and automatic retry will be stopped; the interface can save the draft as a new page.
+- Import `.md`, `.markdown`, `.rmd`, `.qmd` files and keep the complete source code. Interpreter execution of R / Quarto requires desktop.
+- Export the vault ZIP, including `pages/`, `metadata.json`, attachments, history and unknown files; ZIP recovery is completed on the computer and then synchronized to the mobile phone. The mobile phone does not create an independent vault through ZIP import.
+- The Android return key first closes the input method, then closes the panel or returns to the page list; the bottom **Hide keyboard** can also close the keyboard and collect input to be saved before exiting to the background.
+- Notebook options → Cloud sync provides experimental multi-device synchronization, reusing the desktop synchronization engine and conflict handling; for configuration and scope, see [ cloud synchronization instructions ](CLOUD-SYNC.md).
 
-首次同步完成后进入编辑器，后续打开可直接使用本地副本，断网仍可编辑，联网后在前台同步。断开同步会回到连接设置，本地文件保留，但不能继续作为独立库编辑。已有安装的旧库不会自动删除或合并；清除手机应用数据需要用户明确选择，且不会向云端发送删除记录。
+<a id="安装与使用"></a>
 
-首次下载期间，Cloud sync 显示当前阶段的进度条、资源名称、已处理数量与耗时；附件显示已传输大小。阶段总量未知时显示活动条，等待较久时仍显示等待时长。同步失败会显示错误并保留已完成计数，可以通过 **Sync now** 重试。
+## Installation and usage
 
-下载的普通资源按批次比较和写入，共用页面扫描并集中更新属性。Android 使用原生批量文件替换减少跨语言调用；各文件保留原字节校验，批次中断后依照恢复日志继续。附件、大资源及冲突仍使用对应的校验和处理路径。
+Target Android 8.0 / API 26 and above. The current product is development and debugging APK, using native debug signatures; there is no official release signature, app store release, or automatic updates yet. For build commands and output locations, see[Development Guide](../architecture/DEVELOPMENT.md#android-development)。
 
-顶部左侧打开页面列表；正文自动保存。编辑操作集中在屏幕底部（键盘打开时位于键盘上方）：减少/增加缩进、上移/下移、**+ / Insert block**、**Aa / Text formatting**、**Turn into**、撤销、重做、图片、**… / Block actions**。工具栏可横向滑动，右侧收起键盘按钮固定显示；每个按钮至少有 44px 的触控区域。不适用的操作禁用。
+When opening for the first time, you must configure **Cloud sync**, use the same Supabase project or WebDAV account and remote directory as the computer, and then select the cloud vault created by the computer. The phone does not provide the option to create a cloud vault or an independent local vault; it is stuck on the settings page when it has not been configured or the first download fails, and the return key and closing settings cannot be bypassed. If there is no vault in the WebDAV directory, create it on your computer first and synchronize it.
 
-普通页面与数据库记录可通过右上角 **Notebook options** 中直接点 **Page dialect** 的当前值选择方言，不再跳转到单独的设置页。选择器与电脑端使用相同的 14 个方言和四组顺序，R Markdown、Quarto 保留在最后。切换前先收取并保存待处理输入；保存失败或冲突时停止切换。切换重新解释当前页源码，恢复所选方言的默认扩展，保留未知设置与正文，不迁移其他页面。若 YAML 已声明 `syntax` 或 `bodyFormat`，同时更新这些已有覆盖字段，保留其他字段、注释与换行格式；没有这些字段时不自动添加 YAML。导入 Markdown 优先采用文件声明的有效方言，否则按 `.Rmd`、`.qmd` 或普通 Markdown 使用缺省方言。更改通过同一版本校验与草稿恢复链路保存；移动端仍不提供 R、Python、Julia 或 Pandoc 执行服务。数据库列表和完整数据库视图不显示页面方言入口。
+After the first synchronization is completed, enter the editor. Subsequent openings can directly use the local copy. You can still edit when the network is disconnected. After the network is connected, it will be synchronized in the foreground. Disconnecting synchronization will return to the connection settings, and the local files will be retained, but they cannot continue to be edited as an independent library. Already installed old libraries will not be automatically deleted or merged; clearing mobile application data requires the user to explicitly choose, and no deletion records will be sent to the cloud.
 
-点击正文定位光标；键盘打开时，长按或双击使用系统文字选择。键盘收起时，按住块正文约半秒开始拖动，显示块预览和蓝色落点线，松手移动到目标块之前或之后；靠近正文滚动区上下边缘时自动滚动。拖动后保持键盘收起，可用底部撤销恢复。按住前已开始滑动、增加第二根手指、系统取消触摸或正文发生外部变化时取消拖动；按钮、链接、输入框等保留自身交互。
+During the first download, Cloud sync displays the progress bar, resource name, processed quantity and time taken at the current stage; the attachment displays the transferred size. The activity bar is displayed when the total amount of the stage is unknown, and the waiting time is still displayed when the waiting time is long. Failure to synchronize will display an error and retain the completed count, and can be retried via **Sync now**.
 
-手机版不启用桌面左侧块手柄、框选、文字选区浮动格式条或 `/` 自动菜单。点击 **Aa** 将当前工具栏切换为字体样式二级栏，最左侧返回上一级；粗体、斜体、下划线、删除线、行内代码和颜色可连续应用到所选文字或后续输入，保持键盘和选区。当前样式在按钮上显示选中状态。
+Downloaded common resources are compared and written in batches, shared pages are scanned and attributes are updated centrally. Android uses native batch file replacement to reduce cross-language calls; each file retains the original byte verification, and continues according to the recovery log after the batch is interrupted. Attachments, large resources and conflicts still use the corresponding checksum processing path.
 
-**Text color** 和 **Background color** 分别打开调色板，各有九种颜色和 **Default**。在 Page 中选择 Default 可取消对应颜色；Notdown 页面中取消文字颜色保留背景色，取消背景色保留文字颜色，其他样式和未知属性继续保留。字体缺少斜体字形时允许合成倾斜，以显示中文等文字的斜体。Source 中调色板用于插入所选颜色的语法，清除已有颜色可切回 Page 操作。
+Open the page list at the top left; save automatically. Edit operations are concentrated at the bottom of the screen.**+ / Insert block**、**Aa / Text formatting**、**Turn into**I'm going to have to get rid of it, re-create it, take pictures,**… / Block actions**The toolbar can be slid horizontally, with the keyboard button fixed on the right side; each button has at least a 44px touch area.
 
-点击 **+** 或 **Turn into** 会收起键盘，在工具栏下方显示两列块类型选择。**+** 在当前块下方插入新块，当前为空白文本块时直接使用它；**Turn into** 转换当前块。右侧键盘按钮可关闭面板并回到输入；关闭面板不修改内容。面板打开前保留选区；若正文在面板打开期间发生变化，旧操作不会套用到新正文。
+Ordinary pages and database records can be accessed through the upper right corner **Notebook options** center point **Page dialect** The current value of Select Dialect no longer jumps to a separate settings page. The selector uses the same 14 dialects and four groups of sequences as the computer side, with R Markdown and Quarto remaining at the end. Collect and save pending input before switching; stop switching when saving fails or conflicts. Switch to reinterpret the source code of the current page, restore the default extension of the selected dialect, retain unknown settings and text, and do not migrate other pages. If YAML has been declared `syntax` or `bodyFormat`, update these existing covered fields at the same time, retain other fields, comments and line break formats; YAML will not be added automatically if there are no these fields. Importing Markdown gives priority to the valid dialect declared in the file, otherwise press `.Rmd`、`.qmd` or plain Markdown using the default dialect. Changes are saved through the same version verification and draft recovery link; the mobile terminal still does not provide R, Python, Julia or Pandoc execution services. Database list and full database views do not display page dialect entries.
 
-**Block actions** 显示当前块类型和内容摘要，提供插入下一行、在同层上移/下移、缩进/取消缩进、复制、删除；不适用的操作禁用。跨块文字选区不执行单块操作。表格单元格内通过同一面板添加/删除行列；表格可横向滚动。桌面分栏在手机上纵向排列，分栏和图片的拖动调整宽度手柄不显示，原始分栏和宽度数据保留。
+Click the text to position the cursor; when the keyboard is open, press and hold or double-click to use system text selection. When the keyboard is retracted, press and hold the block text for about half a second to start dragging. The block preview and blue drop point line will be displayed. Let go and move before or after the target block; it will automatically scroll when it is close to the upper and lower edges of the text scrolling area. Keep the keyboard closed after dragging, and use Undo at the bottom to restore. Swiping has started before pressing and holding, a second finger is added, the system cancels the touch, or the drag is canceled when external changes occur in the text; buttons, links, input boxes, etc. retain their own interactions.
 
-源码模式显示完整文件，格式与插入仍作用于源码选区，单块操作按钮禁用。**Import Markdown** 向当前已连接的知识库添加页面；不提供独立建库或知识库切换入口。移动端交互参考 [Notion 官方移动编辑说明](https://www.notion.com/help/writing-and-editing-basics#on-mobile)，实现仍复用 Notdown 自己的编辑器和保存逻辑。
+The mobile version does not enable the desktop left block handle, box selection, text selection floating format bar or `/` automatic menu. Click **Aa** to switch the current toolbar to the font style secondary column, and return to the previous level on the far left; bold, italics, underline, strikethrough, inline codes and colors can be continuously applied to the selected text or subsequent input, keeping the keyboard and selection. The current style displays the selected state on the button.
 
-页面列表沿用电脑端保存的页面顺序，按父子层级缩进排列；点击页面左侧箭头展开或折叠子页，点击标题打开页面。搜索时按标题和正文匹配显示结果，清空搜索后恢复层级和折叠状态。列表显示不会改写页面顺序或父子关系；顺序调整仍在电脑端进行。
+**Text color** and **Background color** Open the palettes separately, each with nine colors and **Default**。inPage SelectedDefault Can be removed the corresponding colour;Notdown The text color in the page is removed to retain the background color, the background color is removed to retain the text color, and other styles and unknown attributes are retained. When the font lacks a slanted font, synthetic slanting is allowed to display slanted characters such as Chinese.Source The middle-color panel is used to insert selected color syntax, removing already cutting colorsPage The operation.
 
-切换页面时从本地文件读取目标页，正文先显示，图片与其他本地媒体随后加载；未变化的页面列表复用已有内容。普通笔记的标题与正文保存只读取当前页和必要的父页，仍在切页前收取待保存输入，并校验原版本、保留历史与冲突。涉及页面层级、回收站、数据库或旧文件身份查找时保留完整扫描；云端变更仍由前台同步下载后刷新。
+Clicking **+** or **Turn into** will hide the keyboard and display two columns of block type selections below the toolbar. **+** Insert a new block below the current block, use it directly when the current block is a blank text block; **Turn into** Convert the current block. The right keyboard button closes the panel and returns to input; closing the panel does not modify the content. The selection is retained before the panel is opened; if the text changes while the panel is open, the old operations will not be applied to the new text.
 
-通过右上角 **Notebook options → Export notebook ZIP** 备份整个知识库。Android 使用系统保存文件对话框选择 ZIP 位置；浏览器预览使用浏览器下载。ZIP 解压后可作为普通 Notdown 知识库在桌面打开。将旧 ZIP 恢复到电脑端知识库，再通过云同步连接手机。
+**Block actions** Displays the current block type and content summary, providing inserting the next line, moving up/down on the same layer, indenting/unindenting, copying, and deleting; inapplicable operations are disabled. Cross-block text selections do not perform single-block operations. Add/delete rows and columns within table cells through the same panel; the table can be scrolled horizontally. The desktop columns are arranged vertically on the mobile phone. The handles for dragging the columns and pictures to adjust the width are not displayed, and the original column and width data are retained.
 
-应用私有文件会随卸载或清除应用数据删除，卸载前应导出备份。界面和原生工程均不申请访问整个共享存储的权限。单页上限 10 MB，单张图片上限 20 MB，ZIP 上限为解压后 128 MB、10,000 个文件。备份拒绝路径穿越、重复路径及文件与目录重叠，不覆盖已有知识库。
+Source code mode displays the complete file, formatting and insertion still apply to the source code selection, and the single block operation button is disabled. **Import Markdown** Add a page to the currently connected vault; no independent database creation or vault switching entrance is provided. Mobile terminal interactive reference [ Notion official mobile editing instructions ](https://www.notion.com/help/writing-and-editing-basics#on-mobile), the implementation still reuses Notdown's own editor and save logic.
 
-## 已知边界
+The page list follows the page order saved on the computer and is arranged indented by the parent-child level; click the arrow on the left side of the page to expand or collapse sub-pages, and click the title to open the page. When searching, the results will be displayed based on title and text matching. After clearing the search, the hierarchy and folded state will be restored. List display does not overwrite page order or parent-child relationships; order adjustments are still made on the computer.
 
-- 云同步需配置 Supabase 或[WebDAV](WEBDAV-SYNC.md)，并在应用打开期间运行；WebDAV 在 Android 使用原生网络请求。尚无应用关闭后的后台同步、多人协作、直接编辑外部 SAF 文件夹或多文件夹同步。
-- 手机支持 full-page 和 inline 数据库的表格、属性与记录编辑，并可新建数据库、字段及视图，使用筛选、排序和搜索。操作详见[数据库指南](DATABASES.md#手机使用)。图谱、Notion 导入向导、系统回收站及部分桌面块操作入口尚未覆盖。
-- 共用 codec 能保留的复杂内容仍可打开和通过源码编辑；依赖桌面服务的引文处理、外部转写、AI 设置及 Python / R / Pandoc 执行不提供移动端运行服务。远程附件或网页仍然需要网络。
-- 浏览器预览使用独立 IndexedDB 文件存储，Android 使用原生私有文件。它们的数据不互通；原生插件失败时不会退回浏览器存储冒充保存成功。
-- Chrome 触屏模拟和 JVM 文件测试不能代替 Android WebView、真实中文输入法、系统文件选择器、进程回收及低内存设备验收。
+When switching pages, the target page is read from the local file, the text is displayed first, and the images and other local media are loaded later; the unchanged page list reuses the existing content. When saving the title and text of ordinary notes, only the current page and necessary parent pages are read. The input to be saved is still collected before cutting the page, and the original version is verified, and the history and conflicts are retained. A full scan is retained when it comes to page levels, recycle bins, databases or old file identity searches; changes in the cloud are still downloaded and refreshed synchronously by the frontend.
 
-## 代码边界
+Back up the entire vault through **Notebook options → Export notebook ZIP** in the upper right corner. For Android, use the system save file dialog box to select the ZIP location; for browser preview, use the browser download. After decompression, ZIP can be opened on the desktop as a normal Notdown vault. Restore the old ZIP to the computer vault, and then connect to the mobile phone through cloud synchronization.
 
-| 位置 | 职责 |
+App private files will be deleted when uninstalling or clearing app data. A backup should be exported before uninstalling. Neither the interface nor the native project applies for permission to access the entire shared storage. The upper limit of a single page is 10 MB, the upper limit of a single picture is 20 MB, and the upper limit of ZIP is 128 MB, 10, and 000 files after decompression. Backup rejects path traversal, duplicate paths, and overlapping files and directories, and does not overwrite existing vaults.
+
+<a id="已知边界"></a>
+
+## Known limitations
+
+- Cloud synchronization needs to configure Supabase or [ WebDAV ](WEBDAV-SYNC.md) and run during application opening; WebDAV and Android use native network requests. There is no background sync after the app is closed, multi-person collaboration, direct editing of external SAF folders or multi-folder synchronization.
+- The mobile phone supports editing of tables, attributes and records of full-page and inline databases, and can create new databases, fields and views, and use filtering, sorting and search. For operation details, see[Database Guide](DATABASES.md#mobile-usage). The map, Notion import wizard, system recycle bin and some desktop block operation entrances have not been covered yet.
+- Complex content that can be retained by shared codec can still be opened and edited through source code; citation processing, external transcription, AI settings and Python / R / Pandoc execution that rely on desktop services do not provide mobile running services. Remote attachments or web pages still require a network.
+- The browser preview uses independent IndexedDB file storage, and Android uses native private files. Their data are not interoperable; when the native plug-in fails, it will not be returned to the browser storage and pretend to be saved successfully.
+- Chrome touch screen simulation and JVM file testing cannot replace Android WebView, real Chinese input method, system file selector, process recycling and low memory device acceptance.
+
+<a id="代码边界"></a>
+
+## Code responsibilities
+
+| Location | Responsibilities |
 | --- | --- |
-| `src/vault/` | 共用 `createVault`、Markdown / metadata 保存、版本与冲突、数据库与联系人存储、恢复与备份 |
-| `server/vault.ts`、`server/vault-platform.ts` | Node 入口装配、OS 路径、进程锁、原子文件替换和系统回收站 |
-| `src/mobile/` | 手机界面、草稿会话、原生与浏览器存储适配、ZIP 交互 |
-| `android/` | Android 构建、受限原生文件插件、系统文件导出与生命周期 |
-| `src/shared/asset-display.ts` | 仅用于显示的附件地址解析，不改写 Markdown 或节点属性 |
+| `src/vault/` | Shared `createVault`, Markdown / metadata save, version and conflict, database and contact storage, recovery and backup |
+| `server/vault.ts`、`server/vault-platform.ts` | Node entry assembly, OS path, process lock, atomic file replacement and system recycle bin |
+| `src/mobile/` | Mobile interface, draft session, native and browser storage adaptation, ZIP interaction |
+| `android/` | Android build, restricted native file plug-in, system file export and life cycle |
+| `src/shared/asset-display.ts` | Attachment address resolution for display only, does not override Markdown or node attributes |
 
-正文真相仍是 `pages/*.md`；`metadata.json` 保留未知字段，文档 YAML / Pandoc title block 继续覆盖默认值。Node 和移动端使用相同的 SHA-256 revision 与 UUIDv5 身份规则。文件适配只提供路径、读写、锁和提交等系统能力；业务写入统一经过 `createVault`。
+The body truth remains `pages/*.md`; `metadata.json` retains unknown fields, and documents YAML/Pandoc title block continue to overwrite the default values. Node and mobile use the same SHA-256 revision and UUIDv5 identity rules. File adaptation only provides system capabilities such as path, reading and writing, locking and submission; business writing is unified through `createVault`.
 
-移动端通过原生文件锁协调写入，临时文件写完并同步后原子替换；Markdown 和 metadata 的中断恢复沿用同一个事务日志。浏览器预览使用 Web Locks 与 IndexedDB 事务。二者均保留 `baseRevision` 校验，不在冲突后自动刷新版本并强制重试。
+The mobile terminal coordinates writing through native file locks, and temporary files are replaced atomically after they are written and synchronized; the interruption recovery of Markdown and metadata uses the same transaction log. Browser preview uses Web Locks and IndexedDB transactions. Both retain `baseRevision` verification and do not automatically refresh versions and force retries after conflicts.
 
-本次构建、自动化及设备验证边界见 [2026-10-23 验证记录](../verification/ANDROID-2026-10-23.md)。
+The boundaries of this construction, automation and equipment verification can be found in [ 2026-10-23 verification record ](../verification/ANDROID-2026-10-23.md).

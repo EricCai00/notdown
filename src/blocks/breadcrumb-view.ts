@@ -15,7 +15,7 @@ export function breadcrumbItems(pages: readonly BreadcrumbPage[], current?: Brea
   return result;
 }
 
-export function renderBreadcrumb(pages: readonly BreadcrumbPage[], current?: BreadcrumbPage): HTMLElement {
+export function renderBreadcrumb(pages: readonly BreadcrumbPage[], current?: BreadcrumbPage, options: { currentHref?: string } = {}): HTMLElement {
   const nav = document.createElement("nav"); nav.className = "pm-breadcrumb"; nav.setAttribute("aria-label", "Breadcrumb");
   const items = breadcrumbItems(pages, current);
   if (!items.length) {
@@ -31,10 +31,13 @@ export function renderBreadcrumb(pages: readonly BreadcrumbPage[], current?: Bre
     }
     const link = document.createElement("a"); link.className = "pm-breadcrumb-page";
     link.title = page.title || "Untitled";
-    link.href = page.databaseId ? "#database/" + encodeURIComponent(page.databaseId) : "#page/" + encodeURIComponent(page.id); link.draggable = false;
+    link.href = page.id === current?.id && options.currentHref ? options.currentHref
+      : page.databaseId ? "#database/" + encodeURIComponent(page.databaseId) : "#page/" + encodeURIComponent(page.id); link.draggable = false;
     if (page.id === current?.id) link.setAttribute("aria-current", "page");
     const label = document.createElement("span"); label.className = "pm-breadcrumb-title"; label.textContent = page.title || "Untitled";
-    link.append(pageIconElement(page.icon), label); item.append(link); list.append(item);
+    const icon = document.createElement("span"); icon.className = "pm-breadcrumb-icon"; icon.setAttribute("aria-hidden", "true");
+    icon.append(pageIconElement(page.icon));
+    link.append(icon, label); item.append(link); list.append(item);
   });
   nav.append(list); return nav;
 }

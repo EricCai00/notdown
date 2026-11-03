@@ -1,6 +1,7 @@
+import { documentsDirectory, locationSettingsPath, savedVaultLocation } from "./vault-location-settings.js";
 import path from "node:path";
 import os from "node:os";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import { promises as fs } from "node:fs";
 
@@ -16,7 +17,8 @@ export function vaultFolder(dataPath: string, name: string) {
 export function resolveVaultLocation(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()) {
   const defaultData = process.platform === "win32" ? path.join(env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "Notdown")
     : path.join(env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"), "Notdown");
-  const dataPath = path.resolve(cwd, env.NOTDOWN_DATA_PATH || defaultData);
+  const saved = savedVaultLocation(locationSettingsPath(env));
+  const dataPath = path.resolve(cwd, saved || env.NOTDOWN_DATA_PATH || (existsSync(defaultData) && readdirSync(defaultData).some(name => existsSync(path.join(defaultData, name, "pages"))) ? defaultData : path.join(documentsDirectory(), "Notdown")));
   const legacy = path.join(cwd, "vault");
   const explicit = env.VAULT_PATH !== undefined;
   const vaultPath = explicit ? path.resolve(cwd, env.VAULT_PATH!)

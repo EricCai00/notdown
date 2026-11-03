@@ -1,5 +1,7 @@
 # GitHub-style Alert verification
 
+**English** · [简体中文](GITHUB-ALERTS-2026-09-24.zh-CN.md)
+
 2026-09-24. Scope: appearance, direct insertion, editable titles, type menu, folding and dialect boundaries in the existing editor.
 
 ## Behavior and sources

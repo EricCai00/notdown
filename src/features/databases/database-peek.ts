@@ -175,10 +175,10 @@ export class DatabasePeek {
   }
   private render() {
     const page = this.page!;
-    this.host.innerHTML = `<aside class="database-peek" role="region" aria-label="Record peek"><header class="database-peek-header"><div class="database-peek-navigation"><button type="button" aria-label="Close record" title="Close record">${glyph(ChevronsRight)}</button><button type="button" aria-label="Open as full page" title="Open as full page">${glyph(Maximize2)}</button></div><span class="database-peek-status" role="status">Saved locally</span><button type="button" aria-label="Save record" title="Save record">${glyph(Save)}</button></header><button class="database-peek-discard" type="button" hidden>Discard draft and reload</button><div class="database-peek-scroll"><article class="database-peek-content"><textarea class="database-peek-title" aria-label="Record title" rows="1" placeholder="Untitled">${e(page.title)}</textarea><div class="database-peek-properties"></div><div class="database-peek-editor"></div></article></div></aside>`;
-    this.host.querySelector("[aria-label='Close record']")!.addEventListener("click", () => void this.close());
-    this.host.querySelector("[aria-label='Open as full page']")!.addEventListener("click", () => void this.full());
-    this.host.querySelector("[aria-label='Save record']")!.addEventListener("click", () => { this.failed = false; void this.flush(); });
+    this.host.innerHTML = `<aside class="database-peek" role="region" aria-label="Record peek" data-i18n-aria-label="Record peek"><header class="database-peek-header"><div class="database-peek-navigation"><button type="button" aria-label="Close record" title="Close record" data-i18n-title="Close record" data-i18n-aria-label="Close record">${glyph(ChevronsRight)}</button><button type="button" aria-label="Open as full page" title="Open as full page" data-i18n-title="Open as full page" data-i18n-aria-label="Open as full page">${glyph(Maximize2)}</button></div><span class="database-peek-status" role="status" data-i18n="Saved locally">Saved locally</span><button type="button" aria-label="Save record" title="Save record" data-i18n-title="Save record" data-i18n-aria-label="Save record">${glyph(Save)}</button></header><button class="database-peek-discard" type="button" hidden data-i18n="Discard draft and reload">Discard draft and reload</button><div class="database-peek-scroll"><article class="database-peek-content"><textarea class="database-peek-title" aria-label="Record title" rows="1" placeholder="Untitled">${e(page.title)}</textarea><div class="database-peek-properties"></div><div class="database-peek-editor"></div></article></div></aside>`;
+    this.host.querySelector("[data-i18n-aria-label='Close record']")!.addEventListener("click", () => void this.close());
+    this.host.querySelector("[data-i18n-aria-label='Open as full page']")!.addEventListener("click", () => void this.full());
+    this.host.querySelector("[data-i18n-aria-label='Save record']")!.addEventListener("click", () => { this.failed = false; void this.flush(); });
     this.host.querySelector(".database-peek-discard")!.addEventListener("click", () => void this.discardAndReload());
     const title = this.host.querySelector<HTMLTextAreaElement>(".database-peek-title")!;
     title.addEventListener("input", () => { if (this.page) { this.page.title = title.value; this.resizeTitle(); this.markDirty(); } });
@@ -233,7 +233,7 @@ export class DatabasePeek {
     }
     if (this.options.addProperty) {
       const add = document.createElement("button"); add.type = "button"; add.className = "database-peek-add-property";
-      add.innerHTML = glyph(Plus) + "<span>Add a property</span>";
+      add.innerHTML = glyph(Plus) + `<span data-i18n="Add a property">Add a property</span>`;
       add.addEventListener("click", () => {
         void this.flush().then(async ok => { if (ok) await this.options.addProperty?.(); }).catch(error => this.message(error instanceof Error ? error.message : String(error), true));
       });

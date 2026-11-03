@@ -1,23 +1,31 @@
-# 本地同步块
+<a id="本地同步块"></a>
 
-2026-09-27。同步块使用单一 ProseMirror 文档，Markdown 中保存本体与引用快照，不连接 Notion 云服务。
+# Local synced blocks
 
-## 操作
+**English** · [简体中文](SYNCED-BLOCKS.zh-CN.md)
 
-- 使用插入菜单的 Synced block，或块 handle 菜单的 Turn into → Synced block。连续多选可以一起包入容器；已有同步块及其内部不再嵌套转换。
-- 悬停或聚焦显示浅暖色细边框与右上方的浮动工具栏；工具栏使用浅灰描边和轻阴影，正文沿用页面字体，块上方不额外预留工具栏空白。
-- 打开位置或更多菜单时，以浅蓝底标示当前操作的同步块。位置菜单按真实页面图标、名称和父页面列出使用位置，标记 Original 与 This page，支持页面跳转；没有父页面时不显示路径。底部 Learn more about Synced blocks 打开本地操作说明。菜单会在窗口边缘调整位置，也可用方向键、Home / End 和 Escape 操作。
-- Copy synced block 先收取并保存当前页输入，再复制引用 Markdown。未命名本体在此时取得稳定 UUID；引用仍指向最初的本体，不创建引用链。复制失败或保存冲突会显示原因。
-- 将内容粘贴到另一 Notdown 页。新引用启用自动同步。同页联动与编辑合为一个事务；跨页在编辑停止约 900ms 后发布，打开的干净副本约每两秒检查来源。
-- 更多菜单保留手动 Refresh from source / Publish to source、旧的只读方向 live refresh 开关，以及新的自动同步开关。手动刷新明确以来源替换当前快照，可撤销；自动刷新不替换本地编辑。
-- Unsync 解开当前副本容器并保留其富文本正文，可撤销。本体仍有副本时拒绝解开，需逐个取消副本同步，避免静默产生失效引用；暂不提供跨页批量取消同步。
+2026-09-27. The synchronization block uses a single ProseMirror document. The ontology and reference snapshots are saved in Markdown and are not connected to the Notion cloud service.
 
-## 存储与冲突
+<a id="操作"></a>
 
-复用 `<synced_block>` / `<synced_block_reference>`，不引入新的正文标签。引用 URL 是 `#page/PAGE_ID#block=BLOCK_ID`。
+## Operations
 
-仅 `syntax.variant: notdown` 赋予 `id`、`source-revision`、`snapshot-hash`、`auto-refresh`、`auto-sync` 本地行为。新复制引用写入 `auto-sync="true"`；旧文件不迁移，也不自动升级旧 live refresh 行为。官方 `notion-markdown` 将含补充属性的内容按原文保留，不受显式扩展开关越界启用。
+- Use the insert menuSynced block，or blockhandle menuTurn into → Synced block。Continuous multiple selections can be included in a container together; existing synchronized blocks and their internal transformations are no longer nested.
+- Hover or focus to display a light warm thin border and a floating toolbar on the upper right; the toolbar uses a light gray stroke and light shadow, the text follows the page font, and no additional toolbar space is reserved above the block.
+- When the location or more menu is opened, the synchronized block of the current operation is marked with a light blue background. The location menu lists the usage locations according to the real page icon, name and parent page, marked Original and This page, and supports page jump; the path is not displayed when there is no parent page. Bottom Learn more about Synced blocks opens local operating instructions. The menu will adjust its position at the edge of the window and can also be operated with the arrow keys, Home / End and Escape.
+- Copy synced block first collects and saves the current page input, and then copies and references Markdown. The unnamed ontology is stable UUID at this point; references still point to the original ontology and no reference chain is created. Reasons for copy failures or save conflicts are displayed.
+- Paste the content into another Notdown page. New references enable automatic synchronization. Same-page linkage and editing are combined into one transaction; cross-pages are published about 900ms after editing stops, and clean copies are opened to check the source about every two seconds.
+- More menus retain manual Refresh from source / Publish to source, the old read-only direction live refresh switch, and the new auto-sync switch. Manual refresh explicitly replaces the current snapshot with the source and can be undone; automatic refresh does not replace local edits.
+- Unsync Unlocks the current copy container and retains its rich text body, reversible. Ontology refuses to unsynchronize when there are still copies, and you need to cancel the copy synchronization one by one to avoid silently generating invalid references; cross-page batch de-synchronization is not available at the moment.
 
-来源正文通过现有 createVault 的页面 API 写入，携带已捕获的 `baseRevision`。冲突不强制重试，服务保留来源和提交内容；编辑器暂停该副本的自动同步并保留本地正文。异步响应检查文档、目标、编辑状态与视图生命周期，输入法组合中不发布或替换正文。未知属性和代码围栏由现有 Markdown codec 保留。
+<a id="存储与冲突"></a>
 
-未打开页面保留上次保存的快照，打开后读取本地来源。Source 模式直接改动本体或引用会先保存 Markdown；自动同步只在可编辑的 Page 投影中运行。外部 URL、无权限 notice、无法定位的来源保留快照，不向 Notion 写入。此功能不是跨设备传输、协作或通用文件同步。
+## Storage and conflicts
+
+Reuse `<synced_block>` / `<synced_block_reference>` without introducing new text tags. References to URL are `#page/PAGE_ID#block=BLOCK_ID` .
+
+Only `syntax.variant: notdown` gives `id` , `source-revision` , `snapshot-hash` , `auto-refresh` , `auto-sync` native behaviors. New copy references are written to `auto-sync="true"`; old files are not migrated, and old live refresh behavior is not automatically upgraded. The official `notion-markdown` will retain the content containing supplementary attributes as the original text, and will not be enabled out of bounds by explicit expansion switches.
+
+Source code is written in the existing createVault page, API, and carries captured data. `baseRevision`Controversy does not force retesting, services retain source and submission content; editors suspend automatic syncing of the copy and retain local text. Asynchronous responses to document, target, edit status and view lifecycle checks, and no publication or replacement of text in the input law portfolio. Unknown properties and code fences are maintained by existing Markdown codec.
+
+Unopened pages retain the last saved snapshot and read local sources after opening. Directly changing the ontology or reference in Source mode will save Markdown first; automatic synchronization only runs in the editable Page projection. External URL, unauthorized notice, and unlocatable sources retain snapshots and do not write to Notion. This feature is not cross-device transfer, collaboration, or universal file synchronization.

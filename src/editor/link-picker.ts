@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../shared/i18n";
 import { createElement, Link } from "lucide";
 import { pageIconElement } from "../shared/page-icons";
 import { safeReference } from "../document/notion-syntax";
@@ -28,13 +29,13 @@ export function showLinkPicker(options: {
 }): HTMLDialogElement {
   const dialog = document.createElement("dialog");
   dialog.className = "pm-link-picker";
-  dialog.setAttribute("aria-label", "Link");
+  setUIAttribute(dialog, "aria-label", "Link");
   dialog.setAttribute("aria-modal", "false");
   const controller = new AbortController(), { signal } = controller;
   const input = document.createElement("input");
   input.type = "text";
   input.placeholder = "Paste link or search pages";
-  input.setAttribute("aria-label", "Link address");
+  setUIAttribute(input, "aria-label", "Link address");
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("aria-expanded", "true");
@@ -47,7 +48,7 @@ export function showLinkPicker(options: {
   list.className = "pm-link-picker-results";
   list.id = `link-options-${crypto.randomUUID()}`;
   list.setAttribute("role", "listbox");
-  list.setAttribute("aria-label", "Link destinations");
+  setUIAttribute(list, "aria-label", "Link destinations");
   input.setAttribute("aria-controls", list.id);
   const output = document.createElement("output");
   output.setAttribute("aria-live", "polite");
@@ -64,7 +65,7 @@ export function showLinkPicker(options: {
     const choice = choices[index];
     if (!choice) return;
     if (choice.page && !pageInputChoices(options.pages(), "").some(page => page.id === choice.page!.id)) {
-      output.textContent = "This page is no longer available. Search again.";
+      setUIText(output, "This page is no longer available. Search again.");
       return;
     }
     apply(choice.href, choice.page?.title);
@@ -113,7 +114,7 @@ export function showLinkPicker(options: {
     if (!choices.length) {
       const empty = document.createElement("div");
       empty.className = "pm-link-picker-empty";
-      empty.textContent = "No pages found";
+      setUIText(empty, "No pages found");
       list.append(empty);
     }
     highlight(); position();
@@ -122,7 +123,7 @@ export function showLinkPicker(options: {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "pm-link-picker-remove";
-    remove.textContent = "Remove link";
+    setUIText(remove, "Remove link");
     remove.addEventListener("click", () => apply(""));
     dialog.append(remove);
   }

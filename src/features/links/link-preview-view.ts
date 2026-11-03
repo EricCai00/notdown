@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../../shared/i18n";
 import { isEditorKind } from "../../document/node-identity";
 import type { Node as PMNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
@@ -319,7 +320,7 @@ export class LinkPreviewView implements NodeView {
     this.dialog?.remove();
     const dialog = (this.dialog = document.createElement("dialog"));
     dialog.className = "pm-preview-dialog";
-    dialog.setAttribute("aria-label", "Link preview");
+    setUIAttribute(dialog, "aria-label", "Link preview");
     const header = el("header", ""),
       title = el(
         "h2",
@@ -354,7 +355,7 @@ export class LinkPreviewView implements NodeView {
       full.type = "button";
       full.onclick = async () => {
         full.disabled = true;
-        output.textContent = "Opening document…";
+        setUIText(output, "Opening document…");
         const original = this.node.attrs.url;
         try {
           const result = await api<{ url: string }>("/link-previews/viewer", {
@@ -372,7 +373,7 @@ export class LinkPreviewView implements NodeView {
           )
             throw new Error("The document viewer is unavailable.");
           const frame = document.createElement("iframe");
-          frame.title = title.textContent || "Document preview";
+          frame.title = setUIText(title, "Document preview");
           frame.sandbox.add(
             "allow-scripts",
             "allow-same-origin",
@@ -382,8 +383,7 @@ export class LinkPreviewView implements NodeView {
           frame.src = url;
           frame.className = "pm-preview-document";
           dialog.append(frame);
-          output.textContent =
-            "If the viewer cannot display this file, use Open original.";
+          setUIText(output, "If the viewer cannot display this file, use Open original.");
           full.remove();
         } catch (e) {
           if (dialog.open)

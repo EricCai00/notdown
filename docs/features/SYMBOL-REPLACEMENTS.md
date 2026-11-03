@@ -1,10 +1,14 @@
-# 符号自动替换
+<a id="符号自动替换"></a>
 
-Notdown 的 `symbol_replacements` 编辑器插件默认启用，在页面的扩展设置中可关闭 **Symbol replacements**，对应 YAML `syntax.extensions.symbol_replacements: false`。只有 `syntax.variant: notdown` 生效；其他方言即使显式设为 `true` 也不启用。
+# Automatic symbol replacements
 
-这是正文可视编辑器的输入辅助，不是新的 Markdown 语法。输入最后一个字符时替换，保存普通 Unicode；源码视图、加载文件、粘贴及导入不会执行本插件。原文保留、未知字段与 CAS 保存仍沿用既有机制。
+**English** · [简体中文](SYMBOL-REPLACEMENTS.zh-CN.md)
 
-| 输入 | 结果 |
+Notdown's `symbol_replacements` Editor plugins are enabled by default and can be turned off in the page extension settings **Symbol replacements**The code is YAML. `syntax.extensions.symbol_replacements: false`- It's just that... `syntax.variant: notdown` The other dialects, even if explicitly set `true` It's not enabled.
+
+This is an input aid for text visual editors, not the new Markdown syntax. Replace when entering the last character and save the normal Unicode; source code view, loading files, pasting and importing will not execute this plug-in. Original text retention, unknown fields and CAS saving still use the existing mechanisms.
+
+| input | result |
 | --- | --- |
 | `->` | → |
 | `<-` | ← |
@@ -20,12 +24,14 @@ Notdown 的 `symbol_replacements` 编辑器插件默认启用，在页面的扩�
 | `(r)` | ® |
 | `(tm)` | ™ |
 
-替换后立即按 Backspace，恢复上一次替换前的字符。双向箭头逐字输入经过两次替换：`<-` → `←`，再输入 `>` → `↔`（`<=` → `≤`，再输入 `>` → `⇔`）；立即退格恢复为 `←>` / `≤>`，也可关闭开关后输入完整 ASCII。`←>` / `≤>` 本身也作为双向箭头的输入别名。
+Press Backspace immediately after replacement to restore the characters before the last replacement. The double-headed arrow input is replaced twice: `<-` → `←`, then enter `>` → `↔` (`<=` → `≤`, then enter `>` → `⇔`); immediately backspace to restore to `←>` / `≤>`, or turn off the switch and enter the complete ASCII. `←>`/`≤>` themselves also serve as input aliases for bidirectional arrows.
 
-插件避开代码块、行内代码、链接格式、反斜杠转义、URL、较长运算符，以及含尚未解析的反引号或美元符号的前文。公式与原始源码节点不参与替换。保留原有粗体等格式，不跨内联原子替换，不抢占 `---` 分隔线。规则区分大小写；智能引号、破折号和 emoji 不在此插件范围内，已有 `smart` / `emoji` 扩展继续独立控制。
+The plug-in avoids code blocks, inline code, link formats, backslash escapes, URL , long operators, and prepending with unparsed backticks or dollar signs. Formulas and original source code nodes are not involved in replacement. Retain the original bold and other formats, do not cross inline atomic substitutions, and do not preempt the `---` separator line. Rules are case-sensitive; smart quotes, dashes, and emoji are outside the scope of this plugin and existing `smart`/`emoji` extensions continue to be controlled independently.
 
-## Notion 参考与边界
+<a id="notion-参考与边界"></a>
 
-截至 2026-09-23，查阅的 [Notion 官方快捷键文档](https://www.notion.com/help/keyboard-shortcuts)列出了粗体、斜体、行内代码、删除线、列表、待办、标题、折叠、引用和 emoji 输入快捷方式，但未提供完整的 ASCII → Unicode 符号替换表。因此上表是 Notdown 明确实现的规则，不能视为 Notion 官方完整规则或 Enhanced Markdown 规范。
+## Notion references and boundaries
 
-验证覆盖：`tests/unit/symbol-replacements.test.ts` 与 `tests/e2e/symbol-replacements.spec.ts`。浏览器验证使用隔离的临时知识库和 Chrome。
+As of 2026-09-23, the consulted [ Notion official shortcut document ](https://www.notion.com/help/keyboard-shortcuts) lists bold, italic, inline code, strikethrough, list, to-do, title, fold, quote and emoji input shortcuts, but does not provide a complete ASCII → Unicode symbol replacement table. Therefore, the above table is a clearly implemented rule of Notdown and cannot be regarded as the official complete rules of Notion or Enhanced Markdown specification.
+
+Verify coverage: `tests/unit/symbol-replacements.test.ts` and `tests/e2e/symbol-replacements.spec.ts`. Browser validation uses isolated temporary vault and Chrome.

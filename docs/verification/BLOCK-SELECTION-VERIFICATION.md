@@ -1,5 +1,7 @@
 # Block selection verification — 2026-09-22
 
+**English** · [简体中文](BLOCK-SELECTION-VERIFICATION.zh-CN.md)
+
 ## Behavior
 
 Marquee selection uses full container bounds independently of drag-handle positioning. List items and plain nested text parents retain head-only hit testing so a child can be selected independently; highlighting a parent includes its subtree. List highlights extend into their list's marker/checkbox gutter. Dividers get a visible 12px selection target without changing document spacing.

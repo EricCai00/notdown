@@ -7,22 +7,22 @@ import {
 import "./graph-view.css";
 
 export function graphHTML(list: Page[]) {
-  if (!list.length) return '<p class="empty-state">No matching pages.</p>';
+  if (!list.length) return `<p class="empty-state" data-i18n="No matching pages.">No matching pages.</p>`;
   return `<div class="graph-view">
-    <div class="graph-toolbar"><span class="graph-count"></span><button type="button" data-graph-fit>Fit graph</button>
-    <details class="graph-settings"><summary>Graph settings</summary><div>
-      <label>Repel force<input aria-label="Repel force" data-force="repel" type="range" min="20" max="900" value="280" /></label>
-      <label>Link distance<input aria-label="Link distance" data-force="distance" type="range" min="40" max="260" value="115" /></label>
-      <label>Link force<input aria-label="Link force" data-force="link" type="range" min="0.02" max="0.6" step="0.01" value="0.18" /></label>
-      <label>Center force<input aria-label="Center force" data-force="center" type="range" min="0.005" max="0.1" step="0.005" value="0.025" /></label>
-      <label><input type="checkbox" data-graph-labels checked /> Show labels</label>
-      <label><input type="checkbox" data-graph-arrows checked /> Show arrows</label>
+    <div class="graph-toolbar"><span class="graph-count"></span><button type="button" data-graph-fit data-i18n="Fit graph">Fit graph</button>
+    <details class="graph-settings"><summary data-i18n="Graph settings">Graph settings</summary><div>
+      <label><span data-i18n="Repel force">Repel force</span><input aria-label="Repel force" data-force="repel" type="range" min="20" max="900" value="280"  data-i18n-aria-label="Repel force"/></label>
+      <label><span data-i18n="Link distance">Link distance</span><input aria-label="Link distance" data-force="distance" type="range" min="40" max="260" value="115"  data-i18n-aria-label="Link distance"/></label>
+      <label><span data-i18n="Link force">Link force</span><input aria-label="Link force" data-force="link" type="range" min="0.02" max="0.6" step="0.01" value="0.18"  data-i18n-aria-label="Link force"/></label>
+      <label><span data-i18n="Center force">Center force</span><input aria-label="Center force" data-force="center" type="range" min="0.005" max="0.1" step="0.005" value="0.025"  data-i18n-aria-label="Center force"/></label>
+      <label><input type="checkbox" data-graph-labels checked /> <span data-i18n="Show labels">Show labels</span></label>
+      <label><input type="checkbox" data-graph-arrows checked /> <span data-i18n="Show arrows">Show arrows</span></label>
     </div></details></div>
     <svg class="graph-canvas" role="group" aria-label="Vault page graph" tabindex="0" aria-describedby="graph-help">
       <defs><marker id="graph-arrow" viewBox="0 -4 8 8" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,-4L8,0L0,4" /></marker></defs>
       <g class="graph-camera"><g class="graph-edges"></g><g class="graph-nodes"></g></g>
     </svg>
-    <div class="graph-footer"><span><i></i>Page links → target <i class="dashed"></i>Parent → child</span><span id="graph-help">Drag nodes · Drag background to pan · Scroll to zoom · Click to open</span></div>
+    <div class="graph-footer"><span><i></i><span data-i18n="Page links → target">Page links → target</span> <i class="dashed"></i><span data-i18n="Parent → child">Parent → child</span></span><span id="graph-help" data-i18n="Drag nodes · Drag background to pan · Scroll to zoom · Click to open">Drag nodes · Drag background to pan · Scroll to zoom · Click to open</span></div>
   </div>`;
 }
 

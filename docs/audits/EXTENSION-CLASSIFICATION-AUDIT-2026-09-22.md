@@ -1,59 +1,73 @@
-# 扩展分类复核
+<a id="扩展分类复核"></a>
 
-2026-09-23 后续约束：用户明确当前只接受既有方言和官方 Notion Markdown 语法。本文按功能来源分类及改名不代表编码被认可。补充核实发现官方另有 meeting-notes 标签依据，同时 Bookmark/Embed/Link preview/Breadcrumb 的 Markdown 输出使用 unknown。当前实际自定义编码及属性清单见 [自定义语法审计](./CUSTOM-SYNTAX-AUDIT-2026-09-23.md)，以该报告区分来源与编码。
+# Extension classification review
 
-## 后续修正：图片归属、扩展改名与下划线拆分
+**English** · [简体中文](EXTENSION-CLASSIFICATION-AUDIT-2026-09-22.zh-CN.md)
 
-本节取代下方首轮审计中“十个都归 Notion”及“保持旧扩展 ID”的结论。
+2026-09-23 subsequent constraints: Users explicitly accept only existing dialects and official Notion Markdown syntax. The classification and renaming of this article by functional source does not mean that the coding is recognized. Supplementary verification found that there is another official meeting-notes label basis, and Bookmark/Embed/Link preview/Breadcrumb's Markdown output uses unknown. The current actual custom encoding and attribute list can be found in [ Custom Syntax Audit ](CUSTOM-SYNTAX-AUDIT-2026-09-23.md). Use this report to distinguish sources and encodings.
 
-- **Image with caption**：Notion 支持题注，但这也是通用能力，例如 [Pandoc implicit_figures](https://pandoc.org/MANUAL.html#extension-implicit_figures)。当前 `<figure>` 是本地通用编码，仅凭 Notion 有类似功能不足以将其归属 Notion。`local_figure` 改回 Notdown Markdown extensions，不改名。
-- 其余九个功能适配已改为 `notion_tabs`、`notion_bookmark`、`notion_link_preview`、`notion_breadcrumb`、`notion_button`、`notion_meeting_notes`、`notion_ai_block`、`notion_html_document`、`notion_web_embed`。它们表达项目对已确认 Notion 功能的适配，不宣称功能由 Notion 独创，或本地标签等于官方格式。
-- 九个旧 `local_*` ID 保留为兼容别名。配置读取及已有链接可用，保存新配置使用正式名；新旧冲突时正式名优先。未知配置保留，不批量改写用户页面。
-- **颜色与下划线**：合并是本地历史设计，官方分别定义 color 和 underline 属性。现在 `notion_colors` 只管理块颜色、文字色和背景色，新增 `notion_underline` 独立管理下划线。两项在 Notion / Notdown 默认开启，其他方言需启用；旧配置中仅关闭颜色不再隐式关闭下划线，如需两者都关闭要分别关闭。禁用语法仍按原有策略保留完整原文；同一源块混有禁用标记时可能整体退回源码。
-- 当前总数 **127**：Pandoc **89**、Notion **22**（13 个语法适配 + 9 个功能适配）、其他 Markdown **16**。
+<a id="后续修正图片归属扩展改名与下划线拆分"></a>
 
-本轮验证：37 项定向单元测试通过，最后的别名关系补充另经 5 项测试通过。浏览器选择了 23 个相关/周边用例，22 个通过；旧 ID 导航、颜色和下划线独立开关、保存后使用正式 ID 的新用例均通过。全量单元测试快照为 431 通过、1 失败、1 跳过；失败为 `footnote_anchor` 缺少内容清单关系，浏览器失败为脚注插入后找不到定义项，均不涉及本轮扩展标识或样式开关，未修改脚注实现。日志：`test-results/notion-rename-unit.log`、`test-results/notion-rename-focused.log`、`test-results/notion-rename-e2e.log`。
+## Follow-up corrections: image classification, extension renaming and separating underline syntax
 
-以下保留首轮审计记录，数量与图片归属以本节为准。
+This section replaces the conclusions of "all ten belong to Notion" and "keep the old extension ID" in the first round of audit below.
 
-2026-09-22。复核 Block Explorer 当前全部 126 项：Pandoc 89、Notion 功能/语法适配 22、其他 Markdown 产品语法 15。修正前为 89 / 12 / 25。原来的分类只识别 `notion_` 前缀，错误地将所有 `local_*` 项归入 Markdown 类。
+- **Image with caption**: Notion supports captions, but this is also a general capability, e.g. [Pandoc implicit_figures](https://pandoc.org/MANUAL.html#extension-implicit_figures). current `<figure>` It is a local universal encoding. Just because Notion has similar functions is not enough to classify it as Notion.`local_figure` Change back to Notdown Markdown extensions without changing the name.
+- The remaining nine function adaptations have been changed to `notion_tabs`, `notion_bookmark`, `notion_link_preview`, `notion_breadcrumb`, `notion_button`, `notion_meeting_notes`, `notion_ai_block`, `notion_html_document`, and `notion_web_embed`. They express the project's adaptation of confirmed Notion functionality and do not claim that the functionality is unique to Notion, or that local tags equal the official format.
+- The nine old `local_*` ID are retained as compatible aliases. Configuration reading and existing links are available, and the official name is used to save the new configuration; the official name takes precedence when the old and new configurations conflict. Unknown configurations are retained and user pages are not rewritten in batches.
+- **Color and underlining**: The merger is a local historical design, and the color and underline attributes are officially defined respectively. now `notion_colors` Only manages block color, text color and background color, new `notion_underline` Independently manage underscores. Both items are enabled by default in Notion / Notdown, and other dialects need to be enabled; in the old configuration, only turning off the color will no longer implicitly turn off the underline. If you need to turn off both, you must turn them off separately. Disabled syntax still retains the complete original text according to the original policy; when the same source block is mixed with disabled tags, the source code may be returned as a whole.
+- The current total number of **127**: Pandoc **89**, Notion **22** (13 syntax adaptation + 9 function adaptation), other Markdown **16**.
 
-## 已修正的十项
+This round of verification: 37 directed unit tests passed, and the final alias relationship addition passed another 5 test. The browser selected 23 related/surrounding use cases, and 22 passed; the old ID navigation, color and underline independent switches, and the new use cases that used the official ID after saving all passed. The full unit test snapshot is that 431 passed, 1 failed, and 1 was skipped; the failure was that `footnote_anchor` lacked the content manifest relationship, and the browser failure was that the definition item could not be found after inserting the footnote. None of them involve this round of extension identifiers or style switches, and the footnote implementation has not been modified. Log: `test-results/notion-rename-unit.log`, `test-results/notion-rename-focused.log`, `test-results/notion-rename-e2e.log`.
 
-这些条目归入 Notdown Notion extensions，保留原扩展 ID、默认值及文件编码。分类表示功能适配来源，不表示 Notion 发明了该功能，也不表示本地编码是官方 NFM 语法。
+The first round of audit records are retained below. The quantity and picture attribution are subject to this section.
 
-| 扩展 | 官方功能依据 | 本地编码 |
+2026-09-22 ⋅ Review Block Explorer All current 126 items: Pandoc 89 ⋅ Notion function/grammar adapted to 22 ⋅ other Markdown product grammar 15 ⋅ Modified to 89 / 12 / 25 ⋅ The original classification is only recognized `notion_` The first is that the first is that the first is that the second is that the second is that the second is that the second is that the third is that the third is that the third is that the third is that the third is that the third is that the third is that the third is that the third. `local_*` IncludedMarkdown Class:
+
+<a id="已修正的十项"></a>
+
+## Ten corrected items
+
+These entries are classified under Notdown Notion extensions and retain the original extension ID, default values, and file encoding. The classification indicates the source of function adaptation, and does not mean that Notion invented the function, nor does it mean that the local encoding is the official NFM syntax.
+
+| Expand | Official functional basis | local encoding |
 | --- | --- | --- |
 | `notion_meeting_notes` | [Meeting notes](https://developers.notion.com/reference/block#meeting-notes) | `<meeting-notes>` |
-| `notion_link_preview` | [Link Preview](https://developers.notion.com/reference/block#link-preview)，含行内 link mention | `<link-preview>` / `<link-mention>` |
+| `notion_link_preview` | [Link Preview ](https://developers.notion.com/reference/block#link-preview), including inline link mention | `<link-preview>` / `<link-mention>` |
 | `notion_bookmark` | [Bookmark](https://developers.notion.com/reference/block#bookmark) | `<bookmark>` |
 | `notion_breadcrumb` | [Breadcrumb](https://developers.notion.com/reference/block#breadcrumb) | `<breadcrumb>` |
 | `notion_button` | [Buttons](https://www.notion.com/help/buttons) | `<button>` |
 | `notion_ai_block` | [Custom AI blocks](https://www.notion.com/help/guides/organize-your-everyday-life-with-notion-ai) | `<ai-block>` |
 | `notion_html_document` | [HTML blocks](https://developers.notion.com/reference/block#html-blocks) | `<html-embed>` |
 | `notion_web_embed` | [Embed](https://developers.notion.com/reference/block#embed) | `<web-embed>` |
-| `local_figure` | [图片及题注](https://developers.notion.com/guides/data-apis/enhanced-markdown#media-blocks) | `<figure>`，alt 与 caption 分开 |
+| `local_figure` | [Images and captions](https://developers.notion.com/guides/data-apis/enhanced-markdown#media-blocks) | `<figure>`, with alt text and captions kept separate |
 | `notion_tabs` | [Tab](https://developers.notion.com/reference/block#tab) | `<tabs>` / `<tab>` |
 
-官方现已列出 Tab 容器和 HTML 文件嵌入。它们也有 Notion 功能对应。Tab 的官方 API 结构与本地结构不同；HTML 文件嵌入与本地 HTML 源码容器不同。不能据功能相似直接宣称编码兼容。
+Official list nowTab containers andHTML They're embedded in files.Notion The functional correspondence.Tab officialAPI The structure is different from the local structure;HTML Embedded files with localHTML Source containers are different. It is not possible to directly declare code compatibility based on similar functions.
 
-这十项继续在方言列表的 **Others** 中：此分组表示“本地方言适配未有官方语法依据”，与 Notion 来源分类是独立维度。源分类、官方链接、编码边界同时显示在扩展及对应块详情中；编辑页共用的扩展标签也同步修正。
+These ten items continue in **Others** of the dialect list: This grouping means "local dialect adaptation has no official grammatical basis" and is a separate dimension from the Notion source classification. Source categories, official links, and encoding boundaries are displayed in the extension and corresponding block details at the same time; the extension tags shared by the edit page are also revised simultaneously.
 
-## 其余 116 项的分类
+<a id="其余-116-项的分类"></a>
 
-- **Pandoc 89**：保持项目中 Pandoc 手册清单的标识，共 77 个 Markdown 范围条目和 12 个 Outside Markdown scope 条目。`alerts`、`emoji`、`mmd_*`、`wikilinks_*` 等拥有 Pandoc 标识，不因也被 GitHub、MultiMarkdown、Obsidian 或 Notion 使用而搬走；产品的语法依据另行展示。不能把“Pandoc 分类”读成“只有 Pandoc 支持”。
-- **既有 Notion 12**：`notion_columns`、`notion_callouts`、`notion_toggles`、`notion_tables`、`notion_pages`、`notion_mentions`、`notion_media`、`notion_databases`、`notion_synced`、`notion_toc`、`notion_nesting`、`notion_colors` 继续按官方 Enhanced Markdown 语法归类。`notion_databases` 仍只保留原文，不冒充可编辑数据库；`notion_nesting` 的历史本地容器也已在说明中区分。
-- **其他 Markdown 15**：`highlight`、`comments`、`toc_directives`、`diagrams`、`html_embed`、`mmd_tables`、`mmd_abbreviations`、`mmd_citations`、`critic_markup`、`transclusion`、`glossary`、`metadata_values`、`metadata_variables`、`typora_loose_lists`、`display_math`。它们表示 Typora、Obsidian、MultiMarkdown 等语法及本地适配。`html_embed` 是 Markdown 内的 HTML 嵌入适配，与 `notion_html_document` 的文档容器不同；`implicit_figures`、普通图片和 `local_figure` 也不合并。
+## Classification of the remaining 116 items
 
-## 另两处依据修正
+- **Pandoc 89**: Keep the identity of the Pandoc manual list in the project, with a total of 77 Markdown range entries and 12 Outside Markdown scope entries.`alerts`、`emoji`、`mmd_*`、`wikilinks_*` If it has the Pandoc logo, it will not be moved because it is also used by GitHub, MultiMarkdown, Obsidian or Notion; the grammatical basis of the product will be shown separately. "Pandoc classification" cannot be read as "only Pandoc supported".
+- **Existing Notion 12**：`notion_columns`、`notion_callouts`、`notion_toggles`、`notion_tables`、`notion_pages`、`notion_mentions`、`notion_media`、`notion_databases`、`notion_synced`、`notion_toc`、`notion_nesting`、`notion_colors` Continue to be classified according to the official Enhanced Markdown syntax.`notion_databases` Still only retain the original text and do not pretend to be an editable database;`notion_nesting` The history of local containers has also been distinguished in the description.
+- **Other Markdown 15**：`highlight`、`comments`、`toc_directives`、`diagrams`、`html_embed`、`mmd_tables`、`mmd_abbreviations`、`mmd_citations`、`critic_markup`、`transclusion`、`glossary`、`metadata_values`、`metadata_variables`、`typora_loose_lists`、`display_math`. They represent Typora, Obsidian, MultiMarkdown, etc. syntax and local adaptation.`html_embed` YesMarkdown In the InteriorHTML The first is the`notion_html_document` The document containers are different;`implicit_figures`, normal pictures and `local_figure` Nor merge.
 
-1. [Notion Enhanced Markdown 的 Code 节](https://developers.notion.com/guides/data-apis/enhanced-markdown#code)明确描述 Mermaid 围栏。已补入 `diagrams` 的 Notion 方言依据，并限定只覆盖 Mermaid，不改变其通用 Markdown 来源分类或开关状态。
-2. 上次审计对 `extended!A7:E7` 的结论错误。[官方 Custom emoji](https://developers.notion.com/guides/data-apis/enhanced-markdown#custom-emoji)确实定义 `:emoji_name:`。已更正语法说明和原报告：Notion 自定义表情与通用 shortcode 字典不是同一套解析机制，也不属于 `notion_mentions`。本地未接入工作区自定义表情解析。
+<a id="另两处依据修正"></a>
 
-## 实现边界
+## Two other evidence-based corrections
 
-此轮修改分类、引用和说明，没有替换 codec 或变更用户正文。Notion 侧功能存在，不等于本地实现拥有其全部能力：本地会议块使用可选转录服务，AI 块使用配置的提供方，按钮只运行已有本地动作；它们不具有 Notion 云端服务及数据库自动化。Notion 的 link preview 在通用 Block API 中只能读取，不能用该接口创建；这不影响本地创建自己的预览块。
+1. [Notion Enhanced Markdown ofCode 节](https://developers.notion.com/guides/data-apis/enhanced-markdown#code)Explicitly describe the Mermaid fence. Already added `diagrams` The Notion dialect is based on, and limited to cover only Mermaid, without changing its generic Markdown source classification or switch state.
+2. The last audit concluded incorrectly for `extended!A7:E7`. [ Official Custom emoji ](https://developers.notion.com/guides/data-apis/enhanced-markdown#custom-emoji) does define `:emoji_name:`. Corrected syntax description and original report: Notion custom expressions are not the same parsing mechanism as the general shortcode dictionary, nor do they belong to `notion_mentions`. Customized emoticon analysis is not connected locally to the workspace.
 
-分类数据使用显式来源映射。回归检查覆盖来源过滤、旧 ID 深链接、块/扩展官方引用、Notion 来源与 Others 分组并存，以及默认值不变。
+<a id="实现边界"></a>
 
-验证结果：`npm test` 为 424 通过、1 跳过、0 失败；最终目录数据定向测试 14 通过；`npm run build -- --outDir .run/catalog-origin-dist` 通过。Chrome 独立临时知识库中的目录/语法说明/来源分组共 12 个浏览器用例通过（首轮 11 个通过；新增用例修正引用链接选择器后单独复跑通过）。日志为 `test-results/catalog-origin-*.log`，未操作用户知识库。
+## Implementation boundaries
+
+This round of modifications to classification, citations and descriptions does not replace codec or change the user text. The existence of Notion side functions does not mean that the local implementation has its full capabilities: the local meeting block uses the optional transcription service, the AI block uses the configured provider, and the buttons only run existing local actions; they do not have Notion cloud services and database automation. Notion's link preview can only be read in general Block API and cannot be created using this interface; this does not affect the local creation of your own preview block.
+
+Categorical data uses explicit source mapping. Regression checks cover source filtering, old ID deep links, block/extended official references, coexistence of Notion sources with Others groupings, and unchanged default values.
+
+Verification result:`npm test` Passed for 424, skipped for 1, failed for 0; the final directory data orientation test 14 passed;`npm run build -- --outDir .run/catalog-origin-dist` Passed by.Chrome Directories in the Independent Temporary Knowledge Library/The following is a list of the topics covered:/The source group12 A browser instance is used by the first round.11 A single pass; new use cases are modified and run again separately after the reference link selector is passed).`test-results/catalog-origin-*.log`, the user vault is not operated.

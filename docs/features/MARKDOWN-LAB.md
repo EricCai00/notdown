@@ -1,12 +1,18 @@
-# Markdown Lab：外部渲染器、方言与 HTML 输出
+<a id="markdown-lab外部渲染器方言与-html-输出"></a>
 
-Markdown Lab 为实验性工具，侧栏入口默认关闭。在 **Workspace settings → Experimental features → Markdown Lab** 开启；同组的 **Block Explorer** 也需单独开启。开关只控制侧栏入口，原有页面 URL 仍可直接访问。
+# Markdown Lab: external renderers, dialects and HTML output
 
-2026-09-15，独立页面入口 `/markdown-lab.html`。
+**English** · [简体中文](MARKDOWN-LAB.zh-CN.md)
 
-主应用现已接入独立的 [原生编辑核心](../architecture/MARKDOWN-ENGINE.md)：三种视图、双向编辑和知识库保存不经过本页的外部程序请求链路。此文仅描述 Lab。
+Markdown Lab is an experimental tool, and the sidebar entrance is closed by default. Turn on **Workspace settings → Experimental features → Markdown Lab**; **Block Explorer** in the same group also needs to be turned on separately. The switch only controls the sidebar entrance, and the original page URL can still be accessed directly.
 
-## 当前链路
+2026-09-15, independent page entrance `/markdown-lab.html`.
+
+The main application is now connected to the independent [ native editing core ](../architecture/MARKDOWN-ENGINE.md): three views, two-way editing and vault saving do not go through the external program request link of this page. This article only describes Lab.
+
+<a id="当前链路"></a>
+
+## Current pipeline
 
 ```text
 CodeMirror 源码 + 当前渲染器／方言配置
@@ -22,52 +28,60 @@ libMultiMarkdown / Markdown.pl CLI → HTML 标准输出
 右侧只读输出
 ```
 
-Pandoc AST 与 ProseMirror 文档只在预览请求内存中存在；直接渲染器将标准输出作为 HTML 返回。Lab 不调用知识库的创建、更新或附件接口，不改变当前笔记的 `bodyFormat`；导入只读取用户所选文件，下载只输出编辑器源码。窗口草稿使用 `sessionStorage`，包含源码、文件名、渲染器／方言、各方言的扩展覆盖及滚动开关。关闭窗口后不能将它视为长期备份。
+Pandoc AST and ProseMirror documents exist only in preview request memory; the direct renderer returns standard output as HTML. Lab does not call the creation, update or attachment interface of the vault, and does not change the `bodyFormat` of the current note; importing only reads the files selected by the user, and downloading only outputs the editor source code. The window draft uses `sessionStorage` and includes source code, file names, renderers/dialects, extended coverage of each dialect, and scroll switches. It cannot be considered a long-term backup after closing the window.
 
-## Pandoc 引文预览
+<a id="pandoc-引文预览"></a>
 
-启用 `citations` 的 Pandoc reader 会使用文档 YAML 内的 `references` 运行 citeproc，生成作者年份和参考文献列表。支持括号式、作者式、作者省略、前缀／定位信息／后缀、脚注中的引文，以及 `nocite`、`link-citations`、`link-bibliography`、`reference-section-title`、`suppress-bibliography`、`lang` 和 `notes-after-punctuation`。顶层标题保持顶层，以保留 `.reset-citation-positions` 的语义；同步滚动仍带源码行号。
+## Pandoc citation preview
 
-当前采用 Pandoc 默认作者年份样式；Lab 不加载 YAML 中的外部 `bibliography`、`csl` 或 `citation-abbreviations` 文件，并在预览区提示这一限制。缺失文献数据及 citeproc 诊断也显示在预览区。完整 YAML 和正文始终留在 Source 与下载文件中，关闭 `citations` 后恢复字面量显示，不改写源文件。本项仅调整 Pandoc Lab 预览，不改变主编辑器或官方直出解析器。
+enable `citations` The Pandoc reader will use the document YAML `references` Run citeproc to generate author year and reference lists. Supports parentheses, authorial style, author omission, prefixes/locators/suffixes, citations in footnotes, and `nocite`、`link-citations`、`link-bibliography`、`reference-section-title`、`suppress-bibliography`、`lang` and `notes-after-punctuation`. Top-level headers remain top-level to retain `.reset-citation-positions` Semantics; synchronous scrolling still has source code line numbers.
 
-可直接打开 [引文测试文档](../fixtures/pandoc-citations.md)，选择 **Pandoc Markdown**。自动验证覆盖实际 citeproc 输出、复杂定位、脚注内引文、参考文献链接、扩展关闭与源码保留。
+Currently using the default author year style of Pandoc; Lab does not load the external ones in YAML `bibliography`、`csl` or `citation-abbreviations` file and prompt this restriction in the preview area. Missing literature data and citeproc diagnoses are also displayed in the preview area. Complete YAML and text always remain in Source and download file, close `citations` Then the literal display is restored without rewriting the source file. This item only adjusts the Pandoc Lab preview and does not change the main editor or the official direct parser.
 
-## 外部程序直出 HTML
+You can directly open the [ citation test document ](../fixtures/pandoc-citations.md) and select **Pandoc Markdown**. Automatic verification covers actual citeproc output, complex positioning, citations in footnotes, reference links, extension closure and source code retention.
 
-2026-09-23 新增 `commonmark-js`、`cmark-gfm`、`php-markdown-extra`，连同下面已有两项共五个官方直出入口。分别运行 [CommonMark.js](https://github.com/commonmark/commonmark.js)、[GitHub cmark-gfm C 实现](https://github.com/github/cmark-gfm)（经 Python cmarkgfm 绑定）、[Michelf PHP Markdown Extra](https://github.com/michelf/php-markdown)；桥接脚本只收发原文/HTML，不替代解析规则。CommonMark.js 随 `npm ci` 安装，固定 0.31.2；PHP/Python 及其库由本机提供。本机为 cmarkgfm 2025.10.22、PHP Markdown Extra 2.0.0。
+<a id="外部程序直出-html"></a>
 
-新增三项同样禁用 Lab 扩展开关，以原生默认规则直出。CommonMark.js 保留 raw HTML；cmark-gfm 使用默认 GFM 扩展和 UNSAFE 输出选项以保留原始 HTML，页面预览仍经清理。没有自动上传源码到 GitHub，也没有将 Typora/Obsidian/Notion 的近似实现列为官方 parser。
+## Direct HTML output from external programs
 
-新增工具配置（更改后需重启后端）：
+2026-09-23 adds `commonmark-js`, `cmark-gfm`, and `php-markdown-extra`, together with the two existing ones below, a total of five official direct entrances. Run [ CommonMark.js ](https://github.com/commonmark/commonmark.js) and [ GitHub cmark-gfm C respectively to implement ](https://github.com/github/cmark-gfm) (bound by Python cmarkgfm) and [ Michelf PHP Markdown Extra ](https://github.com/michelf/php-markdown); the bridge script only sends and receives the original text/HTML and does not replace the parsing rules. CommonMark.js is installed with `npm ci` and 0.31.2 is fixed; PHP/Python and its library are provided by this machine. This machine is cmarkgfm 2025.10.22, PHP Markdown Extra 2.0.0.
 
-| 环境变量 | 用途 |
+The three new items also disable the Lab extension switch and use the native default rules. CommonMark.js preserves raw HTML; cmark-gfm uses the default GFM extensions and UNSAFE output options to preserve the original HTML, and the page preview is still sanitized. The source code is not automatically uploaded to GitHub, and the approximate implementation of Typora/Obsidian/Notion is not listed as official parser.
+
+New tool configuration (need to restart the backend after changing):
+
+| environment variables | Purpose |
 | --- | --- |
-| `MARKDOWN_PYTHON_PATH` | Python 3 可执行文件，未设置时查本地配置/PATH |
-| `CMARKGFM_PATH` | cmarkgfm 包目录；可用所选 Python 的 `-m pip install --target <目录> cmarkgfm==2025.10.22` 安装 |
-| `PHP_PATH` | PHP 可执行文件 |
-| `PHP_MARKDOWN_EXTRA_PATH` | 含 `MarkdownInterface.php`、`Markdown.php`、`MarkdownExtra.php` 的目录；Composer 安装时为 `vendor/michelf/php-markdown/Michelf` |
+| `MARKDOWN_PYTHON_PATH` | Python 3 executable file, check local configuration/PATH if not set |
+| `CMARKGFM_PATH` | cmarkgfm package directory; available for selected Python `-m pip install --target <目录> cmarkgfm==2025.10.22` Installation |
+| `PHP_PATH` | PHP executable file |
+| `PHP_MARKDOWN_EXTRA_PATH` | Directory containing `MarkdownInterface.php`, `Markdown.php`, `MarkdownExtra.php`; Composer when installed`vendor/michelf/php-markdown/Michelf` |
 
-也可建立忽略文件 `.run/markdown-lab-tools.json`，键为 `python`、`cmarkgfm`、`php`、`phpMarkdownExtra`，值为可信本地绝对路径。环境变量优先；本次已为审计安装写好此配置。未配置库目录时复用 `.run/gfm-renderer` 和 `.run/dialect-audit/tools`。这些临时安装不会随 Git 分发，换机器需安装。服务不会自动联网下载工具；浏览器请求不能指定程序路径。缺失时显示不可用原因，不回退至 Pandoc。
+You can also create an ignored file `.run/markdown-lab-tools.json`, the keys are `python`, `cmarkgfm`, `php`, `phpMarkdownExtra`, and the value is the trusted local absolute path. Environment variables take priority; this configuration has been written for the audit installation. `.run/gfm-renderer` and `.run/dialect-audit/tools` are reused when the library directory is not configured. These temporary installations will not be distributed with Git and will need to be installed when changing machines. The service will not automatically connect to the Internet to download tools; the browser request cannot specify the program path. If it is missing, the reason for unavailability will be displayed, and it will not fall back to Pandoc.
 
-原有 `multimarkdown-cli`、`markdown-pl` 两个直出入口，分别运行 libMultiMarkdown `multimarkdown` 和 Gruber 的 `Markdown.pl`，从标准输入读取源码并返回标准输出。MultiMarkdown 使用 `--snippet --notransclude --to=html`；Markdown.pl 由 Perl 运行，不附加语法选项。它们不消费 Lab 的扩展开关或块插件，相关设置按钮禁用。Pandoc 方言 reader 也调用 Pandoc CLI，但经过 AST 链路并支持该 reader 的扩展开关，所以不再单列 `pandoc-cli` 直出入口。`markdown_mmd` 是 Pandoc 的 reader；独立的 libMultiMarkdown CLI 仍可用于输出对照。
+original `multimarkdown-cli`、`markdown-pl` Two direct entrances and exits, run libMultiMarkdown respectively `multimarkdown` and Gruber's `Markdown.pl`, reads source code from standard input and returns standard output. MultiMarkdown use `--snippet --notransclude --to=html`; Markdown.pl is run by Perl with no additional syntax options. They do not consume Lab's extension switches or block plugins, and the related settings buttons are disabled. Pandoc dialect reader also calls Pandoc CLI, but it passes through the AST link and supports the extended switch of reader, so it is no longer listed separately `pandoc-cli` Straight out of the entrance.`markdown_mmd` YesPandoc ofreader；IndependencelibMultiMarkdown CLI It is still available for output control.
 
-探测只使用服务端环境中的可信安装。`PANDOC_PATH`、`MULTIMARKDOWN_PATH`、`MARKDOWN_PL_PATH`、`PERL_PATH` 可在启动前指定绝对路径；MultiMarkdown 还会从 PATH 和 Windows `Program Files/libMultiMarkdown *` 查找，Perl 从 PATH、Git for Windows、Strawberry Perl 查找。Markdown.pl 的脚本需要用户安装并设置路径。本机目前找到 Pandoc 3.11、libMultiMarkdown 6.7.0 和 Markdown.pl 1.0.1；后者使用 Git for Windows 的 Perl。改变安装或路径后须重启服务。浏览器请求只传固定渲染器 ID，不传程序路径或参数。
+Probes only use trusted installations in the server environment. `PANDOC_PATH`, `MULTIMARKDOWN_PATH`, `MARKDOWN_PL_PATH`, and `PERL_PATH` can specify absolute paths before starting; MultiMarkdown will also search from PATH and Windows `Program Files/libMultiMarkdown *`, and Perl will search from PATH, Git for Windows, and Strawberry Perl. The script of Markdown.pl requires the user to install and set the path. The machine currently finds Pandoc 3.11 , libMultiMarkdown 6.7.0 and Markdown.pl 1.0.1 ; the latter uses Git for Windows for Perl . The service must be restarted after changing the installation or path. The browser request only passes the fixed renderer ID and does not pass the program path or parameters.
 
-HTML 标签页把程序结果作为纯文本展示；页面标签页用 DOMPurify 清理后显示，并禁用页面内输入。直接渲染器没有源码位置，双向滚动按文档进度估算。原始 HTML、页面预览及报错都不会写回 Markdown 或知识库。
+The HTML tab displays the program results as plain text; the page tab is displayed after cleaning with DOMPurify, and in-page input is disabled. The direct renderer has no source code location, and bidirectional scrolling is estimated based on document progress. Original HTML, page previews and error reports will not be written back to Markdown or the vault.
 
-## 方言和扩展
+<a id="方言和扩展"></a>
 
-完整参考见 [Pandoc 扩展与 Markdown 方言完整对照](../reference/PANDOC-EXTENSIONS.md)，包含手册的 89 个扩展名、八种方言的开关矩阵、默认关闭及非 Markdown 专用项，并说明开关可用与最终预览效果之间的差别。
+## Dialects and extensions
 
-`src/markdown-lab/model.ts` 注册 `gfm`、`commonmark`、`commonmark_x`、`markdown`、`markdown_mmd`、`markdown_phpextra`、`markdown_strict`、`markdown_github`，覆盖本机 Pandoc 3.11 全部八种 Markdown reader，并单独适配 `notion-markdown` 和 `notdown`；再加五个官方直出入口。方言显示名直接取自主编辑器的 `variant` 注册表，内部 ID 不变。旧版 `markdown_github` 的弃用说明保留在扩展面板。后端先读取 `--list-input-formats`，只查询实际安装 reader 的扩展；界面禁用不可用项，已选正文不被自动切换或重写。旧会话若选过 `pandoc-cli`，恢复源码并改选 `markdown`。请求校验与界面共用这一份注册表。未来 Pandoc 若新增方言 ID，需要补充注册表；测试会对照本机完整 Markdown reader 列表检查遗漏。实验室的选择类型独立于知识库 `BodyFormat`，避免在尚无可用写入 codec 时扩大磁盘格式契约。
+For a complete reference, see [ A complete comparison of Pandoc extensions and Markdown dialects ](../reference/PANDOC-EXTENSIONS.md), including the 89 extensions of the manual, switch matrices for eight dialects, default off and non-Markdown special items, and an explanation of the differences between available switches and the final preview effect.
 
-本机 `pandoc --list-extensions=<variant>` 提供支持项及默认值。界面允许正负覆盖；后端仅接收布尔值，并对实际支持项校验后构造 `variant+extension-extension`。`sourcepos` 由同步系统使用，不作为用户扩展开关。Notion 作为完整方言呈现，现有的分栏、提示、Tab 子块等保持原语义；暂不宣称这些语法已可逐项开关。
+`src/markdown-lab/model.ts` Register `gfm`、`commonmark`、`commonmark_x`、`markdown`、`markdown_mmd`、`markdown_phpextra`、`markdown_strict`、`markdown_github`，Cover the homePandoc 3.11 All eight of them.Markdown reader，and adapted separately`notion-markdown` and `notdown`; Plus five official direct entrances and exits. The dialect display name is taken directly from the main editor `variant` Registry, internal ID remains unchanged. Old version `markdown_github` The deprecation instructions remain in the extension panel. Backend reads first `--list-input-formats`, only queries the extensions actually installed with reader; the interface disables unavailable items, and the selected text is not automatically switched or rewritten. Old conversation if selected `pandoc-cli`, restore the source code and change the selection `markdown`. The request verification and interface share this registry. If Pandoc adds dialect ID in the future, the registry needs to be supplemented; the test will check for omissions against the complete Markdown reader list of this machine. Lab selection types are independent of the vault `BodyFormat`, to avoid expanding the disk format contract when no writes to codec are available yet.
 
-切换方言意味着「用另一套规则预览同一份源码」，不是转换。载入示例和打开文件才会替换编辑器内容，替换进入撤销历史。下载的 `.md` 不自动插入方言元信息，也不承诺 CRLF、BOM 的字节级往返；正文进入 CodeMirror 后使用 LF。
+Native `pandoc --list-extensions=<variant>` provides support items and default values. The interface allows positive and negative coverage; the backend only receives Boolean values ​​and constructs `variant+extension-extension` after verifying the actual supported items. `sourcepos` is used by sync systems and is not used as a user expansion switch. Notion is presented as a complete dialect, and the existing columns, prompts, Tab sub-blocks, etc. maintain the original semantics; it is not claimed that these syntaxes can be switched item by item.
 
-## 历史书签演示（已停用）
+Switching dialects means "previewing the same source code with another set of rules", not conversion. The editor content will be replaced only after loading the example and opening the file, and the replacement will enter the undo history. downloaded `.md` It does not automatically insert dictionary messages, nor does it commitCRLF、BOM The byte level is back and forth; the original entry isCodeMirror After useLF。
 
-旧版 Lab 曾提供「书签卡片」演示；现在 Lab 用于渲染器／方言与 HTML 输出对照，已停用该独立显示插件。已有会话配置中的旧插件 ID 可读取但不执行。下面仅记录历史载体，不是当前语法示例：
+<a id="历史书签演示已停用"></a>
+
+## Historical bookmark demo (disabled)
+
+The old version of Lab provided a "bookmark card" demo; now Lab is used to compare renderer/dialects with HTML output, and the independent display plug-in has been disabled. The old plugin ID in an existing session configuration can be read but not executed. The following only records historical carriers, not current syntax examples:
 
 ````md
 ```notdown-bookmark
@@ -79,42 +93,50 @@ HTML 标签页把程序结果作为纯文本展示；页面标签页用 DOMPurif
 ```
 ````
 
-在支持代码围栏的方言中，上述内容本来就是普通代码块，`notdown-bookmark` 只是围栏的信息字符串；停用演示后不再把其中 JSON 解释为卡片，也不需要转成 Unsupported。其他方言按其自身规则解析。当前没有可安装或可启用的 Lab 块插件、动态脚本或 Lua Filter 管理。已有 Notdown 页面书签使用自己的正文格式与编辑路径，不依赖这个旧演示。
+In dialects that support code fencing, the above content is originally an ordinary code block, and `notdown-bookmark` is just the fencing information string; after deactivating the demonstration, JSON will no longer be interpreted as a card, and there is no need to convert it to Unsupported. Other dialects are parsed according to their own rules. There are currently no Lab block plugins, dynamic scripts, or Lua Filter management available to install or enable. Existing Notdown page bookmarks use their own text formatting and editing paths, and do not rely on this old demo.
 
-## 实时更新和同步滚动
+<a id="实时更新和同步滚动"></a>
 
-- 输入变化立即作废旧请求；180ms 防抖后执行新请求。合成输入结束后提交预览。页面同时核对请求序号，网络层取消失败也不会接受旧结果。
-- GFM / CommonMark / CommonMark X 使用 Pandoc `sourcepos` 原生行号；Notion 复用节点 `sourceStart`。源码行在 CodeMirror 中的位置与渲染块的实际位置构成锚点，两点间线性插值，支持双向同步。
-- 根据每个 reader 的扩展列表探测 `sourcepos`，仅在实际支持时添加该参数。当前 `markdown`、`markdown_mmd`、`markdown_phpextra`、`markdown_strict`、`markdown_github` 均没有原生行号。通过块内容和 markdown-it 顶层位置估算，界面明确显示「按块估算同步」。它只用于滚动定位，不参与 Markdown 语义解析。
-- 图片加载、布局变化和窗口尺寸变化后读取新几何位置；折叠和分栏中不可见、重排、非单调的位置不作为同步锚点。文档头尾保证可达，复杂重排结构和块内长表格不能逐行精确对应。
-- 错误时保留上一份成功的预览，并显示未更新状态和重试入口；期间停止新源码与旧页面之间的位置同步。
+## Live updates and synchronized scrolling
 
-## 与 Notdown 编辑器融合的困难
+- The old request is immediately invalidated when the input changes; a new request is executed after 180ms is stabilized. Submit the preview after the synthesis input is completed. The page also checks the request sequence number, and the old result will not be accepted even if the network layer fails to cancel.
+- GFM / CommonMark / CommonMark X use Pandoc `sourcepos` native line number; Notion reuses node `sourceStart`. The position of the source code line in CodeMirror and the actual position of the rendering block form an anchor point. Linear interpolation between the two points supports two-way synchronization.
+- The following is a list of the most commonly used methods of detecting reader `sourcepos`Add the parameter only when it is actually supported. `markdown`、`markdown_mmd`、`markdown_phpextra`、`markdown_strict`、`markdown_github` The interface clearly shows "block-by-block estimate synchronization" through block content and markdown-it top-level position estimation. It is only used for rolling positioning and does not participate in the Markdown semantics analysis.
+- New geometric positions are read after image loading, layout changes, and window size changes; invisible, rearranged, and non-monotonic positions in folds and columns are not used as synchronization anchor points. The beginning and end of the document are guaranteed to be reachable, and complex rearrangement structures and long tables within blocks cannot be accurately mapped line by line.
+- In case of an error, the last successful preview is retained and the unupdated status is displayed and the entry is retried; during this period, the position synchronization between the new source code and the old page is stopped.
 
-| 位置 | 当前差异 | 融合前需要完成 |
+<a id="与-notdown-编辑器融合的困难"></a>
+
+## Difficulties integrating with the Notdown editor
+
+| Location | current difference | Need to be completed before fusion |
 | --- | --- | --- |
-| 换行和块结构 | Notion 相邻行是块、Tab 是子块；通用 Markdown 通常将相邻行视为段落软换行 | 页面级方言配置；禁止按内容猜测或自动切换格式 |
-| 保存行为 | 现有 ProseMirror 编辑后统一写成 `notion-markdown` | 每种可编辑方言提供 reader/writer，移除强制格式转换；格式转换成为显式操作 |
-| 文档表示 | Pandoc AST 包含脚注、定义列表、引文等；现有 PM schema 不覆盖所有节点 | 增加语义节点和编辑交互，或提供可恢复的原文节点；不能默默降级丢失内容 |
-| 源码保留 | Pandoc AST 优先表达语义，不保留所有围栏、空白、引用定义形式；原生源码位置只在部分 reader 可用 | 延续原文切片、变更子树识别和未知语法回退，不能每次输入都经 Pandoc 重写全文 |
-| 插件停用 | 编辑器 schema 通常固定；删除已存在的节点类型可能使文档失效 | 保留通用插件/原文节点，停用只改变显示和新增入口 |
-| 版本和一致性 | Pandoc 升级可能改变默认扩展；多窗口可能有不同配置 | 持久化有效配置或配置版本；渲染、源码、大纲、引用图及导出使用同一份配置 |
-| 文件提交 | 实验室没有知识库 revision；现有笔记通过 CAS 保存 | 接入 `createVault`，正文和配置一并使用 `baseRevision` 提交；冲突保留双份，切换前收取 pending 输入 |
+| Line breaks and block structures | Notion adjacent lines are blocks, Tab are sub-blocks; general Markdown usually treats adjacent lines as paragraph soft wraps | Page-level dialect configuration; prohibit guessing by content or automatically switching formats |
+| Save behavior | Edit the existing ProseMirror and write it uniformly.`notion-markdown` | reader/writer is provided per editable dialect, which removes coercion; format conversion becomes an explicit operation |
+| Document representation | Pandoc AST contains footnotes, definition lists, citations, etc.; existing PM schema does not cover all nodes | Add semantic nodes and editing interaction, or provide recoverable original text nodes; you cannot silently downgrade and lose content. |
+| Source code retained | Pandoc AST prioritizes expression semantics and does not retain all fences, blanks, and reference definition forms; the native source code location is only available in some reader | Continuation of original text slicing, changed subtree recognition and unknown syntax fallback, the full text cannot be rewritten through Pandoc every time it is entered. |
+| Plugin deactivation | Editor schema is usually fixed; deleting an existing node type may invalidate the document | Keep the common plug-in/original node, disable only changing the display and adding new entries |
+| Revisions and consistency | Pandoc upgrade may change the default extension; multi-window may have different configurations | Persist effective configuration or configuration version; rendering, source code, outline, reference diagram and export use the same configuration |
+| File submission | The lab does not have a vault revision; existing notes are saved via CAS | Connect to `createVault`, and submit the text and configuration together with `baseRevision`; keep duplicate copies of conflicts, and collect pending input before switching. |
 
-先完成源码与预览，让「方言、扩展、插件」获得真实实现；再选择需要结构化编辑的方言逐步扩展 PM schema 和 codec。预览能识别某个语法，不等于已经能在右侧安全编辑并按原方言写回。
+Complete the source code and preview first, so that "dialects, extensions, and plug-ins" can be truly realized; then select the dialects that require structured editing and gradually expand PM schema and codec. Just because the preview can recognize a certain grammar does not mean that it can be safely edited on the right side and written back in the original dialect.
 
-## 运行约束和实现位置
+<a id="运行约束和实现位置"></a>
 
-后端 `server/pandoc.ts` 使用无 shell 的子进程、固定参数、8 秒超时、16 MB 输出上限和四个进程的并发上限；Pandoc reader/writer 启用 `--sandbox`。不接受浏览器提供可执行文件、Lua reader/filter、模板或任意 CLI 参数。关闭请求时取消在途进程。
+## Runtime constraints and implementation locations
 
-`server/app.ts` 中的预览端点共用现有本机 Host、Origin 和 JSON 请求限制。源码限制为 128,000 UTF-16 码元。浏览器对 HTML 做 DOMPurify 清理；通用方言的原始 HTML 样式也被移除。Notion 仅保留现有 schema renderer 生成的受限样式。数学由本地 KaTeX 在清理后渲染，关闭 trust。
+Backend `server/pandoc.ts` uses child processes without shell, fixed parameters, 8 second timeout, 16 MB output cap, and concurrency cap of four processes; Pandoc reader/writer enables `--sandbox`. Does not accept browser-provided executable files, Lua reader/filter, templates, or arbitrary CLI parameters. Cancel in-flight processes when closing a request.
 
-主要模块：`src/markdown-lab/main.ts`（双栏与请求生命周期）、`scroll.ts`（位置插值）、`plugins.ts`（停用旧演示的空兼容入口）、`model.ts`（能力契约）。`src/document/document-format.ts` 提供可选源码位置及代码块显示回调，默认调用保持原行为。
+`server/app.ts` The preview endpoint in the shared existing nativeHost、Origin andJSON Request for Restrictions: Source restrictions are128,000 UTF-16 The code is right.HTML DoingDOMPurify Cleansing; the original of the common dialectHTML The style was also removed.Notion Just keep the existing onesschema renderer Limited-scale production. Mathematics is locally producedKaTeX After cleaning, render and closetrust。
 
-参考：[Pandoc 模块化结构](https://pandoc.org/MANUAL.html#description)、[方言](https://pandoc.org/MANUAL.html#markdown-variants)、[扩展](https://pandoc.org/MANUAL.html#extensions)、[CodeMirror](https://codemirror.net/docs/ref/)。
+Main modules: `src/markdown-lab/main.ts` (dual columns and request lifecycle), `scroll.ts` (position interpolation), `plugins.ts` (empty compatibility entry to deactivate old demos), `model.ts` (capability contract). `src/document/document-format.ts` provides optional source code location and code block display callbacks, and the default call maintains the original behavior.
 
-## 2026-09-23 官方解析器接入验证
+Reference: [ Pandoc modular structure ](https://pandoc.org/MANUAL.html#description), [ dialect ](https://pandoc.org/MANUAL.html#markdown-variants), [ extension ](https://pandoc.org/MANUAL.html#extensions), [ CodeMirror ](https://codemirror.net/docs/ref/).
 
-三个新增入口均在本机通过实际调用。完整单元测试 505 项，504 通过、1 跳过；构建成功。新增检查覆盖各自特有语法、raw HTML 代码与清理预览的分离、取消请求、禁止 Lab 扩展覆盖，以及运行时缺失时返回 503 而不替换解析器。
+<a id="2026-09-23-官方解析器接入验证"></a>
 
-审计对照页也增加隔离 HTML 渲染预览，合并官方即 Pandoc 的列，隐藏缺失输出。单元与独立 Chrome 测试检查列数、实际标题渲染、代码原文、脚本/外部请求隔离及窄屏布局。Lab 与对照页的 11 项浏览器测试在独立构建目录、独立输出目录、临时知识库下全部通过；首次使用共享 dist 的运行曾受其他构建改写干扰，隔离后复跑通过。日志位于 `.run/logs/markdown-lab-parsers-*.log`。本次没有修改主编辑器解析规则或用户内容。
+## 2026-09-23 official parser integration validation
+
+The three new entries are all actually called on this machine. Complete unit test 505 item, 504 passed, 1 skipped; build successful. Added checks to cover their own unique syntax, separation of raw HTML code and clean previews, cancellation of requests, disabling Lab extension coverage, and returning 503 without replacing the parser when the runtime is missing.
+
+The audit comparison page also adds an isolated HTML rendering preview, merges the official Pandoc column, and hides missing output. Unit and standalone Chrome tests check column count, actual header rendering, code source text, script/external request isolation, and narrow screen layout. The Lab and 11 browser tests of the control page all passed under the independent build directory, independent output directory, and temporary vault; the first run of shared dist was interfered by other build rewrites, and the rerun after isolation passed. The log is at `.run/logs/markdown-lab-parsers-*.log`. This time there are no changes to the main editor parsing rules or user content.

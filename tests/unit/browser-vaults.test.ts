@@ -42,7 +42,16 @@ test("browser vault URLs isolate writes, assets and CAS and survive service rest
   assert.equal((await call("/api/vaults/open", { mode: "create", name: "../escape" })).status, 400);
   const denied = await fetch(origin() + "/api/vaults/open", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://evil.example" }, body: JSON.stringify({ mode: "create", name: "Evil" }) });
   assert.equal(denied.status, 403); await assert.rejects(fs.access(path.join(root, "Evil")));
+  const relocated = path.join(root, "New location"); await fs.mkdir(relocated);
+  assert.equal((await call("/api/vaults/location", { path: work.path })).status >= 400, true);
+  assert.equal((await call("/api/vaults/location", { path: relocated })).status, 200);
+  const custom = await (await call("/api/vaults/open", { mode: "create", name: "Custom", path: root })).json();
+  assert.equal(custom.path, path.join(root, "Custom"));
+  const afterLocation = await (await call("/api/vaults/open", { mode: "create", name: "New" })).json();
+  assert.equal(afterLocation.path, path.join(relocated, "New"));
+  assert.equal((await (await call("/api/vaults")).json()).vaults.some((v: {path:string}) => v.path === work.path), true);
   await close(); app = await createBrowserApp(options); server = app.listen(0, "127.0.0.1"); await once(server, "listening");
+  assert.equal((await (await call("/api/vaults")).json()).dataPath, relocated);
   assert.equal((await (await call(work.url + "api/status")).json()).vaultPath, work.path);
   assert.equal((await (await call(work.url + "api/pages")).json())[0].id, second.id);
   assert.equal((await call(`/v/${"a".repeat(64)}/api/pages`)).status, 404);

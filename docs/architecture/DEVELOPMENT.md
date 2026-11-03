@@ -1,72 +1,86 @@
-# 运行与开发指南
+<a id="运行与开发指南"></a>
 
-本页集中说明从源码运行、选择知识库、重启服务和执行测试。首次使用入口见项目 [README](../../README.zh-CN.md)，文件归属见[仓库组织约定](REPOSITORY.md)。
+# Development guide
 
-## 环境与启动
+**English** · [简体中文](DEVELOPMENT.zh-CN.md)
 
-使用 Node.js 24 和 npm。在仓库目录运行：
+This page covers running from source, selecting a vault, restarting services and running tests. Start with the project [README](../../README.md) for first use, and the [repository layout](REPOSITORY.md) for file ownership.
+
+<a id="环境与启动"></a>
+
+## Requirements and startup
+
+Use Node.js 24 and npm. Run these commands in the repository directory:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-浏览器打开 [http://127.0.0.1:4317](http://127.0.0.1:4317)，本地 API 位于 `http://127.0.0.1:4318`。关闭终端或按 Ctrl+C 会停止开发服务。Pandoc 是可选组件，日常编辑不需要它；执行笔记本或使用外部渲染器时才需要相应运行环境。
+Open [http://127.0.0.1:4317](http://127.0.0.1:4317) in your browser; the local API is at `http://127.0.0.1:4318`. Closing the terminal or pressing Ctrl+C stops the development services. Pandoc is optional and unnecessary for ordinary editing; notebooks and external renderers require their respective runtimes.
 
-Windows 桌面应用使用 `npm run desktop`；打包、原生目录选择和独立窗口行为见[桌面版指南](../features/DESKTOP-AND-IMPORT.md)。
+Run the Windows desktop application with `npm run desktop`. Packaging, native folder selection and separate-window behavior are described in the [desktop guide](../features/DESKTOP-AND-IMPORT.md).
 
-## 选择知识库
+<a id="选择知识库"></a>
 
-每个知识库使用一个独立目录，内含 `pages/`、`assets/`、`metadata.json`、`.notdown/` 和 `.history/`。数据目录直接容纳各库，例如 `D:\ProgramData\Notdown\Default\` 和 `D:\ProgramData\Notdown\Work\`，无需额外的 `vaults/` 层级。桌面欢迎页可按名称在数据目录下创建或打开知识库，也支持继续选择其他位置的文件夹。
+## Selecting a vault
 
-浏览器版无需重启服务即可通过侧栏顶部或设置的 **Manage knowledge bases** 新建、打开和切换库，操作见[知识库管理](../features/DESKTOP-AND-IMPORT.md#使用流程)。浏览器服务按 `/v/<目录身份>/` 分派至各库独立的 `createApp`，默认根地址仍绑定启动库；API 与附件均按 URL 路由，不通过全局“当前库”切换。
+Each vault occupies a separate directory containing `pages/`, `assets/`, `metadata.json`, `.notdown/` and `.history/`. Vaults sit directly inside the data directory, such as `D:\ProgramData\Notdown\Default\` and `D:\ProgramData\Notdown\Work\`, without an extra `vaults/` level. The desktop welcome page can create or open named vaults in the data directory, or select a folder elsewhere.
 
-默认数据目录在 Windows 为 `%LOCALAPPDATA%\Notdown`，其他平台为 `$XDG_DATA_HOME/Notdown`（未设置时使用 `~/.local/share/Notdown`），默认库名为 `Default`。未配置新数据目录且仓库下已有旧 `vault/pages/` 时继续使用原库，不自动迁移。需要指定单个知识库时仍可设置 `VAULT_PATH`，例如 PowerShell：
+In the browser, create, open and switch vaults from the sidebar heading or **Manage knowledge bases** in settings without restarting the service; see [vault management](../features/DESKTOP-AND-IMPORT.md#usage). The browser service routes `/v/<目录身份>/` to a separate `createApp` for each vault. The default root URL remains attached to the startup vault; APIs and attachments follow their URL rather than a global current-vault switch.
+
+The default data directory is `%LOCALAPPDATA%\Notdown` on Windows and `$XDG_DATA_HOME/Notdown` on other platforms (or `~/.local/share/Notdown` if unset), with `Default` as the default vault name. If no new data directory is configured and the repository already contains legacy `vault/pages/`, that vault remains in use without automatic migration. To specify a single vault, set `VAULT_PATH`, for example in PowerShell:
 
 ```powershell
 $env:VAULT_PATH = 'D:\Notes\Notdown'
 npm run dev
 ```
 
-也可以在仓库根目录的本机 `.env` 文件中保存路径，供 `npm run dev`、`npm start` 和 `start.cmd` 使用，无需每次设置环境变量：
+You can also save paths in the local `.env` file at the repository root for `npm run dev`, `npm start` and `start.cmd`, without setting environment variables each time:
 
 ```dotenv
 NOTDOWN_DATA_PATH=D:\ProgramData\Notdown
 NOTDOWN_VAULT_NAME=Default
 ```
 
-终端已有的环境变量优先于 `.env`，`VAULT_PATH` 优先于数据目录和库名。源码桌面版也读取本机 `.env`；打包桌面版可通过环境变量指定数据目录，默认使用上述平台路径。隔离桌面测试使用独立临时数据目录。
+Existing terminal environment variables override `.env`; `VAULT_PATH` overrides the data directory and vault name. The source desktop app also reads local `.env`. The packaged app accepts a data directory through environment variables and otherwise uses the platform defaults above. Isolated desktop tests use a separate temporary data directory.
 
-该文件和仓库下的旧 `vault/` 均被 Git 忽略，用户内容不加入源码版本管理。迁移知识库前先停止写入该库的服务，备份整个目录（包括隐藏目录），再完整移动到目标位置、更新 `.env` 和桌面最近目录并启动。迁移后检查设置中显示的实际知识库路径。可选的本地 Git 历史单独存放在每库内部，配置、保留和恢复见[知识库元数据](../features/VAULT-METADATA.md#可选本地-git-历史)。
+Git ignores this file and the legacy repository `vault/`; user content does not enter source control. Before moving a vault, stop services that write to it, back up the entire directory including hidden directories, move it intact, update `.env` and desktop recent locations, then start again. Check the actual vault path shown in settings after moving. Optional local Git history is stored inside each vault; see [vault metadata](../features/VAULT-METADATA.md#optional-local-git-history) for configuration, retention and recovery.
 
-仅首次启动新建的默认知识库时创建示例笔记；已有知识库和显式指定的目录不自动填充。普通 Markdown 不需要应用专用 YAML；文件与属性读取规则见[知识库元数据](../features/VAULT-METADATA.md)。已有普通 Markdown 文件夹可通过 **Import Markdown folder** 复制导入。
+Example notes are created only on the first startup of a newly created default vault. Existing vaults and explicitly selected directories are not filled automatically. Ordinary Markdown needs no application-specific YAML; see [vault metadata](../features/VAULT-METADATA.md) for file and property rules. Copy existing Markdown folders into a vault with **Import Markdown folder**.
 
-同一知识库只运行一个本地服务进程。桌面窗口使用隔离服务与访问令牌，独立浏览器服务没有认证；两者均没有跨进程知识库锁。不要同时通过桌面版与另一个浏览器服务写入同一知识库，也不要把无认证的服务暴露给不受信任的网络。
+Run only one local service process per vault. Desktop windows use isolated services and access tokens; the standalone browser service has no authentication. Neither has a cross-process vault lock. Do not write to one vault from desktop and a separate browser service simultaneously, or expose the unauthenticated service to untrusted networks.
 
-## Windows 后台启动与重启
+<a id="windows-后台启动与重启"></a>
 
-安装依赖后双击根目录的 [start.cmd](../../start.cmd)。它在后台启动服务，检查就绪后打开浏览器，日志写入 `.run/logs/`。
+## Windows background startup and restart
 
-后台服务的后端代码或环境变量改变后，先保存编辑，再在仓库目录运行：
+After installing dependencies, double-click [start.cmd](../../start.cmd) at the root. It starts the services in the background, checks readiness, opens the browser and writes logs to `.run/logs/`.
+
+After changing backend code or environment variables for a background service, save your edits, then run this in the repository directory:
 
 ```powershell
 .\start.cmd -Restart
 ```
 
-脚本核对 4318 端口的进程，沿用其知识库路径重启后端并复用前端；当前终端没有 `MARKDOWN_PL_PATH` 时会读取用户级设置。非该脚本启动的进程不会被随意停止。如果通过 `npm run dev` 启动，应在原终端按 Ctrl+C 后重新运行。
+The script checks the process on port 4318, restarts its backend with the same vault path, and reuses the frontend. If the terminal has no `MARKDOWN_PL_PATH`, it reads the user-level setting. It does not arbitrarily stop processes it did not start. If you started with `npm run dev`, press Ctrl+C in that terminal and run it again.
 
-HTML 上传返回 `.bin`、预览触发下载，或数据库入口提示后台过旧时，先检查运行中的后端是否已更新，再重试操作；不要通过强行保存旧草稿绕过版本冲突。
+If HTML uploads return `.bin`, previews trigger downloads, or a database entry reports an outdated backend, first check that the running backend has been updated, then retry. Do not bypass revision conflicts by forcing an old draft to save.
 
-## 本地生产构建
+<a id="本地生产构建"></a>
+
+## Local production build
 
 ```sh
 npm run build
 npm start
 ```
 
-打开 [http://127.0.0.1:4318](http://127.0.0.1:4318)，该地址同时提供 `dist/` 中的应用与 API。构建本身不会创建 Windows 安装包；安装包使用 `npm run desktop:dist`，输出到 `.run/desktop-release/`。
+Open [http://127.0.0.1:4318](http://127.0.0.1:4318), which serves both the application in `dist/` and the API. This build does not create a Windows installer. Use `npm run desktop:dist` for installers, output to `.run/desktop-release/`.
 
-## 验证
+<a id="验证"></a>
+
+## Validation
 
 ```sh
 npm run typecheck
@@ -75,15 +89,15 @@ npm run build
 npm run test:e2e
 ```
 
-`build` 已包含 TypeScript 检查；`typecheck` 可用于单独检查类型。功能修改运行单元/服务测试与构建，编辑交互修改还需浏览器测试。
+`build` includes TypeScript checking; use `typecheck` to check types separately. Feature changes require unit/service tests and a build; editor interaction changes also require browser tests.
 
-- 单元与服务测试位于 `tests/unit/`，使用临时知识库。
-- 浏览器测试位于 `tests/e2e/`，需要本机 Google Chrome；使用独立无头实例和临时知识库，不连接用户浏览器。
-- `test:e2e` 先构建再执行 Playwright。报告、trace 和截图写入 `test-results/`，本地执行日志放 `.run/logs/`。
-- 桌面测试使用 `npm run test:desktop`，其临时知识库与用户配置同样隔离。
-- 云同步使用 `npm run test:sync`，构建独立桌面/移动前端并运行实际 PostgreSQL 迁移与跨端浏览器流程，详见[云同步](../features/CLOUD-SYNC.md)。
+- Unit and service tests live in `tests/unit/` and use temporary vaults.
+- Browser tests live in `tests/e2e/` and require local Google Chrome. They use an isolated headless instance and temporary vault, without connecting to the user's browser.
+- `test:e2e` builds first, then runs Playwright. Reports, traces and screenshots go in `test-results/`; local execution logs go in `.run/logs/`.
+- Run desktop tests with `npm run test:desktop`; their temporary vaults and user profiles are also isolated.
+- Run cloud sync tests with `npm run test:sync`, which builds isolated desktop/mobile frontends and exercises actual PostgreSQL migrations and cross-platform browser flows. See [cloud sync](../features/CLOUD-SYNC.md).
 
-定向运行示例：
+Focused examples:
 
 ```sh
 npx tsx --test tests/unit/markdown-engine.test.ts
@@ -91,9 +105,11 @@ npm run build
 npx playwright test tests/e2e/markdown-lab.spec.ts
 ```
 
-### 隔离浏览器测试
+<a id="隔离浏览器测试"></a>
 
-并行开发时不要覆盖他人正在使用的 `dist/` 或复用测试端口。PowerShell 示例（目录、端口和输出路径应为本次运行独占）：
+### Isolated browser tests
+
+During parallel development, do not overwrite another session's `dist/` or reuse its test port. PowerShell example (directories, ports and output paths must be exclusive to this run):
 
 ```powershell
 npm run build -- --outDir .run/e2e-dist
@@ -102,45 +118,63 @@ $env:NOTDOWN_E2E_FRONTEND_DIR = '.run/e2e-dist'
 npx playwright test --output test-results/e2e-isolated --reporter=list
 ```
 
-配置 `NOTDOWN_E2E_FRONTEND_DIR` 后，`npm run test:e2e` 的桌面构建也使用该独立目录；已构建时可按上例直接运行 Playwright。测试服务器拒绝复用已有服务；检查目标端口空闲后再启动。仓库的 `vault/` 是用户内容，不能用作测试或清理对象。
+With `NOTDOWN_E2E_FRONTEND_DIR` configured, the desktop build in `npm run test:e2e` also uses that separate directory. If already built, run Playwright directly as above. The test server refuses to reuse an existing service; check that the target port is free before starting. The repository `vault/` contains user content and must not be used for tests or cleanup.
 
-## Android 开发
+To test the Vite development service, including development stylesheet order, set `$env:NOTDOWN_E2E_DEV = '1'` and run `npx playwright test`. This mounts Vite in the same isolated test service. The API still accesses only this run's temporary vault and does not proxy to the daily development service; no prior build is needed. Remove the environment variable afterward to restore production-build testing.
 
-Android 与桌面共用本仓库的依赖、文档模型、编辑器与知识库核心；手机入口在 `src/mobile/`，Capacitor 原生工程在 `android/`。能力和数据备份说明见 [Android 指南](../features/ANDROID.md)。
+<a id="android-开发"></a>
+
+## Android development
+
+Android and desktop share this repository's dependencies, document model, editor and vault core. The mobile entry is in `src/mobile/` and the Capacitor native project in `android/`. See the [Android guide](../features/ANDROID.md) for capabilities and backups.
 
 ```sh
 npm ci
 npm run mobile:dev
 ```
 
-浏览器预览地址为 [http://127.0.0.1:4337](http://127.0.0.1:4337)，使用独立 IndexedDB 数据；它不会打开桌面或 Android 私有知识库。正式 Android 环境仅使用原生文件存储。
+The browser preview is at [http://127.0.0.1:4337](http://127.0.0.1:4337), using separate IndexedDB data. It does not open desktop or Android private vaults. The actual Android app uses native file storage only.
 
-构建需要 JDK 21、Android SDK 36 / Build Tools 36.0.0，并正确设置 `JAVA_HOME` 与 `ANDROID_HOME`（或在未入库的 `android/local.properties` 中配置 `sdk.dir`）。首次构建会下载 Gradle 和 Android 构建依赖。
+Builds require JDK 21, Android SDK 36 / Build Tools 36.0.0, and correctly set `JAVA_HOME` and `ANDROID_HOME` (or the untracked `android/local.properties` with `sdk.dir` configured). The first build downloads Gradle and Android build dependencies.
 
 ```sh
 npm run android:build
 ```
 
-该命令构建手机前端、同步 Capacitor 资源、运行原生文件单元测试并生成 `.run/android-release/Notdown-Android-debug.apk`。最低系统版本为 Android 8.0 / API 26；这是调试签名安装包，不是商店发行包。不要将签名密钥、`local.properties` 或构建产物提交到仓库。
+This builds the mobile frontend, syncs Capacitor resources, runs native file unit tests and produces `.run/android-release/Notdown-Android-debug.apk`. The minimum system is Android 8.0 / API 26. This is a debug-signed package, not a store release. Do not commit signing keys, `local.properties` or build artifacts.
 
 ```sh
 npm run android:open
 npm run test:mobile
 ```
 
-`android:open` 打开 Android Studio 工程；`test:mobile` 使用独立 Chrome 触屏实例验证离线编辑、恢复、附件和备份。手机前端构建输出为 `.run/android-frontend/`，测试端口默认 4347，可由 `NOTDOWN_MOBILE_E2E_PORT` 覆盖。浏览器测试不代表已完成真机输入法、WebView、系统文件选择器和进程回收验收。
+`android:open` opens the Android Studio project; `test:mobile` uses a separate Chrome touch instance to test offline editing, recovery, attachments and backups. The mobile frontend build goes in `.run/android-frontend/`. The default test port is 4347, overridable with `NOTDOWN_MOBILE_E2E_PORT`. Browser tests do not establish acceptance for physical-device input methods, WebView, system file pickers or process reclamation.
 
-## 工具与集成
+<a id="工具与集成"></a>
 
-| 工具 | 入口与用途 |
+## Tools and integrations
+
+| Tool | Entry and purpose |
 | --- | --- |
-| Block Explorer | 侧栏入口或开发服务的 `/block-catalog.html`；查看内容对象、方言、语法示例和扩展来源。 |
-| Markdown Lab | `/markdown-lab.html`；对照源码和不同渲染器的 HTML 输出，独立于知识库自动保存。外部依赖见 [Lab 指南](../features/MARKDOWN-LAB.md)。 |
-| MCP | 先启动本地 API，再在仓库目录运行 `npm run mcp`。stdio 桥默认使用 `NOTE_API_URL=http://127.0.0.1:4318`；写入必须携带读取时的 revision，见 [API](../reference/API.md)。 |
-| MyBase | 导出当前页面元数据，使用稳定 UUID 和真实数据类型；不自动写入主库，见[集成契约](../reference/MYBASE.md)。 |
+| Block Explorer | Sidebar entry or `/block-catalog.html` on the development service; inspect content objects, dialects, syntax examples and extension provenance. |
+| Markdown Lab | `/markdown-lab.html`; compare source and HTML from different renderers independently of vault autosave. See the [Lab guide](../features/MARKDOWN-LAB.md) for external dependencies. |
+| MCP | Start the local API first, then run `npm run mcp` in the repository directory. The stdio bridge defaults to `NOTE_API_URL=http://127.0.0.1:4318`. Writes must include the revision obtained when reading; see the [API](../reference/API.md). |
+| MyBase | Export current page metadata using stable UUIDs and actual data types. It does not automatically write to the main repository; see the [integration contract](../reference/MYBASE.md). |
 
-可选 AI、转写和预览服务的配置保存在知识库 `.notdown/` 下，不写入页面 Markdown。调用生成或转写动作时，相应文字或音频会发送给配置的服务。
+Optional AI, transcription and preview service settings live under the vault's `.notdown/`, outside page Markdown. Invoking generation or transcription sends the corresponding text or audio to the configured service.
 
-## 文档维护
+<a id="界面文案"></a>
 
-根 README 只介绍产品和使用入口。功能操作写入 `docs/features/`，运行配置更新本页，格式和接口更新对应参考；新增专题登记到[文档导航](../README.md)。逐次验证结果写入带日期与范围的记录，避免累积到首页。具体规则见 [AGENTS.md](../../AGENTS.md#readme-维护规则)。
+## Interface text
+
+The main application language entry is `src/shared/i18n.ts`; the Simplified Chinese dictionary is `src/shared/locales/zh-CN.ts`. Static HTML explicitly marks text with `data-i18n` and attributes with `data-i18n-title` / `data-i18n-aria-label` / `data-i18n-placeholder`. Programmatically created interface text uses `setUIText` and `setUIAttribute`; interpolation uses `t`. Only marked interface text refreshes. Note bodies are neither scanned nor rewritten, and binding updates preserve existing form controls.
+
+Do not pass user titles, property names, option values, or data-source/view names to translation functions. Internal selectors use `data-*` or stable IDs rather than translated `aria-label` values. Disable `localize` when a generic database menu receives user-defined names. Browser language is saved in `notdown-ui-language`; desktop uses trusted IPC and separate application configuration so random service ports do not lose the preference.
+
+<a id="文档维护"></a>
+
+## Documentation maintenance
+
+Root READMEs introduce the product and its entry points. Put feature instructions in `docs/features/`, update runtime configuration on this page, and update format/API topics in their references. Register new topics in the [documentation index](../README.md). Record individual validation results with a date and scope instead of accumulating them on the homepage. See [AGENTS.md](../../AGENTS.md#readme-maintenance) for the full rules.
+
+For documentation-only changes, run `npm run docs:check`. Application interaction tests are required when application behavior changes.

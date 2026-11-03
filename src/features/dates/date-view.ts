@@ -1,3 +1,4 @@
+import { setUIText, setUIAttribute } from "../../shared/i18n";
 import { DOMSerializer, type Node as PMNode } from "prosemirror-model";
 import { hasOfficialDateTime } from "../../document/notdown-boundary";
 import { dateMentionDOM } from "./date-presentation";
@@ -49,7 +50,7 @@ export function renderDateSuggestions(
   panel.replaceChildren();
   const heading = document.createElement("div");
   heading.className = "pm-date-heading";
-  heading.textContent = "Date";
+  setUIText(heading, "Date");
   panel.append(heading);
   const choices = dateSuggestions(query).filter(choice => supplemental || !choice.reminder);
   choices.forEach((choice, index) => {
@@ -78,7 +79,7 @@ export function renderDateSuggestions(
   if (!choices.length) {
     const hint = document.createElement("div");
     hint.className = "pm-date-hint";
-    hint.textContent = "Try tomorrow, 明天, or YYYY-MM-DD";
+    setUIText(hint, "Try tomorrow, 明天, or YYYY-MM-DD");
     panel.append(hint);
   }
   return choices;
@@ -211,7 +212,7 @@ export class DateMentionView implements NodeView {
       input = document.createElement("input");
     input.className = "pm-date-query";
     input.placeholder = "Mention a date…";
-    input.setAttribute("aria-label", "Mention a date");
+    setUIAttribute(input, "aria-label", "Mention a date");
     this.dom.replaceChildren(document.createTextNode("@"), input);
     let active = -1,
       choices: DateSuggestion[] = [];
@@ -339,14 +340,14 @@ export class DateMentionView implements NodeView {
         const changes = dateFieldChanges(field, input.value, time.value, includeTime, zone, separateTime);
         const current = this.node.attrs.nfmAttrs;
         if (!changes) {
-          error.textContent = "Enter a valid date and time.";
+          setUIText(error, "Enter a valid date and time.");
           return;
         }
         if (
           current.end &&
           (field === "start" ? endpoint({ ...current, ...changes }, "start") > endpoint(current, "end") : endpoint({ ...current, ...changes }, "end") < endpoint(current, "start"))
         ) {
-          error.textContent = "End date must be on or after start date.";
+          setUIText(error, "End date must be on or after start date.");
           return;
         }
         error.textContent = "";
@@ -392,7 +393,7 @@ export class DateMentionView implements NodeView {
     const grid = document.createElement("div");
     grid.className = "pm-date-grid";
     grid.setAttribute("role", "group");
-    grid.setAttribute("aria-label", "Calendar");
+    setUIAttribute(grid, "aria-label", "Calendar");
     panel.append(grid);
     const drawDays = () => {
       monthLabel.textContent = this.month.toLocaleDateString("en-US", {
@@ -412,8 +413,7 @@ export class DateMentionView implements NodeView {
             field = this.target;
           const changes = dateFieldChanges(field, key, dateTimePart(old, field) || dateTimePart(old) || "09:00", includeTime, zone, separateTime);
           if (!changes) {
-            error.textContent =
-              "This local time does not exist. Choose another time.";
+            setUIText(error, "This local time does not exist. Choose another time.");
             return;
           }
           if (field === "end" && endpoint({ ...old, ...changes }, "end") < endpoint(old, "start")) {
@@ -546,7 +546,7 @@ export class DateMentionView implements NodeView {
     this.toggle("End date", !!attrs.end, (checked) => {
       const current = this.node.attrs.nfmAttrs;
       const next = checked ? dateFieldChanges("end", current.start.slice(0, 10), dateTimePart(current) || "09:00", includeTime, zone, separateTime) : { end: "", endTime: "" };
-      if (!next) { error.textContent = "Enter a valid date and time."; return; }
+      if (!next) { setUIText(error, "Enter a valid date and time."); return; }
       this.set(next);
       this.target = checked ? "end" : "start";
       this.buildCalendar();
@@ -558,7 +558,7 @@ export class DateMentionView implements NodeView {
         if (current[field])
           {
             const next = dateFieldChanges(field, current[field].slice(0, 10), dateTimePart(current, field) || "09:00", checked, zone, separateTime);
-            if (!next) { error.textContent = "Correct the date before including time."; return; }
+            if (!next) { setUIText(error, "Correct the date before including time."); return; }
             Object.assign(changes, next);
           }
       if (!checked && Number(current["reminder-offset"]) < 1440)
@@ -610,8 +610,7 @@ export class DateMentionView implements NodeView {
             if (current[field]) {
               const next = dateFieldChanges(field, current[field].slice(0, 10), dateTimePart(current, field) || "09:00", true, value, separateTime);
               if (!next) {
-                error.textContent =
-                  "This local time does not exist. Choose another time.";
+                setUIText(error, "This local time does not exist. Choose another time.");
                 return;
               }
               Object.assign(changes, next);

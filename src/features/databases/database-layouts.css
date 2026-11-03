@@ -62,11 +62,18 @@
 .database-dialog [hidden] { display:none!important; }
 .database-dialog { max-height:85vh; overflow-y:auto; }
 @media (max-width:700px) { .database-layout-list .database-card-properties { max-width:48%; } .database-layout-calendar { overflow-x:auto; } .database-calendar-grid { min-width:630px; } .database-calendar-day > header button { opacity:1!important; } .database-dialog .database-filter-row { grid-template-columns:1fr 1fr; } }
+
 .database-workspace .database-layout-list { padding-top:4px; }
-.database-workspace .database-layout-list .database-record-card { display:grid; align-items:center; gap:14px; border:0; border-radius:4px; min-height:32px; }
-.database-workspace .database-layout-list .database-card-title { min-height:32px; padding:4px; font-size:14px; font-weight:500; }
-.database-workspace .database-layout-list .database-card-properties { display:contents; }
-.database-workspace .database-layout-list .database-card-property { display:block; font-size:13px; color:inherit; min-width:0; }
+.database-workspace .database-layout-list .database-record-card { display:flex; align-items:center; gap:18px; border:0; border-radius:4px; box-shadow:none; min-height:40px; padding:0 6px; cursor:pointer; }
+.database-workspace .database-layout-list .database-card-title { flex:1 1 30%; width:auto; min-width:0; min-height:40px; padding:6px 0; font-size:14px; font-weight:500; }
+.database-workspace .database-layout-list .database-card-properties { display:flex; flex:0 1 auto; flex-wrap:nowrap; justify-content:flex-end; align-items:center; min-width:0; max-width:68%; padding:0; gap:16px; color:inherit; font-size:14px; }
+.database-workspace .database-layout-list .database-card-property { display:block; flex:0 1 auto; min-width:0; max-width:360px; }
+.database-layout-list .database-card-property:has(.database-tag) { flex-shrink:1; max-width:220px; }
+.database-layout-list .database-card-property .database-tag + .database-tag { margin-left:4px; }
 .database-wrap-content .database-card-title>span:last-child,.database-card-property.database-wrap-property { white-space:pre-wrap; overflow-wrap:anywhere; }
 .database-card-property.database-wrap-property { flex-wrap:wrap; }
-.database-layout-list .database-card-property .database-tag { margin-right:4px; }
+@media (max-width:700px) {
+ .database-workspace .database-layout-list .database-record-card { gap:10px; }
+ .database-workspace .database-layout-list .database-card-properties { max-width:55%; gap:8px; }
+ .database-layout-list .database-card-property:has(.database-tag) { flex-shrink:1; }
+}

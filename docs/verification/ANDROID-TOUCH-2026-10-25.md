@@ -1,41 +1,53 @@
-# Android 触屏块操作（2026-10-25）
+<a id="android-触屏块操作2026-10-25"></a>
 
-范围：手机编辑器的操作入口、键盘收起时长按块拖动、键盘打开时原生文字选择，以及桌面共用编辑器的相关回归。使用说明见 [Android 指南](../features/ANDROID.md)。
+# Android touch block operations (2026-10-25)
 
-## 行为
+**English** · [简体中文](ANDROID-TOUCH-2026-10-25.zh-CN.md)
 
-- 手机版通过显式 touch 模式装配共用编辑器，不注册桌面的左侧块手柄、鼠标框选、块拖放、浮动选区格式条、表格手柄及 slash 自动菜单。
-- 底部保留插入、格式、图片、块操作、撤销、重做和收起键盘，每个触控目标至少 44 × 44px；插入新块与转换当前块分开，操作面板保留选区并拒绝过期正文。
-- 键盘收起时按住约 450ms 启动块拖动，显示独立预览、高亮覆盖层和蓝色落点线；释放时重新计算落点，复用共用块移动事务，保留列表子项，并支持撤销和保存重载。
-- 拖动靠近滚动区边缘时滚动；提前滑动、系统取消触摸、第二根手指、正文变化等取消拖动。键盘打开时保留系统文字选择；拖动完成不主动聚焦编辑器。
-- Android 原生监听实际 IME insets，通过 Capacitor 窗口事件同步键盘可见状态，因此键盘关闭但正文仍有焦点也可启动拖动。浏览器预览使用编辑焦点作为备用判断。
-- 分栏只在手机显示为纵向排列，原始源码不迁移；表格行列操作进入底部面板。
+Scope: The operation entrance of the mobile editor, long-pressing and dragging when the keyboard is closed, native text selection when the keyboard is opened, and the related return of the desktop shared editor. Instructions for use are found in the [ Android guide ](../features/ANDROID.md).
 
-## 验证
+<a id="行为"></a>
 
-- `npm test` 最终：1013 项，1008 通过、5 跳过、0 失败。首轮数据库存储测试曾出现一次临时目录文件打开错误；对应 25 项定向测试与最终完整单元测试均通过，未修改存储代码绕过错误。
-- 移动端 TypeScript 与 Vite 构建通过；独立 Chrome / Pixel 7 触屏测试完整 20 项通过。新增覆盖插入/转换分离、复制/移动/删除/撤销、格式选区与取消格式、表格、分栏、320px 触控区域、真实浏览器触摸事件长按/拖动/取消、列表子项、IME 状态事件和边缘滚动。
-- 桌面 `block-selection`、`block-menu-position`、`selection-menu`、`columns-resize`、`markdown-blocks` 共 30 项通过。没有将完整 682 项桌面浏览器集声明为通过。
-- 最终 `npm run build` 通过；长按拖动截图用例另行重跑通过，已检查拖动覆盖层、落点线和底部操作面板截图。
-- Android `assembleDebug` 与 `testDebugUnitTest` 通过，调试 APK 已重新生成。
-- 测试使用隔离浏览器存储与临时 WebDAV fixture；未连接或改写用户知识库。
+## behavior
 
-## 验收边界与产物
+- The mobile version assembles the shared editor through explicit touch mode and does not register the left block handle, mouse box selection, block drag and drop, floating selection format bar, table handle and slash automatic menu of the desktop.
+- The keyboard for insert, format, picture, block operations, undo, redo and collapse is retained at the bottom, and each touch target is at least 44 × 44px; inserting new blocks is separated from converting the current block, and the operation panel retains the selection and rejects expired text.
+- When the keyboard is retracted, hold down about 450ms to start block dragging, which displays independent preview, highlighted overlay and blue drop point line; when released, the drop point is recalculated, shared block movement transactions are reused, list items are retained, and undo and save reloading are supported.
+- Scroll when dragging close to the edge of the scroll area; cancel dragging by sliding in advance, system canceling touch, second finger, text change, etc. System text selection is retained when the keyboard is open; the editor is not automatically focused after dragging.
+- Android natively monitors the actual IME insets and synchronizes the visible status of the keyboard through the Capacitor window event, so dragging can be started even when the keyboard is closed but the text still has focus. Browser preview uses editing focus as a fallback judgment.
+- Columns are only displayed vertically on mobile phones, and the original source code is not migrated; table row and column operations enter the bottom panel.
 
-当前 `adb devices` 没有已连接设备，因此本轮未覆盖安装、未做真实 Android WebView / 中文输入法手感验收。浏览器中的 IME 状态事件测试不等同于真实键盘验收。
+<a id="验证"></a>
 
-- APK：`.run/android-release/Notdown-Android-debug.apk`，另保存日期副本 `Notdown-Android-touch-2026-10-25.apk`。
-- 日志：`.run/logs/mobile-touch-*.log`；界面截图：`.run/logs/mobile-touch-sheet.png`、`.run/logs/mobile-touch-drag.png`。
-- 本地日志和构建产物不进入版本控制。
+## Validation
 
-## 键盘工具栏补充
+- `npm test`Final: 1013 entry, 1008 passed, 5 skipped, 0 failed. There was a temporary directory file opening error in the first round of database storage testing; the corresponding 25 directed tests and the final complete unit test all passed, and the storage code was not modified to bypass the error.
+- The mobile TypeScript and Vite construction passed; the independent Chrome / Pixel 7 touch screen test passed all 20 items. Newly added coverage for insert/transform separation, copy/move/delete/undo, format selection and unformat, tables, columns, 320px touch areas, real browser touch events long press/drag/cancel, list items, IME state events and edge scrolling.
+- Table `block-selection`、`block-menu-position`、`selection-menu`、`columns-resize`、`markdown-blocks` The 30 is not approved. The full 682 desktop browser cluster declaration is not approved.
+- Finally, `npm run build` passed; the long-press and drag screenshot use case was rerun and passed, and the drag overlay, drop point line, and bottom operation panel screenshot were checked.
+- Android `assembleDebug` and `testDebugUnitTest` passed, debugging APK has been regenerated.
+- Tested using isolated browser storage with temporary WebDAV fixture; no user vault is connected or overwritten.
 
-- 一级栏直接提供增减缩进、上移/下移、插入、字体样式、转换成、撤销/重做、图片和更多块操作。按钮可横向滑动，键盘按钮固定在右侧。
-- 字体样式在原位进入二级栏，左侧返回；保留当前选区、输入焦点和连续设置的 stored marks，显示当前样式状态。转换与插入使用工具栏下方的两列面板。
-- Page / Source 切换后，按钮立即跟随可见编辑区，不依赖再次聚焦。操作依旧使用共用编辑事务与知识库保存规则。
-- 隔离移动构建的浏览器测试：26 项通过；慢附件夹具在恢复读取后定向重跑 1 项通过。包括字体叠加与后续输入、返回一级栏、列表子项移动、增减缩进、撤销/重做、转换网格、固定键盘按钮、横向触摸滚动及此前长按拖动回归。
-- 桌面块选择、文字样式和 Markdown 块回归 22 项通过；已检查字体二级栏和转换网格截图。
-- 最终 `npm test`：1021 项，1016 通过、5 跳过、0 失败。最初与构建并行运行遇到内存不足和 Pandoc 超时；降低资源竞争后完整重跑通过。另一次低并发运行停留在 R 测试进程退出阶段，已取消，未将其算作通过。
-- 本轮使用独立的 `.run/mobile-toolbar-frontend`、`.run/mobile-toolbar-desktop` 和 `.run/logs/mobile-toolbar-*`，防止构建与测试输出互相覆盖。
-- Android `assembleDebug` / `testDebugUnitTest` 构建通过。APK 为 `.run/android-release/Notdown-Android-toolbar-2026-10-25.apk`，71,253,213 字节；已核对包内入口 HTML、入口 JS、编辑器 JS 与 CSS 的 SHA-256，均与受测移动构建一致。
-- APK SHA-256：`f190608a9332c6d5d1d6958785384b4c5e7ccad95b5bf323faa372b481c24064`。本轮结束时 `adb devices -l` 没有设备，未覆盖安装或声称完成真实输入法验收。
+<a id="验收边界与产物"></a>
+
+## Acceptance Boundaries and Products
+
+There is currently no connected device to `adb devices`, so this round has not covered the installation and has not done the real Android WebView/Chinese input method feel acceptance. IME status event testing in the browser is not equivalent to real keyboard acceptance.
+
+- APK: `.run/android-release/Notdown-Android-debug.apk`, and save a copy of the date `Notdown-Android-touch-2026-10-25.apk`.
+- Log: `.run/logs/mobile-touch-*.log`; Interface screenshot: `.run/logs/mobile-touch-sheet.png`, `.run/logs/mobile-touch-drag.png`.
+- Local logs and build products do not enter version control.
+
+<a id="键盘工具栏补充"></a>
+
+## Keyboard toolbar supplement
+
+- The first-level column directly provides increase and decrease indent, move up/down, insert, font style, convert to, undo/redo, picture and more block operations. The buttons slide sideways, and the keyboard buttons are fixed on the right side.
+- The font style enters the secondary column in the original position and returns to the left; the current selection, input focus and continuously set stored marks are retained, and the current style status is displayed. Transform and insert using the two-column panel below the toolbar.
+- After switching Page / Source, the button immediately follows the visible editing area and does not rely on focusing again. Operations still use shared editing transactions and vault saving rules.
+- Browser tests for isolated mobile builds: 26 passed; slow attachment fixture directed rerun after resuming reading 1 passed. Including font overlay and subsequent input, returning to the first level column, moving list items, increasing or decreasing indentation, undo/redo, converting grids, fixed keyboard buttons, horizontal touch scrolling and return of previous long press and drag.
+- Desktop block selection, text styles, and Markdown block regression 22 items passed; font secondary columns and transition grid screenshots checked.
+- Final `npm test`: 1021 item, 1016 passed, 5 skipped, 0 failed. Initial run in parallel with the build encountered out of memory and Pandoc timeouts; full rerun passed after reducing resource contention. Another low-concurrency run was stuck at the R test process exit stage and was canceled without counting it as a pass.
+- This round uses independent `.run/mobile-toolbar-frontend`, `.run/mobile-toolbar-desktop` and `.run/logs/mobile-toolbar-*` to prevent build and test output from overwriting each other.
+- Android `assembleDebug` / `testDebugUnitTest` The building is approved.APK For the`.run/android-release/Notdown-Android-toolbar-2026-10-25.apk`，71,253,213 Bytes; checked in-package entryHTML、The entranceJS、The editorJS withCSS ofSHA-256，The results of the study were consistent with the mobile model.
+- APK SHA-256: `f190608a9332c6d5d1d6958785384b4c5e7ccad95b5bf323faa372b481c24064`. At the end of this round, `adb devices -l` has no devices, no coverage installations, or claims to complete real input method acceptance.

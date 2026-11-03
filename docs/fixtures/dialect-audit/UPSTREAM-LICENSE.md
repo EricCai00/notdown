@@ -1,10 +1,14 @@
-# 上游测试例子的许可
+<a id="上游测试例子的许可"></a>
 
-`commonmark.md` 中的 `cm-*` 片段、`gfm.md` 中的 `gfm-example-*` 片段，以及 `cases.json` 中对应的预期 HTML，分别来自：
+# Upstream test-example licenses
 
-- John MacFarlane 等：[CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/)，[官方机器可读例子](https://spec.commonmark.org/0.31.2/spec.json)。
-- GitHub / John MacFarlane 等：[GitHub Flavored Markdown Spec 0.29-gfm](https://github.github.com/gfm/)。
+**English** · [简体中文](UPSTREAM-LICENSE.zh-CN.md)
 
-上述规范和派生测试片段遵循 [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/)。保留该署名、来源与许可；派生规范内容依同一许可分发。转换仅添加案例标识、行范围与来源信息，并把 GFM 展示用的 `→` 还原为真实 Tab；Markdown 和预期 HTML 的语义未作改写。
+`commonmark.md` In the middle `cm-*` The clip.`gfm.md` In the middle `gfm-example-*` The video, and `cases.json` The expected HTML correspondence is from:
 
-其他带有 `paragraphs`、`extra-*`、`mmd-*`、`pandoc-*`、`obs-*`、`typora-*`、`notion-*`、`doc-*` 等标识的输入为本仓库为本次核对编写的测试，不是官方认证测试。来源文档的链接记录在 `cases.json`。
+- John MacFarlane etc.: [ CommonMark 0.31.2 ](https://spec.commonmark.org/0.31.2/), [ official machine readable example ](https://spec.commonmark.org/0.31.2/spec.json).
+- GitHub/John MacFarlane etc.: [ GitHub Flavored Markdown Spec 0.29-gfm ](https://github.github.com/gfm/).
+
+The above-mentioned standards and derivative test sections follow [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/)• retain the signature, source and license; distribute the derivative specification content under the same license. • Convert only case identification, line scope and source information, and use GFM to display `→` The original version of the code was not transcribed for the real Tab; the definitions of Markdown and HTML were not transcribed.
+
+Other inputs marked with `paragraphs`, `extra-*`, `mmd-*`, `pandoc-*`, `obs-*`, `typora-*`, `notion-*`, `doc-*`, etc. are tests written by this warehouse for this verification and are not official certification tests. Links to source documents are documented in `cases.json`.

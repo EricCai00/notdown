@@ -1,5 +1,107 @@
 import { test, expect } from "@playwright/test";
 
+test("child page rows align mixed icons, titles and arrows across emoji styles and window widths", async ({ page, request }) => {
+  const parent = await (await request.post("/api/pages", { data: { title: "Child icon alignment", body: "" } })).json();
+  const upload = await request.post("/api/assets", { data: {
+    name: "child-icon.svg", contentType: "image/svg+xml",
+    data: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="16"><rect width="24" height="16" fill="#2383e2"/></svg>').toString("base64"),
+  } });
+  expect(upload.status()).toBe(201);
+  const asset = await upload.json();
+  const children = [];
+  for (const [title, icon] of [["Blocks", "🧱"], ["New database", "table-2"], ["New page", ""], ["Note apps", "📝"], ["Image " + "long title ".repeat(30), asset.path]]) {
+    const response = await request.post("/api/pages", { data: { title, icon, parent: parent.id, body: "" } });
+    expect(response.status()).toBe(201);
+    children.push(await response.json());
+  }
+  await page.goto(`/#page/${parent.id}`);
+  const list = page.locator("#children-links");
+  await expect(list.locator(".child-card")).toHaveCount(5);
+  await expect(list.locator("details")).toHaveAttribute("open", "");
+  for (const style of ["system", "noto", "openmoji"]) {
+    await page.evaluate(style => document.documentElement.dataset.emojiStyle = style, style);
+    for (const width of [1440, 600]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await list.scrollIntoViewIfNeeded();
+      await page.evaluate(() => document.fonts.ready);
+      const bounds = await list.locator(".child-card").evaluateAll(rows => rows.map(row => {
+        const icon = row.querySelector(".page-link-icon")!.getBoundingClientRect();
+        const title = row.querySelector("span:not(.page-link-icon)")!;
+        const text = title.getBoundingClientRect(), arrow = row.lastElementChild!.getBoundingClientRect();
+        return { titleX: text.left, iconX: (icon.left + icon.right) / 2, iconRight: icon.right,
+          textRight: text.right, arrowX: arrow.left, arrowRight: arrow.right, rowRight: row.getBoundingClientRect().right,
+          textWidth: title.clientWidth, textScrollWidth: title.scrollWidth };
+      }));
+      for (const row of bounds) {
+        expect(row.titleX).toBeCloseTo(bounds[0].titleX, 0);
+        expect(row.iconX).toBeCloseTo(bounds[0].iconX, 0);
+        expect(row.arrowX).toBeCloseTo(bounds[0].arrowX, 0);
+        expect(row.iconRight).toBeLessThan(row.titleX);
+        expect(row.textRight).toBeLessThan(row.arrowX);
+        expect(row.arrowRight).toBeLessThanOrEqual(row.rowRight);
+      }
+      expect(bounds.some(row => row.textScrollWidth > row.textWidth)).toBe(true);
+      await list.screenshot({ path: `test-results/child-icon-alignment-${style}-${width}.png` });
+    }
+  }
+  await list.locator("summary").click();
+  await expect(list.locator(".child-card").first()).toBeHidden();
+  await list.locator("summary").click();
+  await list.locator(`[data-open="${children[0].id}"]`).click();
+  await expect(page.locator("#page-title")).toHaveValue(children[0].title);
+});
+
+test("search keeps emoji, Lucide, image and default icons beside their titles", async ({ page, request }) => {
+  const upload = await request.post("/api/assets", { data: {
+    name: "search-icon.svg", contentType: "image/svg+xml",
+    data: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#2383e2"/></svg>').toString("base64"),
+  } });
+  expect(upload.status()).toBe(201);
+  const asset = await upload.json();
+  const notes = [];
+  for (const [label, icon] of [["Emoji 🧪", "🧪"], ["Lucide", "book-open"], ["Image", asset.path], ["Default", ""]]) {
+    const response = await request.post("/api/pages", { data: { title: `Spacing ${label}`, icon, body: "Spacing search snippet" } });
+    expect(response.status()).toBe(201);
+    notes.push(await response.json());
+  }
+  await page.goto("/#vault/gallery");
+  await expect(page.locator("#library-results")).toBeVisible();
+  await page.evaluate(ids => localStorage.setItem("notdown-recent-pages", JSON.stringify(ids)), notes.map(note => note.id));
+  await page.keyboard.press("Control+p");
+  const search = page.getByRole("combobox", { name: "Search vault" });
+  await expect(search).toBeVisible();
+  for (const width of [1440, 600]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const query of ["", "Spacing"]) {
+      await search.fill(query);
+      await page.evaluate(() => document.fonts.ready);
+      const titleOffsets = [];
+      for (const note of notes) {
+        const row = page.locator(`#search-results [data-open="${note.id}"]`);
+        await expect(row).toBeVisible();
+        const bounds = await row.evaluate(button => {
+          const icon = button.querySelector(".page-link-icon")!.getBoundingClientRect();
+          const title = button.querySelector("strong")!.getBoundingClientRect();
+          const arrow = button.lastElementChild!.getBoundingClientRect();
+          return { iconWidth: icon.width, gap: title.left - icon.right, titleOffset: title.left - button.getBoundingClientRect().left,
+            textRight: title.right, arrowLeft: arrow.left, arrowRight: arrow.right, rowRight: button.getBoundingClientRect().right };
+        });
+        expect(bounds.iconWidth).toBeCloseTo(20, 0);
+        expect(bounds.gap).toBeCloseTo(12, 0);
+        expect(bounds.textRight).toBeLessThanOrEqual(bounds.arrowLeft);
+        expect(bounds.arrowRight).toBeLessThanOrEqual(bounds.rowRight);
+        titleOffsets.push(bounds.titleOffset);
+      }
+      expect(Math.max(...titleOffsets) - Math.min(...titleOffsets)).toBeLessThanOrEqual(1);
+      await page.getByRole("dialog", { name: "Search vault", exact: true }).screenshot({ path: `test-results/search-icon-spacing-${width}-${query ? "matches" : "recent"}.png` });
+    }
+  }
+  const nextId = await page.locator("#search-results [role=option]").nth(1).getAttribute("data-open");
+  await search.press("ArrowDown");
+  await search.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`#page/${nextId}$`));
+});
+
 for (const style of ["system", "noto", "openmoji"]) test(`bare Notion emoji uses emoji presentation on every page icon surface (${style})`, async ({ page, request }) => {
   await page.addInitScript(style => localStorage.setItem("notdown-emoji-style", style), style);
   const note = await (await request.post("/api/pages", { data: { title: "Genomics", icon: "⚗", body: "Imported page icon" } })).json();

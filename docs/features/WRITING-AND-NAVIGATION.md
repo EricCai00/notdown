@@ -1,156 +1,200 @@
-# 写作与导航
+<a id="写作与导航"></a>
 
-本页介绍日常编辑与页面组织。功能是否可用由页面方言和扩展共同决定；完整语法边界见[内容支持范围](../reference/NOTDOWN-SUPERSET.md)与[格式契约](../FORMAT.md)。
+# Writing and navigation
 
-默认文字层级保持紧凑：页面标题为 40px，正文为 16px，正文一至三级标题为 30／24／20px；菜单和空态提示通常为 14px，图片与媒体说明为 13px。网页书签使用 16px 标题与 12px 简介／网址，窄屏也保持这一层级。字号只影响本地呈现，不改写 Markdown；代码、公式和移动端输入保留各自所需的排版。
+**English** · [简体中文](WRITING-AND-NAVIGATION.zh-CN.md)
 
-## 标签页与窗口
+This guide covers everyday editing and page organization. Available features depend on the page's dialect and enabled extensions. See [supported content](../reference/NOTDOWN-SUPERSET.md) and the [format contract](../FORMAT.md) for syntax boundaries.
 
-桌面和浏览器版共用顶部标签栏、左侧知识库导航和页面面包屑。桌面主窗口将系统窗口按钮并入标签栏，保留拖动窗口、最小化、最大化和关闭；不再显示独立系统标题或 File / Edit 菜单栏。浏览器保留浏览器本身的地址栏与标签栏，应用内标签页只管理当前知识库。
+<a id="界面语言"></a>
 
-顶栏左上角唯一的 Notdown 图标为应用菜单入口，提供新建页面／标签、导入、知识库管理、设置、侧栏显示和导航历史。支持方向键、Home / End、Enter 及 Escape，点击外部也可关闭；菜单操作沿用保存与冲突保护。侧栏标题直接显示当前 vault 名称，右侧上下双箭头表示知识库切换入口；点击名称管理知识库，不重复显示应用图标或固定的“Notdown workspace”标题。
+## Interface language
 
-桌面窗口的 **×** 在保存成功后隐藏到系统托盘，窗口和标签继续保留。再次启动或点击托盘恢复已有窗口；真正退出使用托盘或应用菜单的 **Quit Notdown**，详见[桌面驻留与退出](DESKTOP-AND-IMPORT.md#使用流程)。
+Under **Workspace settings → Workspace → Interface language**, choose **English** or **简体中文**. English is the initial language; choose Simplified Chinese explicitly when needed. The browser stores the choice locally for the same site. Desktop also saves it in `interface-language.json` in the application configuration directory, retaining it across vault windows and restarts. The preference does not sync with the vault.
 
-- 点击顶部 **+ / New tab** 打开新的知识库首页标签，再选择页面或数据库。页面菜单也提供 **Open in new tab**。
-- **Ctrl/⌘ 点击**或**鼠标中键**点击侧栏页面、数据库或正文页面链接，在后台打开标签；加 Shift 切到新标签。点击标签切换，点击 × 或中键关闭；可拖动调整顺序。最后一个标签关闭后回到知识库首页。
-- 切换或关闭当前标签前先收取并保存 Page / Source 的待处理输入与数据库编辑。输入法仍在组字、保存失败或发生冲突时保持原标签和草稿，不自动覆盖新版。后台标签不保留另一份可写编辑器；切回时读取最新保存内容。
-- 标签顺序、当前标签、各标签的编辑视图和滚动位置保存在当前窗口会话中，刷新后可恢复。不同知识库与窗口分别保存。撤销沿用当前挂载编辑器，重新打开已离开的页面不承诺保留旧撤销栈。
-- 标签栏可用左右方向键、Home / End 移动焦点，Enter / Space 切换，Delete 关闭聚焦标签。桌面另支持 **Ctrl/⌘+T** 新标签、**Ctrl/⌘+W** 关闭、**Ctrl/⌘+Shift+T** 恢复最近关闭标签、**Ctrl+Tab / Ctrl+Shift+Tab** 循环切换、**Ctrl/⌘+1–9** 选择标签；浏览器保留自身的这些快捷键。
+Switching updates the main navigation, settings and marked interface controls immediately, without reloading. Open settings forms retain their input, and the document editor stays mounted. Page titles, bodies, code, property names and values, and data source and view names stay unchanged. Service diagnostics retain their original text. This covers the browser application and shared desktop workspace; the separate Android interface, desktop vault launcher and system tray menus are outside this localization scope.
 
-## 页面宽度
+The default typography is compact: page titles use 40px, body text 16px, and heading levels one through three use 30/24/20px. Menus and empty-state hints generally use 14px; image and media captions use 13px. Web bookmarks use 16px titles and 12px descriptions and URLs, including on narrow screens. Font sizes affect local presentation only and do not rewrite Markdown. Code, equations and mobile input retain their own layouts.
 
-普通页面右上角 **Page options（…）→ View → Full width** 可切换窄版和全宽布局，设置按页面保存，刷新后保持。切换前收取并保存待处理输入，保留当前编辑器的撤销历史；只更新页面元数据，不向 Markdown 加入应用 YAML。Wiki Home 默认全宽，不显示单独开关；Wiki 内其他页面沿用各自的普通页面设置。窄屏仍保留正文和块手柄所需的边距。
+<a id="标签页与窗口"></a>
 
-## 三种编辑视图
+## Tabs and windows
 
-| 视图 | 适合的操作 |
+The application menu updates its enabled commands when a tab transition finishes, including when the menu was opened during the transition. Commands continue to wait for pending saves before switching or closing a tab.
+
+Desktop and browser versions share the top tab bar, left vault navigation and page breadcrumbs. The desktop main window integrates system window controls into the tab bar while retaining window dragging, minimize, maximize and close. It has no separate system title bar or File / Edit menu bar. The browser retains its own address bar and tabs; application tabs manage only the current vault.
+
+The top Vault and Databases reuse the same breadcrumb layout with the page path; the icon is centered in the unified placeholder and maintains a fixed distance from the title. emoji, line icons and uploaded images in the page path follow the same alignment rules; the body Breadcrumb block also uses this set of icon layouts.
+
+The only Notdown icon in the upper left corner of the top bar is the entrance to the application menu, which provides new pages/tabs, import, vault management, settings, sidebar display and navigation history. Supports arrow keys, Home/End, Enter and Escape, and can be closed by clicking outside; menu operations continue to use save and conflict protection. The sidebar title directly displays the current vault name, and the up and down double arrows on the right represent the vault switching entrance; click on the name to manage the vault, and the application icon or fixed "Notdown workspace" title will not be repeatedly displayed.
+
+The window of the desk **×** After successful saving, the hidden system tray, windows and tags continue to remain. Reboot or click Tray Restore a window that already exists; truly exit the Tray or App menu **Quit Notdown**See also[Residence and exit at the table](DESKTOP-AND-IMPORT.md#usage)。
+
+- Click **+ / New tab** at the top to open a new vault homepage tab, and then select a page or database. **Open in new tab** is also available in the page menu.
+- **Ctrl/ - Click here to see**Or**The mouse key**Click the sidebar page, database or link to the original page, open the label in the background; add Shift to the new label. Click the label switch, click × or close the key; drag the adjustment sequence.
+- Collect and save the pending input and database edits of Page / Source before switching or closing the current tab. The input method will still keep the original tags and drafts when grouping words, saving fails, or conflicts occur, and will not automatically overwrite the new version. The background tag does not retain another writable editor; the latest saved content is read when switching back.
+- The tab order, current tab, each tab's edit view, and scroll position are saved in the current window session and can be restored after a refresh. Different vaults and windows are saved separately. Undo inherits the current mounted editor, and reopening the page you left does not promise to retain the old undo stack.
+- In the tab bar, you can use the left and right arrow keys, Home / End to move the focus, Enter / Space to switch, and Delete to close the focused tab. The desktop also supports **Ctrl/ ⌘+ T** new tab, **Ctrl/ ⌘+ W** close, **Ctrl/ ⌘+ Shift+T** restore the recently closed tab, **Ctrl+Tab / Ctrl+Shift+Tab** cycle switching, **Ctrl/ ⌘+ 1 – 9** Select tags; the browser retains its own shortcuts for these keys.
+
+<a id="页面宽度"></a>
+
+## page width
+
+Upper right corner of the normal page **Page options（…）→ View → Full width** The narrow and full-width layout can be switched, set to save by page, and kept after refreshment. Pre-switching collection and saving for processing input, preserving the current editor's revocation history; only updating page metadata, not adding to Markdown's YAML application. Wiki Home is default full width, without displaying separate switches; other pages in Wiki are set along their normal page settings. The narrow screen still retains the required margin for both the text and block handle.
+
+<a id="三种编辑视图"></a>
+
+## Three editing views
+
+| view | Suitable operations |
 | --- | --- |
-| Page | 直接编辑页面文字，使用块、表格和媒体控件。 |
-| Source | 编辑完整 Markdown 文件，包括文档自身的 YAML 或 Pandoc title block。 |
-| Split | 并排查看源码与页面，使用块级位置映射导航和滚动。 |
+| Page | Edit page text directly, using blocks, tables and media controls. |
+| Source | Edit the complete Markdown file, including the document's own YAML or Pandoc title block. |
+| Split | View source code and pages side by side, using block-level position mapping for navigation and scrolling. |
 
-三种视图共享草稿与撤销历史。切换视图、页面或执行保存前会收取待处理输入；Source/Page 投影和阅读大纲在短暂停止输入后更新。连续输入会合并为撤销步骤，换行和独立编辑另起一步。复杂或重排的内容不保证逐字符滚动对应。
+Three views share draft and undo history. Pending input is collected before switching views, pages, or performing a save; Source/Page projection and reading outlines are updated after a brief pause in input. Continuous input will be combined into an undo step, and new lines and independent edits will be a new step. Character-by-character scrolling correspondence is not guaranteed for complex or reflowed content.
 
-桌面和浏览器版在 **Workspace settings → Markdown controls** 可分别显示或隐藏 **View switcher**（Source / Split / Page）、**Dialect selector** 和 **Extensions button**，三项默认显示。开关立即生效并保存在当前浏览器／桌面配置中，不修改页面或 Markdown 文件。全部关闭时收起整行控件；隐藏视图按钮后仍可通过右上角 **Page options（…）→ View** 或 `Ctrl/⌘+E` 切换视图。Split 的同步滚动开关随视图按钮一起隐藏。
+The desktop and browser versions are available in **Workspace settings → Markdown controls** Can be displayed or hidden separately **View switcher**（Source / Split / Page）、**Dialect selector** and **Extensions button**The switch is instantly active and maintained in the current browser/desktop configuration, without modifying pages or Markdown files. All shutdowns trigger the row control; the hidden view button is still available in the upper right corner. **Page options（…）→ View** or `Ctrl/⌘+E` Switch views. Split's synchronized scrolling switch is hidden with the view button.
 
-Source 和 Split 使用较宽的编辑区，源码支持语法高亮及标题、代码、引用、列表和表格折叠。点击行号旁箭头展开／折叠；`Ctrl+Shift+[` / `Ctrl+Shift+]` 操作当前位置，`Ctrl+Alt+[` / `Ctrl+Alt+]` 操作全部。折叠只影响当前编辑器，不改写 Markdown；部分自定义方言结构尚无专用高亮和折叠规则。
+Source and Split use a wider editing area, and the source code supports syntax highlighting and folding of titles, codes, references, lists, and tables. Click the arrow next to the line number to expand/collapse; `Ctrl+Shift+[` / `Ctrl+Shift+]` operates the current position, `Ctrl+Alt+[` / `Ctrl+Alt+]` operates all. Folding only affects the current editor and does not rewrite Markdown; some custom dialect structures do not yet have dedicated highlighting and folding rules.
 
-## 常用操作
+<a id="常用操作"></a>
 
-侧栏顶部默认显示 **Search、Vault、Databases、Attachments**。在 **Workspace settings → Sidebar** 可开启 People、Graph、Conflicts and versions，或隐藏其他快捷入口；**Restore default shortcuts** 恢复上述四项，**Show all shortcuts** 显示全部普通快捷入口。偏好保存在当前浏览器／桌面知识库会话配置中。
+## Common operations
 
-在 **Workspace settings → Appearance → Sidebar → Page tree** 中，**Database children** 可选 **Pages**（默认，显示数据库记录子页）或 **Views**（显示保存的视图，点击直接打开对应视图）。此设置只改变侧栏展示，记录仍可在数据库中访问。**Default expanded levels** 默认 **0 — Collapsed**，只显示根层；**1** 同时显示第一层子项，可选 0–10 层或 **All levels**。修改立即生效并保存在本机；手动展开／折叠在当前会话保留，刷新后重新应用默认层数，修改默认层数时也会重置手动选择。
+The top of the sidebar displays **Search, Vault, Databases, Attachments and** by default. **Workspace settings → Sidebar** can open People, Graph, Conflicts and versions, or hide other shortcut entries; **Restore default shortcuts** restores the above four items, and **Show all shortcuts** displays all ordinary shortcut entries. Preferences are saved in the current browser/desktop repository session configuration.
 
-侧栏底部保留统一的 **Import**、**Trash** 和 **Workspace settings**。新建页面使用 **Private pages** 旁的 **+** 或 Vault 页面的 **New page**；新建数据库使用 **Databases → New database**；管理知识库点击左上角知识库名称，或 **Workspace settings → Manage knowledge bases**。
+In **Workspace settings → Appearance → Sidebar → Page tree**, **Database children** optional **Pages** (default, displays the database record subpage) or **Views** (displays the saved view, click to directly open the corresponding view). This setting only changes the sidebar presentation, records will still be accessible in the database. **Default expanded levels** Default **0 — Collapsed**, only the root layer is displayed; **1** also displays the first layer sub-items, optional 0 – 10 layer or **All levels**. Modifications take effect immediately and are saved locally; manual expansion/collapse is retained in the current session, and the default number of layers is re-applied after refreshing. Manual selection will also be reset when the default number of layers is modified.
 
-Import、Trash、实验工具入口、本地状态和设置集中在侧栏底部，页面较少时整体靠下，与页面列表保留空隙。内容超出窗口高度时整个侧栏滚动，底部操作与页面树之间仍保留间距；滚动侧栏不会带动正文。
+The bottom of the side of the skull remains united **Import**、**Trash** and **Workspace settings**Newly created pages used **Private pages** next to **+** or Vault page **New page**• Use of newly created databases **Databases → New database**• Manage the vault by clicking the vault name in the upper left corner, or **Workspace settings → Manage knowledge bases**。
 
-导航、Favorites、Private pages 和底部操作区之间保留分组留白；分组内的页面及父子层级保持紧凑。
+Import, Trash, experimental tool entrance, local status and settings are concentrated at the bottom of the sidebar. When there are few pages, they are placed below, leaving a gap with the page list. When the content exceeds the height of the window, the entire sidebar scrolls, and there is still a gap between the bottom operation and the page tree; scrolling the sidebar does not drive the main text.
 
-**Block Explorer** 与 **Markdown Lab** 为实验性工具，侧栏入口默认关闭。在 **Workspace settings → Experimental features** 分别开启后显示链接；开关保存在本机，不修改知识库内容。实验工具页面仍可通过原有 URL 访问。
+Keep the grouping space between navigation, Favorites, Private pages and the bottom operation area; keep the pages and parent-child hierarchy within the group compact.
 
-| 操作 | 入口 |
+**Block Explorer** with **Markdown Lab** The side door is closed by default for experimental use. **Workspace settings → Experimental features** The link is displayed after the separate opening; the switch is kept in-house and does not modify the content of the vault. The experimental tool page is still accessible via the original URL link.
+
+| Operations | Entry point |
 | --- | --- |
-| 搜索页面 | `Ctrl+P`；正文编辑器外也可用 `Ctrl+K`。 |
-| 切换 Page / Source | `Ctrl+E`。 |
-| 立即保存 | `Ctrl+S`。 |
-| 插入内容 | 正文输入 `/`，或点击块旁的 `+`。 |
-| 移动或管理块 | 拖动或点击六点手柄。 |
-| 调整列表层级 | `Tab` / `Shift+Tab`。 |
-| 插入或编辑链接 | 选中文字后的 **Link**，或正文中的 `Ctrl/⌘+K`。 |
-| 查看块的 Markdown | 六点手柄菜单 → **View source**。 |
+| search page | `Ctrl+P`;`Ctrl+K` can also be used outside the text editor. |
+| Switch Page / Source | `Ctrl+E`。 |
+| Save now | `Ctrl+S`。 |
+| Insert content | Enter `/` for the text, or click `+` next to the block. |
+| Move or manage blocks | Drag or click the six-point handle. |
+| Adjust list level | `Tab` / `Shift+Tab`。 |
+| Insert or edit link | **Link** after selected text, or `Ctrl/⌘+K` in the text. |
+| View the Markdown of the block | Six-dot handle menu → **View source**. |
 
-分隔线旁的六点手柄和 `+` 与线条垂直居中；悬停在线条上下附近即可显示，移向手柄后可拖动或打开块菜单。嵌套分隔线的控件跟随其缩进。分栏内的文件、图片和页面入口同样可悬停显示手柄，控件属于指针所在栏的块，移向手柄后可打开菜单。
+In the recent access and matching results of the search pop-up window, emoji, line icons and uploaded images use the same fixed icon placeholder, keeping the same spacing with the title; the text area occupies the remaining width alone.
 
-插入命令从空白正文、空白表格单元格或空输入框开始。行内格式作用于选中文字或接下来输入的文字；Source 中包裹选区并把光标放在语法内部。行内公式、可执行表达式等必须先填写内容的命令打开输入框。
+The six-dot handles next to the divider and `+` are centered vertically on the line; hover above and below the line to reveal them, and move toward the handles to drag or open the block menu. Controls with nested dividers follow their indentation. Files, pictures and page entries in columns can also be hovered to display the handle. The control belongs to the block of the column where the pointer is located. The menu can be opened after moving to the handle.
 
-点击正文下方空白处会创建一个空正文块，已有空尾块时直接聚焦，重复点击不累积空块。块框选时可用滚轮继续扩展选区；拖放提示线表示目标层级。任意嵌套与跨页拖动尚不完整。
+The Insert command starts with blank text, a blank table cell, or an empty input box. Inline formatting applies to selected text or text entered next; wrap the selection in Source and place the cursor inside the syntax. Commands such as inline formulas and executable expressions that must be filled in first open input boxes.
 
-在行内格式末端按一次 `→` 可退出格式，按 `←` 可返回；起始边界方向相反。无需先插入空格。共同结束的格式一起退出，仍跨越该位置的外层格式继续生效，带修饰键的方向键保留通常的导航行为。
+Clicking on the bottom blank space in the text editing area will create an empty text block. If there is an empty tail block, focus directly. Repeated clicks will not accumulate empty blocks. **Child page**, Backlinks titles, lists and surrounding white space outside the main text will not trigger text insertion; sub-page folding, expansion and navigation will not rewrite the main text. When selecting a block, you can use the scroll wheel to continue expanding the selection; drag and drop the prompt line to indicate the target level. Arbitrary nesting and cross-page dragging are not yet complete.
 
-**View source** 显示所选块及其子内容的只读 Markdown，可复制；编辑过或嵌套的块可能使用规范化编码。右上角 **Open source file** 可在新标签查看完整文件、交给系统默认 Markdown 应用打开，或复制绝对路径。打开前先保存，冲突阻止打开；复制路径不要求保存，系统打开需要本地文件关联。
+Press `→` once at the end of an inline format to exit the format, or `←` to return; the starting boundary is in the opposite direction. No need to insert spaces first. The formatting that ends together is exited together, the outer formatting that still spans that position continues to take effect, and the arrow keys with modifier keys retain the usual navigation behavior.
 
-Notion v2 页面在编辑或新建普通内容时优先使用 Markdown：标题 `#`、列表 `-` / `1.`、任务 `- [ ]`、引用 `>`、粗体 `**`、斜体 `*`、删除线 `~~`、图片 `![]()`、公式 `$$` 和普通表格。需要属性、子块、边缘空白或无法用 Markdown 无损表达时保留 Notion 官方标签；下划线与颜色本来就需要对应标签。未修改块继续保留原文，不批量转换已有文件。详细边界见 [Notion 格式参考](../reference/NOTION-MCP-SYNTAX.md#notion-v2-的保存规则)。
+**View source** The selected blocks and their subcontents can be copied only by reading Markdown; blocks that have been edited or embedded may use standardized coding. **Open source file** The full file can be viewed on the new label, the default Markdown application can be opened to the system, or the absolute path can be copied. Save before opening, conflict prevents opening; copy path does not require saving, and the system opens the local file link required.
 
-## 方言选择
+Notion v2 pages prioritize Markdown when editing or re-creating normal content: headings `#`List of the `-` / `1.`Mission `- [ ]`The quote `>`It's rough. `**`The slope `*`- Delete the line `~~`The picture `![]()`The formula `$$` The following table lists the properties of the sub-block, the margin gap or the unusableMarkdown Reserved when declared intactNotion Official tag; the bottom line and the color would have required corresponding tagging. Unmodified blocks continue to retain the original, no bulk conversion of existing documents. See details.[Reference format of Notion](../reference/NOTION-MCP-SYNTAX.md#notion-v2-persistence-rules)。
 
-**Dialect** 下拉框按以下顺序分组，Block Explorer 使用相同顺序：
+<a id="方言选择"></a>
+
+## Selecting a dialect
+
+**Dialect** The drop box is grouped in the following order, and Block Explorer uses the same order:
 
 - Applications：Notdown → Notion-flavored Markdown → Obsidian → Typora。
 - Markdown：Pandoc Markdown → CommonMark X → GitHub-flavored Markdown → CommonMark → Original Markdown。
 - Compatibility：PHP Markdown Extra → MultiMarkdown → Legacy GitHub Markdown。
 - Scientific writing：R Markdown → Quarto。
 
-Android 可从右上角 **Notebook options** 中直接点 **Page dialect** 的当前值选择方言，不再打开单独的设置页。切换前保存待处理输入，保存失败或冲突时停止切换。文件已在 YAML 声明 `syntax` 或 `bodyFormat` 时，显式切换同时更新已有的覆盖字段，保留未知字段与注释、换行格式和后续正文；没有这些字段时不自动添加应用 YAML。更改进入共用撤销历史。
+Android can be found in the upper right corner **Notebook options** center point **Page dialect** The current value selection dialect of the file is no longer open on the separate settings page. Save before switching to process input, save failure or conflict, and stop switching. The file is declared in YAML. `syntax` or `bodyFormat` When explicit switching updates existing fields of coverage, it preserves unknown fields with comments, format changes and follow-up text; without these fields, it does not automatically add the application YAML.
 
-## 输入与格式
+<a id="输入与格式"></a>
 
-- 斜杠菜单保持正文焦点，跟随输入行，支持过滤、键盘选择和 Escape 关闭。
-- 支持的快捷输入随方言变化，包括标题、列表、引用、分隔线、公式、行内格式、脚注和修订；闭合后转换的行内输入可立即 Backspace 还原。详见[行内对象](INLINE-OBJECTS.md)。
-- 在支持公式的方言中，独立输入 `$$` 后 Enter 创建公式块；`$公式$` 的闭合美元符触发行内公式。代码、转义和不符合条件的输入保留字面内容。Notdown 默认关闭反斜杠括号公式，避免与 Markdown 转义冲突。
-- Workspace settings → Editing → **Code block input** 可选择第三个反引号即创建代码块，或先输入语言再 Enter；明确选择的语言用于后续未指定语言的新块。已有内容保留自身语言。完整分组、高亮与边界见[代码语言](CODE-LANGUAGES.md)。
-- Workspace settings → Reading experience → **Numbered list display** 在 Markdown 数字层级与 Notion 数字／字母／罗马层级之间切换，仅改变本地显示，不改写源文件或导出编号；显式列表标记保留自身规则。
-- 开启 emoji 时，在行首或空白后输入 `:sm` 可搜索表情，用方向键与 Enter/Tab 选择；分类浏览和最近使用也可用。插入 Unicode 字符，不增加新 Markdown 别名。代码、链接、转义及 Source 中不打开此菜单。
-- Notdown 默认启用[符号自动替换](SYMBOL-REPLACEMENTS.md)，可在扩展设置关闭。示例列表启用时，`(@` 搜索已有命名示例；重复标签保留同一编号，匿名示例不能按名称引用。
+## Input and formatting
 
-**Extensions** 面板可按名称、ID 和说明搜索。搜索只过滤列表，切换开关才修改设置；切换方言重新解释当前源码，不自动迁移知识库。官方 Notion Markdown 不因手动打开扩展而启用 Notdown 专属语法。
+- Slash menu maintains text focus, follows input lines, supports filtering, keyboard selection, and Escape closing.
+- Supported shortcut input changes with the dialect, including titles, lists, quotes, separators, formulas, inline formatting, footnotes and revisions; converted inline input can be restored with Backspace immediately after closing. See [ inline object ](INLINE-OBJECTS.md) for details.
+- In dialects that support formulas, entering `$$` followed by Enter creates a formula block; the closing dollar sign of `$公式$` triggers an inline formula. Codes, escaping, and unqualified input retain literal content. Notdown turns off backslash bracket formulas by default to avoid conflicts with Markdown escapes.
+- Workspace settings → Editing → **Code block input** You can choose the third backtick to create a code block, or enter the language first and then Enter; the explicitly selected language is used for subsequent new blocks without a specified language. Existing content remains in its own language. See the [ coding language ](CODE-LANGUAGES.md) for complete grouping, highlighting and borders.
+- Workspace settings → Reading experience → **Numbered list display** Switch between Markdown numeric level and Notion numeric/letter/Roman level, only changing the local display, not rewriting the source file or export number; explicit list tags retain their own rules.
+- When emoji is turned on, enter `:sm` at the beginning of the line or after a blank space to search for expressions, and use the arrow keys and Enter/Tab to select; category browsing and recent use are also available. Inserts Unicode characters without adding new Markdown aliases. This menu is not opened in code, linking, escaping and Source.
+- Notdown enables automatic substitution of [ symbols for ](SYMBOL-REPLACEMENTS.md) by default, and can be turned off in the extended settings. When the example list is enabled, `(@` searches for existing named examples; duplicate labels retain the same number, and anonymous examples cannot be referenced by name.
 
-## 内容控件
+**Extensions** The panel can be searched by name, ID and description. Search only filters lists, switching switches to change settings; switching dictionaries reinterpret current source code, and do not automatically migrate vaults. Official Notion Markdown does not enable Notdown's proprietary syntax by opening the extension manually.
 
-**Toggle heading** 保留标题层级与标题间距，箭头只折叠其子内容。展开的空标题提供添加内容入口；点击后直接输入，提示文字不会写入 Markdown。标题末尾按 Enter：展开时进入子内容，收起时在标题块下方创建同级段落；从标题中间换行时，后半段成为正文。收起时，位于子内容中的光标回到标题，避免输入隐藏文字。移出或删除最后一个子块后仍保留折叠标题。Notdown 保存展开状态；官方 Notion Markdown 的展开状态仅作用于当前编辑器，不写入补充属性。
+<a id="内容控件"></a>
 
-Notion **Callout** 用于突出提示内容，支持更换图标和嵌套块；默认色或文字颜色下使用浅色细边框，指定背景色时保留该背景。它与 **GitHub-style Alert** 是不同插入入口，沿用各自的 Markdown 编码；Alert 的类型、折叠和自定义标题是否可用取决于方言。
+## Content controls
 
-| 内容 | 使用说明 |
+**Toggle heading** Keep the title level and the title spacing, with the arrow only folding its subcontent. Open blank headings provide additional content input; direct input after clicking, prompting the text not to be written.Markdown。The end of the titleEnter：When opening, the subcontent is entered, and when picking up, the equivalent paragraph is created below the sub-block; when switching from the middle of the title, the second half becomes the correct one. When picking up, the spotlight in the subcontent returns to the title, avoiding the input of hidden text.Notdown The official website of the European UnionNotion Markdown The current editor is the only one that works in the current editor, and does not write additional attributes.
+
+Notion **Callout** is used to highlight the prompt content, and supports the replacement of icons and nested blocks; uses a light thin border in the default color or text color, and retains the background when the background color is specified. It is a different insertion entry from **GitHub-style Alert** and follows the respective Markdown encoding; the type, folding and custom headers available for Alert depend on the dialect.
+
+| Content | Instructions for use |
 | --- | --- |
-| 表格、引文、缩写、术语和修订 | [行内对象与表格](INLINE-OBJECTS.md)：矩形选区、TSV 粘贴、行列操作、尺寸和布局的保存边界。 |
-| 脚注 | [脚注指南](FOOTNOTES.md)：插入、预览、定义编辑与返回正文；行内脚注保留自身语法。 |
-| 图片、音视频、PDF、文件与嵌入 | [媒体与嵌入](MEDIA-AND-EMBEDS.md)。 |
-| 本地同步块 | [同步块](SYNCED-BLOCKS.md)：副本编辑、刷新、冲突和取消同步；不连接 Notion 云端。 |
-| 代码执行 | [Quarto](QUARTO.md)与 [R Markdown](R-MARKDOWN.md)：显式执行，结果不写入笔记。 |
-| AI 与会议笔记 | [AI 块](AI-BLOCKS.md)与[会议笔记](MEETING-NOTES.md)：配置服务、上下文与转写范围。 |
+| Tables, citations, abbreviations, glossary terms and revisions | [Inline objects and tables ](INLINE-OBJECTS.md): rectangular selection, TSV paste, row and column operations, size and layout saving boundaries. |
+| Footnotes | [Footnote Guide ](FOOTNOTES.md): Insertion, preview, definition editing and return to text; inline footnotes retain their own syntax. |
+| Pictures, audio and video, PDF, files and embedding | [Media and Embedding ](MEDIA-AND-EMBEDS.md). |
+| Local synced blocks | [Synchronization block ](SYNCED-BLOCKS.md): copy editing, refresh, conflict and desynchronization; does not connect to Notion cloud. |
+| code execution | [Quarto ](QUARTO.md) and [ R Markdown ](R-MARKDOWN.md): Explicit execution, the results are not written into notes. |
+| AI and meeting notes | [AI block ](AI-BLOCKS.md) and [ meeting notes ](MEETING-NOTES.md): Configuring services, contexts and transliteration scopes. |
 
-公式、图片说明、链接和行内对象通常使用小型编辑面板；Save/Apply/Done 提交，Cancel 或 Escape 放弃。页面保持可滚动，过期目标的编辑不会覆盖新内容。大范围设置和确认操作使用模态窗口。
+Formulas, captions, links, and inline objects typically use a small editing panel; Save/Apply/Done commits, Cancel or Escape discards. The page remains scrollable and edits to expired targets will not overwrite new content. Use modal windows for a wide range of settings and confirmation operations.
 
-HTML 块在悬停或聚焦时显示 `</>` 按钮，可展开带高亮和实时预览的源码编辑器，共用撤销记录；Escape 收起。其他不支持的 raw 格式保留可编辑源码，不提供目标格式转换。Div 组保留自身属性和编码，子块仍可独立操作。
+The HTML block displays the `</>` button when hovered or focused, which expands the source code editor with highlighting and real-time preview, and shares undo records; Escape collapses. Other unsupported raw formats retain editable source code and do not provide target format conversion. Div groups retain their own properties and encoding, and sub-blocks can still operate independently.
 
-启用 comments 后，`%%` 或斜杠菜单可打开注释输入面板，`Ctrl/⌘+Enter` 提交，Escape 取消；在段落开头输入 `%%` 后对空输入按 Enter 可改为块注释。注释和 CriticMarkup 注释在 Page 中隐藏，已有内容可在 Source 中编辑。
+After enabling comments, `%%` or the slash menu can open the comment input panel, `Ctrl/⌘+Enter` submits, and Escape cancels; enter `%%` at the beginning of the paragraph and then press Enter for empty input to change to block comments. Comments and CriticMarkup comments are hidden in Page, and existing content can be edited in Source.
 
-## 页面与链接
+<a id="页面与链接"></a>
 
-**Workspace settings → Sidebar** 可分别显示或隐藏 Search、Vault、Databases、Attachments、People、Graph 和 Conflicts and versions；设置在当前浏览器保存，立即生效，**Show all shortcuts** 恢复全部入口。隐藏入口不会删除内容或禁用功能，搜索快捷键 Ctrl/⌘ K 继续可用，知识库管理和设置入口始终保留。
+## Pages and links
 
-设置窗口按 **Workspace、Appearance、Editing、Sync & history、Connections、Advanced** 分类，左侧导航定位到对应分组；窄窗口改为顶部横向导航。各组使用统一的表单、开关、按钮与状态提示，导航时保留尚未提交的表单输入。标题栏与底部 **Done** 固定，内容区独立滚动。点击关闭按钮、按 Esc 或点击窗口外的遮罩均可退出；下拉选择器等子面板打开时，Esc 可能先关闭子面板。开关类偏好即时保存；带 Save 按钮的配置需点击对应按钮提交。
+**Workspace settings → Sidebar** The code can be displayed or hidden separately, including Search, Vault, Databases, Attachments, People, Graph, and Conflicts and versions; it is set to be saved in the current browser and is effective immediately.**Show all shortcuts** All entries are restored. Hidden entries will not delete content or disable functionality, search for the Ctrl/ shortcut, and K will remain available, and vault management and settings will remain intact.
 
-侧栏支持父子页面、排序、收藏、搜索和 Trash。页面可设置图标、封面与属性；底部 **Child page** 列表按实际层级生成。子页少于或等于五个时默认展开，更多时默认折叠，手动选择在当前会话保留。
+The setting window is classified by **Workspace, Appearance, Editing, Sync & history, Connections, Advanced**, and the left navigation is positioned to the corresponding group; the narrow window is changed to the top horizontal navigation. Each group uses unified forms, switches, buttons and status prompts, and retains unsubmitted form input during navigation. The title bar and bottom **Done** are fixed, and the content area scrolls independently. You can exit by clicking the close button, pressing Esc, or clicking on the mask outside the window; when a subpanel such as the drop-down selector is opened, Esc may close the subpanel first. Switch preferences are saved instantly; configurations with Save buttons need to be submitted by clicking the corresponding button.
 
-**Workspace settings → Editing → Child pages** 提供两个知识库设置：**Allow child pages without a block in the parent page** 默认开启；关闭时自动在各父页末尾补齐已有子页入口，之后保存正文时也会补齐缺失入口。**Automatically insert child page blocks** 默认关闭；开启后，新建子页、拖入父页或通过 **Move to** 改变父页时自动追加入口。禁止缺少入口时，此开关显示为开启且不可关闭；重新允许后恢复此前的自动插入选择。单独开启自动插入不会追溯补齐已有页面。
+The sidebar supports parent-child pages, sorting, favorites, search and Trash. Icons, covers and attributes can be set on the page; the **Child page** list at the bottom is generated according to the actual level. emoji, line icons and uploaded images are centered in the fixed icon column, and the starting point of the title is aligned with the arrow on the right; long titles are truncated and displayed in a narrow window. When there are less than or equal to five subpages, they are expanded by default and when there are more, they are collapsed by default. Manual selection is retained in the current session.
 
-在侧栏或页面底部 **Child page** 列表中右键子页，选择 **Insert into parent page**，可将已有子页入口补到父页末尾；已有入口时不重复添加。根页面和数据库记录不显示此操作。Notdown 与 Notion Markdown 使用官方 `<page>` 块；其他方言使用独立的 Markdown 页面链接，不切换方言。批量补齐跳过 Trash、数据库记录及数据库宿主页，沿用侧栏顺序，保留现有源码并记录历史；代码示例、行内提及和 Notdown 的 Link to page 不计为 Child page 块。若原文有未闭合的代码围栏／容器导致入口无法成为独立内容，会保留原文并报告错误；修正后可再次操作。批量页面与设置使用可恢复事务，遇到外部版本冲突保留双方内容，不自动覆盖。
+Sidebar **Trash → Empty Trash** can clean all recycled pages, subpages and data sources at once. After confirmation, the page file and attachments that lost their last reference are moved to the Windows system recycle bin, the data source definition retains historical recovery materials, and the shared attachments are retained. The button is unavailable when Trash is empty or the server does not support the system recycle bin. Repeat submissions cannot be made during cleaning; if a version conflict or system error occurs, the remaining entries will be stopped and refreshed, and completed files can still be recovered from the system recycle bin or history.
 
-输入 `[[`、`+页面名` 或 `@页面名` 可搜索并引用本地页面；新建时可选择父位置。选中文字后的 Link 面板也支持粘贴网址、搜索和编辑链接；无选区时插入页面标题。Page/Split 中左键直接打开正文链接，网页和邮件链接在新标签打开，内部链接导航到对应页面或位置。完整规则见[页面与位置链接](INTERNAL-REFERENCES.md)。
+**Workspace settings → Editing → Child pages** The first is the "Blood of the World".**Allow child pages without a block in the parent page** By default, it opens; when closed, it automatically fills in the subpage entries at the end of each parent page, and then fills in the missing entries when saved in the original.**Automatically insert child page blocks** By default, shut down; after opening, create a new subpage, drag it into the parent page or pass it through **Move to** Automatically add input when changing parent page. When prohibited from missing input, this switch is displayed as open and unclosed; after being allowed again, restore the previous auto-insert option.
 
-Child page、Link to page 和行内页面提及用途不同，块类型按实际语法确定，不按页面是否为子页推断：官方 `<page>` 表示 Child page，Notdown 的 `<page-link>` 表示 Link to page，`<mention-page>` 保持行内。解析正文不创建或移动页面。
+On the sidebar or at the bottom of the page **Child page** Select the right sub-page in the list **Insert into parent page**The user can add subpages to the parent page, but not add them again when they are already entered. Root pages and database records do not show this operation. Notdown and Notion Markdown use official `<page>` Block; other languages use separate Markdown page links, without switching dialects. Batch-shaped skip Trash, database records and database host pages, along the sidebar sequence, retaining existing source code and recording history; code examples, inline references and Notdown's Link to page are not counted as Child page blocks. If the original unclosed code fence/container prevents the input from being independent content, the original will be retained and reported errors; it can be re-operated after correction. Batch pages and settings are used for recovery transactions, and when external version conflicts occur, the content is retained on both sides and not automatically covered.
 
-在 Page 中删除 Child page 块会先确认，然后将对应本地页面及后代移入 Trash。多选删除只弹出一次确认，显示首个页面名称及不同子页总数；取消、失败或冲突时保留正文块。普通页面链接删除或 Source 编辑不会删除页面。编辑器撤销只恢复正文，页面需从 Trash 恢复。
+Enter `[[`, `+页面名`, or `@页面名` to search and reference local pages; when creating a new one, you can select a parent location. The Link panel after selecting text also supports pasting URLs, search and edit links; inserting page titles when there is no selection. In Page/Split, left-click to directly open the text link, web page and email links are opened in a new tab, and internal links navigate to the corresponding page or location. See the [ page and location link ](INTERNAL-REFERENCES.md) for complete rules.
 
-页面切换前保存待处理输入；外部刷新不会直接替换未保存文字。大型知识库和长文仍可能加载较慢，系统中文输入法、触控、无障碍和大文档仍需进一步验证。历史快照没有专用回滚界面，窗口关闭后的未提交草稿也不是完整恢复机制。
+Child page, Link to page and inline pages have different mentioned uses. The block type is determined according to the actual syntax and is not inferred according to whether the page is a subpage: official `<page>` represents Child page, Notdown's `<page-link>` represents Link to page, and `<mention-page>` remains inline. Parsing the body does not create or move pages.
 
-## 阅读与关系图
+inPage Deleted fromChild page The blocks are first confirmed and then moved to the corresponding local pages and later generations.Trash。Multiple deletion only appears once, showing the first page name and total number of different subpages; retaining the correct block when deleted, failed or conflict.Source The editor will not delete the page. The editor will only restore the text, and the page will need to be deleted from the page.Trash I'm going to get back to normal.
 
-知识库提供 Gallery、属性列表、Tree 和 Graph；单页提供大纲、思维导图、可折叠标题与阅读目录。Tree 默认展开前三层，点击分支箭头或聚焦行后按 Enter/Space 展开；点击标题打开页面。会话内保留展开状态，重新加载后重置。
+Pending input is saved before page switching; external refresh will not directly replace unsaved text. Large vaults and long articles may still load slowly, and the system's Chinese input method, touch control, accessibility, and large documents still need further verification. There is no dedicated rollback interface for historical snapshots, and the uncommitted draft after the window is closed is not a complete recovery mechanism.
 
-右侧阅读目录只收录文档中的标题块，包括折叠标题及嵌套在分栏、引用或会议正文中的标题；会议卡片名称等组件内部标题不参与目录。没有正文标题时隐藏目录。
+<a id="阅读与关系图"></a>
 
-Graph 中实线箭头由引用页指向目标页，虚线由父页指向子页。页面链接和父子关系分别呈现。
+## Reading and the page graph
 
-| 操作 | 方法 |
+The vault provides Gallery, attribute list, Tree and Graph; a single page provides outline, mind map, foldable title and reading list. Tree expands the first three layers by default. Click the branch arrow or focus on the row and press Enter/Space to expand; click the title to open the page. The expanded state is retained within the session and reset after reloading.
+
+The reading table of contents on the right only includes title blocks in the document, including folded titles and titles nested in columns, quotes, or conference text; internal titles of components such as meeting card names do not participate in the table of contents. Hide the table of contents when there is no text title.
+
+In Graph, the solid arrow points from the reference page to the target page, and the dotted line points from the parent page to the child page. Page links and parent-child relationships are presented separately.
+
+| Operations | method |
 | --- | --- |
-| 移动节点 | 拖动节点，邻接节点会跟随布局调整。 |
-| 平移与缩放 | 拖动背景、滚轮缩放；聚焦画布后也可用方向键和 `+` / `-`。 |
-| 查看关联 | 悬停节点圆点；仅悬停标题不会高亮连线。 |
-| 打开页面 | 点击节点，或 Tab 聚焦节点后 Enter。 |
-| 适配与设置 | **Fit graph** 或 `0` 居中；**Graph settings** 调整力、标签和箭头。 |
+| Moving nodes | Drag the node and the adjacent nodes will adjust according to the layout. |
+| Panning and zooming | Drag the background and scroll wheel to zoom; you can also use the arrow keys and `+` / `-` after focusing on the canvas. |
+| View associations | Hover the node dot; hovering just the title will not highlight the connection. |
+| open page | Click on the node, or Tab to focus the node after Enter . |
+| Adaptation and settings | **Fit graph** or `0` The house is in the ground.**Graph settings** The key is to adjust the force, the label and the arrow. |
 
-减少动态效果模式会直接稳定布局。当前 Graph 包含已有页面、页面链接和层级；尚无附件／缺失目标节点、颜色分组、布局保存及完整 Obsidian 筛选能力。
+Reducing dynamic effects mode will directly stabilize the layout. Currently Graph contains existing pages, page links and hierarchies; there is no attachment/missing target node, color grouping, layout saving and complete Obsidian filtering capabilities.
+
+<a id="知识库选择界面"></a>
+
+### Vault picker
+
+Click the name of the vault in the sidebar to open the management panel. The current vault name and full path are displayed at the top, and the current item in the list is marked in blue; it can be switched to open in a new tab. Forms for creating a new vault and opening an existing directory are provided below, and are automatically arranged vertically in narrow screens. Current edits will still be saved before switching, and switching will stop when conflicts are saved. The desktop splash page and web admin panel use a consistent warm white background, blue accent color, and thin border cards.

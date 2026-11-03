@@ -8,3 +8,5 @@ for (const name of ["welcome.html", "welcome.css"]) await copyFile(`src/desktop/
 await copyFile("src/assets/notdown-icon.png", "desktop-dist/icon.png");
 await copyFile("server/r-notebook-driver.R", "desktop-dist/r-notebook-driver.R");
 await copyFile("server/jupyter-driver.py", "desktop-dist/jupyter-driver.py");
+
+for (const name of ["vault-manager.css", "vault-picker.css"]) await copyFile(`src/features/vault/${name}`, `desktop-dist/${name}`);

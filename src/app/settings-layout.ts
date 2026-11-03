@@ -1,3 +1,4 @@
+import { setUIAttribute, setUIText } from "../shared/i18n";
 import { refreshIcons } from "../shared/icons";
 import "./settings-layout.css";
 
@@ -17,19 +18,19 @@ export function mountSettingsLayout(dialog: HTMLElement, body: HTMLElement) {
   shell.className = "settings-layout";
   const nav = document.createElement("nav");
   nav.className = "settings-navigation";
-  nav.setAttribute("aria-label", "Settings sections");
+  setUIAttribute(nav, "aria-label", "Settings sections");
   const groups = {} as Record<Category, HTMLElement>;
   for (const [id, name, icon, description] of categories) {
     const group = document.createElement("section");
     group.className = "settings-category";
     group.id = `settings-${id}`;
     group.setAttribute("aria-labelledby", `${group.id}-title`);
-    group.innerHTML = `<header class="settings-category-heading"><h2 id="${group.id}-title" tabindex="-1">${name}</h2><p>${description}</p></header>`;
+    group.innerHTML = `<header class="settings-category-heading"><h2 id="${group.id}-title" tabindex="-1" data-i18n="${name}">${name}</h2><p data-i18n="${description}">${description}</p></header>`;
     groups[id] = group;
     const button = document.createElement("button");
     button.type = "button";
     button.setAttribute("aria-controls", group.id);
-    button.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i><span>${name}</span>`;
+    button.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i><span data-i18n="${name}">${name}</span>`;
     button.addEventListener("click", () => {
       const heading = group.querySelector<HTMLElement>("h2")!;
       heading.scrollIntoView({ block: "start", behavior: "instant" });
@@ -42,7 +43,7 @@ export function mountSettingsLayout(dialog: HTMLElement, body: HTMLElement) {
   const exportButton = actions.querySelector<HTMLElement>('[data-action="mybase-export"]');
   if (exportButton) body.querySelector('[data-settings-category="advanced"]')?.append(exportButton);
   const hint = document.createElement("p");
-  hint.textContent = "Preferences save automatically. Use Save for connection and history settings.";
+  setUIText(hint, "Preferences save automatically. Use Save for connection and history settings.");
   actions.prepend(hint);
   for (const child of Array.from(body.children)) {
     if (child === actions) continue;
