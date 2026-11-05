@@ -1,0 +1,14 @@
+.page-card-preview { height:150px; overflow:hidden; background:#f7f7f5; border-bottom:1px solid var(--line,#e9e9e7); color:var(--text,#37352f); text-align:left; }
+.page-card-preview>img,.page-card-preview>video { display:block; width:100%; height:100%; object-fit:cover; }
+.page-card-preview.fit-image>img,.page-card-preview.fit-image>video { object-fit:contain; }
+.page-card-preview.is-content { padding:16px; }
+.page-card-preview.is-content>.page-card-preview-content { height:100%; overflow:hidden; }
+.page-card-preview-content { font-size:12px; line-height:1.5; overflow-wrap:anywhere; pointer-events:none; }
+.page-card-preview-content>:first-child { margin-top:0; }
+.page-card-preview-content h1,.page-card-preview-content h2,.page-card-preview-content h3 { font-size:15px; }
+.page-card-preview-content p { margin:0 0 8px; }
+.page-card-preview-content pre { margin:0; white-space:pre-wrap; font-size:11px; }
+.page-card-preview-content img,.page-card-preview-content video { max-width:100%; max-height:150px; }
+.page-card-preview-content table { border-collapse:collapse; font-size:11px; }
+.page-card-preview-content td,.page-card-preview-content th { border:1px solid #ddd; padding:3px; }
+.page-card-preview-content blockquote { margin:0; border-left:3px solid #aaa; padding-left:8px; }

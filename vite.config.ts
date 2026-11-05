@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { build } from "esbuild";
 import path from "node:path";
+import { vaultRouteIdPattern } from "./src/shared/vault-url";
 
 export default defineConfig(({ mode }) => ({
   root: mode === "mobile" ? path.resolve("src/mobile") : undefined,
@@ -22,7 +23,7 @@ export default defineConfig(({ mode }) => ({
     // updates during a build can fail with EBUSY on Windows and stop the server.
     watch: { ignored: ["**/public/vendor", "**/public/vendor/**", "**/.run/**"] },
     proxy: {
-      "^/v/[a-f0-9]{64}/(api|assets)(/|$)": "http://127.0.0.1:4318",
+      [`^/v/${vaultRouteIdPattern}/(api|assets)(/|$)`]: "http://127.0.0.1:4318",
       "/api": "http://127.0.0.1:4318",
       "/assets": "http://127.0.0.1:4318",
     },

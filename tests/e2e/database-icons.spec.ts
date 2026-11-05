@@ -22,7 +22,7 @@ test("database icons reuse Emoji and Lucide, persist across reload and update th
   const sidebar = page.locator(`#page-tree [data-open-database="${created.database.id}"]`);
   const picker = page.getByRole("dialog", { name: "Choose database icon", exact: true });
   await page.getByLabel("Name: Pending icon row", { exact: true }).fill("Saved before icon selection");
-  await emblem.click();
+  if (await emblem.isVisible()) await emblem.click(); else { await page.locator(".database-heading").hover(); await page.getByRole("button", { name: "Add icon", exact: true }).click(); }
   await picker.getByRole("button", { name: "Emoji", exact: true }).click();
   await expect(picker.getByRole("button", { name: "Upload", exact: true })).toHaveCount(0);
   await picker.getByLabel("Custom icon", { exact: true }).fill("📚");
@@ -33,7 +33,7 @@ test("database icons reuse Emoji and Lucide, persist across reload and update th
   expect((await (await request.get(`/api/pages/${record.id}`)).json()).title).toBe("Saved before icon selection");
   await page.reload();
   await expect(emblem.locator(".emoji")).toHaveText("📚");
-  await emblem.click();
+  if (await emblem.isVisible()) await emblem.click(); else { await page.locator(".database-heading").hover(); await page.getByRole("button", { name: "Add icon", exact: true }).click(); }
   await picker.getByRole("button", { name: "Lucide", exact: true }).click();
   await picker.getByRole("searchbox", { name: "Search icons", exact: true }).fill("telescope");
   await expect(picker.getByRole("button", { name: "telescope", exact: true })).toBeVisible();
@@ -43,10 +43,10 @@ test("database icons reuse Emoji and Lucide, persist across reload and update th
   await expect(sidebar.locator('svg[data-page-icon="telescope"]')).toBeVisible();
   await page.reload();
   await expect(emblem.locator('svg[data-page-icon="telescope"]')).toBeVisible();
-  await emblem.click();
+  if (await emblem.isVisible()) await emblem.click(); else { await page.locator(".database-heading").hover(); await page.getByRole("button", { name: "Add icon", exact: true }).click(); }
   await picker.getByRole("button", { name: "Remove", exact: true }).click();
   await expect.poll(async () => (await (await request.get(`/api/pages/${created.hostPage.id}`)).json()).icon).toBe("");
-  await expect(emblem.locator('svg[data-page-icon="file-text"]')).toBeVisible();
+  await expect(emblem).toBeHidden();
   await expect(sidebar.locator('svg[data-page-icon="file-text"]')).toBeVisible();
   const current = await (await request.get(`/api/pages/${created.hostPage.id}`)).json();
   expect(current.body).toBe("");
@@ -58,7 +58,7 @@ test("database icons reuse Emoji and Lucide, persist across reload and update th
 test("a stale database icon choice creates a recoverable conflict without replacing newer metadata", async ({ page, request }) => {
   const created = await createDatabase(request, "Conflicting database icon");
   await page.goto(`/#database/${created.database.id}`);
-  await page.getByRole("button", { name: "Change database icon", exact: true }).click();
+  await page.locator(".database-heading").hover(); await page.getByRole("button", { name: "Add icon", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose database icon", exact: true });
   await picker.getByRole("button", { name: "Emoji", exact: true }).click();
   const external = await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, properties: { note: "Newer external metadata" }, icon: "🌿" } });
@@ -87,7 +87,7 @@ test("changing a database icon updates inline and sibling references without rew
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
   const references = page.locator(".pm-database-reference");
   await inline.getByRole("button", { name: "Open as page", exact: true }).click();
-  await page.getByRole("button", { name: "Change database icon", exact: true }).click();
+  await page.locator(".database-heading").hover(); await page.getByRole("button", { name: "Add icon", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose database icon", exact: true });
   await picker.getByRole("button", { name: "Emoji", exact: true }).click();
   await picker.getByLabel("Custom icon", { exact: true }).fill("🚀");

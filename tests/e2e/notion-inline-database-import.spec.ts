@@ -35,7 +35,7 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await expect(used.getByRole("button", { name: "New page", exact: true }).first()).toBeVisible();
   await newOptions.click();
   await used.getByRole("button", { name: "View settings", exact: true }).click();
-  await page.getByRole("button", { name: "Save view", exact: true }).click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(headers).toHaveText(["Name", "Since", "Markdown", "Comments"]);
   for (let index = 0; index < 2; index++) {
     const link = databases.nth(index).locator(":scope > .pm-database-reference");
@@ -56,6 +56,7 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await expect(databases).toHaveCount(2);
   await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2015");
   await expect(headers).toHaveText(["Name", "Since", "Markdown", "Comments"]);
+  await unused.getByLabel("Name: Anytype", { exact: true }).hover();
   await unused.getByRole("button", { name: "Open Anytype", exact: true }).click();
   await unused.getByRole("button", { name: "Open as full page", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#page/${local(inlineRecords[1])}$`));
@@ -94,7 +95,7 @@ test("existing imported default columns are repaired on read without rewriting t
   expect(Math.abs(newButton.height - menu.height)).toBeLessThanOrEqual(1);
   expect(await (await request.get(`/api/databases/${databaseId}`)).json()).toEqual(original);
   await page.getByRole("button", { name: "View settings", exact: true }).click();
-  await page.getByRole("button", { name: "Save view", exact: true }).click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.reload();
   await expect(page.locator("thead th[data-type]")).toHaveText(["Name", "Since", "Markdown", "Comments"]);

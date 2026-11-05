@@ -180,7 +180,7 @@ export function notionDatabaseImport(options: {
         const remoteId = typeof property.id === "string" ? property.id : name;
         const type = fieldType(property.type);
         const field: DatabaseProperty = {
-          id: localId(`field-${id}-${remoteId}`), name, key: type === "title" ? "title" : `notion_${localId(`field-${id}-${remoteId}`)}`, type,
+          id: localId(`field-${id}-${remoteId}`), name, key: type === "title" ? "title" : localId(`field-${id}-${remoteId}`), type,
           ...(Array.isArray(property[property.type]?.options) ? { options: property[property.type].options.map((option: Json) => ({ ...option, id: String(option.id), name: String(option.name) })) } : {}),
           ...(["formula", "rollup", "unknown", "people", "files", "relation"].includes(type) || ["created_time", "last_edited_time", "created_by", "last_edited_by", "unique_id"].includes(property.type) ? { readOnly: true } : {}),
           notion: property,

@@ -56,7 +56,7 @@ test("database children switch between records and views with view navigation an
   const table = next.views[0], list = next.views[1];
   await page.goto("/");
   let dialog = await settings(page);
-  await dialog.getByRole("combobox", { name: "Database children", exact: true }).selectOption("views");
+  await expect(dialog.getByRole("combobox", { name: "Database children", exact: true })).toHaveValue("views");
   await dialog.getByRole("combobox", { name: "Default expanded levels", exact: true }).selectOption("1");
   await dialog.getByRole("combobox", { name: "Default expanded levels", exact: true }).scrollIntoViewIfNeeded();
   await dialog.screenshot({ path: info.outputPath("sidebar-settings.png") });
@@ -79,7 +79,7 @@ test("database children switch between records and views with view navigation an
   await page.getByRole("button", { name: "View settings", exact: true }).click();
   const viewSettings = page.getByRole("dialog", { name: "View settings", exact: true });
   await viewSettings.getByLabel("View name", { exact: true }).fill("Renamed table");
-  await viewSettings.getByRole("button", { name: "Save view", exact: true }).click();
+  await viewSettings.getByRole("button", { name: "Close", exact: true }).click();
   await expect(viewRow(table.id)).toHaveText("Renamed table");
   await page.getByRole("button", { name: "New view", exact: true }).click();
   await page.getByRole("dialog", { name: "New view", exact: true }).getByRole("button", { name: "Gallery", exact: true }).click();
@@ -90,6 +90,9 @@ test("database children switch between records and views with view navigation an
   await expect(dialog.getByRole("combobox", { name: "Database children", exact: true })).toHaveValue("views");
   await dialog.getByRole("combobox", { name: "Database children", exact: true }).selectOption("pages");
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.locator(`#page-tree [data-page-row="${record.id}"]`)).toBeVisible();
+  await expect(viewRow(table.id)).toHaveCount(0);
+  await page.reload();
   await expect(page.locator(`#page-tree [data-page-row="${record.id}"]`)).toBeVisible();
   await expect(viewRow(table.id)).toHaveCount(0);
   expect((await (await request.get(`/api/pages/${record.id}`)).json()).parent).toBe(snapshot.hostPage.id);

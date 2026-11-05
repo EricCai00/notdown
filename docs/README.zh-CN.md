@@ -6,7 +6,7 @@
 
 ## 使用入门
 
-- [知识库](features/VAULTS.zh-CN.md)：共用知识库选择器、默认保存位置和自定义文件夹。
+- [知识库](features/VAULTS.zh-CN.md)：共用知识库选择器、保存位置记忆和文件夹浏览。
 
 - [列表视图](features/DATABASE-LIST.zh-CN.md)：列表布局与属性显示设置。
 
@@ -73,6 +73,7 @@
 
 ## 审计与验证记录
 
+- [Windows 0.1.15 数据库视图与桌面发布验证（2026-11-05）](verification/RELEASE-0.1.15-2026-11-05.zh-CN.md)
 - [Windows 0.1.14：双语工作区与知识库管理（2026-11-03）](verification/RELEASE-0.1.14-2026-11-03.zh-CN.md)
 
 - [Windows 0.1.13：Inline 数据库、来源菜单与 Trash（2026-11-01）](verification/RELEASE-0.1.13-2026-11-01.zh-CN.md)

@@ -114,12 +114,12 @@ Block API 按页面、嵌套容器分页读取，不为每个代码块单独请�
 - 附件的可获取文件名、MIME 类型、字节数、登记时间与 Notion 来源写入 `metadata.json.assets`。名称优先使用 Block API 的文件名、正文已有的 name 属性或数据库 Files 字段名称，再使用下载响应中的文件名、URL 中的文件名；File 卡片和 HTML embed 从附件元数据读取名称，包括打开已登记原文件名的旧附件。关闭后代导入仍会扫描当前页的块容器以读取文件名，不因此导入子页面。不把题注或临时签名参数当成原文件名。无法取得名称时保留存储文件名并显示未记录。封面写入页面 `properties.cover`；下载成功的自定义图标使用本地图片。emoji 原值保留；省略 emoji 显示标记的图标（如 `⚗`）在页面、侧栏、面包屑、标签页和页面链接中以 emoji 形式显示，显式的文字／emoji 显示标记仍遵循原值，无需重新导入。未设置图标使用 `file-text`。
 - 单个附件上限 10 MiB，整批仍受 20 MiB 限制。不可访问、非公共地址、超时或超限时保留远程 URL 并警告，签名 URL 仍可能过期。HTML 的相对依赖资源不递归打包，外部集成的实时内容不属于附件副本。
 - 重复提交同一来源快照仍不覆盖本地页面。若该批文件先前已下载但未登记，重试同一批次会在校验文件内容后补充附件登记，保留现有附件元数据和未知字段；不会批量修改旧正文，也不会覆盖已在外部改动的附件。
-- 数据库、数据源、字段、选项和记录使用稳定身份；完整查询分页记录及长属性。记录正文仍是普通 Markdown，字段值写入页面 properties。
+- 数据库、数据源、字段、选项和记录使用稳定身份；完整查询分页记录及长属性。记录正文仍是普通 Markdown，字段值写入页面 properties。新导入使用字段 UUID 作为属性存储键，标题字段保留 `title`；Notion 原始身份继续保存在来源元数据中。已有 `notion_<UUID>` 键继续兼容读取，不自动迁移。数据库导入格式变化会产生新的批次身份，因此重新导入旧快照会创建独立副本，不会重写原副本的键。
 - Title, text, number, checkbox, date, options, status, URL, email and phone fields are editable. Relation values map same-batch targets; other targets retain their origin and unresolved marker, with later imports or manual bindings resolved at display time. Original rich text remains in the archive.
 - People / Files preserve their source structures and remain read-only. People fields show linked contacts or non-clickable unknown users through the external reference library. Downloaded Files use local URLs and retain their source URLs. No local user accounts are created.
 - Formula / Rollup 保留定义与结果，作为只读快照，不执行 Notion 公式。无法完整获取的聚合不伪造结果。
 - 数据库容器、数据源和视图分别保存。一个数据库可以包含多个数据源；每个可读取的远端视图单独保存名称、身份和数据源绑定，同源视图共享字段及记录，不复制数据。链接视图引用的可访问数据源也按身份去重；直接输入数据源 ID 时，只导入该源及其视图。
-- 视图列表和详情尽量读取并归档。Table、Board、Gallery、List、Calendar 映射到对应本地视图，保留属性顺序及明确隐藏的非标题字段；其他类型回退为表格并提示。能映射的标题／文本 contains 条件（AND）和标题、文本、数字、复选框排序会应用到视图。无法完整映射的筛选／排序整组停用并显示提示，不用部分条件冒充原视图。源没有可用视图时创建默认表格。原始字段、筛选、布局和视图 JSON 保留在归档中。
+- 视图列表和详情尽量读取并归档。Table、Board、Gallery、List、Calendar、Timeline、Chart、Feed 映射到对应本地布局，保留属性顺序及明确隐藏的非标题字段；其他类型回退为表格并提示。图表配置需要在本地设置；时间轴依赖、独立结束日期字段和动态流协作功能只归档，不复现，详见[本地视图能力](DATABASES.zh-CN.md#时间轴图表和动态流)。能映射的标题／文本 contains 条件（AND）和标题、文本、数字、复选框排序会应用到视图。无法完整映射的筛选／排序整组停用并显示提示。源没有可用视图时创建默认表格。原始字段、筛选、布局和视图 JSON 保留在归档中。
 - 新布局沿用本地视图的能力边界：Select、Status 选项及 Checkbox 分组和 Date 日历字段按身份绑定；无法映射的 Board／Calendar 保留类型并提示在 View settings 选择字段。Notion 状态组、二级分组、手工组序、子条目显示和精确卡片排版不模拟；页面正文图片预览显示为本地文字预览并提示差异，文件属性图片预览保留配置。列宽等尚未映射的原始设置仍可从归档核对。
 - Wiki 查询返回的子数据库 `data_source` 按其 `parent.database_id` 归并为独立子数据库；不会当成 Wiki 自身的数据源或普通记录。Wiki、子数据库及其记录保留层级，子数据库的多个数据源和视图继续分别处理。子数据库显示在页面树和可恢复的 Home 引用中，不伪装成 Wiki 表格中的页面记录。
 - Wiki Home 优先尝试官方 Markdown；不可用时从可读 Block API 内容恢复，无法恢复的块保留占位与原始 JSON。恢复的正文保存为数据库下可编辑的 **Home** 页面，并在数据库视图栏提供 Home 入口。它是本地正文页面，不创建虚假的远端 page 身份或数据源记录。API 不暴露 Home 时明确警告，仍导入可读取的记录；不将空白页宣称为恢复成功。未通过真实 Wiki token 验证各工作区的 Home 可读性。

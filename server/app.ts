@@ -104,6 +104,11 @@ export function createApp(options: {
       return res.json(await options.vaultManagement!.list());
     }));
     app.post("/api/vaults/location", route(async (req, res) => { await options.vaultManagement!.setLocation(req.body?.path); return res.json({ ok: true }); }));
+    app.post("/api/vaults/create-location", route(async (req, res) => { await options.vaultManagement!.rememberLocation(req.body?.path); return res.json({ ok: true }); }));
+    app.post("/api/vaults/browse", route(async (req, res) => {
+      if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress || "")) return res.status(403).json({ error: "Folder browsing requires a local connection." });
+      return res.json({ path: await options.vaultManagement!.browse(req.body?.path ?? "") });
+    }));
     app.post("/api/vaults/open", route(async (req, res) => res.json(await options.vaultManagement!.open(req.body ?? {}))));
   }
   app.get("/api/sync/:action", route(async (req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await vault.sync.handle(String(req.params.action), "GET")); }));

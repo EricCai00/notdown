@@ -1,4 +1,5 @@
-import { savedVaultLocation, saveVaultLocation } from "./vault-location-settings.js";
+import { savedVaultLocation, saveVaultLocation, savedCreateLocation, saveCreateLocation } from "./vault-location-settings.js";
+import { browseFolder } from "./browse-folder.js";
 import express from "express";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -7,14 +8,17 @@ import { createApp } from "./app.js";
 import { VaultError } from "./vault.js";
 import { createManagedVaultFolder, listManagedVaults } from "./vault-location.js";
 import { seedNewDefaultVault } from "./seed.js";
+import { vaultRouteIdPattern } from "../src/shared/vault-url.js";
 
 export type BrowserVaultEntry = { name: string; path: string; url: string };
 export interface BrowserVaultManagement {
-  list(): Promise<{ dataPath: string; vaults: BrowserVaultEntry[] }>;
+  list(): Promise<{ dataPath: string; createLocation: string; vaults: BrowserVaultEntry[] }>;
+  rememberLocation(input: unknown): Promise<void>;
+  browse(input: unknown): Promise<string | null>;
   setLocation(input: unknown): Promise<void>;
   open(input: { mode?: unknown; name?: unknown; path?: unknown }): Promise<BrowserVaultEntry>;
 }
-type Options = Parameters<typeof createApp>[0] & { dataPath: string; seedDefault?: boolean; locationSettings?: string };
+type Options = Parameters<typeof createApp>[0] & { dataPath: string; seedDefault?: boolean; locationSettings?: string; browseFolder?: typeof browseFolder };
 
 /** One createApp per canonical directory; default and already-open tabs never change vault. */
 export async function createBrowserApp(options: Options) {
@@ -26,7 +30,11 @@ export async function createBrowserApp(options: Options) {
   const settings = path.join(path.dirname(locationSettings), ".browser-vaults.json");
   const identity = (root: string) => createHash("sha256").update(process.platform === "win32" ? root.toLowerCase() : root).digest("hex");
   const register = (root: string) => {
-    const id = identity(root), entry = { name: path.basename(root), path: root, url: `/v/${id}/` };
+    const digest = identity(root), id = digest.slice(0, 16);
+    const previous = entries.get(id);
+    if (previous && identity(previous.path) !== digest)
+      throw new VaultError(409, "Vault URL collision. Choose a different folder path; no vault was opened under the conflicting address.");
+    const entry = { name: path.basename(root), path: root, url: `/v/${id}/` };
     entries.set(id, entry); return { id, entry };
   };
   let queue = Promise.resolve();
@@ -57,6 +65,8 @@ export async function createBrowserApp(options: Options) {
     return { app: apps.get(id)!, entry };
   };
   const management: BrowserVaultManagement = {
+    rememberLocation(input) { return serial(() => saveCreateLocation(locationSettings, input)); },
+    browse(input) { return (options.browseFolder || browseFolder)(input); },
     setLocation(input) { return serial(async () => {
       for (const entry of await listManagedVaults(dataPath)) register(await canonical(entry.path));
       await persist();
@@ -64,7 +74,7 @@ export async function createBrowserApp(options: Options) {
     }); },
     async list() {
       for (const entry of await listManagedVaults(dataPath)) register(await canonical(entry.path));
-      return { dataPath, vaults: [...entries.values()].sort((a, b) => a.name.localeCompare(b.name)) };
+      return { dataPath, createLocation: savedCreateLocation(locationSettings), vaults: [...entries.values()].sort((a, b) => a.name.localeCompare(b.name)) };
     },
     open(input) { return serial(async () => {
       if (!["create", "open"].includes(String(input.mode))) throw new VaultError(400, "Choose create or open.");
@@ -104,15 +114,19 @@ export async function createBrowserApp(options: Options) {
       }
     }
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.warn("Browser vault list could not be read", error); }
-  host.get(/^\/v\/([a-f0-9]{64})$/, (req, res) => res.redirect(308, `/v/${req.params[0]}/${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`));
+  host.get(new RegExp(`^/v/(${vaultRouteIdPattern})$`), (req, res) => res.redirect(308, `/v/${req.params[0]}/${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`));
   host.use("/v/:id", (req, res, next) => {
     void serial(async () => {
       const id = String(req.params.id);
-      if (!entries.has(id)) await management.list();
-      const entry = entries.get(id);
+      if (!new RegExp(`^${vaultRouteIdPattern}$`).test(id)) { res.status(404).json({ error: "Invalid vault URL." }); return; }
+      const shortId = id.slice(0, 16);
+      if (!entries.has(shortId)) await management.list();
+      const entry = entries.get(shortId);
       if (!entry) { res.status(404).json({ error: "Vault unavailable. Open it from the knowledge base manager." }); return; }
       const resolved = await canonical(entry.path).catch(() => null);
-      if (!resolved || identity(resolved) !== id) { res.status(404).json({ error: "Vault folder is unavailable; it has not been recreated." }); return; }
+      // Accept old 64-character bookmarks only when the entire digest matches.
+      // Keep their URL so existing per-URL browser drafts remain recoverable.
+      if (!resolved || (id.length === 64 ? identity(resolved) !== id : identity(resolved).slice(0, 16) !== id)) { res.status(404).json({ error: "Vault folder is unavailable; it has not been recreated." }); return; }
       const pages = await fs.lstat(path.join(entry.path, "pages")).catch(() => null);
       if (!pages?.isDirectory() || pages.isSymbolicLink()) { res.status(404).json({ error: "Vault folder is unavailable; it has not been recreated." }); return; }
       return (await application(entry.path)).app;

@@ -6,7 +6,7 @@ export function parseSidebarTreePreferences(raw: string | null): SidebarTreePref
   let value: Partial<SidebarTreePreferences> = {};
   try { value = JSON.parse(raw ?? "{}") ?? {}; } catch { /* Use defaults for damaged preferences. */ }
   return {
-    databaseChildren: value.databaseChildren === "views" ? "views" : "pages",
+    databaseChildren: value.databaseChildren === "pages" ? "pages" : "views",
     expandDepth: value.expandDepth === "all" ? "all" : typeof value.expandDepth === "number" && Number.isInteger(value.expandDepth) && value.expandDepth >= 0 && value.expandDepth <= 10 ? value.expandDepth : 0,
   };
 }

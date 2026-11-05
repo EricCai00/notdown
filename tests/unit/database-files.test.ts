@@ -24,6 +24,28 @@ async function fixture(t: test.TestContext) {
     read: async (id: string) => JSON.parse(await fs.readFile(path.join(root, "databases", id + ".json"), "utf8")) };
 }
 
+test("database covers preserve JSON fields, reset positions and retain conflicting cover proposals", async t => {
+  const { root, vault, json, read } = await fixture(t);
+  const initial = await vault.databases.create({ title: "Covered database" });
+  const document = await read(initial.database.id); document.future = { keep: true }; document.properties = { future: "keep", coverPosition: 20 };
+  await fs.writeFile(json(initial.database.id), JSON.stringify(document));
+  const current = await vault.databases.get(initial.database.id);
+  const saved = await vault.databases.updatePresentation(current.database.id, { cover: "/page-covers/woodcuts_9.jpg", baseRevision: current.database.revision, hostRevision: current.hostPage!.revision });
+  assert.deepEqual(saved.hostPage!.properties, { future: "keep", cover: "/page-covers/woodcuts_9.jpg" });
+  const positioned = await vault.databases.updatePresentation(saved.database.id, { coverPosition: 35, baseRevision: saved.database.revision, hostRevision: saved.hostPage!.revision });
+  const external = await vault.update(saved.database.id, { properties: { ...positioned.hostPage!.properties, future: "External value" } }, positioned.hostPage!.revision);
+  await assert.rejects(vault.databases.updatePresentation(saved.database.id, { cover: "/page-covers/woodcuts_1.jpg", baseRevision: positioned.database.revision, hostRevision: positioned.hostPage!.revision }), status(409));
+  assert.equal((await vault.get(saved.database.id)).properties.future, "External value");
+  const conflict = (await vault.listConflicts()).find(item => item.pageId === saved.database.id)!;
+  assert.equal(conflict.proposed.properties?.cover, "/page-covers/woodcuts_1.jpg");
+  const latest = await vault.databases.get(saved.database.id);
+  for (const patch of [{ cover: "javascript:alert(1)" }, { coverPosition: -1 }, { coverPosition: 101 }]) await assert.rejects(vault.databases.updatePresentation(saved.database.id, { ...patch, baseRevision: latest.database.revision, hostRevision: external.revision }), status(400));
+  const removed = await vault.databases.updatePresentation(saved.database.id, { cover: "", baseRevision: latest.database.revision, hostRevision: external.revision });
+  assert.deepEqual(removed.hostPage!.properties, { future: "External value" });
+  assert.deepEqual((await read(saved.database.id)).future, { keep: true });
+  assert.deepEqual(await fs.readdir(path.join(root, "pages")), []);
+});
+
 test("each database owns one JSON file without a Markdown placeholder or metadata resource cache", async t => {
   const { root, vault, read } = await fixture(t), database = await vault.databases.create({ title: "Projects" });
   const id = database.database.id, source = database.dataSources[0], view = database.views[0];

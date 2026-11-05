@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const controls = (page: Page) => page.locator("#editing-workspace");
 async function settings(page: Page) {
   await page.getByRole("button", { name: "Workspace settings", exact: true }).click();
@@ -12,10 +14,22 @@ async function expectMenuIcon(page: Page) {
   expect(await summary.locator("svg").boundingBox()).toMatchObject({ width: 18, height: 18 });
 }
 
-test("Markdown controls default to visible and hide independently without changing the draft", async ({ page, request }) => {
+test("Markdown controls default to hidden and toggle independently without changing the draft", async ({ page, request }) => {
   const response = await request.post("/api/pages", { data: { title: "Markdown controls", body: "Keep this source\n" } });
   const note = await response.json();
   await page.goto(`/#page/${note.id}`);
+  await expect(controls(page).locator(".editing-toolbar")).toBeHidden();
+  await expect(controls(page).locator(".editing-modes")).toBeHidden();
+  await expect(controls(page).locator(".dialect-label")).toBeHidden();
+  await expect(controls(page).locator(".syntax-options")).toBeHidden();
+  let dialog = await settings(page);
+  await expect(dialog.locator("#pin-toc")).not.toBeChecked();
+  for (const name of ["Show view switcher", "Show dialect selector", "Show extensions button"]) {
+    const checkbox = dialog.getByRole("checkbox", { name });
+    await expect(checkbox).not.toBeChecked();
+    await checkbox.check();
+  }
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(controls(page).getByRole("group", { name: "Editing view" })).toBeVisible();
   await expect(controls(page).getByRole("combobox", { name: "Markdown dialect" })).toBeVisible();
   await expect(controls(page).locator(".syntax-options summary")).toBeVisible();
@@ -23,7 +37,7 @@ test("Markdown controls default to visible and hide independently without changi
   await page.keyboard.press("End");
   await page.keyboard.type(" pending input");
 
-  let dialog = await settings(page);
+  dialog = await settings(page);
   const preferences = dialog.locator(".markdown-control-preferences");
   for (const name of ["Show view switcher", "Show dialect selector", "Show extensions button"]) {
     await expect(preferences.getByRole("checkbox", { name })).toBeChecked();
@@ -68,12 +82,19 @@ test("Markdown controls default to visible and hide independently without changi
   expect(after.body).toBe(saved.body);
   expect(after.syntax).toEqual(saved.syntax);
   expect(after.revision).toBe(saved.revision);
+  await page.reload();
+  await expect(controls(page).locator(".editing-modes")).toBeVisible();
+  await expect(controls(page).locator(".dialect-label")).toBeHidden();
+  await expect(controls(page).locator(".syntax-options")).toBeHidden();
 });
 
 test("Page options keeps its ellipsis and working menu after every view-switch entry", async ({ page, request }) => {
   const response = await request.post("/api/pages", { data: { title: "Page menu icons", body: "# Heading\n\nContent\n" } });
   const note = await response.json();
   await page.goto(`/#page/${note.id}`);
+  const dialog = await settings(page);
+  await dialog.getByRole("checkbox", { name: "Show view switcher" }).check();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expectMenuIcon(page);
   for (const mode of ["source", "split", "document"]) {
     await controls(page).locator(`[data-mode="${mode}"]`).click();
@@ -90,4 +111,42 @@ test("Page options keeps its ellipsis and working menu after every view-switch e
   }
   await page.getByLabel("Page options", { exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Page history", exact: true })).toBeVisible();
+});
+
+test("table of contents defaults to hover and remembers explicit pinning", async ({ page, request }) => {
+  const note = await (await request.post("/api/pages", { data: { title: "Reading preferences", body: "## Heading\n\nBody text\n" } })).json();
+  await page.goto(`/#page/${note.id}`);
+  const toc = page.locator("#floating-toc");
+  await expect(toc).toBeVisible();
+  await expect(toc).not.toHaveClass(/pinned/);
+  await expect(toc.locator(".toc-text")).toBeHidden();
+  await toc.hover();
+  await expect(toc.locator(".toc-text")).toBeVisible();
+  let dialog = await settings(page);
+  await expect(dialog.locator("#pin-toc")).not.toBeChecked();
+  await dialog.locator("#pin-toc").check();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await page.reload();
+  await expect(toc).toHaveClass(/pinned/);
+  await expect(toc.locator(".toc-text")).toBeVisible();
+  dialog = await settings(page);
+  await expect(dialog.locator("#pin-toc")).toBeChecked();
+  await dialog.locator("#pin-toc").uncheck();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await page.reload();
+  await expect(toc).not.toHaveClass(/pinned/);
+  await expect(toc.locator(".toc-text")).toBeHidden();
+});
+
+test("hidden Markdown controls keep notebook execution actions available", async ({ page, request }) => {
+  const note = await (await request.post("/api/pages", { data: {
+    title: "Notebook preferences", body: "```{r}\n1 + 1\n```\n",
+    syntax: { version: 1, variant: "rmarkdown", extensions: {} },
+  } })).json();
+  await page.goto(`/#page/${note.id}`);
+  await expect(controls(page).locator(".editing-modes")).toBeHidden();
+  await expect(controls(page).locator(".dialect-label")).toBeHidden();
+  await expect(controls(page).locator(".syntax-options")).toBeHidden();
+  await expect(controls(page).getByRole("button", { name: "Knit", exact: true })).toBeVisible();
+  await expect(controls(page).getByRole("button", { name: "Run all", exact: true })).toBeVisible();
 });

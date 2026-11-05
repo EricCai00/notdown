@@ -8,13 +8,13 @@ const controls = [
 type Control = (typeof controls)[number][0];
 
 function preferences(): Record<Control, boolean> {
-  const defaults = { view: true, dialect: true, extensions: true };
+  const defaults = { view: false, dialect: false, extensions: false };
   try {
     const value = JSON.parse(localStorage.getItem(key) || "{}");
     for (const [id] of controls) {
       if (typeof value?.[id] === "boolean") defaults[id] = value[id];
     }
-  } catch { /* Unreadable preferences use the visible defaults. */ }
+  } catch { /* Unreadable preferences use the hidden defaults. */ }
   return defaults;
 }
 
@@ -31,13 +31,13 @@ export function applyMarkdownControlPreferences() {
   const scroll = root.querySelector<HTMLElement>(".scroll-toggle");
   if (scroll) scroll.hidden = !selected.view;
   const toolbar = root.querySelector<HTMLElement>(".editing-toolbar");
-  if (toolbar) toolbar.hidden = !Object.values(selected).some(Boolean);
+  if (toolbar) toolbar.classList.toggle("markdown-controls-hidden", !Object.values(selected).some(Boolean));
 }
 
 export function mountMarkdownControlPreferences(dialog: HTMLElement) {
   const section = document.createElement("section");
   section.className = "settings-section markdown-control-preferences";
-  section.innerHTML = `<h3 data-i18n="Markdown controls">Markdown controls</h3><p data-i18n="Choose which controls appear above the editor. Shown by default. View switching is also available in Page options and with Ctrl/⌘ E. Saved in this browser.">Choose which controls appear above the editor. Shown by default. View switching is also available in Page options and with Ctrl/⌘ E. Saved in this browser.</p>`;
+  section.innerHTML = `<h3 data-i18n="Markdown controls">Markdown controls</h3><p data-i18n="Choose which controls appear above the editor. Hidden by default. The top bar view menu stays available, alongside Page options and Ctrl/⌘ E. Saved in this browser.">Choose which controls appear above the editor. Hidden by default. The top bar view menu stays available, alongside Page options and Ctrl/⌘ E. Saved in this browser.</p>`;
   const selected = preferences();
   for (const [id, name] of controls) {
     const row = document.createElement("label");

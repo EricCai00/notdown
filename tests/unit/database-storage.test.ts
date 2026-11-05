@@ -21,13 +21,30 @@ async function fixture(t: test.TestContext) {
 }
 const status = (code: number) => (error: unknown) => error instanceof VaultError && error.status === code;
 
+test("legacy database cover editing preserves exact body bytes and respects YAML cover ownership", async t => {
+  const { root, vault, snapshot } = await fixture(t);
+  const body = "Literal source\r\n\r\n```text\r\ncover: unchanged\r\n```\r\n";
+  const page = await vault.update(snapshot.hostPage!.id, { body, properties: { future: { keep: true } } }, snapshot.hostPage!.revision);
+  let current = await vault.databases.get(snapshot.database.id);
+  const covered = await vault.databases.updatePresentation(snapshot.database.id, { cover: "/page-covers/woodcuts_9.jpg", baseRevision: current.database.revision, hostRevision: page.revision });
+  assert.equal((await vault.get(page.id)).body, body);
+  assert.deepEqual(covered.hostPage!.properties.future, { keep: true });
+  assert.equal(await fs.readFile(path.join(root, "pages", `${page.id}.md`), "utf8"), body);
+  const controlled = await vault.update(page.id, { body: "---\nproperties:\n  cover: /page-covers/woodcuts_9.jpg\n---\nBody" }, covered.hostPage!.revision);
+  current = await vault.databases.get(snapshot.database.id);
+  await assert.rejects(vault.databases.updatePresentation(snapshot.database.id, { cover: "", baseRevision: current.database.revision, hostRevision: controlled.revision }), status(422));
+  const positionControlled = await vault.update(page.id, { body: "---\ncoverPosition: 35\n---\nBody" }, controlled.revision);
+  current = await vault.databases.get(snapshot.database.id);
+  await assert.rejects(vault.databases.updatePresentation(snapshot.database.id, { cover: "/page-covers/woodcuts_1.jpg", baseRevision: current.database.revision, hostRevision: positionControlled.revision }), status(422));
+});
+
 test("native databases have canonical root or nested pages and record children", async t => {
   const { root, vault, snapshot, source } = await fixture(t);
   assert.equal(snapshot.database.pageId, snapshot.database.id);
   assert.equal(snapshot.hostPage!.id, snapshot.database.id);
   assert.equal(snapshot.hostPage!.databaseId, snapshot.database.id);
   assert.equal(snapshot.hostPage!.parent, null);
-  assert.equal(snapshot.hostPage!.icon, "table-2");
+  assert.equal(snapshot.hostPage!.icon, "");
   assert.equal(source.ownerDatabaseId, snapshot.database.id);
   const parent = await vault.create({ title: "Project" });
   const nested = await vault.databases.create({ title: "Tasks inside project", parent: parent.id, parentRevision: parent.revision });

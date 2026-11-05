@@ -1,0 +1,29 @@
+.database-selection-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:0; margin:6px 0; width:fit-content; max-width:100%; border:1px solid var(--database-rule,#eee); border-radius:7px; box-shadow:0 3px 12px #00000009; }
+.database-selection-toolbar[hidden] { display:none; }
+.database-selection-toolbar > span { padding:7px 12px; color:#347dd6; white-space:nowrap; }
+.database-selection-toolbar > button { padding:7px 11px; border:0; border-left:1px solid var(--database-rule,#eee); background:transparent; border-radius:0; }
+.database-table :is(th,td).database-selection-gutter { width:104px; min-width:104px; border:0; background:transparent; }
+.database-table th.database-selection-gutter { padding-left:72px; }
+.database-row-controls { display:flex; align-items:center; justify-content:flex-end; gap:6px; padding:0 12px 0 0; }
+.database-row-controls button { display:flex; align-items:center; justify-content:center; padding:0; width:24px; height:24px; min-height:24px; border:0; background:transparent; color:#aaa; }
+.database-row-handle { cursor:grab; font-size:21px; }
+.database-row-controls input,.database-select-all { width:20px; height:20px; margin:0; accent-color:#3c86dc; cursor:pointer; }
+.database-row-controls { opacity:0; }
+.database-table tr:is(:hover,:focus-within,.database-row-selected) .database-row-controls { opacity:1; }
+.database-table tr[data-drop=before] > td { box-shadow:inset 0 2px #3c86dc; }
+.database-table tr[data-drop=after] > td { box-shadow:inset 0 -2px #3c86dc; }
+@media (hover:none) { .database-row-controls { opacity:1; } }
+
+.database-table tbody tr.database-row-peek > td { background:#edf5fd; }
+
+.database-table tbody tr.database-row-selected > td { background:#e6effb; border-bottom-color:var(--database-rule,#eee); box-shadow:none; }
+.database-table tbody tr.database-row-selected > td:is(:first-child,:last-child) { box-shadow:none; }
+.database-table tr:not(:hover):not(:focus-within) .database-row-controls button { visibility:hidden; }
+
+/* The utility gutter is outside the table's rules and selected-row fill. */
+.database-workspace .database-table tr > :is(th,td).database-selection-gutter { border:0; background:var(--surface,#fff); box-shadow:none; }
+.database-row-controls .database-row-select { margin-left:6px; flex-shrink:0; }
+.database-row-controls button:hover { background:#efefed; border-radius:3px; }
+.database-row-controls input:not(:checked),.database-select-all:not(:checked):not(:indeterminate) { appearance:none; border:1px solid #d3d3d0; border-radius:3px; background:#fff; }
+.database-workspace .database-table tbody tr.database-row-selected > td:not(.database-selection-gutter) { background:#e6effb; border-bottom-color:var(--database-rule,#eee); box-shadow:none; }
+.database-table-scroll:has(.database-selection-gutter) { margin-left:calc(-1 * min(104px, max(0px, calc(var(--database-gutter, 24px) - 8px)))); width:calc(100% + min(104px, max(0px, calc(var(--database-gutter, 24px) - 8px)))); }

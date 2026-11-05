@@ -33,11 +33,11 @@ export function importNotionView(raw: Json, fields: DatabaseProperty[], sourceId
     }
     sorts.push({ propertyId: field.id, direction: sort.direction });
   }
-  const type: DatabaseViewType = databaseViewTypes.includes(raw.type) ? raw.type : "table";
+  const type: DatabaseViewType = databaseViewTypes.filter(type => !["dashboard", "form", "map"].includes(type)).includes(raw.type) ? raw.type : "table";
   if (type !== raw.type) warnings.push(`The Notion ${raw.type || "unknown"} layout is displayed as a local table.`);
   const config = raw.configuration ?? {}, layout: DatabaseLayout = {};
   const group = fieldFor(config.group_by?.property_id);
-  if (["board", "list", "gallery"].includes(type) && group && groupable(group) && config.group_by?.group_by !== "group") {
+  if (["board", "list", "gallery", "feed", "timeline"].includes(type) && group && groupable(group) && config.group_by?.group_by !== "group") {
     layout.groupBy = group.id; layout.hideEmptyGroups = config.group_by.hide_empty_groups === true;
     warnings.push("Notion group order is archived; local groups use the data source option order.");
   } else if (config.group_by) warnings.push("The source grouping is archived. Choose a supported local grouping property in View settings.");
@@ -46,14 +46,17 @@ export function importNotionView(raw: Json, fields: DatabaseProperty[], sourceId
   if (["month", "week"].includes(config.view_range)) layout.calendarRange = config.view_range;
   if (["small", "medium", "large"].includes(config.cover_size)) layout.cardSize = config.cover_size;
   if (config.cover?.type === "page_cover") layout.preview = "cover";
-  else if (config.cover?.type === "page_content") { layout.preview = "content"; warnings.push("Notion page-content images are represented by local text previews."); }
+  else if (["page_content", "page_content_first"].includes(config.cover?.type)) layout.preview = "content";
   else if (config.cover?.type === "none") layout.preview = "none";
   else if (config.cover) warnings.push("The card preview source is archived. Choose page cover or content locally.");
   layout.fitImage = config.cover_aspect === "contain";
-  if (type === "calendar" && !layout.datePropertyId) warnings.push("Choose a local Date property in View settings to display this calendar.");
+  if (["calendar", "timeline"].includes(type) && !layout.datePropertyId) warnings.push("Choose a local Date property in View settings to display this date view.");
   if (type === "board" && !layout.groupBy && !config.group_by) warnings.push("Choose a supported local grouping property in View settings to display this board.");
   if (type === "calendar" && config.show_weekends === false) warnings.push("The local calendar includes weekends.");
   if (config.subtasks && config.subtasks.display_mode !== "disabled") warnings.push("Notion sub-item display and filtering are archived; records are shown without that hierarchy.");
+  if (type === "chart") warnings.push("Notion chart settings are archived. Configure local chart grouping, measure and style before using its results.");
+  if (type === "timeline") warnings.push("Notion timeline scale, separate end-date properties and dependencies are archived; configure the local date range property and scale.");
+  if (type === "feed") warnings.push("Notion comments, reactions and view counts are not available in the local feed.");
   const configured = Array.isArray(columns) ? columns.map((entry: Json) => fieldFor(entry?.property_id)).filter((field: DatabaseProperty | undefined): field is DatabaseProperty => !!field) : [];
   const displayFields = [...new Map([...configured, ...ordered].map(field => [field.id, field])).values()];
   return { name: String(raw.name || "Imported view").slice(0, 500), type, layout, propertyIds: displayFields.filter(field => field.type === "title" || !hidden.has(field.id)).map(field => field.id), filters, sorts, notion: raw, importWarnings: warnings };

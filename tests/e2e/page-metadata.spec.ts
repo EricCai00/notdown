@@ -11,6 +11,54 @@ async function open(page: Page, request: APIRequestContext, body: string, extens
   return note;
 }
 
+test("Properties appears on row hover, keyboard focus and while open without shifting the body", async ({ page, request }) => {
+  await page.addInitScript(() => localStorage.removeItem("notdown-markdown-controls"));
+  const note = await open(page, request, "Body text");
+  const panel = page.locator(".page-properties");
+  const summary = panel.locator(":scope > summary");
+  const content = page.locator("#document-content");
+  await page.mouse.move(0, 0);
+  await expect(summary).toHaveCSS("opacity", "0");
+  const before = await content.boundingBox();
+  const title = (await page.locator("#page-title").boundingBox())!;
+  expect(before!.y - (title.y + title.height)).toBeLessThanOrEqual(32);
+  await page.screenshot({ path: "test-results/properties-resting.png" });
+  // The whole row reveals the entry, including space beyond the button.
+  const row = (await panel.boundingBox())!;
+  await panel.hover({ position: { x: row.width - 4, y: row.height / 2 } });
+  await expect(summary).toHaveCSS("opacity", "1");
+  expect(await content.boundingBox()).toEqual(before);
+  await page.screenshot({ path: "test-results/properties-hover.png" });
+  await page.mouse.move(0, 0);
+  await expect(summary).toHaveCSS("opacity", "0");
+  await page.locator("#page-title").focus();
+  await page.keyboard.press("Tab");
+  await expect(summary).toBeFocused();
+  await expect(summary).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Enter");
+  await expect(panel).toHaveAttribute("open", "");
+  await page.locator("#page-title").focus();
+  await expect(summary).toHaveCSS("opacity", "1");
+  await summary.click();
+  await expect(summary).toBeFocused();
+  await page.mouse.move(0, 0);
+  await expect(summary).toHaveCSS("opacity", "0");
+  expect(await content.boundingBox()).toEqual(before);
+  const after = await (await request.get(`/api/pages/${note.id}`)).json();
+  expect(after.revision).toBe(note.revision);
+});
+
+test.describe("Properties on touch screens", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  test("keeps the entry visible without hover", async ({ page, request }) => {
+    await open(page, request, "Body text");
+    const summary = page.locator(".page-properties > summary");
+    await expect(summary).toHaveCSS("opacity", "1");
+    await summary.tap();
+    await expect(page.locator(".page-properties")).toHaveAttribute("open", "");
+  });
+});
+
 for (const [label, body] of [
   ["YAML metadata", '---\ntitle: Body title\nauthor: Original\nunknown: [1, 2]\n# keep this comment\n---\n\nBody text'],
   ["Pandoc title block", '% Body title\n  continuation\n% Original\n% 2026\n\nBody text'],
@@ -226,6 +274,7 @@ test("page icon and cover can be added, replaced and removed without losing pend
 });
 
 test("page cover gallery spans the page, overlaps the icon and keeps a repositioned choice", async ({ page, request }) => {
+  await page.addInitScript(() => localStorage.removeItem("notdown-markdown-controls"));
   const note = await open(page, request, "Gallery body");
   await page.locator("#page-title").hover();
   await page.getByRole("button", { name: "Add icon", exact: true }).click();
@@ -250,6 +299,9 @@ test("page cover gallery spans the page, overlaps the icon and keeps a repositio
   expect(Math.abs(region.width - main.width)).toBeLessThan(20);
   expect(emblem.y).toBeLessThan(region.y + region.height);
   expect(emblem.y + emblem.height).toBeGreaterThan(region.y + region.height);
+  const title = (await page.locator("#page-title").boundingBox())!;
+  const body = (await page.locator("#document-content").boundingBox())!;
+  expect(body.y - (title.y + title.height)).toBeLessThanOrEqual(32);
   await page.setViewportSize({ width: 1634, height: 600 });
   await page.getByRole("button", { name: "Toggle sidebar" }).click();
   await page.locator("#page-cover-region").hover();

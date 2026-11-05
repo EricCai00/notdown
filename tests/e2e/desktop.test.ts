@@ -51,8 +51,8 @@ test("desktop bookmarks follow the system session proxy and changes without rest
 
 test("managed vaults use sibling named folders and remain separate", async () => {
   const welcome = await desktop.firstWindow();
-  await expect(welcome.locator(".vault-location > summary")).toContainText(path.join(root, "profile", "vault-data"));
-  await welcome.locator("[data-create-panel] > summary").click();
+  await expect(welcome.locator('[data-vault-create] input[name="path"]')).toHaveValue("");
+  await welcome.locator('[data-vault-create] input[name="path"]').fill(path.join(root, "profile", "vault-data"));
   await welcome.locator('[data-vault-create] input[name="name"]').fill("Work");
   const firstPromise = desktop.waitForEvent("window"); await welcome.locator("[data-vault-create] button[type=submit]").click();
   const first = await firstPromise; await expect(first.locator(".sidebar")).toBeVisible();
@@ -60,7 +60,6 @@ test("managed vaults use sibling named folders and remain separate", async () =>
   expect(await fs.readdir(path.join(managedRoot, "Work", "pages"))).toEqual([]);
   const launcherPromise = desktop.waitForEvent("window"); await first.locator('.workspace-switch[data-action="vaults"]').click();
   const launcher = await launcherPromise; await expect(launcher.locator(".vault-manager-list")).toContainText("Work");
-  await launcher.locator("[data-create-panel] > summary").click();
   await launcher.locator('[data-vault-create] input[name="name"]').fill("Personal");
   await launcher.screenshot({ path: ".run/logs/vault-unified-desktop.png" });
   const secondPromise = desktop.waitForEvent("window"); await launcher.locator("[data-vault-create] button[type=submit]").click();
@@ -77,7 +76,7 @@ test("desktop settings has grouped navigation and the Markdown display preferenc
   const nav = dialog.getByRole("navigation", { name: "Settings sections" });
   await expect(nav.getByRole("button")).toHaveCount(6);
   await nav.getByRole("button", { name: "Editing", exact: true }).click();
-  await expect(dialog.getByRole("checkbox", { name: "Show dialect selector", exact: true })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Show dialect selector", exact: true })).not.toBeChecked();
   await expect(dialog.getByRole("button", { name: "Done", exact: true })).toBeInViewport();
   await page.screenshot({ path: ".run/logs/settings-desktop-packaged.png" });
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
@@ -105,7 +104,8 @@ test("packaged databases own JSON files, link shared sources, and keep Wiki Home
   expect(await fs.readdir(path.join(vaultPath, "pages"))).toEqual([record.id + ".md"]);
   const origin = new URL(page.url()).origin;
   await page.goto(`${origin}/#database/${linked.database.id}`);
-  await expect(page.locator(".database-view-link")).toHaveText("Link");
+  await page.getByRole("tab", { name: "Packaged owner", exact: true }).click();
+  await expect(page.locator(".database-source-title .database-linked-icon")).toBeVisible();
   const wiki = await post("/api/databases", { title: "Packaged wiki", kind: "wiki" });
   expect((await read(wiki.database.id)).homePageId).toBe(wiki.hostPage.id);
   await page.goto(`${origin}/#page/${wiki.hostPage.id}`);
@@ -327,7 +327,7 @@ async function chooseFolder(folder: string, mode: "create" | "open") {
   await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, folder);
   const next = desktop.waitForEvent("window");
   if (mode === "create") await createFromPicker(welcome, folder);
-  else { await welcome.locator('[data-open-panel] > summary').click(); await welcome.locator('[data-vault-open] input').fill(folder); await welcome.locator('[data-vault-open] button[type=submit]').click(); }
+  else { await welcome.locator('[data-vault-open] input').fill(folder); await welcome.locator('[data-vault-open] button[type=submit]').click(); }
   const page = await next;
   await expect(page.locator(".sidebar")).toBeVisible();
   return page;
@@ -504,27 +504,28 @@ test("failed conflict save prevents close and preserves both versions", async ()
 async function createFromPicker(page: Page, folder: string) {
   expect(path.resolve(folder).startsWith(path.resolve(root) + path.sep)).toBe(true);
   await fs.rmdir(folder); // Remove only the test-owned empty placeholder; creation rejects existing folders.
-  await page.locator('[data-create-panel] > summary').click();
   await page.locator('[data-vault-create] input[name="name"]').fill(path.basename(folder));
-  await page.locator('[data-vault-create] details > summary').click();
   await page.locator('[data-vault-create] input[name="path"]').fill(path.dirname(folder));
   await page.locator('[data-vault-create] button[type=submit]').click();
 }
 
-test("vault location can be changed with a native picker and survives desktop restart", async () => {
+test("save location starts empty, can be browsed, and survives desktop restart without creating a vault", async () => {
   const welcome = await desktop.firstWindow();
   const destination = path.join(root, "Chosen location"); await fs.mkdir(destination);
-  await welcome.locator('.vault-location > summary').click();
+  await expect(welcome.locator('[data-vault-create] input[name="path"]')).toHaveValue("");
+  await expect(welcome.locator('[data-vault-open]')).toBeVisible();
   await desktop.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, destination);
-  await welcome.locator('[data-browse="location"]').click();
-  await expect(welcome.locator('[data-vault-location] input')).toHaveValue(destination);
-  await welcome.locator('[data-vault-location] button[type=submit]').click();
-  await expect(welcome.locator('.vault-location > summary')).toContainText(destination);
+  await welcome.locator('[data-browse="create"]').click();
+  await expect(welcome.locator('[data-vault-create] input[name="path"]')).toHaveValue(destination);
+  await expect(welcome.locator('[data-browse="create"]')).toBeEnabled();
+  await desktop.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }); });
+  await welcome.locator('[data-browse="create"]').click();
+  await expect(welcome.locator('[data-browse="create"]')).toBeEnabled();
+  await expect(welcome.locator('[data-vault-create] input[name="path"]')).toHaveValue(destination);
   await desktop.close();
   desktop = await electron.launch({ executablePath: process.env.NOTDOWN_PACKAGED_EXE, args: launchArgs, env: launchEnv });
   const restarted = await desktop.firstWindow();
-  await expect(restarted.locator('.vault-location > summary')).toContainText(destination);
-  await restarted.locator('[data-create-panel] > summary').click();
+  await expect(restarted.locator('[data-vault-create] input[name="path"]')).toHaveValue(destination);
   await restarted.locator('[data-vault-create] input[name="name"]').fill('Persisted');
   const next = desktop.waitForEvent('window');
   await restarted.locator('[data-vault-create] button[type=submit]').click();

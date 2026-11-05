@@ -1,8 +1,10 @@
+import { databaseViewIcon } from "./database-view-icon";
 import { setUIAttribute } from "../../shared/i18n";
 import { Check, Ellipsis, Plus, Table2, Columns3, LayoutGrid, List, Calendar } from "lucide";
+import { ChartNoAxesCombined, GanttChart, Rss } from "lucide";
 import { DatabasePopover, menuButton, menuInput, menuSection, menuIcon } from "./database-popover";
 import type { DatabaseView } from "./database-model";
-const icons = { table: Table2, board: Columns3, gallery: LayoutGrid, list: List, calendar: Calendar };
+
 
 export function installViewOverflow(host: HTMLElement, hooks: { views: DatabaseView[]; selected?: string; select(id: string): void; edit(id: string, anchor: HTMLElement): void; create(): void; createSource?: () => void }) {
   const list = host.querySelector<HTMLElement>(".database-view-tabs")!, tabs = [...list.querySelectorAll<HTMLElement>("[data-db-tab]")];
@@ -11,10 +13,21 @@ export function installViewOverflow(host: HTMLElement, hooks: { views: DatabaseV
   let pop: DatabasePopover | undefined, frame = 0;
   const measure = () => {
     frame = 0; more.hidden = true; tabs.forEach(tab => tab.hidden = false);
-    const available = list.clientWidth - 40, gap = 6, widths = tabs.map(tab => tab.getBoundingClientRect().width + gap);
-    if (widths.reduce((a,b) => a+b, 0) <= available) return;
-    let used = 0, visible = 0;
-    tabs.forEach((tab, index) => { if (used + widths[index] <= available - 82 || visible === 0) { used += widths[index]; visible++; } else tab.hidden = true; });
+    const gap = parseFloat(getComputedStyle(list).columnGap) || 0;
+    const controls = [...list.children].filter((item): item is HTMLElement => item instanceof HTMLElement && item !== more && !tabs.includes(item) && !item.hidden);
+    const available = list.clientWidth - controls.reduce((sum, item) => sum + item.getBoundingClientRect().width + gap, 0);
+    const widths = tabs.map(tab => tab.getBoundingClientRect().width + gap);
+    if (widths.reduce((a,b) => a+b, 0) - gap <= available) return;
+    more.textContent = `${tabs.length - 1} more…`; more.hidden = false;
+    const budget = available - more.getBoundingClientRect().width - gap;
+    // Reserve the current view before fitting other tabs; retain their saved DOM order.
+    const selected = Math.max(0, tabs.findIndex(tab => tab.dataset.dbTab === hooks.selected));
+    let used = widths[selected], visible = 1;
+    tabs.forEach((tab, index) => {
+      if (index === selected) return;
+      tab.hidden = used + widths[index] - gap > budget;
+      if (!tab.hidden) { used += widths[index]; visible++; }
+    });
     more.textContent = `${tabs.length - visible} more…`; more.hidden = false;
   };
   more.onclick = () => {
@@ -26,7 +39,7 @@ export function installViewOverflow(host: HTMLElement, hooks: { views: DatabaseV
       rows.replaceChildren();
       for (const view of hooks.views.filter(view => view.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))) {
         const row = document.createElement("div"); row.className = "database-overflow-row";
-        const choose = menuButton(view.name, icons[view.type] ?? Table2, () => { pop?.destroy(); pop = undefined; hooks.select(view.id); }, "", false, "database-popover-row", false); choose.setAttribute("role", "menuitemradio"); choose.setAttribute("aria-checked", String(view.id === hooks.selected));
+        const choose = menuButton(view.name, databaseViewIcon(view), () => { pop?.destroy(); pop = undefined; hooks.select(view.id); }, "", false, "database-popover-row", false); choose.setAttribute("role", "menuitemradio"); choose.setAttribute("aria-checked", String(view.id === hooks.selected));
         if (view.id === hooks.selected) choose.append(menuIcon(Check));
         const options = menuButton(`${view.name} view options`, Ellipsis, () => { pop?.destroy(); pop = undefined; hooks.edit(view.id, more); }); options.className = "database-source-details-button"; row.append(choose, options); rows.append(row);
       }

@@ -42,7 +42,7 @@ test("Notion-style view picker, shared records, board movement, settings and cal
   await settings.getByLabel("Filter property", { exact: true }).nth(1).selectOption({ label: "Name" });
   await settings.getByLabel("Contains", { exact: true }).nth(1).fill("Image");
   await settings.getByRole("combobox", { name: "Match", exact: true }).selectOption("or");
-  await settings.getByRole("button", { name: "Done", exact: true }).click();
+  await settings.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-layout-board .database-record-card")).toHaveCount(2);
   await create("Calendar");
   await expect(page.locator(`.database-calendar-day[data-date="${day}"] [data-page-id="${record.id}"]`)).toBeVisible();

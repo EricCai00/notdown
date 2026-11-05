@@ -878,7 +878,7 @@ export async function prepareNotionImport(
       "page-links-v2-mentions-and-existing-imports",
       "image-blocks-v1",
       [...externalBindings].sort(([a], [b]) => a.localeCompare(b)),
-      "database-resources-v3-wiki-views",
+      pages.some(page => databaseImport.rawDatabase(page.id)) ? "database-resources-v4-uuid-property-keys" : "database-resources-v3-wiki-views",
       root,
       request.includeChildren !== false,
       request.downloadAssets !== false,

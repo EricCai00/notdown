@@ -21,6 +21,14 @@ export default defineConfig({
     channel: "chrome",
     headless: true,
     baseURL: `http://127.0.0.1:${testPort}`,
+    // Editor interaction tests exercise optional controls with a saved opt-in.
+    // Preference tests override this with empty storage to check first use.
+    storageState: {
+      cookies: [],
+      origins: [{ origin: `http://127.0.0.1:${testPort}`, localStorage: [
+        { name: "notdown-markdown-controls", value: JSON.stringify({ view: true, dialect: true, extensions: true }) },
+      ] }],
+    },
     viewport: { width: 1440, height: 1000 },
     reducedMotion: "reduce",
     screenshot: "only-on-failure",

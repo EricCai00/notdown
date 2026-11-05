@@ -47,7 +47,7 @@ test("Notion layouts map stable property identities while preserving unsupported
   const imported = importNotionView({ name: "Board", type: "board", configuration: { group_by: { property_id: "state" }, cover: { type: "page_cover" }, properties: [{ property_id: "points", visible: false }] } }, fields, "source");
   assert.equal(imported.type, "board"); assert.equal(imported.layout?.groupBy, "state"); assert.equal(imported.layout?.preview, "cover"); assert.ok(!imported.propertyIds?.includes("points"));
   assert.equal(importNotionView({ type: "calendar", configuration: { date_property_id: "date", view_range: "week" } }, fields, "source").layout?.calendarRange, "week");
-  const unsupported = importNotionView({ type: "timeline", configuration: { custom: 123 } }, fields, "source"); assert.equal(unsupported.type, "table"); assert.equal(unsupported.notion.configuration.custom, 123); assert.ok(unsupported.importWarnings.length);
+  const unsupported = importNotionView({ type: "map", configuration: { custom: 123 } }, fields, "source"); assert.equal(unsupported.type, "table"); assert.equal(unsupported.notion.configuration.custom, 123); assert.ok(unsupported.importWarnings.length);
 });
 test("view layouts round trip with CAS, field-reference protection and unknown-field preservation", async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-views-")); t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -62,10 +62,10 @@ test("view layouts round trip with CAS, field-reference protection and unknown-f
   await assert.rejects(vault.databases.updateView(current.id, { name: "Stale" }, current.revision), /changed/);
   await assert.rejects(vault.databases.updateView(current.id, { layout: { datePropertyId: "state" } }, saved.revision), /Date property/);
   await assert.rejects(vault.databases.updateSource(ds.id, { properties: ds.properties.filter(field => field.id !== "date") }, ds.revision), /references from views/);
-  const display = { ...saved.layout, collapsedGroups: ["done"], showGroupCount: false, groupColors: { "": "blue" }, showDataSourceTitle: true, showVerticalLines: false, showPageIcon: false, wrapContent: true, openPagesIn: "center" as const, loadLimit: 25, frozenPropertyId: "points", wrapPropertyIds: ["points"] };
+  const display = { ...saved.layout, columnWidths: { points: 180, [ds.properties[0].id]: 320, unknown: 200 }, collapsedGroups: ["done"], showGroupCount: false, groupColors: { "": "blue" }, showDataSourceTitle: true, showVerticalLines: false, showPageIcon: false, wrapContent: true, openPagesIn: "center" as const, loadLimit: 25, frozenPropertyId: "points", wrapPropertyIds: ["points"] };
   const displayed = await vault.databases.updateView(current.id, { layout: display }, saved.revision);
   assert.deepEqual((await createVault(root).databases.get(db.database.id)).views.find(view => view.id === current.id)?.layout, display);
-  for (const layout of [{ collapsedGroups: ["done", "done"] }, { groupColors: { "": "unknown" } }, { loadLimit: -1 }, { showPageIcon: "yes" }, { openPagesIn: "unknown" }, { frozenPropertyId: "missing" }, { wrapPropertyIds: ["missing"] }]) await assert.rejects(vault.databases.updateView(current.id, { layout: layout as any }, displayed.revision), /Invalid/);
+  for (const layout of [{ columnWidths: [] }, { columnWidths: { points: 63 } }, { columnWidths: { points: 2001 } }, { columnWidths: { points: 100.5 } }, { columnWidths: { points: "200" } }, { collapsedGroups: ["done", "done"] }, { groupColors: { "": "unknown" } }, { loadLimit: -1 }, { showPageIcon: "yes" }, { openPagesIn: "unknown" }, { frozenPropertyId: "missing" }, { wrapPropertyIds: ["missing"] }]) await assert.rejects(vault.databases.updateView(current.id, { layout: layout as any }, displayed.revision), /Invalid/);
   await assert.rejects(vault.databases.updateSource(ds.id, { properties: ds.properties.map(field => field.id === "date" ? { ...field, type: "text" } : field) }, ds.revision), /Date property/);
   assert.equal((await vault.databases.get(db.database.id)).dataSources[0].properties.find(field => field.id === "date")?.type, "date");
 });

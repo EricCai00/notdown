@@ -1,7 +1,7 @@
 {
   "name": "notdown",
   "private": true,
-  "version": "0.1.14",
+  "version": "0.1.15",
   "type": "module",
   "main": "desktop-dist/main.mjs",
   "scripts": {
@@ -12,6 +12,7 @@
     "test": "tsx --test tests/unit/*.test.ts",
     "test:e2e": "npm run build && playwright test",
     "start": "tsx server/index.ts",
+    "stop": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1",
     "mcp": "tsx server/mcp.ts",
     "desktop:runtime": "node node_modules/electron/install.js",
     "desktop:build": "npm run desktop:runtime && tsc --noEmit && vite build --outDir desktop-dist/frontend && node scripts/build-desktop.mjs",
@@ -85,7 +86,8 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-view": "^1.42.3",
     "yaml": "^2.8.0",
-    "zod": "^4.6.2"
+    "zod": "^4.6.2",
+    "leaflet": "^1.9.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.11",
@@ -104,6 +106,7 @@
     "prettier": "^3.9.6",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
-    "vite": "^7.1.0"
+    "vite": "^7.1.0",
+    "@types/leaflet": "^1.9.22"
   }
 }

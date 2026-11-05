@@ -499,9 +499,10 @@ button kbd {
   white-space: nowrap;
 }
 .tree-page > span:last-child {
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .tree-row:hover .tree-add,
 .tree-row:focus-within .tree-add {
@@ -771,43 +772,6 @@ textarea#source-editor,
   background: #b6b6b6;
   display: inline-block;
 }
-.mindmap {
-  display: flex;
-  align-items: center;
-  overflow: auto;
-  padding: 35px 10px;
-  min-height: 340px;
-}
-.mindmap ul {
-  list-style: none;
-  padding-left: 30px;
-  margin: 0;
-}
-.mindmap > ul {
-  border-left: 1px solid #dedede;
-}
-.mindmap li {
-  padding: 10px 0;
-  position: relative;
-}
-.mindmap li:before {
-  content: "";
-  position: absolute;
-  top: 27px;
-  left: -30px;
-  width: 24px;
-  border-top: 1px solid #dedede;
-}
-.mindmap details {
-  display: flex;
-}
-.mindmap summary .outline-dot {
-  margin-right: 7px;
-}
-.mindmap details > ul {
-  margin: 7px 0 0 10px;
-  border-left: 1px solid #dedede;
-}
 .heading-dot {
   color: #a5a5a5;
 }
@@ -897,6 +861,11 @@ textarea#source-editor,
 .pages-table td:nth-child(3) {
   max-width: 270px;
 }
+.vault-list-properties { display: grid; gap: 5px; margin: 0; }
+.vault-list-property, .vault-list-properties-heading { display: grid; grid-template-columns: minmax(70px, 36%) minmax(0, 1fr); align-items: baseline; gap: var(--vault-list-property-gap, 12px); }
+.vault-list-properties-heading > span { justify-self: end; white-space: nowrap; transform: translateX(calc(50% + var(--vault-list-property-gap, 12px) / 2)); }
+.vault-list-property dt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.vault-list-property dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--text); font-size: 13px; line-height: 1.5; }
 .library-tree ul {
   list-style: none;
   padding-left: 27px;
@@ -1308,9 +1277,6 @@ dialog textarea {
   dialog {
     padding: 20px;
   }
-  .mindmap {
-    padding: 25px 0;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1667,8 +1633,7 @@ kbd {
 .tree-toggle {
   position: absolute;
   left: calc(var(--tree-inset) - 1.5px);
-  top: 50%;
-  transform: translateY(-50%);
+  top: 3px;
   z-index: 1;
   opacity: 0;
   pointer-events: none;
@@ -1703,13 +1668,15 @@ kbd {
 }
 .tree-page {
   display: flex;
-  align-items: center;
-  overflow: hidden;
+  align-items: flex-start;
+  /* Keep emoji glyphs visible; clip only the single-line title. */
+  overflow: visible;
   text-align: left;
   flex: 1;
   gap: 7px;
-  padding: 4px 0;
+  padding: 5px 0;
   font-size: 14px;
+  line-height: 20px;
   min-width: 0;
 }
 .tree-page svg {
@@ -1726,7 +1693,7 @@ kbd {
   font-size: 16px;
   line-height: 1;
 }
-.tree-page > .page-link-icon { flex-shrink: 0; }
+.tree-page > :is(.page-link-icon, svg) { flex-shrink: 0; margin-top: 1.5px; }
 .tree-add {
   display: grid;
   place-items: center;
@@ -1748,8 +1715,7 @@ kbd {
 .tree-add {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 3px;
   pointer-events: none;
 }
 .tree-menu:has(+ .tree-add) { right: 24px; }
@@ -1830,12 +1796,14 @@ kbd {
 }
 .top-actions {
   margin-left: auto;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 5px;
 }
 #breadcrumb {
   display: flex;
+  min-width: 0;
   align-items: center;
   white-space: nowrap;
   overflow: hidden;
@@ -1944,7 +1912,7 @@ kbd {
   font-weight: 700;
   letter-spacing: -0.6px;
   color: var(--text);
-  padding: 0 0 8px;
+  padding: 0;
   line-height: 1.2;
   background: transparent;
   min-width: 0;
@@ -2020,7 +1988,7 @@ kbd {
   font-size: 12px;
 }
 .page-properties {
-  margin: 4px 0 18px;
+  margin: 0;
   color: #9b9a97;
   font-size: 13px;
 }
@@ -2033,6 +2001,12 @@ kbd {
   list-style: none;
   cursor: pointer;
   border-radius: 3px;
+  transition: opacity 120ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .page-properties:not([open]):not(:hover):not(:has(> summary:focus-visible)) > summary {
+    opacity: 0;
+  }
 }
 .page-properties > summary:hover {
   color: #787774;
@@ -2867,28 +2841,6 @@ textarea#source-editor {
   font-size: 14px;
   color: var(--text);
 }
-.mindmap-root {
-  flex-shrink: 0;
-  max-width: 200px;
-  color: #fff;
-  padding: 16px 22px;
-  border-radius: 9px;
-  background: #37352f;
-  font-size: 14px;
-}
-.mindmap summary {
-  list-style: none;
-  border: 1px solid #e4e4e4;
-  border-radius: 5px;
-  padding: 8px 14px;
-  white-space: nowrap;
-  cursor: pointer;
-  display: inline-block;
-  color: #787774;
-  background: #f7f7f5;
-  border-color: var(--line);
-  font-size: 13px;
-}
 .library {
   margin: 0 auto;
   max-width: 1170px;
@@ -3015,6 +2967,11 @@ textarea#source-editor {
   font-weight: 600;
   color: var(--text);
 }
+.gallery-card .card-body h3 { display:flex; align-items:center; gap:7px; }
+.gallery-card .card-body h3>.page-link-icon { flex-shrink:0; width:17px; height:17px; }
+.gallery-card .card-body h3>span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vault-gallery-preview-setting { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
+.vault-gallery-preview-setting select { max-width:150px; padding:5px; border:1px solid var(--line); border-radius:5px; background:var(--surface); color:var(--text); }
 .card-body > p {
   min-height: 39px;
   margin: 0;

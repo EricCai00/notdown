@@ -28,7 +28,7 @@ test("right settings replace their contents with compact source rows and return 
   await manager.getByRole("button", { name: "Back", exact: true }).click();
   await expect(settings).toBeVisible();
   await settings.getByLabel("View name", { exact: true }).fill("Saved after sources");
-  await settings.getByRole("button", { name: "Save view", exact: true }).click();
+  await settings.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-popover")).toHaveCount(0);
   const saved = await (await request.get(`/api/databases/${db.database.id}`)).json();
   expect(saved.dataSources.map((source: any) => source.title)).not.toContain("Must stay cancelled");

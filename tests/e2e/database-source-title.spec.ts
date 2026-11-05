@@ -49,6 +49,8 @@ test("inline linked source rename saves pending cells and keeps container, view 
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
   const title = inline.getByRole("textbox", { name: "Data source title", exact: true });
   await expect(inline.locator(".database-linked-heading")).toBeVisible();
+  await expect(inline.getByRole("img", { name: "Linked data source", exact: true })).toBeVisible();
+  await expect(inline.locator(".database-view-link")).toHaveCount(0);
   await expect(inline.locator(".database-source-title button")).toHaveCount(0);
   await inline.getByLabel("Name: Existing record", { exact: true }).fill("Pending record title");
   await title.fill("Shared source name"); await title.press("Enter");
@@ -61,6 +63,11 @@ test("inline linked source rename saves pending cells and keeps container, view 
   await expect(title).toHaveCSS("font-size", "23px");
   await expect(title).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await page.screenshot({ path: info.outputPath("editable-inline-source.png"), fullPage: true });
+  await inline.getByRole("button", { name: "Open as page", exact: true }).click();
+  await expect(page.locator(".database-title-icon .database-linked-icon")).toBeVisible();
+  await expect(page.locator(".database-source-title")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: db.views[0].name, exact: true })).toHaveText(db.views[0].name);
+  await page.screenshot({ path: info.outputPath("linked-full-page-title.png"), fullPage: true });
   expect((await request.put(`/api/database-views/${owner.views[0].id}`, { data: { baseRevision: owner.views[0].revision, layout: { showDataSourceTitle: true } } })).ok()).toBeTruthy();
   await page.goto(`/#database/${owner.database.id}`);
   await expect(page.getByRole("textbox", { name: "Data source title", exact: true })).toHaveValue("Shared source name");

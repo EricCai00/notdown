@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { renameDatabaseTitle } from "./database-ui-helper";
 
+// These tests exercise record hierarchy; the default sidebar mode shows saved views.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("notdown-sidebar-tree", JSON.stringify({ databaseChildren: "pages", expandDepth: 0 })));
+});
+
 async function createPage(request: APIRequestContext, title: string, body = "") {
   const response = await request.post("/api/pages", { data: { title, body, syntax: { version: 1, variant: "notdown", extensions: {} } } });
   expect(response.status()).toBe(201);

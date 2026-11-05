@@ -4,9 +4,11 @@
 
 ## 浏览器知识库管理
 
-浏览器服务状态包括 `vaultManagement: true`. `GET /api/vaults` 回报 `{ dataPath, vaults: [{ name, path, url }] }`. `POST /api/vaults/open` 接收 `{ mode: "create", name, path? }` 或 `{ mode: "open", path }`返回 `{ name, path, url }`路径是本地服务计算机上的绝对路径;一个自定义创建路径必须是新的或空的,现有知识库必须包含一个真实的 `pages/` 目录. 开放不会改变默认的保险柜或任何其他请求的绑定. 保护本地源和JSON写字保护也保护这些终端点. 电子和安卓不暴露它们.
+浏览器服务状态包括 `vaultManagement: true`. `GET /api/vaults` 回报 `{ dataPath, createLocation, vaults: [{ name, path, url }] }`. `POST /api/vaults/open` 接收 `{ mode: "create", name, path? }` 或 `{ mode: "open", path }`返回 `{ name, path, url }`路径是本地服务计算机上的绝对路径;一个自定义创建路径必须是新的或空的,现有知识库必须包含一个真实的 `pages/` 目录. 开放不会改变默认的保险柜或任何其他请求的绑定. 保护本地源和JSON写字保护也保护这些终端点. 电子和安卓不暴露它们.
 
 每个返回的 URL 都是 `/v/<SHA-256 of canonical directory>/` 。其下方提供相同的 API 和附件路径（ `/v/<id>/api/pages` 、 `/v/<id>/assets/...` ）。未知或不可用的身份返回 404 ，而不是默认保管库。客户必须将所有特定于库的请求保留在该选项卡的前缀下，包括预览、源下载和附件。目录身份不提供身份验证；这些仍然是仅限本地的服务。打开的目录会记录在数据目录的`.browser-vaults.json`中，以便重启后恢复。
+
+`POST /api/vaults/create-location` 接收 `{ path }`，记住新建表单的保存位置（初始为空），不创建目录或修改知识库。Windows 本机连接可以通过 `POST /api/vaults/browse` 传入 `{ path? }` 打开完整的系统文件夹选择器；返回 `{ path: string | null }`，取消时为 `null`。这些端点同样受来源与 JSON 请求检查保护。
 
 ## 本地页面历史
 
@@ -150,7 +152,7 @@ Markdown Lab 使用 `GET /api/markdown/capabilities` 报告已安装的 Pandoc �
 | `POST /api/pages/:id/wiki` | `{baseRevision}` | `DatabaseSnapshot`;转换活动的独立页面，无需重写 Markdown 或页面标识 |
 | `POST /api/databases/:id/undo-wiki` | `{baseRevision,hostRevision}` | `Page`;将主机恢复到普通页面，保留树和属性值，归档删除的 Wiki 资源 |
 | `GET /api/databases/:id` | — | `DatabaseSnapshot` |
-| `PUT /api/databases/:id` | `{title?,icon?,baseRevision,hostRevision?}` | 更新了 `DatabaseSnapshot` ；至少需要标题/图标之一 |
+| `PUT /api/databases/:id` | `{title?,icon?,cover?,coverPosition?,baseRevision,hostRevision?}` | 更新了 `DatabaseSnapshot` ；至少需要一个展示字段 |
 | `PUT /api/databases/:id/icon` | `{icon,baseRevision,hostRevision?}` | 更新了 `DatabaseSnapshot` ；仅图标别名 |
 | `GET /api/data-sources/:id` | — | `DatabaseDataSource` |
 | `PUT /api/data-sources/:id` | `{baseRevision,title?,properties?}` | 已更新`DatabaseDataSource` |
@@ -169,7 +171,7 @@ Markdown Lab 使用 `GET /api/markdown/capabilities` 报告已安装的 Pandoc �
 
 `GET /api/database-storage/migration`返回 `{version:1,baseRevision,databases:[{id,title,path}],blocked}` 。  同一 URL 的 `POST` 需要 `{baseRevision}` 并返回 `{migrated,recoveryPath?}` 。在将任何遗留资源移动到单个文件中之前，Vault 会检查完整的预览；过时的预览返回 409 ，阻止的主机/所有权返回 422 ，并且原始字节和 ID 在 `.history/database-migration-<uuid>.json` 中仍然可恢复。打开保管库永远不会自动迁移它。  `/api/pages/:id/source` 返回数据库投影的实际 JSON； Markdown 历史恢复拒绝此类预测。
 
-标题/图标更新需要数据库 `baseRevision` ；托管数据库还需要捕获的 `hostRevision` 。标题是最多包含 500 字符的非空字符串；图标最多是 100 字符的字符串，而 `""` 会删除自定义图标。 UI 将共享文档图标呈现为空值后备。托管更新通过正常的页面日志并保留准确的 Markdown 和未知元数据；过时的主机修订会产生正常的页面冲突，而过时的资源修订则使用数据库冲突存档。文档控制的标题/图标值返回 422 和 `source:"document"` 。无主机遗留数据库仅更新其资源字段，而不创建主机文件。更新仅接受标题、图标和两个修订字段。
+标题、图标及封面更新需要数据库 `baseRevision`；有宿主的数据库还需要捕获的 `hostRevision`。标题是最多 500 字符的非空字符串；图标最多 100 字符，`""` 移除自定义图标。`cover` 接受最多 4096 字符的 HTTP(S)、`assets/` 或 `/page-covers/` 路径，`""` 移除封面及位置。`coverPosition` 为 0–100 的有限数值，`null` 清除位置；更换封面默认清除旧位置。封面属性保存在现有 `properties` 中，保留其他键。宿主更新沿用页面日志并保留原始 Markdown 和未知元数据；陈旧宿主版本创建页面冲突，陈旧资源版本使用数据库冲突档案。文档控制的展示值返回 422 和 `source:"document"`。无宿主的旧数据库只更新资源字段，不创建宿主文件。接口仅接受上述四个展示字段及两个版本字段。
 
 省略 `parent` 或传递 null 会创建根数据库。非空父级需要其当前的 `parentRevision` ；陈旧的父母在创建孤儿之前会因 409 失败。父级必须是活动的普通页面，而不是数据库主机。数据库记录是使用等于其源规范主机的 `parent` 创建的。普通页面创建/直接移动到数据库主机、数据库记录的通用重定父级以及数据库主机的通用复制返回 422 ；使用数据库记录操作来获取成员资格。现有导入的主机身份将保留。没有主机的遗留数据库仍然可读，并且在读取期间不会获取文件；他们的新记录保留 `parent:null` ，层次结构仅投影在 UI 中。
 
@@ -178,6 +180,14 @@ Markdown Lab 使用 `GET /api/markdown/capabilities` 报告已安装的 Pandoc �
 可编辑的基本类型有 `text` 、 `number` 、 `checkbox` 、 `date` 、 `select` 、 `multi_select` 、 `status` 、 `url` 、 `email` 和 `phone` ，以及页面标题。日期值为 `{start,end?,time_zone?}` ；选择/状态值是选项 ID，多选值是唯一的选项 ID 数组。非标题值可能为空。  `formula` 、 `rollup` 、 `unknown` 和明确的 `readOnly` 字段拒绝编辑。导入的关系、人员和文件当前是只读快照。文档控制的值拒绝使用 422 进行单元格更新；相反，编辑完整的文档源。
 
 `DatabaseView`有 `{id,databaseId,dataSourceId,name,type:"table",propertyIds?,filters?,sorts?,rowOrder?,revision}` 。  `rowOrder` 是来自该视图数据源的页面 ID 的唯一有序数组；重复的和外国的身份证件将被拒绝。当前表格渲染支持过滤器 `{propertyId,operator:"contains",value}` 和排序 `{propertyId,direction:"ascending"|"descending"}` 。 UI编辑一种过滤器和一种排序；远程 Notion 视图定义单独保存，不作为本地视图配置应用。
+
+本地关联属性可设置 `localRelation:true`，值为同一数据源其他记录的 `{pageId,title?}` 引用数组。依赖字段对使用 `dependencyRole:"blockedBy"` 保存正向关系，使用 `dependencyRole:"blocking",inversePropertyId:"<forward-property-id>"` 定义反向关系。Blocking 由读取结果计算，不应写入页面属性。界面编辑反向关系时，会使用编辑开始时捕获的页面／字段版本逐条提交正向字段；失败后停止队列并保留未保存草稿。本地依赖写入拒绝自关联、其他数据源目标和循环依赖。原生 People 字段使用 `{id,name?}` 本地联系人引用数组。保留导入字段定义及引用中的未知字段。
+
+Timeline 布局接受 `timelineScale:"hours"|"day"|"week"|"bi-week"|"month"|"quarter"|"year"|"5-years"`、`timelineTable:boolean` 和 `datePropertyId`，布局修改使用视图版本。日历入口会创建或打开同一数据源的本地视图。
+
+Calendar 布局接受 `calendarRange:"month"|"week"` 和 `calendarWeekStart:0|1`（星期日／星期一）。未设置周起始时保留旧版星期日布局；界面新建时传入 `1`。`propertyIds` 控制卡片属性及其顺序。多日范围按周投影为同一记录的不同片段，不会复制为额外页面。拖动续段会保留抓取日期的偏移，并通过现有 CAS 队列写入一个日期值，包含计算出的后续任务顺延。
+
+数据源接受 `dependencyAutoShift:boolean`（工作区默认 `true`）和 `dependencyDatePropertyId`（默认使用第一个 Date 属性）。这些设置控制数据库工作区的重叠排期计算，不会在服务端隐式修改记录。计算保留时长、将后续任务移至次日、包含筛选范围外记录，并将各单元格写入逐条加入 CAS 队列。含时间、时区或由文档控制的后续任务不能由此计算自动顺延。Timeline 纵向拖放使用捕获的视图版本保存当前视图的 `rowOrder`；排序或分组时禁用手动纵向拖放。日期链或行顺序保存失败后，剩余草稿保留在当前标签页，不强制重试。
 
 更改数据库记录的标题或架构绑定属性时，通用 `PUT /api/pages/:id` 和冲突解决还需要数据源的 `schemaRevision`。客户端必须保留编辑开始时捕获的模式修订；过时的模式会产生可恢复的冲突，而不是自动重试。仅正文编辑保留通常的页面修订要求。数据源成员身份无法通过任意页面元数据补丁进行更改。
 

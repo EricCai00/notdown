@@ -26,6 +26,10 @@
 .editing-toolbar > [hidden] {
   display: none;
 }
+/* Execution actions stay available when the optional Markdown controls are off. */
+.editing-toolbar.markdown-controls-hidden:not(:has(> .rmarkdown-actions:not([hidden]), > .notebook-controls:not([hidden]))) {
+  display: none;
+}
 .editing-modes {
   display: flex;
   gap: 2px;

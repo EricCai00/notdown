@@ -54,7 +54,6 @@
 .database-workspace .database-new-button, .database-workspace .database-new-menu-button { border-color: var(--database-blue, #2f64ad); background: var(--database-blue, #2f64ad); color: white; }
 .database-workspace button.primary-button:hover, .database-dialog button.primary-button:hover,
 .database-workspace .database-new-button:hover, .database-workspace .database-new-menu-button:hover { border-color: #26568f; background: #26568f; }
-.database-workspace .database-back { position: absolute; top: 16px; left: var(--database-gutter); padding: 0; margin: 0; color: var(--database-muted); font-size: 12px; }
 
 .database-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 40px; margin: 0 0 9px; padding: 0; }
 .database-view-tabs { display: flex; align-items: center; flex: 1 1 auto; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
@@ -149,9 +148,9 @@
 .database-cell input[type="checkbox"]:checked + .database-checkbox-check { display: block; }
 .database-table input:disabled, .database-workspace .database-table .database-select-control:disabled { opacity: 1; color: inherit; -webkit-text-fill-color: currentColor; cursor: default; }
 .database-workspace .database-table .database-select-control:disabled:hover { background: transparent; }
-.database-workspace .database-open-page { flex-shrink: 0; gap: 4px; min-height: 29px; margin: 0 6px 0 0; padding: 3px 6px; border: 1px solid #d0d0cb; border-radius: 5px; background: white; color: #646760; font-size: 11px; font-weight: 500; opacity: 0; white-space: nowrap; }
+.database-workspace .database-open-page { position: absolute; right: 0; pointer-events: none; flex-shrink: 0; gap: 4px; min-height: 29px; margin: 0 6px 0 0; padding: 3px 6px; border: 1px solid #d0d0cb; border-radius: 5px; background: white; color: #646760; font-size: 11px; font-weight: 500; opacity: 0; white-space: nowrap; }
 .database-open-page svg { width: 15px !important; height: 15px !important; }
-.database-table tr:hover .database-open-page, .database-table tr:focus-within .database-open-page, .database-open-page:focus-visible, .database-row-selected .database-open-page { opacity: 1; }
+.database-table tr:hover .database-open-page, .database-table tr:focus-within .database-open-page, .database-open-page:focus-visible, .database-row-peek .database-open-page { position: static; pointer-events: auto; opacity: 1; }
 .database-cell-readonly { display: block; padding: 8px 10px; max-width: 350px; overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
 .database-cell-readonly small { display: block; margin-top: 3px; color: var(--database-muted, #73736f); font-size: 10px; line-height: 1.35; }
 .database-cell-readonly a { color: inherit; text-decoration-color: #bbbdb6; text-underline-offset: 3px; }
@@ -220,7 +219,7 @@
   .database-view-tabs { flex-basis: 100%; }
   .database-toolbar-actions { margin-left: 0; }
   .database-page-property { grid-template-columns: 100px 1fr; }
-  .database-workspace .database-open-page { opacity: 1; }
+  .database-workspace .database-open-page { position: static; pointer-events: auto; opacity: 1; }
   .database-dialog { padding: 20px; }
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -325,7 +324,7 @@
 .wiki-home-search > div { display: grid; gap: 4px; max-height: 240px; overflow: auto; }
 .wiki-home-search > div > button { padding: 8px; text-align: left; }
 .database-workspace.wiki-collection { --database-gutter: var(--wiki-gutter); }
-.wiki-collection > .database-back, .wiki-collection > .database-toolbar > .database-view-tabs { display: none; }
+.wiki-collection > .database-toolbar > .database-view-tabs { display: none; }
 .wiki-collection > .database-heading { min-height: 50px; margin-bottom: 12px; }
 .wiki-collection .database-heading-title { gap:14px; }
 .wiki-collection .database-heading h1 { font-size:40px; letter-spacing:-.8px; }
@@ -357,5 +356,22 @@
 
 .wiki-collection > .database-message[data-state="active"]:not(.is-error) { position: static; max-width: none; margin: 0 0 8px; text-align: right; }
 
-.database-view-link { font-size: 10px; color: #787774; border: 1px solid #dfdfdc; border-radius: 3px; padding: 0 3px; margin-left: 3px; }
+.database-linked-icon { --linked-icon-size:24px; --linked-arrow-size:18px; position:relative; display:inline-flex; flex:none; width:calc(var(--linked-icon-size) + 6px); height:calc(var(--linked-icon-size) + 6px); color:var(--database-muted,#73736f); }
+.database-title-icon > .database-linked-icon { --linked-icon-size:34px; --linked-arrow-size:24px; color:inherit; }
+.database-workspace .database-title-icon:has(> .database-linked-icon) { flex-basis:42px; width:42px; height:42px; }
+.database-linked-icon > .page-link-icon { position:absolute; top:0; left:0; width:var(--linked-icon-size); height:var(--linked-icon-size); font-size:var(--linked-icon-size); }
+.database-linked-icon > .database-linked-heading { position:absolute; right:-1px; bottom:-1px; width:var(--linked-arrow-size); height:var(--linked-arrow-size); stroke-width:2; color:var(--text,#37352f); background:transparent; }
 .database-create-dialog{width:min(460px,calc(100vw - 32px));padding:22px}.database-create-dialog form>label{display:grid;gap:5px;margin:14px 0}.database-create-dialog input:not([type=radio]),.database-create-dialog select{padding:8px;border:1px solid #dededb;border-radius:5px;min-width:0;width:100%}.database-create-dialog fieldset{border:0;padding:8px 0;display:grid;gap:8px}.database-create-dialog fieldset label{display:flex;align-items:center;gap:7px}.database-create-dialog [data-sources]>label{display:grid;gap:6px}.database-create-sources{max-height:220px;overflow:auto;margin:8px 0}.database-create-sources button{display:grid;width:100%;text-align:left;border:0;border-radius:5px;padding:9px 10px;background:transparent;gap:3px}.database-create-sources button[aria-selected=true],.database-create-sources button:hover{background:#f1f1ef}.database-create-sources small{color:#787774}.database-create-dialog [role=status]{font-size:13px;color:#b04438}
+
+/* Fixed tracks keep neighbouring columns stable while dragging a header edge. */
+.database-table.database-resizable-table { table-layout:fixed; min-width:0; }
+.database-resizable-table :is(th,td)[data-property-id] { min-width:0; width:auto; }
+.database-resizable-table th[data-property-id] { position:relative; }
+.database-resizable-table th.database-frozen-column { position:sticky; }
+.database-resizable-table th > button { overflow:hidden; }
+.database-resizable-table th > button > span:last-child { overflow:hidden; text-overflow:ellipsis; }
+.database-resizable-table td .database-cell { overflow:hidden; }
+.database-resizable-table .database-column-resizer { position:absolute; right:-4px; top:0; bottom:0; width:8px; z-index:5; cursor:col-resize; touch-action:none; outline:none; }
+.database-column-resizer::after { content:""; position:absolute; top:0; bottom:0; left:2px; width:3px; background:transparent; }
+.database-column-resizer:hover::after,.database-column-resizer:focus-visible::after,.database-column-resizer.is-resizing::after { background:#6b9dec; }
+html.database-column-dragging,html.database-column-dragging * { cursor:col-resize!important; user-select:none!important; }

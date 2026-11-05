@@ -1,4 +1,4 @@
-import { locationSettingsPath, saveVaultLocation } from "../../server/vault-location-settings.js";
+import { locationSettingsPath, saveVaultLocation, savedCreateLocation, saveCreateLocation } from "../../server/vault-location-settings.js";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, safeStorage, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -243,16 +243,17 @@ else {
         const root = await fs.realpath(selected).catch(() => selected);
         entries.set(process.platform === "win32" ? root.toLowerCase() : root, { name: path.basename(root), path: root });
       }
-      return { dataPath, vaults: [...entries.values()] };
+      return { dataPath, createLocation: savedCreateLocation(locationSettingsPath()), vaults: [...entries.values()] };
     });
     ipcMain.handle("vault:location", async (event, input: unknown) => {
       trusted(event, true);
       for (const entry of await listManagedVaults(dataPath)) await remember(entry.path);
       dataPath = await saveVaultLocation(locationSettingsPath(), input);
     });
-    ipcMain.handle("vault:browse", async event => {
+    ipcMain.handle("vault:create-location", (event, input: unknown) => { trusted(event, true); return saveCreateLocation(locationSettingsPath(), input); });
+    ipcMain.handle("vault:browse", async (event, input: unknown) => {
       const owner = trusted(event, true);
-      const result = await dialog.showOpenDialog(owner, { properties: ["openDirectory", "createDirectory"] });
+      const result = await dialog.showOpenDialog(owner, { defaultPath: typeof input === "string" && path.isAbsolute(input) ? input : undefined, properties: ["openDirectory", "createDirectory"] });
       return result.canceled ? null : result.filePaths[0] || null;
     });
     ipcMain.handle("vault:submit", async (event, input: { mode?: unknown; name?: unknown; path?: unknown }) => {

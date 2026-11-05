@@ -25,7 +25,7 @@ test("anchored view menus persist display choices, wrap cells, freeze and page o
   await settings.getByRole("button", { name: "Open pages in", exact: true }).click();
   await dialog(page, "Open pages in").getByRole("button", { name: "Center peek", exact: true }).click();
   await page.screenshot({ path: info.outputPath("view-settings.png") });
-  await settings.getByRole("button", { name: "Done", exact: true }).click();
+  await settings.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-source-title")).toBeVisible();
   await expect(page.locator(".database-workspace")).toHaveAttribute("data-vertical-lines", "false");
   await expect(page.locator(".database-page-icon").first()).toBeHidden();
@@ -36,6 +36,7 @@ test("anchored view menus persist display choices, wrap cells, freeze and page o
   await dialog(page, "Property settings").getByRole("button", { name: "Freeze", exact: true }).click();
   await button(page, "Save property").click();
   await expect(page.locator("th.database-frozen-column")).toHaveAttribute("aria-label", "Notion Syntax");
+  await page.getByLabel("Name: Text", { exact: true }).hover();
   await button(page, "Open Text").click();
   await expect(page.locator(".database-center-peek")).toBeVisible();
   await button(page, "Close record").click(); await page.reload();
@@ -51,8 +52,9 @@ test("anchored view menus persist display choices, wrap cells, freeze and page o
     await route.continue();
   });
   try {
-    await again.getByRole("button", { name: "Done", exact: true }).click();
+    await again.getByRole("button", { name: "Close", exact: true }).click();
     await expect.poll(() => submitted).toBe(true);
+    await page.getByLabel("Name: Text", { exact: true }).hover();
     await button(page, "Open Text").click();
   } finally { release(); }
   await expect(page.locator("#page-title")).toHaveValue("Text");
@@ -99,18 +101,18 @@ test("table groups, compact list properties and load more survive reload", async
   const settings = await layout(page);
   await settings.getByRole("button", { name: "Load limit", exact: true }).click();
   await dialog(page, "Load limit").getByRole("button", { name: "25", exact: true }).click();
-  await settings.getByRole("button", { name: "Done", exact: true }).click();
+  await settings.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator("tbody tr[data-page-id]:visible")).toHaveCount(25);
   await button(page, "Load more (25 of 26)").click();
   await expect(page.locator("tbody tr[data-page-id]:visible")).toHaveCount(26);
   await page.reload(); await expect(page.locator("tbody tr[data-page-id]:visible")).toHaveCount(25);
   await button(page, "Edit In Markdown property").click();
   await dialog(page, "Property settings").getByRole("button", { name: "Group", exact: true }).click();
-  await dialog(page, "Group").getByRole("button", { name: "Done", exact: true }).click();
+  await dialog(page, "Group").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-table-group")).toHaveCount(4);
   const list = await layout(page);
   await list.getByRole("button", { name: "List", exact: true }).click();
-  await dialog(page, "Layout").getByRole("button", { name: "Done", exact: true }).click();
+  await dialog(page, "Layout").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-layout-list .database-record-card")).toHaveCount(25);
   await page.screenshot({ path: info.outputPath("list.png"), fullPage: true });
   await page.reload();
@@ -130,7 +132,7 @@ test("stale property menus retain their edits and block navigation", async ({ pa
   await button(page, "Save property").click();
   await expect(dialog(page, "Property settings").getByRole("status")).toContainText(/changed/i);
   await expect(page.getByLabel("Property name", { exact: true })).toHaveValue("Local draft name");
-  await button(page, "All databases").click();
+  await page.getByRole("button", { name: "Databases", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#database/${fixture.database.id}$`));
   expect((await (await request.get(`/api/data-sources/${fixture.schema.id}`)).json()).properties.find((item: any) => item.key === "inMarkdown").name).toBe("In Markdown");
   await button(page, "Discard menu changes").click();
@@ -141,7 +143,7 @@ test("group sections repeat columns, collapse, recolor, add records and restore 
   await page.goto(`/#database/${fixture.database.id}`);
   await button(page, "Edit In Markdown property").click();
   await dialog(page, "Property settings").getByRole("button", { name: "Group", exact: true }).click();
-  await dialog(page, "Group").getByRole("button", { name: "Done", exact: true }).click();
+  await dialog(page, "Group").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-group-columns")).toHaveCount(4);
   await expect(button(page, "New page in Not Available")).toBeVisible();
   await button(page, "Collapse group Available").click();
@@ -153,6 +155,8 @@ test("group sections repeat columns, collapse, recolor, add records and restore 
   await button(page, "Group options: Not Available").click();
   await page.screenshot({ path: info.outputPath("group-menu.png") });
   await dialog(page, "Group options").getByRole("switch", { name: "Show aggregation", exact: true }).click();
+  await expect(dialog(page, "Group options")).toHaveCount(0);
+  await button(page, "Group options: Not Available").click();
   await dialog(page, "Group options").getByRole("button", { name: "Blue", exact: true }).click();
   await expect(page.locator('.database-table-group[data-group="no"] .database-tag')).toHaveAttribute("data-color", "blue");
   await expect(page.locator(".database-group-count")).toHaveCount(0);
@@ -167,7 +171,7 @@ test("group sections repeat columns, collapse, recolor, add records and restore 
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Group", exact: true }).click();
   await dialog(page, "Group").getByRole("switch", { name: "Not Available", exact: true }).click();
-  await dialog(page, "Group").getByRole("button", { name: "Done", exact: true }).click();
+  await dialog(page, "Group").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator('.database-table-group[data-group="no"]')).toBeVisible();
   await page.screenshot({ path: info.outputPath("grouped-table.png"), fullPage: true });
   await button(page, "Group options: Sometime Available").click();

@@ -57,6 +57,16 @@ Run only one local service process per vault. Desktop windows use isolated servi
 
 After installing dependencies, double-click [start.cmd](../../start.cmd) at the root. It starts the services in the background, checks readiness, opens the browser and writes logs to `.run/logs/`.
 
+To stop browser services on Windows, save pending edits and double-click [stop.cmd](../../stop.cmd), or run `npm stop`. This covers the standalone API, Vite development/preview servers (including mobile preview), isolated browser test servers and their child processes, including `tsx watch`. It identifies services by their command lines and, for relative launches, Notdown HTTP responses on their actual listening ports, so custom ports are included. Desktop Electron processes and unrelated services are excluded. Services with hidden command lines can only be identified through a matching background launch record; an elevated service may require running the script as administrator.
+
+Preview the processes without stopping them:
+
+```powershell
+.\stop.cmd -WhatIf
+```
+
+The script reports when no verified services are running and can be run repeatedly. It terminates the identified processes; wait for saves and imports to finish first. It does not delete vaults or logs.
+
 After changing backend code or environment variables for a background service, save your edits, then run this in the repository directory:
 
 ```powershell

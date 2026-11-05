@@ -187,13 +187,13 @@ test("mobile full-page databases create fields, records, saved views and edit re
   await settings.getByRole("button", { name: "Sort", exact: true }).click();
   const sort = page.getByRole("dialog", { name: "Sort", exact: true });
   await sort.getByRole("combobox", { name: "Sort by", exact: true }).selectOption({ label: "Name" });
-  await sort.getByRole("button", { name: "Done", exact: true }).click();
+  await sort.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "View settings", exact: true }).click();
   await settings.getByRole("button", { name: "Filter", exact: true }).click();
   const filter = page.getByRole("dialog", { name: "Filter", exact: true });
   await filter.getByRole("combobox", { name: "Filter property", exact: true }).selectOption({ label: "Note" });
   await filter.getByLabel("Contains", { exact: true }).fill("Edited");
-  await filter.getByRole("button", { name: "Done", exact: true }).click();
+  await filter.getByRole("button", { name: "Close", exact: true }).click();
   await expect(settings).toHaveCount(0);
   await expect(page.locator("#mobile-databases")).toBeVisible();
   expect(await page.locator("#mobile-content").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);

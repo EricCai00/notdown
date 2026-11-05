@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { prepareNotionImport } from "../../server/notion-import.js";
 import { createVault } from "../../server/vault.js";
+import { isPageUuid } from "../../src/vault/page-id.js";
 
 const database = "11111111-1111-4111-8111-111111111111";
 const source = "22222222-2222-4222-8222-222222222222";
@@ -114,6 +115,10 @@ test("database import reads paginated records and properties, retains source def
   assert.deepEqual(Object.values(resources.views)[0].rowOrder, [a.id, b.id]);
   assert.equal(a.source, `Body ${first}\n`);
   assert.equal(fields.Name.key, "title");
+  for (const field of ds.properties.filter(field => field.type !== "title")) {
+    assert.ok(isPageUuid(field.id));
+    assert.equal(field.key, field.id, "imported property keys use the field UUID without a source prefix");
+  }
   assert.equal(props[fields.Count.key], 0);
   assert.equal(props[fields.Done.key], false);
   assert.equal(props[fields.Progress.key], "in-progress");

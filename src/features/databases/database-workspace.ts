@@ -1,10 +1,15 @@
+import { databaseViewIconHTML } from "./database-view-icon";
+import { installTableSelection } from "./database-table-selection";
+import { installDatabaseTableResize } from "./database-table-resize";
 import { setUIText, setUIAttribute } from "../../shared/i18n";
 import { mountWikiViewPicker } from "./wiki-view-picker";
 import { createDatabaseView } from "./database-create-view";
 import { openTabMenu } from "./database-tab-menu";
 import { installInlineDatabaseLayout } from "./database-inline-layout";
 import { installViewOverflow } from "./database-view-overflow";
-import { isPageCoverPath } from "../pages/page-cover-picker";
+import { isPageCoverPath, openPageCoverPicker } from "../pages/page-cover-picker";
+import { renderDatabasePageCover } from "./database-page-cover";
+import "../pages/page-cover-picker.css";
 import { vaultAssetUrl } from "../../shared/vault-url";
 import { api, escape as e, type Page } from "../../shared/types";
 import { documentMetadata } from "../metadata/document-metadata";
@@ -13,31 +18,45 @@ import { databaseSourceView } from "./database-reference";
 import { openSourceMenu } from "./database-source-menu";
 import { renderSourceCatalog } from "./database-source-catalog";
 import type { DatabaseSourceSummary } from "./database-model";
-import { Database as DatabaseIcon, Maximize2, ArrowUpRight } from "lucide";
-import { databasePropertyReadOnly, type Database, type DatabaseDataSource, type DatabaseProperty, type DatabasePropertyType, type DatabaseSnapshot, type DatabaseView } from "./database-model";
+import { Database as DatabaseIcon, Maximize2, ArrowUpRight, MapPin } from "lucide";
+import { ChartNoAxesCombined, GanttChart, Rss } from "lucide";
+import { databasePropertyReadOnly, type Database, type DatabaseLayout, type DatabaseDataSource, type DatabaseProperty, type DatabasePropertyType, type DatabaseSnapshot, type DatabaseView } from "./database-model";
 import { isWikiDatabase } from "./database-model";
-import { createElement, Columns3, LayoutGrid, List, Table2, Plus, ChevronDown, Type, CircleChevronDown, AlignLeft, SquareCheck, Hash, Calendar, Link, Users, FileText, PanelRight, ListFilter, ArrowDownUp, Search, SlidersHorizontal, Ellipsis, ArrowLeft, X, Check, type IconNode } from "lucide";
+import { createElement, Columns3, LayoutGrid, List, Table2, Plus, ChevronDown, Type, CircleChevronDown, AlignLeft, SquareCheck, Hash, Calendar, Link, Users, FileText, PanelRight, ListFilter, ArrowDownUp, Search, SlidersHorizontal, Ellipsis, Smile, Image, X, Check, type IconNode } from "lucide";
 import { DatabasePeek } from "./database-peek";
 import { openCalloutIconPicker } from "../../blocks/callout-icon-picker";
 import { pageIconElement } from "../../shared/page-icons";
 import "./databases.css";
+import "./database-page-header.css";
 import { queryDatabase, groupable, databaseGroups, fieldValue } from "./database-query";
-import { renderDatabaseLayout, groupHeading } from "./database-layouts";
+import { renderDatabaseLayout, disposeDatabaseLayout, groupHeading } from "./database-layouts";
 import { openViewMenu, openPropertyMenu, openGroupMenu } from "./database-menus";
-import type { DatabasePopover } from "./database-popover";
-const viewIcons = { table: Table2, board: Columns3, gallery: LayoutGrid, list: List, calendar: Calendar };
+import { DatabasePopover } from "./database-popover";
+import { referencePicker } from "./database-reference-picker";
+import { dependencyValue, relationIds } from "./database-dependencies";
+import { scheduleDependencies, type RecordChange } from "./database-scheduling";
+import { placeInput } from "./database-place-editor";
+import { placeText } from "./database-place";
+
 import { externalEntitiesChanged, externalLibrary, resolveExternal } from "../references/external-client";
 import { requestPeople } from "../people/people-client";
 
 type Pending = { pageId: string; propertyId: string; value: unknown; baseRevision: string; schemaRevision: string; sourceId: string };
-type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string };
+type PresentationDraft = { baseRevision: string; hostRevision?: string; title?: string; icon?: string; cover?: string; coverPosition?: number | null };
 type SourceTitleDraft = { sourceId: string; baseRevision: string; title: string; failed?: boolean };
 type Hooks = { inline?: boolean; vaultKey: string; initialSourceUrl?: string; initialViewId?: string; viewChanged?: () => void; interactionMode?: "desktop" | "touch"; openPage: (id: string) => Promise<unknown>; openDatabase: (id?: string) => Promise<unknown>; changed: (page: Page) => void; createDatabase?: () => Promise<unknown>; createWiki?: () => Promise<unknown> };
-const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"];
-const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone" };
+const editableTypes: DatabasePropertyType[] = ["text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone", "place", "people", "relation"];
+const typeLabels: Record<string, string> = { text: "Text", number: "Number", checkbox: "Checkbox", date: "Date", select: "Select", multi_select: "Multi-select", status: "Status", url: "URL", email: "Email", phone: "Phone", place: "Place", people: "People", relation: "Relation" };
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 const glyph = (node: IconNode, className = "") => createElement(node, { width: 18, height: 18, "stroke-width": 1.7, "aria-hidden": "true", class: className }).outerHTML;
-const typeIcon = (type: string) => glyph(({ title: Type, text: AlignLeft, number: Hash, checkbox: SquareCheck, date: Calendar, select: CircleChevronDown, multi_select: CircleChevronDown, status: CircleChevronDown, url: Link, relation: Link, people: Users, files: FileText } as Record<string, IconNode>)[type] ?? AlignLeft, "database-type-icon");
+function linkedDatabaseIcon(icon = "table-2") {
+  const mark = document.createElement("span"); mark.className = "database-linked-icon";
+  mark.setAttribute("role", "img");
+  setUIAttribute(mark, "aria-label", "Linked data source"); setUIAttribute(mark, "title", "Linked data source");
+  mark.append(pageIconElement(icon), createElement(ArrowUpRight, { class: "database-linked-heading", viewBox: "4 4 16 16", "aria-hidden": "true", focusable: "false" }));
+  return mark;
+}
+const typeIcon = (type: string) => glyph(({ title: Type, text: AlignLeft, number: Hash, checkbox: SquareCheck, date: Calendar, select: CircleChevronDown, multi_select: CircleChevronDown, status: CircleChevronDown, url: Link, relation: Link, people: Users, files: FileText, place: MapPin } as Record<string, IconNode>)[type] ?? AlignLeft, "database-type-icon");
 const optionColors = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"];
 let closeOptions: (() => void) | undefined;
 function optionTag(option: { name: string; color?: string }) { return `<span class="database-tag" data-color="${optionColors.includes(option.color ?? "") ? option.color : "gray"}">${e(option.name)}</span>`; }
@@ -50,6 +69,7 @@ export function documentOverrides(page: Page, field: DatabaseProperty): boolean 
 
 function displayValue(field: DatabaseProperty, value: unknown): string {
   if (value === null || value === undefined) return "";
+  if (field.type === "place") return placeText(value);
   if (["select", "status"].includes(field.type)) return field.options?.find(option => option.id === value)?.name ?? String(value);
   if (field.type === "multi_select" && Array.isArray(value)) return value.map(item => field.options?.find(option => option.id === item)?.name ?? String(item)).join(", ");
   if (field.type === "date" && typeof value === "object") {
@@ -71,12 +91,13 @@ function displayValue(field: DatabaseProperty, value: unknown): string {
   return String(value);
 }
 
-export function propertyInput(field: DatabaseProperty, page: Page, value: unknown, commit: (value: unknown) => void, wrap = false): HTMLElement {
+export function propertyInput(field: DatabaseProperty, page: Page, value: unknown, commit: (value: unknown) => void, wrap = false, pages?: Page[], optionHost?: HTMLElement): HTMLElement {
   const label = `${field.name}: ${page.title}`;
   const wrapper = document.createElement("div");
   wrapper.className = "database-cell";
   if (["people", "relation"].includes(field.type)) { wrapper.dataset.externalProperty = field.id; wrapper.dataset.externalPage = page.id; }
   const override = documentOverrides(page, field);
+  if (!override && !databasePropertyReadOnly(field) && (field.type === "people" && !field.notion || field.localRelation && pages)) return referencePicker(field, page, value, commit, pages, optionHost);
   const readOnly = databasePropertyReadOnly(field) || ["people", "files", "relation"].includes(field.type) || override;
   if (readOnly) {
     wrapper.classList.add("database-cell-readonly");
@@ -106,6 +127,7 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
     const note = document.createElement("small"); note.textContent = reason; wrapper.append(note);
     return wrapper;
   }
+  if (field.type === "place") return placeInput(value, label, commit, optionHost);
   if (["select", "multi_select", "status"].includes(field.type)) {
     const control = document.createElement("button"); control.type = "button"; control.className = "database-select-control";
     control.setAttribute("aria-label", label); control.setAttribute("aria-haspopup", "listbox"); control.setAttribute("aria-expanded", "false");
@@ -143,7 +165,7 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
           options[event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length]?.focus();
         }
       });
-      document.body.append(popover); control.setAttribute("aria-expanded", "true"); popover.querySelector<HTMLButtonElement>("button[aria-selected=true],button")?.focus(); document.addEventListener("pointerdown", outside, true);
+      (optionHost ?? document.body).append(popover); control.setAttribute("aria-expanded", "true"); popover.querySelector<HTMLButtonElement>("button[aria-selected=true],button")?.focus(); document.addEventListener("pointerdown", outside, true);
     });
     wrapper.append(control); return wrapper;
   }
@@ -190,10 +212,13 @@ function formDialog(title: string, content: string, submit: (form: FormData) => 
 }
 
 export class DatabaseWorkspace {
+  private selectedRows = new Set<string>();
+  private updateSelection?: () => void;
   private calendarAnchor = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
   private menu?: DatabasePopover;
   private visibleLimit?: number;
   private layoutSaving = false;
+  private timelineTitleId?: string;
   private sourceSaving = false;
   private presentation?: PresentationDraft;
   private presentationSaving?: Promise<boolean>;
@@ -202,12 +227,20 @@ export class DatabaseWorkspace {
   private sourceTitleSaving?: Promise<boolean>;
   private wikiPickerCleanup?: () => void;
   private iconCleanup?: () => void;
+  private coverPickerCleanup?: () => void;
+  private coverCleanup?: () => void;
+  private coverSignature?: string;
   private peek?: DatabasePeek;
   private search = "";
   private showSearch = false;
   private opening = 0;
   private snapshot?: DatabaseSnapshot;
   private pending = new Map<string, Pending>();
+  private resizeCleanup?: () => void;
+  private widthDraft?: { viewId: string; baseRevision: string; layout: DatabaseLayout };
+  private widthSaving?: Promise<boolean>;
+  private orderDraft?: { viewId: string; baseRevision: string; rowOrder: string[] };
+  private orderSaving?: Promise<boolean>;
   private saving?: Promise<boolean>;
   private failed = false;
   private alive = true;
@@ -234,14 +267,14 @@ export class DatabaseWorkspace {
     }
   };
   private pointerUp = () => { this.pointerDown = false; if (this.rowsNeedRefresh) this.scheduleRows(); };
-  get dirty() { return this.sourceSaving || !!(this.menu?.saveOnDismiss && this.menu.dirty) || this.layoutSaving || this.pending.size > 0 || !!this.saving || !!this.peek?.dirty || !!this.presentation || !!this.presentationSaving || !!this.sourceTitle || !!this.sourceTitleSaving; }
+  get dirty() { return this.sourceSaving || !!(this.menu?.saveOnDismiss && this.menu.dirty) || this.layoutSaving || this.pending.size > 0 || !!this.orderDraft || !!this.widthDraft || !!this.widthSaving || !!this.saving || !!this.peek?.dirty || !!this.presentation || !!this.presentationSaving || !!this.sourceTitle || !!this.sourceTitleSaving; }
   presentHost(page: Page) {
     if (!this.snapshot || page.id !== this.snapshot.hostPage?.id || this.presentation) return;
     this.snapshot.hostPage = page; this.snapshot.database = { ...this.snapshot.database, title: page.title, icon: page.icon, parent: page.parent };
     this.refreshPresentation();
   }
-  destroy() { this.inlineLayoutCleanup?.(); this.viewOverflowCleanup?.(); this.wikiPickerCleanup?.(); this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); clearTimeout(this.saveTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
-  private message(text: string) { if (this.alive) { const element = this.host.querySelector<HTMLElement>(".database-message"); if (element) { element.dataset.state = text === "Saved locally" ? "saved" : "active"; element.textContent = text; element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } const recovery = this.host.querySelector<HTMLElement>(".database-save-recovery"); if (recovery) recovery.hidden = !this.failed && !this.presentationFailed && !this.sourceTitle?.failed; } }
+  destroy() { this.host.querySelectorAll<HTMLElement>(".database-alternate-layout").forEach(disposeDatabaseLayout); this.resizeCleanup?.(); this.inlineLayoutCleanup?.(); this.viewOverflowCleanup?.(); this.wikiPickerCleanup?.(); this.menu?.destroy(); this.menu = undefined; this.alive = false; document.removeEventListener(externalEntitiesChanged, this.referencesChanged); this.iconCleanup?.(); this.coverPickerCleanup?.(); this.coverCleanup?.(); this.peek?.destroy(); closeOptions?.(); clearTimeout(this.refreshTimer); clearTimeout(this.saveTimer); window.removeEventListener("pointerup", this.pointerUp); window.removeEventListener("pointercancel", this.pointerUp); }
+  private message(text: string) { if (this.alive) { const element = this.host.querySelector<HTMLElement>(".database-message"); if (element) { element.dataset.state = text === "Saved locally" ? "saved" : "active"; setUIText(element, text); element.classList.toggle("is-error", !["Saved locally", "Saving changes…", "Unsaved changes"].includes(text)); } const recovery = this.host.querySelector<HTMLElement>(".database-save-recovery"); if (recovery) recovery.hidden = !this.failed && !this.presentationFailed && !this.sourceTitle?.failed; } }
   private scheduleSave() {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => { if (this.alive) void this.flush(); }, 600);
@@ -249,7 +282,11 @@ export class DatabaseWorkspace {
   private draftKey() { return `notdown-database-draft:${this.hooks.vaultKey}:${this.snapshot!.database.id}`; }
   private viewKey() { return `${this.draftKey()}:view${this.hooks.initialSourceUrl ? `:${this.hooks.initialSourceUrl.toLowerCase().replace(/-/g, "")}` : ""}`; }
   private persist() {
-    try { if (this.pending.size) sessionStorage.setItem(this.draftKey(), JSON.stringify([...this.pending])); else sessionStorage.removeItem(this.draftKey()); }
+    try {
+      if (this.pending.size) sessionStorage.setItem(this.draftKey(), JSON.stringify([...this.pending])); else sessionStorage.removeItem(this.draftKey());
+      if (this.widthDraft) sessionStorage.setItem(`${this.draftKey()}:column-widths`, JSON.stringify(this.widthDraft)); else sessionStorage.removeItem(`${this.draftKey()}:column-widths`);
+      if (this.orderDraft) sessionStorage.setItem(`${this.draftKey()}:row-order`, JSON.stringify(this.orderDraft)); else sessionStorage.removeItem(`${this.draftKey()}:row-order`);
+    }
     catch { this.message("Browser draft storage is full. Save before leaving this database."); }
   }
   async load(id?: string) {
@@ -264,8 +301,12 @@ export class DatabaseWorkspace {
       try { this.activeView = sessionStorage.getItem(this.viewKey()) ?? this.activeView; } catch { /* View selection is optional local state. */ }
       if (snapshot.views.some(view => view.id === this.hooks.initialViewId)) this.rememberView(this.hooks.initialViewId!);
       try { const draft = sessionStorage.getItem(this.draftKey()); if (draft) this.pending = new Map(JSON.parse(draft)); } catch { /* Disk remains authoritative. */ }
+      try { const draft = sessionStorage.getItem(`${this.draftKey()}:row-order`); if (draft) { this.orderDraft = JSON.parse(draft); this.failed = true; } } catch { /* Disk remains authoritative. */ }
+      try { const draft = sessionStorage.getItem(`${this.draftKey()}:column-widths`); if (draft) { this.widthDraft = JSON.parse(draft); this.failed = true; } } catch { /* Disk remains authoritative. */ }
       this.render();
-      if (this.sourceTitle?.failed) this.message("Your data source name draft is preserved. Retry saving or discard the draft and reload.");
+      if (this.widthDraft) this.message("Your column width draft is preserved. Retry saving or discard the draft and reload.");
+      else if (this.orderDraft) this.message("Your row order draft is preserved. Retry saving or discard the draft and reload.");
+      else if (this.sourceTitle?.failed) this.message("Your data source name draft is preserved. Retry saving or discard the draft and reload.");
       else if (this.pending.size || this.presentation || this.sourceTitle) { this.message("Recovered unsaved edits. Saving…"); this.scheduleSave(); }
     } else {
       const databases = await api<Database[]>("/databases");
@@ -302,8 +343,9 @@ export class DatabaseWorkspace {
       .catch(error => this.message(error instanceof Error ? error.message : "Could not create database"));
   }
   private get view() { return this.snapshot!.views.find(view => view.id === this.activeView) ?? this.snapshot!.views[0]; }
+  private get showSourceTitle() { return this.view?.layout?.showDataSourceTitle ?? (this.hooks.inline || this.snapshot!.dataSources.length > 1); }
   get selectedViewId() { return this.snapshot ? this.view?.id : undefined; }
-  private rememberView(id: string) { this.visibleLimit = undefined; this.activeView = id; try { sessionStorage.setItem(this.viewKey(), id); } catch { /* Saved view definitions remain on disk. */ } this.hooks.viewChanged?.(); }
+  private rememberView(id: string) { this.selectedRows.clear(); this.visibleLimit = undefined; this.activeView = id; try { sessionStorage.setItem(this.viewKey(), id); } catch { /* Saved view definitions remain on disk. */ } this.hooks.viewChanged?.(); }
   private get source() { return this.snapshot!.dataSources.find(source => source.id === this.view?.dataSourceId) ?? this.snapshot!.dataSources[0]; }
   private queue(page: Page, field: DatabaseProperty, value: unknown) {
     const key = `${page.id}/${field.id}`, previous = this.pending.get(key);
@@ -321,7 +363,40 @@ export class DatabaseWorkspace {
     // Records use the source revision captured when editing. Save them before
     // changing the source title, which also advances that revision.
     if (!(await this.flushRecords())) return false;
+    if (!(await this.flushWidths())) return false;
+    if (!(await this.flushOrder())) return false;
     return this.flushSourceTitle();
+  }
+  private async flushWidths(): Promise<boolean> {
+    if (this.widthSaving) return this.widthSaving;
+    if (this.failed) return false;
+    if (!this.widthDraft) return true;
+    const draft = this.widthDraft;
+    this.widthSaving = (async () => {
+      try {
+        this.message("Saving changes…");
+        const saved = await api<DatabaseView>(`/database-views/${draft.viewId}`, { method: "PUT", body: JSON.stringify({ baseRevision: draft.baseRevision, layout: draft.layout }) });
+        this.snapshot!.views = this.snapshot!.views.map(view => view.id === saved.id ? saved : view);
+        this.widthDraft = undefined; this.persist(); this.message("Saved locally"); return true;
+      } catch (error) { this.failed = true; this.message(`${error instanceof Error ? error.message : "Save failed"}. Your column width draft is preserved.`); return false; }
+      finally { this.widthSaving = undefined; }
+    })();
+    return this.widthSaving;
+  }
+  private async flushOrder(): Promise<boolean> {
+    if (this.orderSaving) return this.orderSaving;
+    if (this.failed) return false;
+    if (!this.orderDraft) return true;
+    const draft = this.orderDraft;
+    this.orderSaving = (async () => {
+      try {
+        const saved = await api<DatabaseView>(`/database-views/${draft.viewId}`, { method: "PUT", body: JSON.stringify({ baseRevision: draft.baseRevision, rowOrder: draft.rowOrder }) });
+        this.snapshot!.views = this.snapshot!.views.map(view => view.id === saved.id ? saved : view);
+        this.orderDraft = undefined; this.persist(); this.scheduleRows(); this.message("Saved locally"); return true;
+      } catch (error) { this.failed = true; this.message(`${error instanceof Error ? error.message : "Save failed"}. Your row order draft is preserved.`); return false; }
+      finally { this.orderSaving = undefined; }
+    })();
+    return this.orderSaving;
   }
   private async flushRecords(): Promise<boolean> {
     if (this.saving) return this.saving;
@@ -396,7 +471,7 @@ export class DatabaseWorkspace {
   }
   private renderSourceTitle(source: DatabaseDataSource) {
     const title = document.createElement("h2"); title.className = "database-source-title"; title.dataset.sourceId = source.id;
-    if (this.hooks.inline && this.view?.linked) { const arrow = createElement(ArrowUpRight, { width: 18, height: 18, "aria-label": "Linked data source" }); arrow.classList.add("database-linked-heading"); title.append(arrow); }
+    if (this.view?.linked) title.append(linkedDatabaseIcon());
     const input = document.createElement("input"); input.type = "text"; input.className = "database-source-title-input";
     setUIAttribute(input, "aria-label", "Data source title"); input.readOnly = !!source.unavailable || !!source.trashed;
     input.value = this.sourceTitle?.sourceId === source.id ? this.sourceTitle.title : source.title;
@@ -421,11 +496,10 @@ export class DatabaseWorkspace {
     try { if (this.presentation) sessionStorage.setItem(`${this.draftKey()}:presentation`, JSON.stringify(this.presentation)); else sessionStorage.removeItem(`${this.draftKey()}:presentation`); }
     catch { this.message("Browser draft storage is full. Save before leaving this database."); }
   }
-  private queuePresentation(patch: { title?: string; icon?: string }) {
-    this.presentationFailed = false;
+  private queuePresentation(patch: Pick<PresentationDraft, "title" | "icon" | "cover" | "coverPosition">) {
     this.presentation = { ...(this.presentation ?? { baseRevision: this.snapshot!.database.revision, ...(this.snapshot!.hostPage ? { hostRevision: this.snapshot!.hostPage.revision } : {}) }), ...patch };
     this.persistPresentation(); this.message("Unsaved changes");
-    this.scheduleSave();
+    if (!this.presentationFailed) this.scheduleSave();
   }
   private async flushPresentation(): Promise<boolean> {
     if (this.presentationSaving) return this.presentationSaving;
@@ -446,33 +520,73 @@ export class DatabaseWorkspace {
         }
         this.message("Saved locally"); return true;
       } catch (error) {
-        this.presentationFailed = true; this.persistPresentation(); this.message(`${error instanceof Error ? error.message : "Save failed"}. Your title or icon choice is preserved in this tab.`); return false;
+        this.presentationFailed = true; this.persistPresentation(); this.message(`${error instanceof Error ? error.message : "Save failed"}. Your database appearance draft is preserved in this tab.`); return false;
       } finally { this.presentationSaving = undefined; }
     });
     return this.presentationSaving;
   }
   private refreshPresentation() {
     if (!this.alive || !this.snapshot) return;
-    const icon = this.presentation?.icon ?? this.snapshot.hostPage?.icon ?? this.snapshot.database.icon ?? "table-2";
+    const icon = this.presentation?.icon ?? this.snapshot.hostPage?.icon ?? this.snapshot.database.icon ?? "";
+    const pageHeader = !this.hooks.inline && !isWikiDatabase(this.snapshot.database);
+    const hasIcon = !!icon && icon !== "file-text" && icon !== "table-2";
     const button = this.host.querySelector<HTMLButtonElement>("[data-db-icon]");
-    if (button) button.replaceChildren(pageIconElement(icon));
+    if (button) { button.hidden = pageHeader && !hasIcon && !this.view?.linked; button.replaceChildren(this.view?.linked && !this.showSourceTitle ? linkedDatabaseIcon(icon || "table-2") : pageIconElement(icon)); }
+    const addIcon = this.host.querySelector<HTMLButtonElement>("[data-db-add-icon]"); if (addIcon) addIcon.hidden = hasIcon || !!this.view?.linked;
+    const properties = this.snapshot.hostPage?.properties ?? this.snapshot.database.properties as Record<string, unknown> ?? {};
+    const value = this.presentation?.cover ?? properties.cover;
+    const cover = typeof value === "string" && isPageCoverPath(value) ? value : "";
+    const raw = this.presentation && own(this.presentation, "coverPosition") ? this.presentation.coverPosition : properties.coverPosition;
+    const position = typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 50;
+    const addCover = this.host.querySelector<HTMLButtonElement>("[data-db-add-cover]"); if (addCover) addCover.hidden = !!cover;
+    const region = this.host.querySelector<HTMLElement>(".database-page-cover");
+    const signature = JSON.stringify([cover, position]);
+    if (region && signature !== this.coverSignature) {
+      this.coverCleanup?.(); this.coverSignature = signature;
+      this.coverCleanup = renderDatabasePageCover(region, cover, position, anchor => void this.chooseCover(anchor), value => this.applyCover({ coverPosition: value }));
+    }
+    this.host.querySelector(".database-workspace")?.classList.toggle("has-database-cover", pageHeader && !!cover);
     const title = this.host.querySelector<HTMLInputElement>("[data-i18n-aria-label='Database title']");
     if (title) { title.value = this.presentation?.title ?? this.snapshot.database.title; title.closest("h1")?.setAttribute("aria-label", title.value); }
   }
   private async chooseIcon(anchor: HTMLElement) {
     if (!(await this.flush()) || !this.alive) return;
-    this.iconCleanup?.();
+    this.coverPickerCleanup?.(); this.coverPickerCleanup = undefined; this.iconCleanup?.();
     this.iconCleanup = openCalloutIconPicker(anchor, icon => {
       this.iconCleanup = undefined;
       this.queuePresentation({ icon }); this.refreshPresentation(); void this.flush();
     }, "Database icon", { lucide: true, current: this.snapshot!.hostPage?.icon ?? this.snapshot!.database.icon ?? "table-2" });
   }
+  private applyCover(patch: Pick<PresentationDraft, "cover" | "coverPosition">) {
+    if (!this.alive) return;
+    this.queuePresentation(patch); this.refreshPresentation(); void this.flush();
+  }
+  private async chooseCover(anchor: HTMLElement) {
+    if (!(await this.flush()) || !this.alive) return;
+    this.iconCleanup?.(); this.coverPickerCleanup?.();
+    const properties = this.snapshot!.hostPage?.properties ?? this.snapshot!.database.properties as Record<string, unknown> ?? {};
+    const cover = typeof properties.cover === "string" ? properties.cover : "";
+    this.coverPickerCleanup = openPageCoverPicker(anchor, {
+      cover,
+      onSelect: value => { this.coverPickerCleanup = undefined; this.applyCover({ cover: value, coverPosition: null }); },
+      onRemove: () => { this.coverPickerCleanup = undefined; this.applyCover({ cover: "", coverPosition: null }); },
+      onUpload: async file => {
+        const data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader(); reader.onerror = reject; reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.readAsDataURL(file);
+        });
+        const uploaded = await api<{ path: string }>("/assets", { method: "POST", body: JSON.stringify({ name: file.name, contentType: file.type, data }) });
+        if (!this.alive) return;
+        this.coverPickerCleanup = undefined; this.applyCover({ cover: uploaded.path, coverPosition: null });
+      },
+      onError: error => this.message(error instanceof Error ? error.message : String(error)),
+    });
+  }
   private matchingRows(source: DatabaseDataSource): Page[] {
     const rows = queryDatabase(this.snapshot!.pages, source, this.view, this.search);
-    const field = this.view.type !== "calendar" && source.properties.find(field => field.id === this.view.layout?.groupBy);
+    const field = !["calendar", "chart"].includes(this.view.type) && source.properties.find(field => field.id === this.view.layout?.groupBy);
     return field ? databaseGroups(rows, field, this.view).flatMap(group => group.pages) : rows;
   }
-  private rows(source: DatabaseDataSource): Page[] { return this.matchingRows(source).slice(0, this.visibleLimit ?? (this.view.layout?.loadLimit || Infinity)); }
+  private rows(source: DatabaseDataSource): Page[] { if (["chart", "map", "dashboard"].includes(this.view.type)) return this.matchingRows(source); return this.matchingRows(source).slice(0, this.visibleLimit ?? (this.view.layout?.loadLimit || Infinity)); }
   private updateLoadMore() {
     this.host.querySelector(".database-load-more")?.remove();
     const total = this.matchingRows(this.source).length, shown = this.rows(this.source).length;
@@ -481,20 +595,117 @@ export class DatabaseWorkspace {
     button.onclick = () => { this.visibleLimit = shown + (this.view.layout?.loadLimit || 50); this.scheduleRows(); };
     this.host.querySelector(".database-row-count")?.before(button);
   }
+  private queueReference(page: Page, field: DatabaseProperty, value: unknown) {
+    if (field.dependencyRole !== "blocking") { this.queueScheduled([{ page, field, value }]); return; }
+    const forward = this.source.properties.find(item => item.id === field.inversePropertyId && item.dependencyRole === "blockedBy");
+    if (!forward) return;
+    const selected = new Set(relationIds(value));
+    const changes = this.snapshot!.pages.filter(item => item.dataSourceId === this.source.id && item.id !== page.id).flatMap(item => {
+      const prior = this.pending.get(`${item.id}/${forward.id}`)?.value ?? item.properties[forward.key];
+      const had = relationIds(prior).includes(page.id), wants = selected.has(item.id);
+      if (had === wants) return [];
+      const refs = (Array.isArray(prior) ? prior : []).filter(ref => ref.pageId !== page.id);
+      return [{ item, refs: wants ? [...refs, { pageId: page.id, title: page.title }] : refs, wants }];
+    }).sort((a, b) => Number(a.wants) - Number(b.wants));
+    if (changes.some(change => databasePropertyReadOnly(forward) || documentOverrides(change.item, forward))) { this.message("Edit document metadata to change this dependency."); return; }
+    this.queueScheduled(changes.map(change => ({ page: change.item, field: forward, value: change.refs })));
+  }
+  private queueScheduled(changes: RecordChange[]): boolean {
+    try {
+      const pages = this.snapshot!.pages.map(page => {
+        const properties = { ...page.properties };
+        for (const entry of this.pending.values()) if (entry.pageId === page.id) {
+          const field = this.source.properties.find(field => field.id === entry.propertyId); if (field) properties[field.key] = entry.value;
+        }
+        return { ...page, properties };
+      });
+      const plan = scheduleDependencies(pages, this.source, changes);
+      if (plan.some(change => databasePropertyReadOnly(change.field) || documentOverrides(change.page, change.field))) throw new Error("Edit document metadata to change this dependency or date.");
+      for (const change of plan) this.queue(change.page, change.field, change.value);
+      return true;
+    } catch (error) { this.message(error instanceof Error ? error.message : "Could not schedule dependencies"); return false; }
+  }
+  private async configureDependencies(patch: Pick<DatabaseDataSource, "dependencyAutoShift" | "dependencyDatePropertyId">) {
+    if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes before changing dependencies");
+    const source = this.source;
+    const saved = await api<DatabaseDataSource>(`/data-sources/${source.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: source.revision, ...patch }) });
+    this.snapshot!.dataSources = this.snapshot!.dataSources.map(item => item.id === saved.id ? saved : item); this.renderAlternate();
+  }
+  private async configureTimeline(patch: Partial<DatabaseLayout>) {
+    if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes before changing the timeline");
+    const view = this.view;
+    const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, layout: { ...view.layout, ...patch } }) });
+    this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.renderAlternate();
+  }
+  private async enableDependencies() {
+    if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes before enabling dependencies");
+    const source = this.source;
+    if (source.properties.some(field => field.dependencyRole === "blockedBy")) return;
+    const forwardId = crypto.randomUUID(), inverseId = crypto.randomUUID();
+    const fields: DatabaseProperty[] = [
+      { id: forwardId, key: forwardId, name: "Blocked by", type: "relation", localRelation: true, dependencyRole: "blockedBy" },
+      { id: inverseId, key: inverseId, name: "Blocking", type: "relation", localRelation: true, dependencyRole: "blocking", inversePropertyId: forwardId },
+    ];
+    const saved = await api<DatabaseDataSource>(`/data-sources/${source.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: source.revision, properties: [...source.properties, ...fields], dependencyAutoShift: true, dependencyDatePropertyId: this.view.layout?.datePropertyId }) });
+    this.snapshot!.dataSources = this.snapshot!.dataSources.map(item => item.id === saved.id ? saved : item); this.render();
+  }
+  private async manageCalendar() {
+    if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes before opening Calendar");
+    let calendar = this.snapshot!.views.find(view => view.type === "calendar" && view.dataSourceId === this.source.id && view.layout?.datePropertyId === this.view.layout?.datePropertyId);
+    if (!calendar) {
+      this.snapshot = await createDatabaseView(this.snapshot!, { ...this.view, id: "", revision: "", name: "Calendar", type: "calendar", layout: { datePropertyId: this.view.layout?.datePropertyId } }, this.view);
+      calendar = this.snapshot.views.at(-1)!;
+    }
+    this.rememberView(calendar.id); this.render();
+  }
   private renderAlternate() {
     const mount = this.host.querySelector<HTMLElement>(".database-alternate-layout"); if (!mount) return;
     const source = this.source, view = this.view;
     renderDatabaseLayout(mount, source, this.rows(source), databaseViewProperties(source, view, this.snapshot!.database), view, {
-      open: page => { void this.openPeek(page.id); },
+      open: page => { if (this.snapshot!.dataSources.some(source => source.id === page.dataSourceId)) void this.openPeek(page.id); else void this.flush().then(ok => { if (ok) void this.hooks.openPage(page.id); }); },
+      dashboard: {
+        vaultKey: this.hooks.vaultKey,
+        snapshot: this.snapshot!,
+        prepare: async () => await this.flush() && (!this.peek || await this.peek.flush()),
+        save: async (layout, baseRevision) => {
+          const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision, layout }) });
+          this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item);
+          return saved;
+        },
+      },
       add: properties => { void this.flush().then(ok => { if (ok) this.addRow(properties); }); },
-      settings: () => this.editView(),
+      views: () => this.snapshot!.views,
+      openView: id => { void this.flush().then(ok => { if (ok) { this.rememberView(id); this.render(); } }); },
+      submit: async (title, properties) => {
+        if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes first");
+        const saved = await api<Page>(`/data-sources/${source.id}/records`, { method: "POST", body: JSON.stringify({ title, properties, baseRevision: source.revision }) });
+        this.snapshot!.pages.push(saved); this.hooks.changed(saved);
+      },
+      settings: () => this.editView("Layout"),
+      configure: patch => this.configureTimeline(patch),
+      dependencies: () => this.enableDependencies(),
+      dependencySettings: patch => this.configureDependencies(patch),
+      calendar: () => this.manageCalendar(),
+      pages: () => this.snapshot!.pages,
+      reference: (page, field, value) => { this.queueReference(page, field, value); void this.flush(); },
+      createSuccessor: (page, properties) => this.createTimelineSuccessor(page, properties),
+      titleEditor: page => this.timelineTitleEditor(page),
       groupMenu: (field, key, anchor) => { void this.editGroup(field, key, anchor); },
       collapseGroup: key => { void this.collapseGroup(key); },
-      writable: (page, field) => !this.layoutSaving && !databasePropertyReadOnly(field) && !documentOverrides(page, field),
-      move: (page, field, value) => { void (async () => {
+      writable: (page, field) => !source.unavailable && !source.trashed && !this.layoutSaving && !databasePropertyReadOnly(field) && !documentOverrides(page, field),
+      move: (page, field, value, placement) => { void (async () => {
         if (this.layoutSaving || !await this.flush() || !await this.closePeek()) return;
         this.layoutSaving = true;
-        try { this.queue(page, field, value); if (await this.flush()) this.renderAlternate(); }
+        try {
+          if (!this.queueScheduled([{ page, field, value }])) return;
+          if (placement && !view.sorts?.length && !view.layout?.groupBy) {
+            const order = [...new Set([...(view.rowOrder ?? []), ...this.snapshot!.pages.filter(item => item.dataSourceId === source.id && !item.trashed).map(item => item.id)])].filter(id => id !== page.id);
+            const index = placement.beforeId ? order.indexOf(placement.beforeId) : order.length;
+            order.splice(index < 0 ? order.length : index, 0, page.id);
+            this.orderDraft = { viewId: view.id, baseRevision: view.revision, rowOrder: order }; this.persist();
+          }
+          if (await this.flush()) this.renderAlternate();
+        }
         finally { this.layoutSaving = false; this.renderAlternate(); }
       })().catch(error => this.message(error.message)); },
       month: this.calendarAnchor,
@@ -506,7 +717,7 @@ export class DatabaseWorkspace {
     this.rowsNeedRefresh = true;
     clearTimeout(this.refreshTimer);
     this.refreshTimer = setTimeout(() => {
-      if (!this.alive || !this.snapshot || this.pointerDown || this.pending.size) return;
+      if (!this.alive || !this.snapshot || this.pointerDown || this.pending.size || this.host.contains(document.activeElement) && document.activeElement?.classList.contains("database-timeline-title-input")) return;
       if (this.view.type !== "table") { this.rowsNeedRefresh = false; this.renderAlternate(); return; }
       const body = this.host.querySelector("tbody"); if (!body) return;
       this.rowsNeedRefresh = false;
@@ -539,7 +750,12 @@ export class DatabaseWorkspace {
         td.append(add); footer.append(td); nodes.push(footer);
       } else nodes.push(...ordered.map(page => elements.get(page.id)!).filter(Boolean));
       nodes.forEach((node, index) => { if (body.children[index] !== node) body.insertBefore(node, body.children[index] ?? null); });
+      this.updateSelection?.();
       const count = this.host.querySelector(".database-row-count"); if (count) count.textContent = `${ordered.length} ${ordered.length === 1 ? "page" : "pages"}`; this.updateLoadMore();
+      for (const page of ordered) for (const field of this.source.properties.filter(field => field.dependencyRole === "blocking")) {
+        const td = elements.get(page.id)?.querySelector<HTMLElement>(`td[data-property-id="${CSS.escape(field.id)}"]`);
+        td?.replaceChildren(this.recordCell(page, field, dependencyValue(page, field, this.source, this.snapshot!.pages)));
+      }
     }, 0);
   }
   private async collapseGroup(key: string) {
@@ -589,6 +805,16 @@ export class DatabaseWorkspace {
     });
   }
   private wireSaveControls() {
+    if (!this.hooks.inline && !isWikiDatabase(this.snapshot!.database)) {
+      const section = this.host.querySelector<HTMLElement>(".database-workspace")!; section.classList.add("database-page-workspace");
+      const heading = section.querySelector<HTMLElement>(".database-heading")!;
+      const region = document.createElement("div"); region.className = "page-cover-region database-page-cover"; heading.before(region);
+      const actions = document.createElement("div"); actions.className = "database-heading-actions";
+      actions.innerHTML = `<button type="button" data-db-add-icon>${glyph(Smile)}<span data-i18n="Add icon">Add icon</span></button><button type="button" data-db-add-cover>${glyph(Image)}<span data-i18n="Add cover">Add cover</span></button>`;
+      heading.prepend(actions);
+      actions.querySelector<HTMLElement>("[data-db-add-icon]")!.onclick = event => void this.chooseIcon(event.currentTarget as HTMLElement);
+      actions.querySelector<HTMLElement>("[data-db-add-cover]")!.onclick = event => void this.chooseCover(event.currentTarget as HTMLElement);
+    }
     this.host.querySelector("[data-db-retry]")!.addEventListener("click", () => { this.failed = false; this.presentationFailed = false; if (this.sourceTitle) this.sourceTitle.failed = false; void this.flush(); });
     this.refreshPresentation();
     const titleInput = this.host.querySelector<HTMLInputElement>("[data-i18n-aria-label='Database title']")!;
@@ -598,14 +824,17 @@ export class DatabaseWorkspace {
     this.host.querySelector<HTMLButtonElement>("[data-db-icon]")!.addEventListener("click", event => void this.chooseIcon(event.currentTarget as HTMLElement));
     this.host.querySelector("[data-db-discard]")!.addEventListener("mousedown", event => event.preventDefault());
     this.host.querySelector("[data-db-discard]")!.addEventListener("click", () => {
-      if (this.saving || this.presentationSaving || this.sourceTitleSaving) { this.message("Wait for the current save to finish before discarding edits."); return; }
-      this.pending.clear(); this.persist(); this.failed = false;
+      if (this.saving || this.widthSaving || this.orderSaving || this.presentationSaving || this.sourceTitleSaving) { this.message("Wait for the current save to finish before discarding edits."); return; }
+      this.pending.clear(); this.widthDraft = undefined; this.orderDraft = undefined; this.persist(); this.failed = false;
       this.presentation = undefined; this.persistPresentation(); this.presentationFailed = false;
       this.sourceTitle = undefined; this.persistSourceTitle();
       void (async () => { if (!(await this.closePeek())) return; await this.load(this.snapshot!.database.id); })().catch(error => this.message(error.message));
     });
   }
   private render(preserveMenu = false) {
+    this.host.querySelectorAll<HTMLElement>(".database-alternate-layout").forEach(disposeDatabaseLayout);
+    this.resizeCleanup?.(); this.resizeCleanup = undefined;
+    this.coverPickerCleanup?.(); this.coverPickerCleanup = undefined; this.coverCleanup?.(); this.coverCleanup = undefined; this.coverSignature = undefined;
     this.viewOverflowCleanup?.(); this.viewOverflowCleanup = undefined;
     this.wikiPickerCleanup?.(); this.wikiPickerCleanup = undefined;
     if (!preserveMenu) { this.menu?.destroy(); this.menu = undefined; }
@@ -615,7 +844,7 @@ export class DatabaseWorkspace {
     const snapshot = this.snapshot!, source = this.source, view = this.view;
     if (!view) { this.renderEmpty(snapshot); return; }
     this.peek?.destroy(); this.peek = undefined;
-    this.host.innerHTML = `<div class="database-layout"><section class="database-workspace database-table-pane"><button class="database-back" data-db-back aria-label="All databases" data-i18n-aria-label="All databases">${glyph(ArrowLeft)}<span data-i18n="Databases">Databases</span></button><header class="database-heading"><div class="database-heading-title"><button type="button" class="database-title-icon" data-db-icon aria-label="Change database icon" title="Change database icon" data-i18n-title="Change database icon" data-i18n-aria-label="Change database icon"></button><h1 aria-label="${e(snapshot.database.title)}"><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}" maxlength="500"  data-i18n-aria-label="Database title"/></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views" data-i18n-aria-label="Database views">${snapshot.views.map(item => `<button role="tab" aria-selected="${view?.id === item.id}" data-db-tab="${e(item.id)}">${glyph(viewIcons[item.type] ?? Table2)}${e(item.name)}${item.linked ? `<small class="database-view-link" aria-hidden="true" data-i18n="Link">Link</small>` : ""}</button>`).join("")}<button class="database-icon-button" data-db-new-view aria-label="New view" title="New view" data-i18n-title="New view" data-i18n-aria-label="New view">${glyph(Plus)}</button></div><div class="database-toolbar-actions"><button class="database-icon-button ${view?.filters?.length ? "is-active" : ""}" data-db-filter aria-label="Filter" title="Filter" data-i18n-title="Filter" data-i18n-aria-label="Filter">${glyph(ListFilter)}</button><button class="database-icon-button ${view?.sorts?.length ? "is-active" : ""}" data-db-sort aria-label="Sort" title="Sort" data-i18n-title="Sort" data-i18n-aria-label="Sort">${glyph(ArrowDownUp)}</button><div class="database-search-control"><button class="database-icon-button" data-db-search aria-label="Search database" title="Search database" aria-expanded="${this.showSearch}" data-i18n-title="Search database" data-i18n-aria-label="Search database">${glyph(Search)}</button><div class="database-search" ${this.showSearch ? "" : "hidden"}><input type="search" aria-label="Search database records" placeholder="Type to search..." value="${e(this.search)}" data-i18n-placeholder="Type to search..." data-i18n-aria-label="Search database records"/><button aria-label="Close database search" class="database-icon-button" data-i18n-aria-label="Close database search">${glyph(X)}</button></div></div><button class="database-icon-button" data-db-view aria-label="View settings" title="View settings" data-i18n-title="View settings" data-i18n-aria-label="View settings">${glyph(SlidersHorizontal)}</button><div class="database-new-control"><button class="database-new-button" data-db-row aria-label="Add row" data-i18n="New" data-i18n-aria-label="Add row">New</button><details class="database-new-menu"><summary class="database-new-menu-button" aria-label="New options" data-i18n-aria-label="New options">${glyph(ChevronDown)}</summary><div class="database-menu"><button data-db-row data-i18n="New page">New page</button><button data-action="import-notion" data-i18n="Import from Notion">Import from Notion</button></div></details></div></div></div><p class="database-message" role="status" data-state="saved" data-i18n="Saved locally">Saved locally</p><div class="database-save-recovery" hidden><button data-db-retry data-i18n="Retry save">Retry save</button><button data-db-discard data-i18n="Discard draft and reload">Discard draft and reload</button></div><div class="database-table-scroll"><table class="database-table"><thead><tr></tr></thead><tbody></tbody></table><button class="database-add-row" data-db-row>${glyph(Plus)}<span data-i18n="New page">New page</span></button></div><p class="database-row-count"></p></section><aside class="database-peek-mount" hidden></aside></div>`;
+    this.host.innerHTML = `<div class="database-layout"><section class="database-workspace database-table-pane"><header class="database-heading"><div class="database-heading-title"><button type="button" class="database-title-icon" data-db-icon aria-label="Change database icon" title="Change database icon" data-i18n-title="Change database icon" data-i18n-aria-label="Change database icon"></button><h1 aria-label="${e(snapshot.database.title)}"><input class="database-title-input" aria-label="Database title" value="${e(this.presentation?.title ?? snapshot.database.title)}" maxlength="500"  data-i18n-aria-label="Database title"/></h1></div></header><div class="database-toolbar"><div class="database-view-tabs" role="tablist" aria-label="Database views" data-i18n-aria-label="Database views">${snapshot.views.map(item => `<button role="tab" aria-selected="${view?.id === item.id}" data-db-tab="${e(item.id)}">${databaseViewIconHTML(item)}${e(item.name)}</button>`).join("")}<button class="database-icon-button" data-db-new-view aria-label="New view" title="New view" data-i18n-title="New view" data-i18n-aria-label="New view">${glyph(Plus)}</button></div><div class="database-toolbar-actions"><button class="database-icon-button ${view?.filters?.length ? "is-active" : ""}" data-db-filter aria-label="Filter" title="Filter" data-i18n-title="Filter" data-i18n-aria-label="Filter">${glyph(ListFilter)}</button><button class="database-icon-button ${view?.sorts?.length ? "is-active" : ""}" data-db-sort aria-label="Sort" title="Sort" data-i18n-title="Sort" data-i18n-aria-label="Sort">${glyph(ArrowDownUp)}</button><div class="database-search-control"><button class="database-icon-button" data-db-search aria-label="Search database" title="Search database" aria-expanded="${this.showSearch}" data-i18n-title="Search database" data-i18n-aria-label="Search database">${glyph(Search)}</button><div class="database-search" ${this.showSearch ? "" : "hidden"}><input type="search" aria-label="Search database records" placeholder="Type to search..." value="${e(this.search)}" data-i18n-placeholder="Type to search..." data-i18n-aria-label="Search database records"/><button aria-label="Close database search" class="database-icon-button" data-i18n-aria-label="Close database search">${glyph(X)}</button></div></div><button class="database-icon-button" data-db-view aria-label="View settings" title="View settings" data-i18n-title="View settings" data-i18n-aria-label="View settings">${glyph(SlidersHorizontal)}</button><div class="database-new-control"><button class="database-new-button" data-db-row aria-label="Add row" data-i18n="New" data-i18n-aria-label="Add row">New</button><details class="database-new-menu"><summary class="database-new-menu-button" aria-label="New options" data-i18n-aria-label="New options">${glyph(ChevronDown)}</summary><div class="database-menu"><button data-db-row data-i18n="New page">New page</button><button data-action="import-notion" data-i18n="Import from Notion">Import from Notion</button></div></details></div></div></div><p class="database-message" role="status" data-state="saved" data-i18n="Saved locally">Saved locally</p><div class="database-save-recovery" hidden><button data-db-retry data-i18n="Retry save">Retry save</button><button data-db-discard data-i18n="Discard draft and reload">Discard draft and reload</button></div><div class="database-table-scroll"><table class="database-table"><thead><tr></tr></thead><tbody></tbody></table><button class="database-add-row" data-db-row>${glyph(Plus)}<span data-i18n="New page">New page</span></button></div><p class="database-row-count"></p></section><aside class="database-peek-mount" hidden></aside></div>`;
     if (isWikiDatabase(snapshot.database) && !this.hooks.inline) {
       const section = this.host.querySelector<HTMLElement>(".database-workspace")!; section.classList.add("wiki-collection", "wiki-shell");
       const cover = snapshot.hostPage?.properties?.cover, position = snapshot.hostPage?.properties?.coverPosition;
@@ -625,13 +854,15 @@ export class DatabaseWorkspace {
       }
       const mount = document.createElement("div"); mount.className = "wiki-picker-mount"; this.host.querySelector(".database-toolbar")!.prepend(mount);
       this.wikiPickerCleanup = mountWikiViewPicker(mount, snapshot, view.id, {
+        prepare: () => this.flush(),
+        menuOpened: pop => { this.menu = pop; },
+        updated: next => { this.snapshot = next; this.render(); },
         select: async id => { if (!await this.flush()) return; if (id === "home") await this.hooks.openDatabase(snapshot.database.id); else { this.rememberView(id); this.render(); } },
         create: async anchor => { if (await this.flush()) this.newView(anchor); },
         edit: async (id, anchor) => { if (!await this.flush()) return; if (id === "home") { await this.hooks.openDatabase(snapshot.database.id); document.querySelector<HTMLDetailsElement>("#page-options")?.setAttribute("open", ""); } else { this.rememberView(id); this.render(); this.editView(undefined, undefined, this.host.querySelector<HTMLElement>(".wiki-view-trigger")!); } },
         report: error => this.message(error instanceof Error ? error.message : String(error)),
       });
     }
-    this.host.querySelector("[data-db-back]")!.addEventListener("click", () => void this.hooks.openDatabase());
     if (preserveMenu) this.menu?.reanchor(this.host.querySelector<HTMLElement>("[data-db-view]")!);
     if (this.hooks.inline) {
       this.host.querySelector(".database-workspace")!.classList.add("database-inline-workspace");
@@ -675,7 +906,7 @@ export class DatabaseWorkspace {
     workspace.dataset.verticalLines = String(view.layout?.showVerticalLines !== false);
     workspace.classList.toggle("database-hide-page-icons", view.layout?.showPageIcon === false);
     workspace.classList.toggle("database-wrap-content", !!view.layout?.wrapContent);
-    if ((view.layout?.showDataSourceTitle ?? (this.hooks.inline || snapshot.dataSources.length > 1)) && source) {
+    if (this.showSourceTitle && source) {
       this.host.querySelector(".database-toolbar")!.before(this.renderSourceTitle(source));
     }
     this.refreshSourceTitle();
@@ -691,8 +922,11 @@ export class DatabaseWorkspace {
     if (view.type !== "table") {
       const mount = document.createElement("div"); mount.className = "database-alternate-layout";
       this.host.querySelector(".database-table-scroll")!.replaceWith(mount);
-      this.renderAlternate(); return;
+      this.renderAlternate();
+      this.host.querySelector<HTMLElement>(".database-table-pane")!.scrollTop = scrollTop;
+      return;
     }
+    this.updateSelection = undefined;
     const fields = databaseViewProperties(source, view, snapshot.database);
     const heading = this.host.querySelector("thead tr")!;
     for (const field of fields) {
@@ -706,13 +940,27 @@ export class DatabaseWorkspace {
       for (const field of fields) {
         const td = document.createElement("td"), pending = this.pending.get(`${page.id}/${field.id}`);
         td.dataset.type = field.type; td.dataset.propertyId = field.id; td.classList.toggle("database-frozen-column", field.id === view.layout?.frozenPropertyId); td.classList.toggle("database-wrap-cell", !!view.layout?.wrapContent || !!view.layout?.wrapPropertyIds?.includes(field.id));
-        const value = pending ? pending.value : field.type === "title" ? page.title : page.properties[field.key];
+        const value = pending ? pending.value : fieldValue(page, field);
         const cell = this.recordCell(page, field, value);
         td.append(cell); tr.append(td);
       }
       const tail = document.createElement("td"); tail.className = "database-row-tail"; tr.append(tail);
       body.append(tr);
     }
+    this.updateSelection = installTableSelection(this.host.querySelector<HTMLTableElement>(".database-table")!, this.selectedRows, {
+      fields: source.properties.filter(field => field.type !== "title" && !databasePropertyReadOnly(field) && !field.dependencyRole && (!["relation", "people", "files"].includes(field.type) || field.localRelation || field.type === "people" && !field.notion)),
+      canReorder: !view.sorts?.length && !view.layout?.groupBy && !source.unavailable,
+      edit: (field, anchor, ids) => { void this.editSelectedProperty(field, anchor, ids); },
+      add: id => { void this.flush().then(ok => { if (ok) this.addRow(this.view.layout?.groupBy ? (() => { const field = this.source.properties.find(field => field.id === this.view.layout?.groupBy)!; const page = this.snapshot!.pages.find(page => page.id === id)!; return { [field.key]: fieldValue(page, field) }; })() : {}, id); }); },
+      reorder: (ids, target, after) => { void this.reorderSelected(ids, target, after); },
+    });
+    this.resizeCleanup = installDatabaseTableResize(this.host.querySelector<HTMLTableElement>(".database-table")!, fields,
+      (this.widthDraft?.viewId === view.id ? this.widthDraft.layout.columnWidths : view.layout?.columnWidths) ?? {},
+      () => !this.widthSaving && !this.widthDraft && !this.layoutSaving && !this.sourceSaving && !this.failed && !this.orderDraft && !this.menu?.dirty,
+      widths => {
+        this.widthDraft = { viewId: view.id, baseRevision: this.view.revision, layout: { ...this.view.layout, columnWidths: { ...this.view.layout?.columnWidths, ...widths } } };
+        this.persist(); this.message("Unsaved changes"); void this.flush();
+      });
     this.host.querySelector(".database-row-count")!.textContent = `${visible.size} ${visible.size === 1 ? "page" : "pages"}`;
     this.host.querySelector<HTMLElement>(".database-table-pane")!.scrollTop = scrollTop;
     this.host.querySelector<HTMLElement>(".database-table-scroll")!.scrollLeft = scrollLeft;
@@ -726,8 +974,39 @@ export class DatabaseWorkspace {
     create.onclick = () => { void this.flush().then(ok => { if (ok) this.newView(create); }); };
     this.host.querySelector<HTMLButtonElement>("[data-db-view]")!.onclick = () => { void this.manageSources().catch(error => this.message(error.message)); };
   }
+  private async reorderSelected(ids: string[], target: string, after: boolean) {
+    if (!await this.flush() || !await this.closePeek() || this.view.sorts?.length || this.view.layout?.groupBy || this.source.unavailable) return;
+    const pages = this.matchingRows(this.source), moving = pages.filter(page => ids.includes(page.id)).map(page => page.id);
+    if (!moving.length || moving.includes(target) || !pages.some(page => page.id === target)) return;
+    const order = [...new Set([...(this.view.rowOrder ?? []), ...this.snapshot!.pages.filter(page => page.dataSourceId === this.source.id && !page.trashed).map(page => page.id)])].filter(id => !moving.includes(id));
+    const index = order.indexOf(target); if (index < 0) return;
+    order.splice(index + (after ? 1 : 0), 0, ...moving);
+    this.orderDraft = { viewId: this.view.id, baseRevision: this.view.revision, rowOrder: order }; this.persist();
+    await this.flushOrder();
+  }
+  private async editSelectedProperty(field: DatabaseProperty, anchor: HTMLElement, ids: string[]) {
+    if (!await this.flush() || !await this.closePeek()) return;
+    this.menu?.destroy();
+    const pages = this.snapshot!.pages.filter(page => ids.includes(page.id) && page.dataSourceId === this.source.id && !page.trashed);
+    if (!pages.length || this.source.unavailable) return;
+    if (pages.some(page => documentOverrides(page, field))) { this.message("Some selected values are defined in document metadata. Edit them in source."); return; }
+    const pop = new DatabasePopover(anchor, "Edit property"); this.menu = pop;
+    const panel = pop.panel("Edit property");
+    const label = document.createElement("p"); label.textContent = field.name; panel.append(label);
+    let value: unknown = null, changed = false;
+    const first = fieldValue(pages[0], field), same = pages.every(page => JSON.stringify(fieldValue(page, field)) === JSON.stringify(first));
+    const editor = propertyInput(field, { ...pages[0], title: "Selected rows" }, same ? first : null, next => { value = next; changed = true; }, false, this.snapshot!.pages, panel); panel.append(editor);
+    const apply = document.createElement("button"); apply.type = "button"; setUIText(apply, "Apply to selected rows");
+    pop.saveOnDismiss = false;
+    apply.onclick = () => { if (!changed) return; void pop.perform(async () => {
+      if (!this.queueScheduled(pages.map(page => ({ page, field, value })))) throw new Error("Could not apply selected property values");
+      if (!await this.flushRecords()) throw new Error("Save failed. Remaining edits are preserved.");
+      this.render(true);
+    }); };
+    panel.append(apply);
+  }
   private recordCell(page: Page, field: DatabaseProperty, value: unknown) {
-    const cell = propertyInput(field, page, value, value => this.queue(page, field, value), !!this.view.layout?.wrapContent || !!this.view.layout?.wrapPropertyIds?.includes(field.id));
+    const cell = propertyInput(field, page, value, value => this.queueReference(page, field, value), !!this.view.layout?.wrapContent || !!this.view.layout?.wrapPropertyIds?.includes(field.id), this.snapshot!.pages);
     cell.addEventListener("change", () => void this.flush());
     cell.addEventListener("keydown", event => { if (event.key === "Enter" && event.target instanceof HTMLInputElement) { event.preventDefault(); void this.flush(); } });
     if (field.type === "title") {
@@ -742,8 +1021,8 @@ export class DatabaseWorkspace {
     if (!row) { this.renderAlternate(); return; }
     for (const td of row.querySelectorAll<HTMLElement>("td[data-property-id]")) {
       const field = this.source.properties.find(field => field.id === td.dataset.propertyId); if (!field) continue;
-      td.replaceChildren(this.recordCell(page, field, field.type === "title" ? page.title : page.properties[field.key]));
-      td.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input,textarea,select,.database-select-control").forEach(control => control.disabled = true);
+      td.replaceChildren(this.recordCell(page, field, dependencyValue(page, field, this.source, this.snapshot!.pages) ?? fieldValue(page, field)));
+      td.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input,textarea,select,.database-select-control,.database-place-cell button").forEach(control => control.disabled = true);
     }
     this.scheduleRows();
   }
@@ -764,7 +1043,8 @@ export class DatabaseWorkspace {
     if (!source) { this.message("The page no longer belongs to this database. Reload to see its current location."); return; }
       const mount = this.host.querySelector<HTMLElement>(".database-peek-mount")!;
       if (!this.peek) this.peek = new DatabasePeek(mount, {
-        vaultKey: this.hooks.vaultKey, pages: () => this.snapshot!.pages, propertyInput,
+        vaultKey: this.hooks.vaultKey, pages: () => this.snapshot!.pages,
+        propertyInput: (field, page, value, commit) => propertyInput(field.dependencyRole === "blocking" ? { ...field, readOnly: true } : field, page, dependencyValue(page, field, source, this.snapshot!.pages) ?? value, commit, false, this.snapshot!.pages),
         addProperty: async () => { if (await this.flush()) this.editProperty(undefined, this.peek?.pageId); },
         openFull: pageId => this.hooks.openPage(pageId),
         closed: () => { void this.closePeek(); },
@@ -772,11 +1052,52 @@ export class DatabaseWorkspace {
       });
       if (!(await this.peek.open(page, source)) || generation !== this.opening) return;
       mount.hidden = false; mount.classList.toggle("database-center-peek", this.view.layout?.openPagesIn === "center"); this.host.querySelector(".database-layout")!.classList.add("database-peek-open");
-      this.host.querySelectorAll<HTMLElement>("tr[data-page-id]").forEach(row => row.classList.toggle("database-row-selected", row.dataset.pageId === id));
-      this.host.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".database-table input,.database-table textarea,.database-table select,.database-table .database-select-control").forEach(input => input.disabled = true);
+      this.host.querySelectorAll<HTMLElement>("tr[data-page-id]").forEach(row => row.classList.toggle("database-row-peek", row.dataset.pageId === id));
+      this.host.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".database-table input,.database-table textarea,.database-table select,.database-table .database-select-control,.database-table .database-place-cell button").forEach(input => input.disabled = true);
     } catch (error) { this.message(error instanceof Error ? error.message : "Could not open this record"); }
   }
-  private addRow(properties: Record<string, unknown> = {}) {
+  private async createTimelineSuccessor(predecessor: Page, properties: Record<string, unknown>) {
+    if (this.layoutSaving) return;
+    const source = this.source, view = this.view;
+    if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes before creating a page");
+    if (!this.alive || this.view.id !== view.id) return;
+    const forward = source.properties.find(field => field.dependencyRole === "blockedBy");
+    if (!forward) return;
+    this.layoutSaving = true;
+    try {
+      // Plan the new record before writing so its date follows the same overlap
+      // policy as an existing successor, without rewriting its predecessor.
+      const draft = { ...predecessor, id: crypto.randomUUID(), title: "Untitled", body: "", properties: { ...properties } };
+      const refs = [{ pageId: predecessor.id, title: predecessor.title }];
+      const plan = scheduleDependencies([...this.snapshot!.pages, draft], source, [{ page: draft, field: forward, value: refs }]);
+      for (const change of plan) if (change.page.id === draft.id) draft.properties[change.field.key] = change.value;
+      const saved = await api<Page>(`/data-sources/${source.id}/records`, { method: "POST", body: JSON.stringify({ title: draft.title, properties: draft.properties, baseRevision: source.revision }) });
+      const order = [...new Set([...(view.rowOrder ?? []), ...this.snapshot!.pages.filter(page => page.dataSourceId === source.id && !page.trashed).map(page => page.id), saved.id])];
+      this.snapshot!.pages.push(saved); this.hooks.changed(saved);
+      this.orderDraft = { viewId: view.id, baseRevision: view.revision, rowOrder: order }; this.persist();
+      await this.flushOrder();
+      this.timelineTitleId = saved.id;
+    } finally {
+      this.layoutSaving = false;
+      if (this.alive) this.renderAlternate();
+    }
+  }
+  private timelineTitleEditor(page: Page): HTMLElement | undefined {
+    if (page.id !== this.timelineTitleId) return;
+    const field = this.source.properties.find(field => field.type === "title"); if (!field) return;
+    const input = document.createElement("input"); input.className = "database-timeline-title-input"; input.maxLength = 500;
+    setUIAttribute(input, "placeholder", "Type a name…"); setUIAttribute(input, "aria-label", "Page title");
+    input.value = String(this.pending.get(`${page.id}/${field.id}`)?.value ?? (page.title === "Untitled" ? "" : page.title));
+    input.oninput = () => this.queue(page, field, input.value.trim() || "Untitled");
+    input.onkeydown = event => { if (!event.isComposing && ["Enter", "Escape"].includes(event.key)) { event.preventDefault(); event.stopPropagation(); input.blur(); } };
+    input.onblur = () => {
+      this.timelineTitleId = undefined;
+      void this.flush().then(() => { if (this.alive) this.renderAlternate(); });
+    };
+    requestAnimationFrame(() => { if (input.isConnected) input.focus({preventScroll:true}); });
+    return input;
+  }
+  private addRow(properties: Record<string, unknown> = {}, beforeId?: string) {
     const source = this.source;
     formDialog("Add row", `<label><span data-i18n="Row title">Row title</span><input name="title" required maxlength="500" autofocus /></label><footer><button type="button" data-cancel data-i18n="Cancel">Cancel</button><button type="submit" class="primary-button" data-i18n="Create row">Create row</button></footer>`, async form => {
       const saved = await api<Page>(`/data-sources/${source.id}/records`, { method: "POST", body: JSON.stringify({ title: form.get("title"), properties, baseRevision: source.revision }) });
@@ -785,7 +1106,7 @@ export class DatabaseWorkspace {
       try {
         const order = Array.isArray(view.rowOrder) ? [...view.rowOrder as string[]] : rowOrder;
         for (const page of this.snapshot!.pages) if (page.dataSourceId === source.id && page.id !== saved.id && !order.includes(page.id)) order.push(page.id);
-        const updated = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, rowOrder: [...order, saved.id] }) });
+        const updated = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, rowOrder: beforeId && order.includes(beforeId) ? [...order.slice(0, order.indexOf(beforeId)), saved.id, ...order.slice(order.indexOf(beforeId))] : [...order, saved.id] }) });
         this.snapshot!.views = this.snapshot!.views.map(item => item.id === updated.id ? updated : item);
       } catch (error) { this.render(); this.message(`Page created. Its row order could not be saved: ${error instanceof Error ? error.message : "view changed"}. Reload to continue.`); return; }
       this.render();
@@ -819,6 +1140,7 @@ export class DatabaseWorkspace {
       const names = String(form.get("options") ?? "").split(/\r?\n/).map(name => name.trim()).filter(Boolean);
       if (new Set(names).size !== names.length) throw new Error("Option names must be unique");
       const property: DatabaseProperty = { id, name: String(form.get("name")).trim(), key: id, type };
+      if (type === "relation") property.localRelation = true;
       if (["select", "multi_select", "status"].includes(type)) property.options = names.map((name, index) => ({ id: crypto.randomUUID(), name, color: ["gray", "blue", "green", "red", "yellow"][index % 5] }));
       const properties = [...source.properties], index = insertAt ? properties.findIndex(field => field.id === insertAt.id) : -1;
       properties.splice(index < 0 ? properties.length : index + (insertAt?.side === "right" ? 1 : 0), 0, property);
@@ -848,9 +1170,9 @@ export class DatabaseWorkspace {
     };
     this.menu = openTabMenu(anchor, {
       view, source, wiki: isWikiDatabase(snapshot.database), lastSourceView: snapshot.views.filter(item => item.dataSourceId === source.id).length === 1, ownsSource: source.ownerDatabaseId === snapshot.database.id,
-      showSourceTitle: view.layout?.showDataSourceTitle ?? (this.hooks.inline || snapshot.dataSources.length > 1),
+      showSourceTitle: this.showSourceTitle,
       save: async draft => {
-        const saved = await api<DatabaseView>(`/database-views/${id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout }) });
+        const saved = await api<DatabaseView>(`/database-views/${id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, icon: draft.icon, type: draft.type, layout: draft.layout }) });
         this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.render(); document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: this.snapshot }));
       },
       edit: section => this.editView(section, undefined, this.host.querySelector<HTMLElement>("[data-db-view]")!, view),
@@ -871,7 +1193,7 @@ export class DatabaseWorkspace {
     this.menu = openViewMenu(anchor ?? this.host.querySelector<HTMLElement>(section === "Filter" ? "[data-db-filter]" : section === "Sort" ? "[data-db-sort]" : "[data-db-view]")!, {
       sources: this.snapshot!.dataSources, view, surface: this.host, wiki: isWikiDatabase(this.snapshot!.database), manageSources: isWikiDatabase(this.snapshot!.database) ? undefined : (pop, button, level) => { void this.manageSources(pop, button, level).catch(error => this.message(error.message)); },
       save: async draft => {
-        const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, type: draft.type, layout: draft.layout, filterMode: draft.filterMode, propertyIds: draft.propertyIds, filters: draft.filters, sorts: draft.sorts }) });
+        const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, icon: draft.icon, type: draft.type, layout: draft.layout, filterMode: draft.filterMode, propertyIds: draft.propertyIds, filters: draft.filters, sorts: draft.sorts }) });
         view.revision = saved.revision; draft.revision = saved.revision;
         this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.visibleLimit = undefined; this.render(true);
         document.dispatchEvent(new CustomEvent("notdown-database-updated", { detail: this.snapshot }));

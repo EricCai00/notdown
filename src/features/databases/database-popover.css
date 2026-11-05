@@ -1,8 +1,12 @@
 .database-popover { position:fixed; box-sizing:border-box; max-width:calc(100vw - 16px); padding:7px; border:1px solid var(--border,#e9e9e7); border-radius:10px; background:var(--surface,#fff); color:var(--text,#37352f); box-shadow:0 8px 20px #00000016,0 2px 5px #00000008; font:13px/1.4 Inter,Segoe UI,sans-serif; overflow:auto; scrollbar-width:thin; }
+.database-scroll-locked { overflow:hidden!important; }
+.database-scroll-locked-gutter { scrollbar-gutter:stable; }
+.database-popover { overscroll-behavior:contain; }
 .database-popover * { box-sizing:border-box; }
 .database-popover button { font:inherit; cursor:pointer; color:inherit; }
 .database-popover button:disabled { opacity:.4; cursor:default; }
 .database-popover[aria-busy=true] { pointer-events:none; opacity:.8; }
+.database-popover[data-autosave=true][aria-busy=true] { pointer-events:auto; opacity:1; }
 .database-popover-header { display:flex; align-items:center; gap:4px; padding:9px 8px 12px; color:var(--muted,#787774); font-size:12px; }
 .database-popover-header > span { flex:1; }
 .database-popover-close,.database-popover-back { border:0; background:var(--hover,#f1f1ef); border-radius:50%; display:grid; place-items:center; padding:2px; width:21px; height:21px; }
@@ -20,6 +24,15 @@
 .database-popover-section { border-top:1px solid var(--border,#eee); margin:11px 9px 5px; padding-top:10px; }
 .database-popover-section > .database-popover-row { width:calc(100% + 18px); margin-left:-9px; }
 .database-popover-caption { margin:0 0 9px; color:#8a8986; font-size:12px; }
+.database-chart-type-picker { display:flex; flex-wrap:wrap; gap:8px; }
+.database-chart-type-option { display:grid; place-items:center; width:42px; height:42px; padding:8px; border:1px solid var(--border,#e9e9e7); border-radius:5px; background:transparent; }
+.database-chart-type-option > svg { width:24px; height:24px; color:var(--muted,#9b9a97); }
+.database-chart-type-accent { stroke:#8fb7ee; }
+.database-chart-type-option > .database-popover-label { display:none; }
+.database-chart-type-option:hover { background:var(--hover,#f1f1ef); }
+.database-chart-type-option[aria-pressed=true] { border-color:#2688ed; box-shadow:inset 0 0 0 1px #2688ed; }
+.database-chart-type-option[aria-pressed=true] > svg { color:#2688ed; }
+.database-chart-type-option:focus-visible { outline:2px solid #2688ed; outline-offset:3px; }
 .database-popover-switch { flex:0 0 29px; height:17px; border-radius:20px; background:#dadad7; padding:2px; transition:background .12s; }
 .database-popover-switch::after { content:""; display:block; width:13px; height:13px; border-radius:50%; background:#fff; box-shadow:0 1px 2px #0002; }
 .database-popover-row[aria-checked=true] .database-popover-switch { background:#2688ed; }
@@ -76,3 +89,34 @@
 .database-visibility-row { display:flex; align-items:center; gap:2px; }
 .database-visibility-row > button:first-child { flex:1; min-width:0; }
 .database-visibility-row > button:not(:first-child) { width:26px; flex:none; padding:4px; justify-content:center; }
+.database-calendar-visibility .database-popover-name { padding:3px 6px 12px; }
+.database-calendar-visibility .database-popover-header { font-size:15px; color:var(--text,#37352f); }
+.database-calendar-visibility .database-popover-name input { height:34px; font-size:14px; }
+.database-calendar-visibility .database-popover-section { display:grid; grid-template-columns:1fr auto; align-items:center; border:0; margin-top:6px; }
+.database-calendar-visibility .database-popover-caption { grid-column:1; margin:0; }
+.database-calendar-visibility .database-popover-section > button { grid-column:2; width:auto; margin:0; color:#287fda; padding:4px 0; }
+.database-calendar-visibility .database-visibility-row { grid-column:1/-1; position:relative; min-height:32px; }
+.database-calendar-visibility .database-visibility-row > button[role=switch] { flex:1; width:auto; padding:5px 4px; justify-content:flex-start; font-size:14px; }
+.database-calendar-visibility .database-visibility-grip { width:15px; color:var(--database-muted); flex:none; cursor:grab; }
+.database-calendar-visibility .database-visibility-row > .database-visibility-move { position:absolute; top:3px; width:22px; background:var(--surface,#fff); opacity:0; }
+.database-calendar-visibility .database-visibility-move.is-up { right:48px; }
+.database-calendar-visibility .database-visibility-move.is-down { right:26px; }
+.database-calendar-visibility .database-visibility-row:hover > .database-visibility-move,.database-calendar-visibility .database-visibility-row:focus-within > .database-visibility-move { opacity:1; }
+.database-feed-visibility { max-height:calc(100vh - 16px); }
+.database-feed-visibility .database-popover-section { display:flex; flex-wrap:wrap; align-items:center; border-top:0; }
+.database-feed-visibility .database-popover-section:not(:has(.database-visibility-row)) { display:none; }
+.database-feed-visibility .database-popover-caption { flex:1; margin:8px 6px; }
+.database-feed-visibility .database-popover-section>button { width:auto; color:#448bce; font-size:12px; }
+.database-feed-visibility .database-popover-header { font-size:14px; font-weight:600; color:var(--text,#37352f); }
+.database-feed-visibility .database-popover-name input { height:34px; font-size:14px; }
+.database-feed-visibility .database-visibility-row { width:100%; min-height:34px; position:relative; }
+.database-feed-visibility .database-visibility-row>button[role=switch] { flex:1; width:auto; min-width:0; padding:6px; justify-content:flex-start; }
+.database-feed-visibility .database-visibility-row>button:not([role=switch]) { position:absolute; right:28px; width:22px; opacity:0; background:var(--surface,#fff); }
+.database-feed-visibility .database-visibility-row>button:nth-last-child(2) { right:50px; }
+.database-feed-visibility .database-visibility-row:hover>button,.database-feed-visibility .database-visibility-row:focus-within>button { opacity:1; }
+.database-feed-visibility .database-visibility-grip { flex:none; width:14px; color:#aaa9a5; cursor:grab; }
+@media (hover:none) { .database-feed-visibility .database-visibility-row>button { opacity:1; } }
+.database-view-icon-grid { display:grid; grid-template-columns:repeat(8,1fr); gap:3px; max-height:300px; overflow:auto; padding:6px; }
+.database-view-icon-grid>button { display:flex; align-items:center; justify-content:center; min-height:32px; border:0; border-radius:4px; color:inherit; background:transparent; }
+.database-view-icon-grid>button:hover,.database-view-icon-grid>button[aria-pressed=true] { background:var(--hover,#eeedeb); }
+.database-view-icon-grid>.database-popover-row,.database-view-icon-grid>p { grid-column:1/-1; }

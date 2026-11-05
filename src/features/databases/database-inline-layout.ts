@@ -14,6 +14,9 @@ export function installInlineDatabaseLayout(host: HTMLElement) {
   };
   const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
   const resize = new ResizeObserver(schedule); resize.observe(host); const viewport = host.closest<HTMLElement>("#main, #mobile-content"); if (viewport) resize.observe(viewport);
-  const mutations = new MutationObserver(schedule); mutations.observe(host, { childList: true, subtree: true }); schedule();
+  const mutations = new MutationObserver(records => {
+    if (records.some(record => record.type === "childList" || record.target instanceof HTMLTableElement)) schedule();
+  });
+  mutations.observe(host, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] }); schedule();
   return () => { resize.disconnect(); mutations.disconnect(); cancelAnimationFrame(frame); };
 }

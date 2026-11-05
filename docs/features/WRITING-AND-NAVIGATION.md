@@ -6,6 +6,16 @@
 
 This guide covers everyday editing and page organization. Available features depend on the page's dialect and enabled extensions. See [supported content](../reference/NOTDOWN-SUPERSET.md) and the [format contract](../FORMAT.md) for syntax boundaries.
 
+## Vault list
+
+Sidebar page, favorite and database view titles stay on one line, with an ellipsis when space runs out. Hovering or focusing a row makes room for its action buttons without increasing the row height.
+
+The vault **List** resolves database property storage keys through each page's own data source and shows the property names. Names appear as smaller, muted labels beside darker values. Select, Status and Multi-select show option names; dates, checkboxes and linked pages use readable values. Ordinary page properties retain their authored names. Hover a label or value to read its full text. Filtering also matches these displayed names and values. This is a read-only presentation and does not rename stored keys or edit pages.
+
+## Vault gallery
+
+The vault **Gallery** shows page icons beside titles and defaults to **First image**, falling back to the first body block when no image exists. The toolbar’s **Card preview** selector also offers **First block**, **Page preview**, **Page cover**, and **None**. **Page preview** displays consecutive body blocks from the beginning until the preview frame is filled; overflow is clipped without expanding the card or adding scrolling. The browser remembers this choice for the current vault and retains existing explicit choices. Images and video can appear as previews; active embeds and controls are disabled. Metadata title blocks are excluded, empty pages keep an empty preview, and source files remain unchanged.
+
 <a id="界面语言"></a>
 
 ## Interface language
@@ -54,7 +64,9 @@ Upper right corner of the normal page **Page options（…）→ View → Full w
 
 Three views share draft and undo history. Pending input is collected before switching views, pages, or performing a save; Source/Page projection and reading outlines are updated after a brief pause in input. Continuous input will be combined into an undo step, and new lines and independent edits will be a new step. Character-by-character scrolling correspondence is not guaranteed for complex or reflowed content.
 
-The desktop and browser versions are available in **Workspace settings → Markdown controls** Can be displayed or hidden separately **View switcher**（Source / Split / Page）、**Dialect selector** and **Extensions button**The switch is instantly active and maintained in the current browser/desktop configuration, without modifying pages or Markdown files. All shutdowns trigger the row control; the hidden view button is still available in the upper right corner. **Page options（…）→ View** or `Ctrl/⌘+E` Switch views. Split's synchronized scrolling switch is hidden with the view button.
+The **view button in the top bar**, beside the save status, shows the current view's icon and name. Open it to choose Page, Outline, Mind map, Markdown source, or Source and page (Split); the current choice has a check mark. The button is also available on Wiki Home, and hides on vault and database collection screens. On narrow screens it collapses to an icon. Enter/Space opens the menu, arrow keys move between choices, and Escape closes it and restores focus.
+
+In the desktop and browser versions, **Workspace settings → Editing → Markdown controls** independently controls the editor's **View switcher** (Source / Split / Page), **Dialect selector**, and **Extensions button**. All three are hidden by default; existing saved choices are retained. Changes take effect immediately and are saved locally without modifying pages or Markdown files. When all three are off, the control row collapses unless notebook execution actions are available. The top bar view button remains available; **Page options（…）→ View** and `Ctrl/⌘+E` also continue to work. Split's synchronized scrolling switch follows the editor view switcher setting.
 
 Source and Split use a wider editing area, and the source code supports syntax highlighting and folding of titles, codes, references, lists, and tables. Click the arrow next to the line number to expand/collapse; `Ctrl+Shift+[` / `Ctrl+Shift+]` operates the current position, `Ctrl+Alt+[` / `Ctrl+Alt+]` operates all. Folding only affects the current editor and does not rewrite Markdown; some custom dialect structures do not yet have dedicated highlighting and folding rules.
 
@@ -64,13 +76,15 @@ Source and Split use a wider editing area, and the source code supports syntax h
 
 The top of the sidebar displays **Search, Vault, Databases, Attachments and** by default. **Workspace settings → Sidebar** can open People, Graph, Conflicts and versions, or hide other shortcut entries; **Restore default shortcuts** restores the above four items, and **Show all shortcuts** displays all ordinary shortcut entries. Preferences are saved in the current browser/desktop repository session configuration.
 
-In **Workspace settings → Appearance → Sidebar → Page tree**, **Database children** optional **Pages** (default, displays the database record subpage) or **Views** (displays the saved view, click to directly open the corresponding view). This setting only changes the sidebar presentation, records will still be accessible in the database. **Default expanded levels** Default **0 — Collapsed**, only the root layer is displayed; **1** also displays the first layer sub-items, optional 0 – 10 layer or **All levels**. Modifications take effect immediately and are saved locally; manual expansion/collapse is retained in the current session, and the default number of layers is re-applied after refreshing. Manual selection will also be reset when the default number of layers is modified.
+In **Workspace settings → Appearance → Sidebar → Page tree**, **Database children** defaults to **Views**, which lists saved views and opens the selected view directly. Choose **Pages** to list database records instead; an explicitly saved choice is preserved. This setting only changes the sidebar presentation, records will still be accessible in the database. **Default expanded levels** Default **0 — Collapsed**, only the root layer is displayed; **1** also displays the first layer sub-items, optional 0 – 10 layer or **All levels**. Modifications take effect immediately and are saved locally; manual expansion/collapse is retained in the current session, and the default number of layers is re-applied after refreshing. Manual selection will also be reset when the default number of layers is modified.
 
 The bottom of the side of the skull remains united **Import**、**Trash** and **Workspace settings**Newly created pages used **Private pages** next to **+** or Vault page **New page**• Use of newly created databases **Databases → New database**• Manage the vault by clicking the vault name in the upper left corner, or **Workspace settings → Manage knowledge bases**。
 
 Import, Trash, experimental tool entrance, local status and settings are concentrated at the bottom of the sidebar. When there are few pages, they are placed below, leaving a gap with the page list. When the content exceeds the height of the window, the entire sidebar scrolls, and there is still a gap between the bottom operation and the page tree; scrolling the sidebar does not drive the main text.
 
 Keep the grouping space between navigation, Favorites, Private pages and the bottom operation area; keep the pages and parent-child hierarchy within the group compact.
+
+Long page and database view names in the sidebar wrap to show the full title, including in Favorites. Icons, expand arrows and row actions stay aligned with the first line. Drag the sidebar's right edge to adjust its width.
 
 **Block Explorer** with **Markdown Lab** The side door is closed by default for experimental use. **Workspace settings → Experimental features** The link is displayed after the separate opening; the switch is kept in-house and does not modify the content of the vault. The experimental tool page is still accessible via the original URL link.
 
@@ -159,6 +173,8 @@ The setting window is classified by **Workspace, Appearance, Editing, Sync & his
 
 The sidebar supports parent-child pages, sorting, favorites, search and Trash. Icons, covers and attributes can be set on the page; the **Child page** list at the bottom is generated according to the actual level. emoji, line icons and uploaded images are centered in the fixed icon column, and the starting point of the title is aligned with the arrow on the right; long titles are truncated and displayed in a narrow window. When there are less than or equal to five subpages, they are expanded by default and when there are more, they are collapsed by default. Manual selection is retained in the current session.
 
+The **Properties** entry below the page title appears when you hover anywhere along its row or focus it with the keyboard. It stays visible while the panel is open and is always shown on touch screens. A compact row separates the title and body; its space is reserved so revealing the entry does not shift the body. **Page options（…）→ Page properties** also opens the panel.
+
 Sidebar **Trash → Empty Trash** can clean all recycled pages, subpages and data sources at once. After confirmation, the page file and attachments that lost their last reference are moved to the Windows system recycle bin, the data source definition retains historical recovery materials, and the shared attachments are retained. The button is unavailable when Trash is empty or the server does not support the system recycle bin. Repeat submissions cannot be made during cleaning; if a version conflict or system error occurs, the remaining entries will be stopped and refreshed, and completed files can still be recovered from the system recycle bin or history.
 
 **Workspace settings → Editing → Child pages** The first is the "Blood of the World".**Allow child pages without a block in the parent page** By default, it opens; when closed, it automatically fills in the subpage entries at the end of each parent page, and then fills in the missing entries when saved in the original.**Automatically insert child page blocks** By default, shut down; after opening, create a new subpage, drag it into the parent page or pass it through **Move to** Automatically add input when changing parent page. When prohibited from missing input, this switch is displayed as open and unclosed; after being allowed again, restore the previous auto-insert option.
@@ -179,7 +195,29 @@ Pending input is saved before page switching; external refresh will not directly
 
 The vault provides Gallery, attribute list, Tree and Graph; a single page provides outline, mind map, foldable title and reading list. Tree expands the first three layers by default. Click the branch arrow or focus on the row and press Enter/Space to expand; click the title to open the page. The expanded state is retained within the session and reset after reloading.
 
+### Mind map
+
+Open **Page options → Mind map** to view a read-only map of the current Markdown draft. The page title is the root, and all curved branches extend to the right in document order. H1/H2 use large pale-blue topics, H3 uses smaller pale-green topics, and H4–H6 use compact gray outlines. Body topics have no enclosing box, only a connecting baseline. Nodes wrap within a compact width and show up to three lines; click a topic to read its complete text in the preview below the canvas.
+
+- **Headings only** is the default: ordinary headings form sections by level, while body content stays hidden. Toggle headings remain visible but are placed according to actual block nesting; their level controls styling, without creating a section around subsequent siblings. For example, sibling toggle headings H1, H2 and H3 following an ordinary H4 appear side by side under that H4. A page without headings shows its top-level content. Empty pages still show the central topic.
+- A toggle heading contains only its explicit child content, including any genuinely nested toggle headings. It neither changes the enclosing ordinary heading section nor collects later siblings. Outside blocks stay in the ordinary section, or at the page/container root when there is none. This follows the [Notion container boundaries](https://developers.notion.com/guides/data-apis/notion-flavored-markdown).
+- Click the outlined **number** on a branch to reveal its immediate children, or the small circular **−** to collapse it. The number counts all currently hidden descendant nodes, including nested content; fully expanded topics show only the minus sign. A partially expanded heading reveals its remaining content on the next click. Controls also work with Tab and Enter/Space.
+- Opening a parent also opens its quote, callout, columns, tabs and other container children, recursively through nested containers. Their content appears immediately, and their type uses a small muted badge distinct from authored text. An ordinary toggle's summary appears beside its type badge, like a tab title, instead of being repeated as a child topic; its count includes only its child content. Containers can still be collapsed individually; reopening their parent opens them again. The default **Headings only** view continues to hide body content, while a page without headings shows its top-level content with containers open.
+- Paragraphs, nested lists and tasks become child topics. Task completion is displayed without changing it. Blocks whose content is not rendered on the canvas use the same muted type badges as Tabs. Code and table badges retain language/dimension summaries; diagrams, equations, breadcrumbs, explicit empty paragraphs and unsupported blocks use type labels instead of source markup or import diagnostics. Local page and database references show the available target title, with a type badge when the title is unavailable. Media badges distinguish Image, Audio, Video, PDF, File, Web embed, HTML embed, Web bookmark and Link preview, retaining available captions or titles. A File block remains File even when its attachment is a PDF.
+- Selecting a topic opens a preview headed by its block type, using the same rendering as Page: inline formatting, lists, tables, code, equations, images and containers retain their presentation. Containers include their actual child content; the central topic previews the page body. Preserved source and import diagnostics remain available in the original block preview. Media loads only when its content is previewed. Preview content is read-only; toggle disclosure and Tab selection affect only the preview, and code execution and editing actions remain disabled.
+- **Expand all**, **Collapse all**, and **Headings only** reset the map's expansion. Drag the background or use scrollbars/touch scrolling to pan; use **+ / −** and **Fit map** to zoom. With the canvas focused, `+`, `-`, and `0` control zoom and fit; arrow keys scroll.
+
+Expansion and zoom are local to the mounted view and reset when it is reopened. The map uses the page's active Markdown dialect and captures pending editor input before switching views. Map interactions do not modify Markdown, saved folding attributes, or page revisions. It is a reading view; node editing, dragging to reorganize content, and export are not provided.
+
+The branch disclosure and hidden-descendant counts take their interaction reference from [MindManager's branch guidance](https://blog.mindmanager.com/5-tricks-for-simplifying-complex-mindmanager-maps-2/).
+
+### Reading table of contents
+
 The reading table of contents on the right only includes title blocks in the document, including folded titles and titles nested in columns, quotes, or conference text; internal titles of components such as meeting card names do not participate in the table of contents. Hide the table of contents when there is no text title.
+
+**Pin table of contents (hover to expand when off)** is off by default under **Workspace settings → Appearance → Reading experience**. The outline expands on hover or keyboard focus. Enable pinning to keep it expanded; an existing saved choice is retained.
+
+### Page graph
 
 In Graph, the solid arrow points from the reference page to the target page, and the dotted line points from the parent page to the child page. Page links and parent-child relationships are presented separately.
 

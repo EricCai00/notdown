@@ -28,7 +28,8 @@ contextBridge.exposeInMainWorld("notdownDesktop", {
   finishClose: (id: string, saved: boolean) => ipcRenderer.send("vault:close-result", id, saved === true),
 });
 contextBridge.exposeInMainWorld("notdownWelcome", {
-  browse: () => ipcRenderer.invoke("vault:browse"),
+  browse: (path: string) => ipcRenderer.invoke("vault:browse", path),
+  rememberLocation: (path: string) => ipcRenderer.invoke("vault:create-location", path),
   setLocation: (path: string) => ipcRenderer.invoke("vault:location", path),
   submit: (input: object) => ipcRenderer.invoke("vault:submit", input),
   recents: () => ipcRenderer.invoke("vault:recents"),

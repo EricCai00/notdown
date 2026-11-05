@@ -51,6 +51,7 @@ test("database records share page properties, preserve pending body and survive 
   const propertyKey = Object.keys(record.properties).find(key => record.properties[key] === 0)!;
   await page.reload();
   await expect(cell).toHaveValue("0");
+  await page.getByLabel("Name: Database task E2E", { exact: true }).hover();
   await page.getByRole("button", { name: "Open Database task E2E", exact: true }).click();
   await page.getByRole("button", { name: "Open as full page", exact: true }).click();
   await expect(page.locator("#page-title")).toHaveValue("Database task E2E");
@@ -152,7 +153,7 @@ test("saved table views filter, sort and hide fields without duplicating pages",
   await dialog.getByRole("button", { name: "Property visibility", exact: true }).click();
   const visibility = page.getByRole("dialog", { name: "Property visibility", exact: true });
   await visibility.getByRole("switch", { name: "Notes", exact: true }).click();
-  await visibility.getByRole("button", { name: "Done", exact: true }).click();
+  await visibility.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.locator(".database-table tbody tr:visible")).toHaveCount(2);
   await expect(page.locator(".database-table tbody tr:visible").first().getByRole("button", { name: "Open View task B", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit Notes property", exact: true })).toHaveCount(0);
@@ -249,9 +250,10 @@ test("a realistic database has colored properties and an editable responsive rec
     await page.getByRole("button", { name: control, exact: true }).click();
     const settings = page.getByRole("dialog", { name: control, exact: true });
     await expect(settings).toBeVisible();
-    await settings.getByRole("button", { name: "Done", exact: true }).click();
+    await settings.getByRole("button", { name: "Close", exact: true }).click();
   }
   await page.screenshot({ path: "test-results/databases-reference-table.png" });
+  await page.getByLabel("Name: Callout", { exact: true }).hover();
   await page.getByRole("button", { name: "Open Callout", exact: true }).click();
   const peek = page.getByRole("region", { name: "Record peek", exact: true });
   await expect(peek.getByLabel("Record title", { exact: true })).toHaveValue("Callout");
@@ -265,6 +267,7 @@ test("a realistic database has colored properties and an editable responsive rec
   await expect(peek).toHaveCount(0);
   await expect.poll(async () => (await (await request.get(`/api/pages/${fixture.callout.id}`)).json()).body).toContain("Edited Markdown in the record peek.");
   await expect(page.getByLabel("Notion Syntax: Callout note", { exact: true })).toHaveValue("Updated from the side peek");
+  await page.getByLabel("Name: Callout note", { exact: true }).hover();
   await page.getByRole("button", { name: "Open Callout note", exact: true }).click();
   await expect(peek.locator(".pm-document")).toContainText("Edited Markdown in the record peek.");
   await expect(peek.getByLabel("Notion Syntax: Callout note", { exact: true })).toHaveValue("Updated from the side peek");
@@ -285,6 +288,7 @@ test("a realistic database has colored properties and an editable responsive rec
   await page.screenshot({ path: "test-results/databases-reference-peek-narrow.png" });
   await peek.getByRole("button", { name: "Close record", exact: true }).click();
   await page.screenshot({ path: "test-results/databases-reference-table-narrow.png" });
+  await page.getByLabel("Name: Callout note", { exact: true }).hover();
   await page.getByRole("button", { name: "Open Callout note", exact: true }).click();
   await peek.getByRole("button", { name: "Add a property", exact: true }).click();
   await page.getByLabel("Property name", { exact: true }).fill("Context");
@@ -292,6 +296,7 @@ test("a realistic database has colored properties and an editable responsive rec
   await page.getByRole("button", { name: "Save property", exact: true }).click();
   await peek.getByLabel("Context: Callout note", { exact: true }).fill("Created from the record peek");
   await peek.getByRole("button", { name: "Close record", exact: true }).click();
+  await page.getByLabel("Name: Callout note", { exact: true }).hover();
   await page.getByRole("button", { name: "Open Callout note", exact: true }).click();
   await expect(peek.getByLabel("Context: Callout note", { exact: true })).toHaveValue("Created from the record peek");
   expect(errors).toEqual([]);
@@ -302,6 +307,7 @@ test("a record peek preserves conflicting Markdown and blocks closing or navigat
   const url = await createDatabase(page, "Peek conflict E2E");
   await addProperty(page, "Notes");
   await addRow(page, "Peek conflict record");
+  await page.getByLabel("Name: Peek conflict record", { exact: true }).hover();
   await page.getByRole("button", { name: "Open Peek conflict record", exact: true }).click();
   const peek = page.getByRole("region", { name: "Record peek", exact: true });
   await expect(peek.locator(".pm-document")).toBeVisible();

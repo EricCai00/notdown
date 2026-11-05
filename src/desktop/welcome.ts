@@ -1,20 +1,20 @@
 import { vaultPickerHTML, bindVaultPicker, type VaultPickerState } from "../features/vault/vault-picker";
 import { installUILanguage } from "../shared/i18n";
-type WelcomeAPI = { managed(): Promise<VaultPickerState>; setLocation(path: string): Promise<void>; browse(): Promise<string | null>; submit(input: object): Promise<void> };
+type WelcomeAPI = { managed(): Promise<VaultPickerState>; rememberLocation(path: string): Promise<void>; browse(path: string): Promise<string | null>; submit(input: object): Promise<void> };
 const welcome = (window as unknown as { notdownWelcome: WelcomeAPI }).notdownWelcome;
 const root = document.querySelector<HTMLElement>('#vault-picker')!;
 installUILanguage();
 async function render() {
   const state = await welcome.managed();
   root.innerHTML = vaultPickerHTML(state);
-  bindVaultPicker(root, state, { setLocation: path => welcome.setLocation(path), browse: () => welcome.browse(), reload: render });
+  const picker = bindVaultPicker(root, state, { rememberLocation: path => welcome.rememberLocation(path), browse: path => welcome.browse(path) });
   let busy = false;
   const open = async (input: object) => {
     if (busy || root.getAttribute('aria-busy') === 'true') return;
     busy = true;
     const controls = [...root.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button:not(:disabled),input:not(:disabled)')];
     controls.forEach(c => c.disabled = true);
-    try { await welcome.submit(input); }
+    try { await picker.flush(); await welcome.submit(input); }
     catch (error) { root.querySelector('[data-vault-message]')!.textContent = (error as Error).message; }
     finally { busy = false; controls.forEach(c => c.disabled = false); }
   };

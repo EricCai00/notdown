@@ -8,9 +8,11 @@ import { databasePropertyReadOnly, databasePropertyTypes, databaseViewTypes, typ
 import { validFilter, groupable } from "../features/databases/database-query.js";
 import { isWikiDatabase } from "../features/databases/database-model.js";
 import { canonical } from "../sync/protocol.js";
+import { hasDependencyCycle, relationIds } from "../features/databases/database-dependencies.js";
+import { validCoordinates } from "../features/databases/database-place.js";
 
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
-type PresentationInput = { title?: string; icon?: string; baseRevision: string; hostRevision?: string };
+type PresentationInput = { title?: string; icon?: string; cover?: string; coverPosition?: number | null; baseRevision: string; hostRevision?: string };
 type Host = {
   platform: VaultPlatform;
   root: string;
@@ -54,6 +56,8 @@ function properties(value: unknown): asserts value is DatabaseProperty[] {
     if (field.type === "title" && field.key !== "title") throw new VaultError(400, "The title property must bind title");
     if (field.type !== "title" && field.key === "title") throw new VaultError(400, "The title key is reserved");
     if (field.readOnly !== undefined && typeof field.readOnly !== "boolean") throw new VaultError(400, "Invalid readOnly flag");
+    if (field.localRelation !== undefined && (typeof field.localRelation !== "boolean" || field.type !== "relation")) throw new VaultError(400, "Invalid local relation");
+    if (field.dependencyRole !== undefined && (field.type !== "relation" || !["blockedBy", "blocking"].includes(field.dependencyRole))) throw new VaultError(400, "Invalid dependency property");
     if (field.options !== undefined) {
       if (!Array.isArray(field.options) || field.options.length > 1000) throw new VaultError(400, "Invalid field options");
       const seen = new Set();
@@ -65,8 +69,11 @@ function properties(value: unknown): asserts value is DatabaseProperty[] {
     ids.add(field.id); keys.add(field.key);
   }
   if (value.filter(field => field.type === "title").length !== 1) throw new VaultError(400, "A data source must contain exactly one title property");
+  for (const role of ["blockedBy", "blocking"]) if (value.filter(field => field.dependencyRole === role).length > 1) throw new VaultError(400, "A data source has one dependency pair");
+  for (const field of value) if (field.dependencyRole === "blocking" && !value.some(forward => forward.id === field.inversePropertyId && forward.dependencyRole === "blockedBy" && forward.localRelation)) throw new VaultError(400, "Blocking requires its Blocked by property");
 }
 export function validateDatabaseValue(field: DatabaseProperty, value: unknown) {
+  if (field.dependencyRole === "blocking") throw new VaultError(422, "Blocking is derived from Blocked by");
   if (databasePropertyReadOnly(field)) throw new VaultError(422, "This property is a read-only imported snapshot");
   if (value === null && field.type !== "title") return;
   const invalid = () => { throw new VaultError(422, `Invalid value for ${field.name}`); };
@@ -75,6 +82,11 @@ export function validateDatabaseValue(field: DatabaseProperty, value: unknown) {
     case "text": case "url": case "email": case "phone": if (typeof value !== "string") invalid(); break;
     case "number": if (typeof value !== "number" || !Number.isFinite(value)) invalid(); break;
     case "checkbox": if (typeof value !== "boolean") invalid(); break;
+    case "place": {
+      if (!object(value) || !validCoordinates(value.latitude, value.longitude)
+        || ["name", "address"].some(key => value[key] !== undefined && (typeof value[key] !== "string" || value[key].length > 1000))) invalid();
+      break;
+    }
     case "select": case "status": if (typeof value !== "string" || !field.options?.some(option => option.id === value)) invalid(); break;
     case "multi_select": if (!Array.isArray(value) || value.some(id => typeof id !== "string" || !field.options?.some(option => option.id === id)) || new Set(value).size !== value.length) invalid(); break;
     case "date": {
@@ -184,6 +196,7 @@ export function createDatabases(host: Host) {
     await save(ctx); return snapshot(await context(), database.id);
   }
   function validateView(view: DatabaseView, ctx: Context, previous?: DatabaseView) {
+    if (view.icon !== undefined && (typeof view.icon !== "string" || view.icon.length > 100)) throw new VaultError(400, "Invalid view icon");
     label(view.name);
     if (!databaseViewTypes.includes(view.type)) throw new VaultError(400, "Unsupported database view type");
     const fields = source(ctx, view.dataSourceId).properties;
@@ -191,10 +204,47 @@ export function createDatabases(host: Host) {
     if (view.layout !== undefined) {
       const layout = view.layout;
       if (!object(layout)) throw new VaultError(400, "Invalid view layout");
+      for (const key of ["mapLatitudeId", "mapLongitudeId"] as const) if (layout[key] !== undefined && (typeof layout[key] !== "string" || layout[key] && !fields.some(field => field.id === layout[key] && field.type === "number"))) throw new VaultError(400, "Map coordinates require numeric properties");
+      if (layout.mapPlaceId !== undefined && (typeof layout.mapPlaceId !== "string" || layout.mapPlaceId && !fields.some(field => field.id === layout.mapPlaceId && field.type === "place"))) throw new VaultError(400, "Map by requires a Place property");
+      if (layout.mapColorBy !== undefined && (typeof layout.mapColorBy !== "string" || layout.mapColorBy && !fields.some(field => field.id === layout.mapColorBy && ["select", "status", "multi_select"].includes(field.type)))) throw new VaultError(400, "Map colors require a select, multi-select or status property");
+      if (layout.mapHeight !== undefined && !["small", "medium", "large", "extra-large"].includes(layout.mapHeight)) throw new VaultError(400, "Invalid map height");
+      if (layout.formRequiredIds !== undefined && (!Array.isArray(layout.formRequiredIds) || layout.formRequiredIds.some(id => !fields.some(field => field.id === id && !field.readOnly && ["title", "text", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "phone"].includes(field.type))))) throw new VaultError(400, "Invalid required questions");
+      if (layout.dashboardViewIds !== undefined && (!Array.isArray(layout.dashboardViewIds) || layout.dashboardViewIds.length > 12 || new Set(layout.dashboardViewIds).size !== layout.dashboardViewIds.length || layout.dashboardViewIds.some(id => { const widget = ctx.views[id]; return !widget || widget.databaseId !== view.databaseId || widget.dataSourceId !== view.dataSourceId || ["dashboard", "form"].includes(widget.type); }))) throw new VaultError(400, "Invalid dashboard widgets");
+      if (layout.dashboardRows !== undefined) {
+        if (!Array.isArray(layout.dashboardRows) || layout.dashboardRows.length > 12) throw new VaultError(400, "Invalid dashboard rows");
+        const rowIds = new Set<string>(), widgetIds = new Set<string>(); let count = 0;
+        for (const row of layout.dashboardRows) {
+          if (!object(row) || typeof row.id !== "string" || !row.id || row.id.length > 100 || rowIds.has(row.id) || !Number.isInteger(row.height) || row.height < 180 || row.height > 900 || !Array.isArray(row.widgets) || row.widgets.length < 1 || row.widgets.length > 4) throw new VaultError(400, "Invalid dashboard row");
+          rowIds.add(row.id);
+          for (const widget of row.widgets) {
+            if (!object(widget) || typeof widget.id !== "string" || !widget.id || widget.id.length > 100 || widgetIds.has(widget.id) || typeof widget.viewId !== "string" || typeof widget.databaseId !== "string" || typeof widget.width !== "number" || !Number.isFinite(widget.width) || widget.width < .01 || widget.width > 100) throw new VaultError(400, "Invalid dashboard widget");
+            widgetIds.add(widget.id); if (++count > 12) throw new VaultError(400, "A dashboard supports at most 12 widgets");
+            const target = ctx.views[widget.viewId], retained = previous?.layout?.dashboardRows?.some(row => row.widgets.some(old => old.id === widget.id && old.viewId === widget.viewId && old.databaseId === widget.databaseId));
+            if (!target || ctx.databases[widget.databaseId]?.trashed) { if (retained) continue; throw new VaultError(400, "Dashboard view is unavailable"); }
+            if (target.databaseId !== widget.databaseId || ["dashboard", "form"].includes(target.type)) throw new VaultError(400, "Invalid dashboard view reference");
+            if (widget.settings !== undefined) {
+              const config = widget.settings;
+              if (!object(config) || Object.keys(config).some(key => !["name", "icon", "type", "propertyIds", "filters", "filterMode", "sorts", "layout"].includes(key)) || config.type && ["dashboard", "form"].includes(config.type) || config.layout !== undefined && !object(config.layout) || config.layout && ["dashboardRows", "dashboardViewIds", "dashboardFilters"].some(key => key in config.layout!)) throw new VaultError(400, "Invalid widget settings");
+              validateView({ ...target, ...config, layout: { ...(config.layout ?? target.layout), dashboardRows: undefined, dashboardViewIds: undefined, dashboardFilters: undefined } }, ctx, target);
+            }
+          }
+        }
+      }
+      if (layout.dashboardFilters !== undefined) {
+        if (!Array.isArray(layout.dashboardFilters) || layout.dashboardFilters.length > 12 || layout.dashboardFilters.some(item => !object(item)) || new Set(layout.dashboardFilters.map(item => item.sourceId)).size !== layout.dashboardFilters.length) throw new VaultError(400, "Invalid dashboard filters");
+        for (const filter of layout.dashboardFilters) { const target = ctx.dataSources[filter.sourceId]; if (!target || !Array.isArray(filter.filters) || filter.filters.some(item => !validFilter(item, target.properties)) || filter.filterMode !== undefined && !["and", "or"].includes(filter.filterMode)) throw new VaultError(400, "Invalid dashboard filter"); }
+      }
+      if (layout.columnWidths !== undefined && (!object(layout.columnWidths) || Object.values(layout.columnWidths).some(width => typeof width !== "number" || !Number.isInteger(width) || width < 64 || width > 2000))) throw new VaultError(400, "Invalid column widths");
       if (layout.groupBy && !fields.some(field => field.id === layout.groupBy && groupable(field))) throw new VaultError(400, "Grouping requires a Select, Status or Checkbox property");
       if (layout.datePropertyId && !fields.some(field => field.id === layout.datePropertyId && field.type === "date")) throw new VaultError(400, "Calendar requires a Date property");
+      if (layout.chartGroupBy && !fields.some(field => field.id === layout.chartGroupBy && ["title", "text", "number", "checkbox", "date", "select", "status", "multi_select"].includes(field.type))) throw new VaultError(400, "Invalid chart grouping property");
+      if (layout.chartSeriesBy && !fields.some(field => field.id === layout.chartSeriesBy && ["title", "text", "number", "checkbox", "date", "select", "status", "multi_select"].includes(field.type))) throw new VaultError(400, "Invalid chart series property");
+      if (layout.chartValueId && !fields.some(field => field.id === layout.chartValueId && field.type === "number")) throw new VaultError(400, "Invalid chart numeric property");
+      if (view.type === "chart" && layout.chartAggregation && layout.chartAggregation !== "count" && !layout.chartValueId) throw new VaultError(400, "Select a numeric property for this chart aggregation");
+      for (const [key, values] of [["timelineScale", ["hours", "day", "week", "bi-week", "month", "quarter", "year", "5-years"]], ["chartType", ["bar", "horizontal", "line", "donut", "number"]], ["chartAggregation", ["count", "sum", "average", "min", "max"]], ["chartSort", ["natural", "label", "ascending", "descending"]], ["chartDateBucket", ["day", "week", "month", "year"]], ["chartColor", ["colorful", "blue", "green", "purple"]], ["chartHeight", ["small", "medium", "large", "extra-large"]], ["feedContent", ["preview", "full"]]] as const) if (layout[key] !== undefined && !values.includes(layout[key] as never)) throw new VaultError(400, "Invalid layout option");
+      for (const key of ["timelineTable", "chartOmitZero", "chartLabels", "chartStacked", "chartCumulative", "chartGrid", "chartAxisNames", "chartLegend", "chartCenter", "chartSmooth", "chartArea", "feedCover"] as const) if (layout[key] !== undefined && typeof layout[key] !== "boolean") throw new VaultError(400, "Invalid layout flag");
       for (const key of ["groupOrder", "hiddenGroups", "collapsedGroups"] as const) if (layout[key] !== undefined && (!Array.isArray(layout[key]) || layout[key]!.some(value => typeof value !== "string") || new Set(layout[key]).size !== layout[key]!.length)) throw new VaultError(400, "Invalid group list");
-      for (const [key, values] of [["cardSize", ["small", "medium", "large"]], ["preview", ["none", "cover", "content"]], ["calendarRange", ["week", "month"]]] as const) if (layout[key] !== undefined && !values.includes(layout[key] as never)) throw new VaultError(400, "Invalid layout option");
+      for (const [key, values] of [["cardSize", ["small", "medium", "large"]], ["preview", ["none", "cover", "content", "first-image", "first-blocks"]], ["calendarRange", ["week", "month"]], ["calendarWeekStart", [0, 1]]] as const) if (layout[key] !== undefined && !values.includes(layout[key] as never)) throw new VaultError(400, "Invalid layout option");
       for (const key of ["fitImage", "hideEmptyGroups", "showDataSourceTitle", "showVerticalLines", "showPageIcon", "wrapContent", "showGroupCount"] as const) if (layout[key] !== undefined && typeof layout[key] !== "boolean") throw new VaultError(400, "Invalid layout flag");
     }
     if (view.layout?.groupColors !== undefined && (!object(view.layout.groupColors) || Object.values(view.layout.groupColors).some(color => typeof color !== "string" || !["default", "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"].includes(color)))) throw new VaultError(400, "Invalid group colors");
@@ -220,17 +270,31 @@ export function createDatabases(host: Host) {
   }
   async function updatePresentationLocked(id: string, input: PresentationInput) {
       assertId(id); base(input?.baseRevision);
-      if (!object(input) || (!own(input, "title") && !own(input, "icon")) || Object.keys(input).some(key => !["title", "icon", "baseRevision", "hostRevision"].includes(key))) throw new VaultError(400, "Specify only a title, icon, and their revisions");
-      const patch: Pick<PageInput, "title" | "icon"> = {};
+      const fields = ["title", "icon", "cover", "coverPosition"];
+      if (!object(input) || !fields.some(key => own(input, key)) || Object.keys(input).some(key => ![...fields, "baseRevision", "hostRevision"].includes(key))) throw new VaultError(400, "Specify only a title, icon, cover, cover position, and their revisions");
+      const patch: Pick<PageInput, "title" | "icon" | "properties"> = {};
       if (own(input, "title")) { label(input.title); patch.title = input.title; }
       if (own(input, "icon")) {
         if (typeof input.icon !== "string" || input.icon.length > 100) throw new VaultError(400, "Icon must be a string of at most 100 characters");
         patch.icon = input.icon;
       }
+      if (own(input, "cover") && (typeof input.cover !== "string" || input.cover.length > 4096 || input.cover && !/^(?:https?:\/\/|\/?assets\/|\/page-covers\/)/i.test(input.cover))) throw new VaultError(400, "Cover must be an image URL or vault asset path");
+      if (own(input, "coverPosition") && input.coverPosition !== null && (typeof input.coverPosition !== "number" || !Number.isFinite(input.coverPosition) || input.coverPosition < 0 || input.coverPosition > 100)) throw new VaultError(400, "Cover position must be between 0 and 100");
       const ctx = await context(), database = ctx.databases[id];
       if (!database) throw new VaultError(404, "Database not found");
       if (presentedDatabase(ctx, database).trashed) throw new VaultError(422, "Restore this database before editing it");
       const page = databaseHost(ctx, database);
+      if (own(input, "cover") || own(input, "coverPosition")) {
+        patch.properties = { ...(page?.properties ?? database.properties as Record<string, unknown> ?? {}) };
+        if (own(input, "cover")) {
+          if (input.cover !== patch.properties.cover) delete patch.properties.coverPosition;
+          if (input.cover) patch.properties.cover = input.cover; else { delete patch.properties.cover; delete patch.properties.coverPosition; }
+        }
+        if (own(input, "coverPosition")) {
+          if (input.coverPosition === null) delete patch.properties.coverPosition;
+          else patch.properties.coverPosition = input.coverPosition;
+        }
+      }
       if (page) base(input.hostRevision);
       if (database.revision !== input.baseRevision) {
         if (page && page.revision !== input.hostRevision) return host.conflictRecord(page.id, patch, input.hostRevision!);
@@ -240,7 +304,8 @@ export function createDatabases(host: Host) {
         if (page.revision !== input.hostRevision) return host.conflictRecord(page.id, patch, input.hostRevision!);
         const metadata = documentMetadata(page.body);
         if (metadata.form === "pandoc" && typeof metadata.values.title === "string" && !metadata.values.title.trim()) delete metadata.values.title;
-        for (const key of Object.keys(patch)) if (own(metadata.values, key)) throw new VaultError(422, `This ${key} is defined in document metadata. Edit its YAML or Pandoc title block source.`, { source: "document", property: key });
+        const affected = fields.filter(key => own(input, key) || key === "coverPosition" && own(input, "cover") && input.cover !== page.properties.cover);
+        for (const key of affected) if (own(metadata.values, key) || own(metadata.values.properties as object ?? {}, key)) throw new VaultError(422, `This ${key} is defined in document metadata. Edit its YAML or Pandoc title block source.`, { source: "document", property: key });
         // The host is the only presentation authority. Its save changes metadata.json,
         // so never write the earlier resource context back over that page save.
         await host.updateRecord(page.id, patch, input.hostRevision!);
@@ -424,7 +489,7 @@ export function createDatabases(host: Host) {
       } else ctx.dataSources[sourceId] = stamped({ id: sourceId, ownerDatabaseId: id, title: input.title, properties: [{ id: randomUUID(), name: "Name", key: "title", type: "title" }], revision: "" });
       ctx.views[viewId] = stamped({ id: viewId, databaseId: id, dataSourceId: selected, name: wiki ? "All pages" : "Table", type: wiki ? "list" : "table", rowOrder: ctx.pages.filter(page => page.dataSourceId === selected).map(page => page.id), revision: "" });
       ctx.databases[id] = stamped({ id, pageId: id, ...(wiki ? { kind: "wiki" as const } : {}), title: input.title, dataSourceIds: [selected], viewIds: [viewId], revision: "" });
-      const page = await host.createDatabasePage({ title: input.title, icon: wiki ? "book-open" : "table-2", parent, body: "" }, id, { databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, ctx.before, input.parentRevision);
+      const page = await host.createDatabasePage({ title: input.title, icon: wiki ? "book-open" : "", parent, body: "" }, id, { databases: ctx.databases, dataSources: ctx.dataSources, views: ctx.views }, ctx.before, input.parentRevision);
       ctx.pages.push(page); return snapshot(await context(), id);
     }),
     updateSource: (id: string, input: Partial<DatabaseDataSource>, baseRevision: string) => host.serialize(async () => {
@@ -433,10 +498,15 @@ export function createDatabases(host: Host) {
       if (own(input, "ownerDatabaseId") && input.ownerDatabaseId !== current.ownerDatabaseId) throw new VaultError(422, "The canonical database owner cannot be changed by a field edit");
       if (current.revision !== baseRevision) return conflict(current, proposed, baseRevision);
       label(proposed.title); properties(proposed.properties);
+      if (proposed.dependencyAutoShift !== undefined && typeof proposed.dependencyAutoShift !== "boolean") throw new VaultError(400, "Invalid dependency scheduling mode");
+      if (proposed.dependencyDatePropertyId !== undefined && !proposed.properties.some(field => field.id === proposed.dependencyDatePropertyId && field.type === "date")) throw new VaultError(400, "Choose a date property for dependencies");
       proposed.properties = proposed.properties.map(field => {
         const previous = current.properties.find(previous => previous.id === field.id);
-        return { ...previous, ...field, ...(field.options ? { options: field.options.map(option => ({ ...previous?.options?.find(prior => prior.id === option.id), ...option })) } : {}) };
+        const merged = { ...previous, ...field, ...(field.options ? { options: field.options.map(option => ({ ...previous?.options?.find(prior => prior.id === option.id), ...option })) } : {}) };
+        if (previous?.type === "relation" && field.type !== "relation" && !previous.dependencyRole) delete merged.localRelation;
+        return merged;
       });
+      properties(proposed.properties);
       for (const field of proposed.properties) {
         const previous = current.properties.find(item => item.id === field.id);
         if (previous && previous.key !== field.key) throw new VaultError(422, "A field key is stable; rename its display name instead");
@@ -447,7 +517,12 @@ export function createDatabases(host: Host) {
         }
       }
       const removed = current.properties.filter(field => !proposed.properties.some(next => next.id === field.id)).map(field => field.id);
-      if (removed.length && Object.values(ctx.views).some(view => view.dataSourceId === id && [view.layout?.groupBy, view.layout?.datePropertyId, view.layout?.frozenPropertyId, ...(view.layout?.wrapPropertyIds ?? []), ...(view.propertyIds ?? []), ...(view.filters ?? []).map(item => object(item) ? item.propertyId : null), ...(view.sorts ?? []).map(item => object(item) ? item.propertyId : null)].some(fieldId => removed.includes(fieldId!)))) throw new VaultError(422, "Remove references from views before deleting a field");
+      if (removed.length && Object.values(ctx.views).some(view => (view.layout?.dashboardFilters ?? []).some(filter => filter.sourceId === id && filter.filters.some(item => object(item) && removed.includes(item.propertyId))) || (view.layout?.dashboardRows ?? []).some(row => row.widgets.some(widget => {
+        if (ctx.views[widget.viewId]?.dataSourceId !== id || !widget.settings) return false;
+        const settings = widget.settings, layout = settings.layout;
+        return [...(settings.propertyIds ?? []), ...(settings.filters ?? []).map(item => object(item) ? item.propertyId : null), ...(settings.sorts ?? []).map(item => object(item) ? item.propertyId : null), layout?.chartGroupBy, layout?.chartValueId, layout?.chartSeriesBy, layout?.groupBy, layout?.datePropertyId, layout?.mapLatitudeId, layout?.mapLongitudeId, layout?.mapPlaceId, layout?.mapColorBy].some(fieldId => removed.includes(fieldId!));
+      })))) throw new VaultError(422, "Remove references from dashboard widgets before deleting a field");
+      if (removed.length && Object.values(ctx.views).some(view => view.dataSourceId === id && [view.layout?.mapPlaceId, view.layout?.mapColorBy, view.layout?.mapLatitudeId, view.layout?.mapLongitudeId, ...(view.layout?.formRequiredIds ?? []), view.layout?.chartGroupBy, view.layout?.chartValueId, view.layout?.chartSeriesBy, view.layout?.groupBy, view.layout?.datePropertyId, view.layout?.frozenPropertyId, ...(view.layout?.wrapPropertyIds ?? []), ...(view.propertyIds ?? []), ...(view.filters ?? []).map(item => object(item) ? item.propertyId : null), ...(view.sorts ?? []).map(item => object(item) ? item.propertyId : null)].some(fieldId => removed.includes(fieldId!)))) throw new VaultError(422, "Remove references from views before deleting a field");
       ctx.dataSources[id] = stamped(proposed);
       for (const view of Object.values(ctx.views)) if (view.dataSourceId === id) validateView(view, ctx, view);
       await save(ctx); return (await context()).dataSources[id];
@@ -497,6 +572,7 @@ export function createDatabases(host: Host) {
         const field = current.properties.find(field => field.key === key && field.type !== "title");
         if (!field) throw new VaultError(422, "Unknown database property");
         validateDatabaseValue(field, value);
+        if (field.localRelation && relationIds(value).some(id => !ctx.pages.some(page => page.id === id && page.dataSourceId === sourceId && !page.trashed))) throw new VaultError(422, "Choose records in this data source");
       }
       const title = input.title ?? "Untitled"; label(title);
       const owner = owningDatabase(ctx, current), parent = owner ? databaseHost(ctx, owner) : undefined;
@@ -510,7 +586,13 @@ export function createDatabases(host: Host) {
       if (current.revision !== input.schemaRevision) return conflict({ schema: current, page }, input, input.schemaRevision);
       const field = current.properties.find(field => field.id === input.propertyId);
       if (!field) throw new VaultError(404, "Database property not found");
+      if (page.revision !== input.baseRevision) return host.conflictRecord(pageId, field.type === "title" ? { title: input.value as string } : { properties: { ...page.properties, [field.key]: input.value } }, input.baseRevision);
       validateDatabaseValue(field, input.value);
+      if (field.localRelation) {
+        const ids = relationIds(input.value);
+        if (input.value !== null && (!Array.isArray(input.value) || ids.length !== input.value.length) || ids.some(id => id === pageId || !ctx.pages.some(target => target.id === id && target.dataSourceId === sourceId && !target.trashed))) throw new VaultError(422, "Choose other records in this data source");
+        if (field.dependencyRole === "blockedBy" && hasDependencyCycle(ctx.pages.filter(item => item.dataSourceId === sourceId), field, pageId, input.value)) throw new VaultError(422, "Dependencies cannot form a cycle");
+      }
       const overlay = documentMetadata(page.body).values;
       if (field.type === "title" ? own(overlay, "title") : own(overlay, field.key) || object(overlay.properties) && own(overlay.properties, field.key)) throw new VaultError(422, "This value is defined in document metadata. Edit its YAML or Pandoc source.", { propertyId: field.id, source: "document" });
       const patch = field.type === "title" ? { title: input.value as string } : { properties: { ...page.properties, [field.key]: input.value } };
@@ -549,6 +631,11 @@ export function createDatabases(host: Host) {
         validateDatabaseValue(field, value);
         const overridden = field.type === "title" ? own(overlay, "title") : own(overlay, field.key) || object(overlay.properties) && own(overlay.properties, field.key);
         if (overridden && (input.body === undefined || input.body === page.body)) throw new VaultError(422, "Edit document metadata to change this property");
+        if (field.localRelation) {
+          const pages = (await host.scanPages()).filter(item => item.dataSourceId === page.dataSourceId), ids = relationIds(value);
+          if (value !== null && (!Array.isArray(value) || ids.length !== value.length) || ids.some(id => id === page.id || !pages.some(target => target.id === id && !target.trashed))) throw new VaultError(422, "Choose other records in this data source");
+          if (field.dependencyRole === "blockedBy" && hasDependencyCycle(pages, field, page.id, value)) throw new VaultError(422, "Dependencies cannot form a cycle");
+        }
       }
     },
     // Called within importBatch's existing vault lock. Repeating a snapshot is idempotent.

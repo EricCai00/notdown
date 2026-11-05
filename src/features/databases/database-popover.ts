@@ -1,16 +1,31 @@
 import { setUIText, setUIAttribute } from "../../shared/i18n";
 import { createElement, X, ChevronLeft, ChevronRight, Check, type IconNode } from "lucide";
 import "./database-popover.css";
+import { lockDatabaseBackgroundScroll } from "./database-scroll-lock";
 
 export const menuIcon = (icon: IconNode) => createElement(icon, { width: 17, height: 17, "stroke-width": 1.65, "aria-hidden": "true" });
 /** One anchored family of panels. Dirty state is committed before outside dismissal. */
 export class DatabasePopover {
   readonly panels: HTMLElement[] = [];
-  dirty = false;
+  private modified = false;
+  private changeVersion = 0;
+  private autoSaveTimer?: ReturnType<typeof setTimeout>;
+  private autoSaveFailed = false;
+  autoSave = false;
+  get dirty() { return this.modified; }
+  set dirty(value: boolean) {
+    this.modified = value;
+    if (value) { this.changeVersion++; this.scheduleAutoSave(); }
+  }
+  private scheduleAutoSave() {
+    clearTimeout(this.autoSaveTimer);
+    if (this.autoSave && !this.dead && !this.autoSaveFailed) this.autoSaveTimer = setTimeout(() => { void this.save(); }, 180);
+  }
   saveOnDismiss = true;
   private busy?: Promise<boolean>;
   private events = new AbortController();
   private dead = false;
+  private unlockScroll = lockDatabaseBackgroundScroll();
   commit?: () => Promise<void>;
   constructor(public anchor: HTMLElement, readonly title: string, readonly options: { replace?: boolean; surface?: HTMLElement } = {}) {
     anchor.setAttribute("aria-expanded", "true");
@@ -31,6 +46,7 @@ export class DatabasePopover {
   panel(title: string, anchor = this.anchor, level = 0, width = 292, trackChanges = true, floating = false): HTMLElement {
     this.trim(level);
     const panel = document.createElement("section"); panel.className = "database-popover"; panel.style.width = `${width}px`; panel.dataset.level = String(level); panel.setAttribute("role", "dialog"); setUIAttribute(panel, "aria-label", title);
+    if (this.autoSave) panel.dataset.autosave = "true";
     const header = document.createElement("header"); header.className = "database-popover-header";
     if (level) header.append(menuButton("Back", ChevronLeft, () => this.trim(level), "", false, "database-popover-back"));
     const label = document.createElement("span"); setUIText(label, title); header.append(label);
@@ -70,9 +86,12 @@ export class DatabasePopover {
   }
   trim(length: number) {
     const removed = this.panels.splice(length); for (const panel of removed) panel.remove();
-    if (this.panels.length) { this.panels.at(-1)!.hidden = false; if (this.panels.at(-1)!.dataset.floating && this.panels.length > 1) this.panels.at(-2)!.hidden = false; if (this.options.replace && removed.length) ((removed[0] as any).anchor as HTMLElement)?.focus(); }
+    if (this.panels.length) { this.panels.at(-1)!.hidden = false; if (this.panels.at(-1)!.dataset.floating && this.panels.length > 1) this.panels.at(-2)!.hidden = false; if (removed.length) ((removed[0] as any).anchor as HTMLElement)?.focus({ preventScroll: true }); }
   }
-  reanchor(anchor: HTMLElement) { this.anchor.setAttribute("aria-expanded", "false"); this.anchor = anchor; anchor.setAttribute("aria-expanded", "true"); }
+  reanchor(anchor: HTMLElement) {
+    for (const panel of this.panels) if ((panel as any).anchor === this.anchor) (panel as any).anchor = anchor;
+    this.anchor.setAttribute("aria-expanded", "false"); this.anchor = anchor; anchor.setAttribute("aria-expanded", "true"); this.position();
+  }
   async perform(operation: () => Promise<void>) {
     if (this.busy) return this.busy;
     this.busy = (async () => {
@@ -83,19 +102,35 @@ export class DatabasePopover {
     })(); return this.busy;
   }
   async save(): Promise<boolean> {
-    if (this.busy) return this.busy;
+    clearTimeout(this.autoSaveTimer);
+    if (this.busy) { const saved = await this.busy; return saved ? this.save() : false; }
+    if (this.dead) return true;
     if (!this.dirty || !this.commit) return true;
+    const version = this.changeVersion;
     this.busy = (async () => {
       this.panels.forEach(panel => panel.setAttribute("aria-busy", "true"));
-      try { await this.commit!(); this.dirty = false; return true; }
-      catch (error) { const status = this.panels.at(-1)?.querySelector<HTMLElement>("[role=status]"); if (status) { status.textContent = error instanceof Error ? error.message : String(error); status.append(menuButton("Discard menu changes", undefined, () => this.destroy())); status.scrollIntoView({ block: "nearest" }); } return false; }
+      try {
+        await this.commit!(); this.autoSaveFailed = false;
+        if (version === this.changeVersion) this.dirty = false;
+        this.panels.forEach(panel => panel.querySelector("[role=status]")?.replaceChildren());
+        return true;
+      }
+      catch (error) {
+        this.autoSaveFailed = true; clearTimeout(this.autoSaveTimer);
+        const status = this.panels.at(-1)?.querySelector<HTMLElement>("[role=status]");
+        if (status) { status.textContent = error instanceof Error ? error.message : String(error); status.append(menuButton("Retry save", undefined, () => { void this.save(); }), menuButton("Discard menu changes", undefined, () => this.destroy())); status.scrollIntoView({ block: "nearest" }); }
+        return false;
+      }
       finally { this.panels.forEach(panel => panel.removeAttribute("aria-busy")); this.busy = undefined; }
-    })(); return this.busy;
+    })();
+    const saved = await this.busy;
+    return saved && this.dirty && this.autoSave ? this.save() : saved;
   }
   async close() { if (await this.save()) this.destroy(); }
   async dismiss() { if (this.saveOnDismiss) await this.close(); else this.destroy(); }
-  destroy() { this.dead = true; this.dirty = false; this.anchor.setAttribute("aria-expanded", "false"); this.events.abort(); this.trim(0); }
+  destroy() { this.dead = true; clearTimeout(this.autoSaveTimer); this.dirty = false; this.anchor.setAttribute("aria-expanded", "false"); this.events.abort(); this.trim(0); this.unlockScroll(); }
   footer(panel: HTMLElement, commitLabel = "Done") {
+    if (!this.commit || this.autoSave && commitLabel === "Done") return;
     const footer = document.createElement("footer"); footer.className = "database-popover-footer";
     const done = menuButton(commitLabel, undefined, () => void this.close()); done.className = "database-popover-done"; footer.append(done); panel.append(footer);
   }

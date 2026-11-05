@@ -1,0 +1,30 @@
+.page-view-switcher[hidden] { display: none; }
+.page-view-switcher { flex: none; margin-inline: 3px; }
+.page-view-switcher > summary {
+  display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 9px;
+  border: 1px solid #e8e7e4; border-radius: 7px; background: #fafaf9;
+  color: #62615e; font-size: 12px; font-weight: 500; white-space: nowrap;
+  transition: background 120ms, border-color 120ms;
+}
+.page-view-switcher > summary:hover { background: #f1f1ef; border-color: #d6d5d1; }
+.page-view-switcher[open] > summary { background: #f0f4fa; border-color: #cbd6e4; color: #345b87; }
+.page-view-switcher > summary:focus-visible { outline: 2px solid #93b5de; outline-offset: 2px; }
+.page-view-switcher > summary > svg { width: 15px; height: 15px; flex: none; }
+.page-view-switcher > summary > svg:last-child { width: 12px; height: 12px; color: #96948e; }
+.page-view-switcher .page-view-menu { top: 36px; width: 266px; padding: 6px; border-radius: 10px; }
+.page-view-switcher .page-view-menu > small { padding: 6px 8px 8px; font-size: 11px; }
+.page-view-switcher .page-view-menu button { gap: 10px; padding: 9px 8px; min-height: 52px; border-radius: 6px; }
+.page-view-switcher .page-view-menu button[aria-checked="true"] { background: #f0f4fa; }
+.page-view-switcher .page-view-menu button:hover { background: #f4f4f1; }
+.page-view-icon { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border: 1px solid #e9e8e4; border-radius: 6px; background: #fafaf9; }
+.page-view-switcher [aria-checked="true"] .page-view-icon { background: #fff; border-color: #d8e1ec; }
+.page-view-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; color: #45443f; }
+.page-view-copy > small { font-size: 11px; font-weight: 400; color: #96948e; }
+.page-view-check { display: grid; place-items: center; width: 16px; flex: none; }
+.page-view-switcher [aria-checked="true"] .page-view-icon svg,
+.page-view-switcher .page-view-check svg { color: #4573a7; }
+.page-view-switcher .page-view-menu hr { margin: 6px 2px; }
+@media (max-width: 480px) {
+  .page-view-current { display: none; }
+  .page-view-switcher > summary { gap: 4px; padding-inline: 6px; }
+}

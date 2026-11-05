@@ -51,7 +51,12 @@ test("source relationships are searchable and link to their exact database views
   const source = await (await request.put(`/api/data-sources/${original.id}`, { data: { baseRevision: original.revision, title: "Roadmap" } })).json();
   const linked = await (await request.post(`/api/databases/${target.database.id}/data-sources/link`, { data: { baseRevision: target.database.revision, dataSourceId: source.id, sourceRevision: source.revision } })).json();
   await page.goto(`/#database/${target.database.id}`);
-  await expect(page.locator(".database-view-link")).toHaveText("Link");
+  await expect(page.locator(".database-view-link")).toHaveCount(0);
+  await page.getByRole("tab", { name: linked.views[1].name, exact: true }).click();
+  await expect(page.locator(".database-source-title .database-linked-icon")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("linked-source-title.png") });
+  await page.getByRole("tab", { name: target.views[0].name, exact: true }).click();
+  await expect(page.locator(".database-linked-icon")).toHaveCount(0);
   await button(page, "View settings").click();
   await dialog(page, "View settings").getByRole("button", { name: "Manage data sources", exact: true }).click();
   const manager = dialog(page, "Manage data sources");
@@ -69,7 +74,7 @@ test("source relationships are searchable and link to their exact database views
   await dialog(page, "All data sources").getByLabel("Filter data sources", { exact: true }).fill("Roadmap");
   await expect(dialog(page, "All data sources").locator("tbody tr")).toHaveCount(1);
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
-  await button(page, "All databases").click();
+  await page.getByRole("button", { name: "Databases", exact: true }).click();
   await page.getByRole("tab", { name: "Data sources", exact: true }).click();
   await page.getByLabel("Filter data sources", { exact: true }).fill("Product work");
   const row = page.locator(`[data-source-id="${source.id}"]`);
@@ -96,7 +101,7 @@ test("two title levels follow the active source and honor explicit visibility af
   await dialog(page, "View settings").getByRole("button", { name: "Layout", exact: true }).click();
   const toggle = dialog(page, "Layout").getByRole("switch", { name: "Show data source titles", exact: true });
   await expect(toggle).toHaveAttribute("aria-checked", "true"); await toggle.click();
-  await dialog(page, "Layout").getByRole("button", { name: "Done", exact: true }).click();
+  await dialog(page, "Layout").getByRole("button", { name: "Close", exact: true }).click();
   await expect(title).toHaveCount(0); await page.reload(); await expect(title).toHaveCount(0);
   await page.getByRole("tab", { name: "Table", exact: true }).click(); await expect(title.locator("input")).toHaveValue("Two level titles");
 });

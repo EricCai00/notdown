@@ -67,7 +67,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 #mobile-app .database-workspace button.database-new-button { background: #2f64ad; color: white; }
 #mobile-app .database-new-menu > summary { height: 44px; }
 #mobile-app .database-view-tabs > button[aria-selected=true] { background: #f0f1ef; }
-#mobile-app .database-workspace .database-open-page { opacity: 1; min-height: 36px; }
+#mobile-app .database-workspace .database-open-page { position: static; pointer-events: auto; opacity: 1; min-height: 36px; }
 #mobile-app .database-workspace [data-action=import-notion] { display: none; }
 #mobile-app .database-title-input { font-size: 28px; font-weight: 700; }
 #mobile-app .database-icon-button { min-width: 40px; }

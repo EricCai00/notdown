@@ -22,7 +22,7 @@ test("list rows use compact metadata and persist visibility and order", async ({
   await menu.getByRole('switch', { name: 'Markdown Syntax', exact: true }).click();
   await menu.getByRole('textbox').fill('');
   await menu.locator('.database-visibility-row').filter({ has: page.getByRole('switch', { name: 'Markdown Syntax', exact: true }) }).getByRole('button', { name: 'Move up', exact: true }).click();
-  await menu.getByRole('button', { name: 'Done', exact: true }).click();
+  await menu.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(rows.first().locator('.database-card-property')).toHaveCount(2);
   const before = await rows.first().locator('.database-card-property').allTextContents();
   await page.reload();

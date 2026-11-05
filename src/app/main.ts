@@ -1,3 +1,4 @@
+import { databaseViewIconHTML } from "../features/databases/database-view-icon";
 import { setUIAttribute, setUIText, t, installUILanguage, languageChanged, languageReady } from "../shared/i18n";
 import { mountLanguageSettings } from "./language-settings";
 import { mountWikiViewPicker } from "../features/databases/wiki-view-picker";
@@ -10,6 +11,8 @@ import { lastExecutableLanguage, rememberExecutableLanguage } from "../editor/ex
 import { internalReference, resolveReferencePage, type InternalReference, type ReferenceSyntax } from "../document/internal-reference";
 import { mountReferencePicker } from "../features/links/reference-picker";
 import { graphHTML, mountGraph } from "../features/pages/graph-view";
+import { buildMindmap } from "../features/pages/mindmap-model";
+import { mountMindmap } from "../features/pages/mindmap-view";
 import { openImportDialog } from "../features/vault/import-dialog";
 import { openNotionImportDialog } from "../features/vault/notion-import-dialog";
 import { refreshExternalEntities } from "../features/references/external-client";
@@ -30,6 +33,7 @@ import { mountApplicationMenu } from "./application-menu";
 import "./workspace-tabs.css";
 import { vaultAssetUrl, vaultPageUrl, vaultPrefix } from "../shared/vault-url";
 import { sourceFileMenu, handleSourceFile } from "../features/pages/source-file";
+import { pageViews, renderPageViewSwitcher, type PageView } from "../features/pages/page-view-switcher";
 import { mountConflictDiff } from "../features/pages/conflict-diff";
 import "../features/pages/conflict-diff.css";
 import { insertMenuItems } from "../editor/insert-menu";
@@ -43,6 +47,8 @@ import { contentCommand } from "../document/content-objects";
 import { documentPageTitle, renameDocumentPageSource } from "../features/metadata/pandoc-page-title";
 import { openCalloutIconPicker } from "../blocks/callout-icon-picker";
 import { pageIconElement } from "../shared/page-icons";
+import { mountVaultGallery } from "../features/pages/vault-gallery";
+import { vaultListProperties } from "../features/pages/vault-list-properties";
 import { emojiStyle, emojiStyleOptions, initializeEmojiStyle, setEmojiStyle, type EmojiStyle } from "../blocks/emoji-style";
 import { nextExampleLabel } from "../document/example-numbering";
 import { objectSamples } from "../document/object-model";
@@ -94,7 +100,7 @@ import { PageBacklinks } from "../features/pages/page-backlinks";
 import { isPageCoverPath, openPageCoverPicker } from "../features/pages/page-cover-picker";
 import "../features/pages/page-cover-picker.css";
 
-type View = "document" | "outline" | "mindmap" | "source" | "split";
+type View = PageView;
 initializeEmojiStyle();
 type LibraryView = "gallery" | "list" | "tree" | "graph";
 let pages: Page[] = [];
@@ -105,8 +111,10 @@ let editorChanged = false;
 let editorReady = false;
 let editorGeneration = 0;
 let view: View = "document";
+let mindmapCleanup: (() => void) | undefined;
 let libraryView: LibraryView = "gallery";
 let library = false;
+let vaultListSources = new Map<string, DatabaseDataSource>();
 let databaseWorkspace: DatabaseWorkspace | undefined;
 let wikiHomeSnapshot: DatabaseSnapshot | undefined;
 let wikiPickerCleanup: (() => void) | undefined;
@@ -308,6 +316,7 @@ function markDirty() {
 }
 async function save(): Promise<boolean> {
   if (editor?.isComposing() || workspace?.source.composing) return false;
+  if (wikiHomeMenu?.title === "Wiki views" && !await wikiHomeMenu.save()) return false;
   if (databaseWorkspace && !(await databaseWorkspace.flush())) return false;
   if (workspace && !(await workspace.blocks.flushDatabaseViews())) return false;
   captureEditor();
@@ -443,11 +452,11 @@ function renderSidebar() {
   }
   for (const siblings of childrenByParent.values()) siblings.sort(comparePageOrder);
   const databasesById = new Map(databases.map(database => [database.id, database]));
-  const viewIcons: Record<string, string> = { table: "table-2", board: "columns-3", gallery: "layout-grid", list: "list", calendar: "calendar" };
+
   function viewRows(database: Database, depth: number): string {
     const state = readSidebarViews(database);
     if (!state.views) return `<div class="tree-row" style="--depth:${depth}"><button class="tree-page" ${state.error ? `data-retry-sidebar-views="${e(database.id)}"` : "disabled"}>${icon(state.error ? "rotate-cw" : "loader")}<span>${state.error ? t("Retry loading views") : t("Loading views…")}</span></button></div>`;
-    return state.views.map(view => `<div class="tree-row ${databaseRoute?.id === database.id && activeViewId === view.id ? "active" : ""}" data-database-view-row="${e(view.id)}" style="--depth:${depth}"><button class="tree-page" data-open-database="${e(database.id)}" data-database-view="${e(view.id)}">${icon(viewIcons[view.type] ?? "table-2")}<span>${e(view.name)}</span></button></div>`).join("") || `<p class="empty-small" data-i18n="No views yet.">No views yet.</p>`;
+    return state.views.map(view => `<div class="tree-row ${databaseRoute?.id === database.id && activeViewId === view.id ? "active" : ""}" data-database-view-row="${e(view.id)}" style="--depth:${depth}"><button class="tree-page" data-open-database="${e(database.id)}" data-database-view="${e(view.id)}">${databaseViewIconHTML(view)}<span>${e(view.name)}</span></button></div>`).join("") || `<p class="empty-small" data-i18n="No views yet.">No views yet.</p>`;
   }
   function rows(parent: string | null, depth: number): string {
     return (childrenByParent.get(parent) ?? [])
@@ -487,7 +496,7 @@ function shell() {
     <nav class="main-nav"><button data-action="home">${icon("layout-dashboard")}<span data-i18n="Vault">Vault</span><span id="page-count">${pages.length}</span></button><button data-action="databases">${icon("table-2")}<span data-i18n="Databases">Databases</span></button><button data-action="attachments">${icon("paperclip")}<span data-i18n="Attachments">Attachments</span></button><button data-action="people">${icon("user")}<span data-i18n="People">People</span></button><button data-action="graph">${icon("waypoints")}<span data-i18n="Graph">Graph</span></button><button data-action="conflicts">${icon("git-branch")}<span data-i18n="Conflicts and versions">Conflicts and versions</span></button></nav>
     <div id="database-api-notice" class="database-api-notice" role="status" ${databaseApiAvailable ? "hidden" : ""}>${e(databaseRestartMessage)}<button data-action="retry-databases" data-i18n="Check connection">Check connection</button></div><div id="favorite-pages"></div><div class="section-label" data-page-root-drop title="Drop a page here to move it to the vault root" data-i18n-title="Drop a page here to move it to the vault root"><span data-i18n="Private pages">Private pages</span>${button("new", "plus", "New page")}</div><div id="page-tree"></div>
     <div class="sidebar-bottom"><button class="new-page" data-action="import">${icon("folder-input")}<span data-i18n="Import">Import</span></button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}<span data-i18n="Trash">Trash</span></button><a class="markdown-lab-link" data-experimental="block-explorer" data-sidebar-hidden href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}<span data-i18n="Block Explorer">Block Explorer</span>${icon("arrow-up-right")}</a><a class="markdown-lab-link" data-experimental="markdown-lab" data-sidebar-hidden href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}<span data-i18n="Markdown Lab">Markdown Lab</span>${icon("arrow-up-right")}</a><div class="local-badge"><span></span><span data-i18n="Local Markdown vault">Local Markdown vault</span></div><button data-action="settings">${icon("settings-2")}<span data-i18n="Workspace settings">Workspace settings</span>${icon("chevron-right")}</button></div>
-  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history" data-i18n-aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location" data-i18n="Markdown · Local files">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
+  </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history" data-i18n-aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span><details id="page-view-switcher" class="page-options page-view-switcher" name="topbar-menu" hidden></details>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location" data-i18n="Markdown · Local files">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   app.classList.add("workspace-layout");
   document.body.classList.toggle("desktop-window", !!window.notdownDesktop);
   const chrome = document.createElement("header"); chrome.className = "workspace-chrome";
@@ -558,6 +567,7 @@ function captureEditor() {
   }
 }
 function destroyEditor() {
+  mindmapCleanup?.(); mindmapCleanup = undefined;
   wikiPickerCleanup?.(); wikiPickerCleanup = undefined; wikiHomeMenu?.destroy(); wikiHomeMenu = undefined;
   databaseWorkspace?.destroy();
   databaseWorkspace = undefined;
@@ -762,6 +772,14 @@ function renderDocument() {
     const nav = document.createElement("nav"); nav.className = "wiki-home-toolbar"; setUIAttribute(nav, "aria-label", "Wiki views");
     const picker = document.createElement("div"); picker.className = "wiki-picker-mount"; nav.append(picker);
     wikiPickerCleanup = mountWikiViewPicker(picker, snapshot, "home", {
+      prepare: async () => {
+        if (!await save()) return false;
+        Object.assign(snapshot, await api<DatabaseSnapshot>(`/databases/${wiki.id}`));
+        wikiHomeSnapshot = snapshot;
+        return true;
+      },
+      menuOpened: pop => { wikiHomeMenu = pop; },
+      updated: next => { wikiHomeSnapshot = next; },
       select: async id => { if (id !== "home") await navigation?.navigate({ kind: "database", id: wiki.id, viewId: id }); },
       create: async anchor => {
         if (!await save()) return;
@@ -816,22 +834,20 @@ function renderPageDecoration() {
 function pageOptions() {
   if (library)
     return `<summary class="icon-button" aria-label="Workspace options" data-i18n-aria-label="Workspace options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu"><button role="menuitem" data-action="settings">${icon("settings-2")}<span data-i18n="Settings">Settings</span></button></div>`;
-  const modes: [View, string, string][] = [
-    ["document", "file-text", "Page"],
-    ["outline", "list-tree", "Outline"],
-    ["mindmap", "network", "Mind map"],
-    ["source", "code-xml", "Markdown source"],
-    ["split", "columns-2", "Source and page"],
-  ];
+  const modes = pageViews;
   return `<summary class="icon-button" aria-label="Page options" title="Page options" data-i18n-title="Page options" data-i18n-aria-label="Page options">${icon("ellipsis")}</summary><div class="page-options-menu" role="menu">${current ? `<small data-i18n="Page">Page</small>${pageActionsHTML(wikiForPage(current) ? { ...wikiPresentationPage(current), wiki: true } : current, "data-current-page-action")}<hr>` : ""}<small data-i18n="View">View</small>${current && !wikiForPage(current) ? `<button type="button" role="menuitemcheckbox" aria-checked="${current.fullWidth === true}" data-action="page-full-width">${icon("columns-2")}<span data-i18n="Full width">Full width</span>${current.fullWidth ? icon("check") : ""}</button>` : ""}${modes.map(([v, i, label]) => `<button role="menuitemradio" aria-checked="${view === v}" data-view="${v}">${icon(i)}<span data-i18n="${e(label)}">${e(t(label))}</span>${v === "source" ? "<kbd>Ctrl E</kbd>" : ""}</button>`).join("")}<hr/><button role="menuitem" data-action="page-history">${icon("git-branch")}<span data-i18n="Page history">Page history</span></button><button role="menuitem" data-action="page-attachments">${icon("paperclip")}<span data-i18n="Page attachments">Page attachments</span></button><button role="menuitem" data-action="page-properties">${icon("tags")}<span data-i18n="Page properties">Page properties</span></button><button role="menuitem" data-action="export">${icon("download")}<span data-i18n="Export HTML">Export HTML</span></button><button role="menuitem" data-action="export-text">${icon("file-text")}<span data-i18n="Export plain text">Export plain text</span></button><button role="menuitem" data-action="settings">${icon("settings-2")}<span data-i18n="Settings">Settings</span></button></div>`;
 }
 function renderPageOptions() {
   document.querySelector("#page-options")!.innerHTML = pageOptions();
+  renderPageViewSwitcher(view, !!current && !library && !databaseRoute);
   refreshIcons();
 }
 function renderContent() {
   if (!current) return;
+  if (workspace && !["document", "source", "split"].includes(view)) destroyEditor();
+  mindmapCleanup?.(); mindmapCleanup = undefined;
   const content = document.querySelector<HTMLDivElement>("#document-content")!;
+  content.closest(".document-wrap")?.classList.toggle("wide", view === "mindmap");
   if (["document", "source", "split"].includes(view)) {
     const generation = ++editorGeneration,
       pageId = current.id;
@@ -904,13 +920,20 @@ function renderContent() {
     editor = workspace.blocks;
     editorReady = true;
     applyMarkdownControlPreferences();
+  } else if (view === "mindmap") {
+    mindmapCleanup = mountMindmap(content, buildMindmap(current.title, current.body, current.bodyFormat, current.syntax), {
+      syntax: current.syntax ?? defaultSyntax(current.bodyFormat),
+      pages: () => pages, currentPage: () => current ?? undefined,
+      onOpenPage: (id, reference) => { void openReferencePage(id, reference).catch(report); },
+      onError: report,
+    });
   } else {
     const outline = getOutline(
       current.body,
       current.bodyFormat,
       current.syntax,
     );
-    content.innerHTML = `<p class="view-description" data-i18n="Generated from headings and lists in your Markdown.">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="${view === "mindmap" ? "mindmap" : "outline-view"}">${view === "mindmap" ? `<div class="mindmap-root">${e(current.title)}</div>` : ""}${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3 data-i18n="No outline yet">No outline yet</h3><p data-i18n="Add headings or lists to see your outline here.">Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button" data-i18n="Start editing">Start editing</button></div>`}`;
+    content.innerHTML = `<p class="view-description" data-i18n="Generated from headings and lists in your Markdown.">Generated from headings and lists in your Markdown.</p>${outline.length ? `<div class="outline-view">${outlineHTML(outline)}</div>` : `<div class="empty-state">${icon("list-tree")}<h3 data-i18n="No outline yet">No outline yet</h3><p data-i18n="Add headings or lists to see your outline here.">Add headings or lists to see your outline here.</p><button data-view="document" class="primary-button" data-i18n="Start editing">Start editing</button></div>`}`;
   }
   renderToc();
   refreshIcons();
@@ -1082,11 +1105,19 @@ async function loadLibrary(selected = libraryView, isCurrent = () => true): Prom
   closeModal();
   closePageContextMenu();
   const loaded = await refreshWorkspacePages();
+  const sources = new Map<string, DatabaseDataSource>();
+  if (selected === "list" && databaseApiAvailable) {
+    const ids = [...new Set(loaded.map(page => page.dataSourceId).filter((id): id is string => !!id))];
+    const results = await Promise.allSettled(ids.map(id => api<DatabaseDataSource>(`/data-sources/${encodeURIComponent(id)}`)));
+    for (const result of results) if (result.status === "fulfilled") sources.set(result.value.id, result.value);
+    if (isCurrent() && results.some(result => result.status === "rejected")) toast("Some property names could not be loaded.");
+  }
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   destroyEditor();
   library = true;
   libraryView = selected;
   pages = loaded;
+  vaultListSources = sources;
   renderLibrary();
   renderSidebar();
   updateCounts();
@@ -1097,8 +1128,9 @@ function renderLibrary() {
   graphCleanup = undefined;
   renderPageOptions();
   refreshBreadcrumbs();
+  const byId = new Map(pages.map(page => [page.id, page]));
   const filtered = pages.filter((p) =>
-    `${p.title} ${p.body} ${JSON.stringify(p.properties)}`
+    `${p.title} ${p.body} ${JSON.stringify(p.properties)} ${libraryView === "list" ? vaultListProperties(p, vaultListSources.get(p.dataSourceId!), byId).map(property => `${property.name} ${property.value}`).join(" ") : ""}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
@@ -1112,6 +1144,7 @@ function renderLibrary() {
     `<section class="library"><div class="library-intro"><div><h1 data-i18n="Vault">Vault</h1></div><button class="primary-button" data-action="new">${icon("plus")}<span data-i18n="New page">New page</span></button></div>
     <div class="library-toolbar"><div class="tabs">${modes.map(([v, i, label]) => `<button data-library-view="${v}" class="${libraryView === v ? "selected" : ""}">${icon(i)}<span data-i18n="${e(label)}">${e(t(label))}</span></button>`).join("")}</div><label class="library-search">${icon("search")}<input id="library-search" aria-label="Filter pages" placeholder="Filter pages…" value="${e(search)}"  data-i18n-placeholder="Filter pages…" data-i18n-aria-label="Filter pages"/></label></div>
     <div id="library-results">${libraryView === "gallery" ? galleryHTML(filtered) : libraryView === "list" ? listHTML(filtered) : libraryView === "graph" ? graphHTML(filtered) : libraryTreeHTML(filtered)}</div></section>`;
+  if (libraryView === "gallery") mountVaultGallery(document.querySelector<HTMLElement>(".library")!, filtered);
   const graphRoot = document.querySelector<HTMLElement>("#library-results .graph-view");
   if (graphRoot) graphCleanup = mountGraph(graphRoot, filtered, pages);
   document.querySelectorAll<HTMLDetailsElement>(".library-tree details[data-tree-page]").forEach(details => {
@@ -1125,30 +1158,20 @@ function galleryHTML(list: Page[]) {
   return list.length
     ? `<div class="gallery">${list
         .map(
-          (p, i) =>
-            `<button class="gallery-card" data-open="${e(p.id)}"><div class="card-cover tone-${i % 4}"><span>${pageIcon(p)}</span><div class="card-pattern"></div></div><div class="card-body"><h3>${e(p.title)}</h3><p>${e(
-              p.body
-                .replace(/^#{1,6}\s+.*$/gm, "")
-                .replace(/[*\[\]`>:]/g, "")
-                .trim()
-                .slice(0, 98) || "An idea waiting to take shape.",
-            )}</p><div class="card-footer"><span>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title || "Child page" : "Root page")}</span>${icon("arrow-up-right")}</div></div></button>`,
+          p =>
+            `<button class="gallery-card" data-open="${e(p.id)}"><div class="card-body"><h3>${pageIcon(p)}<span>${e(p.title)}</span></h3><div class="card-footer"><span>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title || "Child page" : "Root page")}</span>${icon("arrow-up-right")}</div></div></button>`,
         )
         .join("")}</div>`
     : `<p class="empty-state" data-i18n="No matching pages.">No matching pages.</p>`;
 }
 function listHTML(list: Page[]) {
-  return `<div class="table-scroll"><table class="pages-table"><thead><tr><th data-i18n="Page name">Page name</th><th data-i18n="Parent page">Parent page</th><th data-i18n="Properties">Properties</th><th data-i18n="Last modified">Last modified</th></tr></thead><tbody>${list
+  const byId = new Map(pages.map(page => [page.id, page]));
+  return `<div class="table-scroll"><table class="pages-table"><thead><tr><th data-i18n="Page name">Page name</th><th data-i18n="Parent page">Parent page</th><th><div class="vault-list-properties-heading"><span data-i18n="Properties">Properties</span></div></th><th data-i18n="Last modified">Last modified</th></tr></thead><tbody>${list
     .map(
       (p) =>
-        `<tr><td><button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button></td><td>${e(p.parent ? pages.find((x) => x.id === p.parent)?.title : "—")}</td><td>${Object.entries(
-          p.properties,
-        )
-          .map(
-            ([key, value]) =>
-              `<span class="tag">${e(key)}: ${e(String(value))}</span>`,
-          )
-          .join(" ")}</td><td>${formatDate(p.updated)}</td></tr>`,
+        `<tr><td><button data-open="${e(p.id)}">${pageIcon(p)}${e(p.title)}</button></td><td>${e(p.parent ? byId.get(p.parent)?.title : "—")}</td><td><dl class="vault-list-properties">${vaultListProperties(p, vaultListSources.get(p.dataSourceId!), byId)
+          .map(({ name, value }) => `<div class="vault-list-property"><dt title="${e(name)}">${e(name)}</dt><dd title="${e(value)}">${e(value)}</dd></div>`)
+          .join("")}</dl></td><td>${formatDate(p.updated)}</td></tr>`,
     )
     .join("")}</tbody></table></div>`;
 }
@@ -2890,6 +2913,13 @@ document.addEventListener("keydown", event => {
 
 document.addEventListener("click", (event) => {
   const target = event.target as Element;
+  const link = target.closest<HTMLAnchorElement>("a[href]");
+  const route = link && parseRoute(link.getAttribute("href") || "");
+  if (!event.defaultPrevented && link && !link.hasAttribute("download") && route && route.kind !== "page") {
+    event.preventDefault();
+    void navigation?.navigate(route);
+    return;
+  }
   const actionEl = target.closest<HTMLElement>(
     "[data-action],[data-source-file],[data-current-page-action],[data-page-menu],[data-open],[data-open-database],[data-retry-sidebar-views],[data-database-new-record],[data-view],[data-library-view],[data-toggle],[data-child],[data-insert],[data-insert-link],a[href^='#page/']",
   );
@@ -2939,6 +2969,10 @@ document.addEventListener("click", (event) => {
     }
     if (actionEl.dataset.view) {
       const next = actionEl.dataset.view as View;
+      if (next === view && actionEl.closest("#page-view-switcher")) {
+        document.querySelector<HTMLElement>("#page-view-switcher > summary")?.focus();
+        return;
+      }
       if (workspace?.blocks.databaseViewsDirty && !(await save())) return;
       if (workspace && ["document", "source", "split"].includes(next)) {
         workspace.setMode(next as EditMode);

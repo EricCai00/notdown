@@ -1,0 +1,62 @@
+import { test, expect } from "@playwright/test";
+
+test("database headers add icons and covers, reposition and remove them without losing properties", async ({ page, request }, info) => {
+  const created = await (await request.post("/api/databases", { data: { title: "Database 1" } })).json();
+  await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, icon: "table-2", properties: { future: { keep: true } } } });
+  await page.goto(`/#database/${created.database.id}`);
+  const heading = page.locator(".database-heading"), icon = page.getByRole("button", { name: "Change database icon", exact: true });
+  await expect(page.getByRole("button", { name: "All databases", exact: true })).toHaveCount(0);
+  await expect(icon).toBeHidden();
+  await expect(page.locator(".database-heading-actions")).toHaveCSS("opacity", "0");
+  await heading.hover();
+  await expect(page.locator(".database-heading-actions")).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: info.outputPath("database-header-empty.png") });
+  await page.getByRole("button", { name: "Add icon", exact: true }).click();
+  const icons = page.getByRole("dialog", { name: "Choose database icon", exact: true });
+  await icons.getByRole("button", { name: "Emoji", exact: true }).click();
+  await icons.getByLabel("Custom icon", { exact: true }).fill("🙂"); await icons.getByRole("button", { name: "Use icon", exact: true }).click();
+  await expect(icon.locator(".emoji")).toHaveText("🙂");
+  await heading.hover(); await page.getByRole("button", { name: "Add cover", exact: true }).click();
+  const covers = page.getByRole("dialog", { name: "Choose page cover", exact: true });
+  await covers.locator('[data-cover-asset="woodcuts_9.jpg"]').click();
+  const cover = page.locator(".database-page-cover .page-cover");
+  await expect(cover).toBeVisible();
+  await expect(page.locator(".database-message")).toHaveAttribute("data-state", "saved");
+  await page.reload(); await expect(cover).toBeVisible(); await expect(icon.locator(".emoji")).toHaveText("🙂");
+  const geometry = await page.evaluate(() => {
+    const bounds = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+    const banner = bounds(".database-page-cover"), heading = bounds(".database-heading"), main = bounds("#main");
+    return { coverX: banner.x, mainX: main.x, width: banner.width, mainWidth: main.width, titleGap: heading.top - banner.bottom, height: banner.height };
+  });
+  expect(geometry.coverX).toBeCloseTo(geometry.mainX, 0); expect(geometry.width).toBeCloseTo(geometry.mainWidth, 0);
+  expect(geometry.height).toBe(156); expect(geometry.titleGap).toBe(48);
+  await page.screenshot({ path: info.outputPath("database-header-covered.png") });
+  await cover.hover(); await page.getByRole("button", { name: "Reposition", exact: true }).click();
+  await page.keyboard.press("ArrowUp"); await page.getByRole("button", { name: "Save position", exact: true }).click();
+  await expect.poll(async () => (await (await request.get(`/api/pages/${created.hostPage.id}`)).json()).properties.coverPosition).toBe(45);
+  await page.setViewportSize({ width: 650, height: 900 });
+  await expect(cover).toBeInViewport();
+  await page.screenshot({ path: info.outputPath("database-header-narrow.png") });
+  await cover.hover(); await page.getByRole("button", { name: "Change cover", exact: true }).click();
+  await covers.getByRole("button", { name: "Remove", exact: true }).click(); await expect(cover).toHaveCount(0);
+  await icon.click(); await icons.getByRole("button", { name: "Remove", exact: true }).click(); await expect(icon).toBeHidden();
+  const saved = await (await request.get(`/api/pages/${created.hostPage.id}`)).json();
+  expect(saved.properties).toEqual({ future: { keep: true } }); expect(saved.body).toBe(""); expect(saved.icon).toBe("");
+});
+
+test("a stale database cover preserves both the external metadata and the local cover draft", async ({ page, request }) => {
+  const created = await (await request.post("/api/databases", { data: { title: "Cover conflict" } })).json();
+  await page.goto(`/#database/${created.database.id}`);
+  await page.locator(".database-heading").hover(); await page.getByRole("button", { name: "Add cover", exact: true }).click();
+  const externalCover = "/page-covers/woodcuts_9.jpg";
+  expect((await request.put(`/api/pages/${created.hostPage.id}`, { data: { baseRevision: created.hostPage.revision, properties: { cover: externalCover, future: "External value" } } })).ok()).toBeTruthy();
+  await page.getByRole("dialog", { name: "Choose page cover", exact: true }).locator("[data-cover-asset]").first().click();
+  await expect(page.locator(".database-message")).toContainText(/conflict|changed|preserved/i);
+  const saved = await (await request.get(`/api/pages/${created.hostPage.id}`)).json();
+  expect(saved.properties).toEqual({ cover: externalCover, future: "External value" });
+  const conflicts = await (await request.get("/api/conflicts")).json();
+  expect(conflicts.find((item: any) => item.pageId === saved.id)?.proposed.properties.cover).toBeTruthy();
+  expect(await page.evaluate(() => Object.entries(sessionStorage).some(([key, value]) => key.endsWith(":presentation") && value.includes('"cover":')))).toBeTruthy();
+  await page.getByRole("button", { name: "Discard draft and reload", exact: true }).click();
+  await expect(page.locator(".database-page-cover img")).toHaveAttribute("src", externalCover);
+});

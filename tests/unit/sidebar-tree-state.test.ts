@@ -2,11 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseSidebarTreePreferences, SidebarTreeExpansion } from "../../src/app/sidebar-tree-state";
 
-test("sidebar tree defaults safely to collapsed pages and validates saved preferences", () => {
+test("sidebar tree defaults safely to collapsed views and validates saved preferences", () => {
   for (const raw of [null, "broken", "null", "[]", "42", '{"expandDepth":-1}', '{"expandDepth":1.5}', '{"expandDepth":11}', '{"expandDepth":"2","databaseChildren":"other"}']) {
-    assert.deepEqual(parseSidebarTreePreferences(raw), { databaseChildren: "pages", expandDepth: 0 });
+    assert.deepEqual(parseSidebarTreePreferences(raw), { databaseChildren: "views", expandDepth: 0 });
   }
   assert.deepEqual(parseSidebarTreePreferences('{"databaseChildren":"views","expandDepth":2}'), { databaseChildren: "views", expandDepth: 2 });
+  assert.deepEqual(parseSidebarTreePreferences('{"databaseChildren":"pages","expandDepth":1}'), { databaseChildren: "pages", expandDepth: 1 });
   assert.equal(parseSidebarTreePreferences('{"expandDepth":"all"}').expandDepth, "all");
 });
 

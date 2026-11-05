@@ -1,4 +1,5 @@
-import { vaultAssetUrl } from "../shared/vault-url";
+import { vaultAssetUrl, vaultPrefix } from "../shared/vault-url";
+import { parseRoute } from "../features/pages/page-navigation";
 import { editorKind, isEditorKind } from "../document/node-identity";
 import { removedChildPages } from "./child-page-deletion";
 import { insertFormats } from "./insert-format";
@@ -185,6 +186,8 @@ type BlockType =
   | "code"
   | "divider";
 interface Options {
+  /** A reading surface: node views start read-only and document transactions are rejected. */
+  readOnly?: boolean;
   interactionMode?: "desktop" | "touch";
   canTouchDrag?: () => boolean;
   metadataHost?: HTMLElement;
@@ -251,6 +254,7 @@ class ListItemView implements NodeView {
         this.dom.prepend(this.checkbox);
       }
       this.checkbox.checked = this.node.attrs.checked;
+      this.checkbox.disabled = !this.view.editable;
     } else {
       delete this.dom.dataset.checked;
       this.checkbox?.remove();
@@ -468,6 +472,7 @@ export class BlockEditor {
       },
     };
     this.view = new EditorView(root, {
+      editable: () => !options.readOnly,
       state: EditorState.create({
         schema,
         doc: projectFootnotes(options.codec
@@ -477,6 +482,7 @@ export class BlockEditor {
             : parseEditorMarkdown(options.value)),
         plugins: [
           new Plugin({ filterTransaction: tr => {
+            if (options.readOnly && tr.docChanged) return false;
             if (!tr.docChanged || options.canCommand?.("notion_custom") === true) return true;
             let allowed = true;
             tr.doc.descendants(node => {
@@ -652,7 +658,11 @@ export class BlockEditor {
           return;
         }
         // Local resources and download links use native browser navigation, not page resolution.
-        if (link.hasAttribute("download") || localAssetPath(href.replace(/^\/v\/[a-f0-9]{64}(?=\/)/, ""))) return;
+        if (link.hasAttribute("download") || localAssetPath(href.slice(vaultPrefix(href).length))) return;
+        // App routes belong to the host navigation (including save/conflict guards),
+        // not the document's heading and block location resolver.
+        const route = parseRoute(href);
+        if (route && route.kind !== "page") return;
         const reference = internalReference(href, (link.getAttribute("data-reference-syntax") || "markdown") as ReferenceSyntax);
         if (!reference) return;
         const registered = reference.addressing === "id" ? externalLibrary().entities.find(entity => entity.status === "resolved" && entity.localId === reference.address && entity.kind !== "user") : undefined;
@@ -672,6 +682,7 @@ export class BlockEditor {
       },
       { signal: this.abort.signal },
     );
+    if (options.readOnly) return;
     // Touch editing uses the host's keyboard toolbar and native text selection.
     // Do not register desktop gutter, marquee or drag handlers on that surface.
     if (options.interactionMode === "touch") {
@@ -978,7 +989,7 @@ export class BlockEditor {
     if (tr) this.view.dispatch(tr);
   }
   setEditable(value: boolean) {
-    this.view.setProps({ editable: () => value });
+    this.view.setProps({ editable: () => value && !this.options.readOnly });
     refreshAlertViews(this.view);
     // Node views can be reused without update() when only editable changes.
     refreshCodeBlockViews(this.view);
