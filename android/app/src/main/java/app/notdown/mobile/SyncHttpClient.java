@@ -24,6 +24,9 @@ public final class SyncHttpClient implements AutoCloseable {
     private final OkHttpClient client = new OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .retryOnConnectionFailure(false).connectTimeout(20, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS)
         .writeTimeout(45, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS).build();
+    // Reads can recover a stale pooled socket after a long local-file batch or screen-off gap.
+    // Share the pool/dispatcher, but never enable transport retries for mutations.
+    private final OkHttpClient readClient = client.newBuilder().retryOnConnectionFailure(true).build();
     private final Map<String, Call> pending = new ConcurrentHashMap<>();
     public static final class Result {
         public final int status; public final Map<String, String> headers; public final byte[] data;
@@ -44,7 +47,7 @@ public final class SyncHttpClient implements AutoCloseable {
         }
         boolean bodyRequired = method.equals("POST") || method.equals("PUT");
         builder.method(method, data != null || bodyRequired ? RequestBody.create(data == null ? new byte[0] : data, null) : null);
-        Call call = client.newCall(builder.build());
+        Call call = (method.equals("GET") || method.equals("HEAD") ? readClient : client).newCall(builder.build());
         if (pending.putIfAbsent(id, call) != null) throw new IOException("Duplicate sync request");
         try (Response response = call.execute()) {
             Map<String, String> resultHeaders = new LinkedHashMap<>();
@@ -64,5 +67,6 @@ public final class SyncHttpClient implements AutoCloseable {
         } finally { pending.remove(id, call); }
     }
     public void cancel(String id) { Call call = pending.get(id); if (call != null) call.cancel(); }
-    @Override public void close() { for (Call call : pending.values()) call.cancel(); client.connectionPool().evictAll(); client.dispatcher().executorService().shutdown(); }
+    public void cancelAll() { for (Call call : pending.values()) call.cancel(); }
+    @Override public void close() { cancelAll(); client.connectionPool().evictAll(); client.dispatcher().executorService().shutdown(); }
 }

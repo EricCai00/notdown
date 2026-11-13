@@ -64,11 +64,11 @@ export async function api<T>(
         for (const line of lines) {
           if (!line.trim()) continue;
           const event = JSON.parse(line);
-          if (event.type === "error") throw new Error(event.error);
+          if (event.type === "error") throw new ApiError(event.status ?? 500, event);
           if (event.type === "result") return event.result as T;
           if (event.type === "progress") onProgress(event);
         }
-        if (done) throw new Error("Import connection closed before completion. Review the import before retrying.");
+        if (done) throw new ApiError(502, { error: "Import connection closed before completion. Review the import before retrying.", retryable: true });
       }
     } finally {
       await reader.cancel().catch(() => {});

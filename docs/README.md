@@ -85,6 +85,8 @@ Start with the project README ([English](../README.md) / [简体中文](../READM
 
 ## Audits and verification
 
+- [Android active sync continuation with the screen off (2026-11-07)](verification/ANDROID-ACTIVE-SYNC-2026-11-07.md)
+
 - [Windows 0.1.15 database views and desktop release verification](verification/RELEASE-0.1.15-2026-11-05.md)
 - [Windows 0.1.14: bilingual workspace and vault management](verification/RELEASE-0.1.14-2026-11-03.md)
 

@@ -2,6 +2,26 @@ import { test, expect } from "@playwright/test";
 import { createBlockDatabase } from "./database-fixture";
 test.setTimeout(90_000);
 
+for (const populated of [false, true]) test(`full-page ${populated ? "populated" : "empty"} tables align New page with the first property outside the utility gutter`, async ({ page, request }, info) => {
+  const created = await request.post("/api/databases", { data: { title: "Full-page alignment" } });
+  expect(created.ok()).toBe(true);
+  const snapshot = await created.json(), source = snapshot.dataSources[0];
+  if (populated) expect((await request.post(`/api/data-sources/${source.id}/records`, {
+    data: { title: "Aligned record", baseRevision: source.revision },
+  })).ok()).toBe(true);
+  await page.goto(`/#database/${snapshot.database.id}`);
+  const title = page.locator("thead th[data-type='title']"), add = page.locator(".database-table-scroll > .database-add-row");
+  await expect(title).toBeVisible();
+  for (const width of [1920, 1536, 1100]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect.poll(async () => Math.abs((await add.boundingBox())!.x - (await title.boundingBox())!.x)).toBeLessThan(1);
+    expect(await page.locator("#main").evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+  }
+  await page.screenshot({ path: info.outputPath(`full-page-${populated ? "populated" : "empty"}-alignment.png`) });
+  await page.reload(); await expect(title).toBeVisible();
+  expect(Math.abs((await add.boundingBox())!.x - (await title.boundingBox())!.x)).toBeLessThan(1);
+});
+
 test("table hover controls, range selection, select all and bulk property assignment persist", async ({ page, request }, info) => {
   const fixture = await createBlockDatabase(request);
   await page.goto(`/#database/${fixture.database.id}`);
@@ -58,11 +78,22 @@ test("bulk conflict stops later writes and retains the remaining draft", async (
   await page.getByRole("button", { name: "Edit property: Notion Syntax", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Edit property", exact: true });
   await dialog.getByLabel("Notion Syntax: Selected rows", { exact: true }).fill("Bulk draft");
-  const record = fixture.records[0];
-  expect((await request.put(`/api/pages/${record.id}`, { data: { baseRevision: record.revision, body: "External update" } })).ok()).toBeTruthy();
+  let attempted = 0;
+  await page.route("**/api/data-sources/*/records/*", async route => {
+    if (route.request().method() !== "PUT") { await route.continue(); return; }
+    if (++attempted === 1) {
+      // Conflict the first actual write, independent of filesystem scan order.
+      const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/").at(-1)!);
+      const current = await (await request.get(`/api/pages/${id}`)).json();
+      expect((await request.put(`/api/pages/${id}`, { data: { baseRevision: current.revision, body: "External update" } })).ok()).toBeTruthy();
+    }
+    await route.continue();
+  });
   await dialog.getByRole("button", { name: "Apply to selected rows" }).click();
   await expect(dialog.getByRole("status")).toContainText("preserved");
-  expect((await (await request.get(`/api/pages/${fixture.records[1].id}`)).json()).properties.notionSyntax).toBe("<page>…</page>");
+  expect(attempted).toBe(1);
+  for (const record of fixture.records.slice(0, 2))
+    expect((await (await request.get(`/api/pages/${record.id}`)).json()).properties.notionSyntax).toBe(record.properties.notionSyntax);
   expect(await page.evaluate(() => Object.keys(sessionStorage).some(key => key.startsWith("notdown-database-draft:") && sessionStorage.getItem(key)?.includes("Bulk draft")))).toBeTruthy();
 });
 

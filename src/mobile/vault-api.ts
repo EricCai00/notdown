@@ -25,6 +25,23 @@ export function mobileVaultApi(current: () => MobileVault): ApiTransport {
         if (method === "POST" && operation === "resolve") { const { baseRevision, schemaRevision, ...patch } = input; return await vault.resolveConflict(id, patch, baseRevision, schemaRevision); }
       }
       if (resource === "pages") {
+        if (method === "POST" && operation === "duplicate") return await vault.duplicate(id, input.baseRevision);
+        if (operation === "history") {
+          const page = await vault.get(id), candidates = [page.id, ...(page.legacyIds ?? [])];
+          if (method === "GET" && !child) {
+            const entries = (await Promise.all(candidates.map(candidate => vault.history.list(candidate)))).flat();
+            return entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+          }
+          if (child !== "snapshot") throw new VaultError(400, "Unknown history source");
+          let record;
+          for (const candidate of candidates) {
+            try { record = await vault.history.read(candidate, parts[4]); break; }
+            catch (error) { if (!(error instanceof VaultError) || error.status !== 404) throw error; }
+          }
+          if (!record) throw new VaultError(404, "History version not found");
+          if (method === "GET") return record;
+          if (method === "POST" && parts[5] === "restore") return await vault.restoreHistory(page.id, record, input.baseRevision);
+        }
         if (method === "POST" && operation === "wiki") return await vault.databases.turnIntoWiki(id, input.baseRevision);
         if (method === "POST" && operation === "insert-into-parent") return await vault.insertChildPage(id, input);
         if (method === "GET") return await (id ? vault.get(id) : vault.list({ includeTrashed: url.searchParams.get("includeTrashed") === "true" }));

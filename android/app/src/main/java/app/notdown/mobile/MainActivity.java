@@ -11,7 +11,9 @@ public class MainActivity extends BridgeActivity {
     @Override public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NotdownVaultPlugin.class);
         registerPlugin(NotdownSyncHttpPlugin.class);
+        registerPlugin(NotdownSyncExecutionPlugin.class);
         super.onCreate(savedInstanceState);
+        getBridge().getWebView().setImportantForAutofill(android.view.View.IMPORTANT_FOR_AUTOFILL_YES);
         // Observe actual IME visibility: focus can remain in the editor after Android hides it.
         getBridge().getWebView().getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
             private Boolean lastVisible;

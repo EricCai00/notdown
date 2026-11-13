@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { once } from "node:events";
 import { createApp } from "../../server/app.js";
-import { api } from "../../src/shared/types.js";
+import { api, ApiError } from "../../src/shared/types.js";
 import { notionFixture, notionRoot } from "./notion-import-fixture.js";
 import { prepareNotionImport } from "../../server/notion-import.js";
 import type { ImportProgress } from "../../src/shared/import-progress.js";
@@ -113,7 +113,7 @@ test("API progress reader handles split Unicode, multiple events, errors and tru
   let requests = 0;
   t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
     assert.equal((init.headers as Record<string, string>).Accept, "application/x-ndjson");
-    const content = requests++ === 0 ? bytes : new TextEncoder().encode(requests === 2 ? '{"type":"error","error":"Read failed"}\n' : '{"type":"progress","phase":"reading","completed":0}\n');
+    const content = requests++ === 0 ? bytes : new TextEncoder().encode(requests === 2 ? '{"type":"error","error":"Read failed","status":410,"retryable":false}\n' : '{"type":"progress","phase":"reading","completed":0}\n');
     return new Response(new ReadableStream({ start(controller) {
       for (const byte of content) controller.enqueue(Uint8Array.of(byte));
       controller.close();
@@ -122,6 +122,47 @@ test("API progress reader handles split Unicode, multiple events, errors and tru
   const progress: unknown[] = [];
   assert.deepEqual(await api("/notion/import/preview", {}, event => progress.push(event)), { pages: 1 });
   assert.deepEqual(progress, [messages[0]]);
-  await assert.rejects(api("/notion/import/preview", {}, () => {}), /Read failed/);
+  await assert.rejects(api("/notion/import/preview", {}, () => {}), error => error instanceof ApiError && error.status === 410 && !error.data.retryable);
   await assert.rejects(api("/notion/import/preview", {}, () => {}), /closed before completion/);
+});
+
+test("HTTP batches keep partial reads uncommittable, deliver the same final plan again, and cancel safely", async t => {
+  const temporaryRoot = path.resolve(os.tmpdir());
+  const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-batches-"));
+  const calls: string[] = [];
+  const app = createApp({ vaultPath, notionImportTransport: { fetch: notionFixture(calls), wait: async () => {} },
+    notionImportBatchLimits: { pages: 1, requests: 2, milliseconds: 60_000, idleMs: 60_000 } });
+  await app.locals.vault.init();
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    app.locals.closeRNotebook();
+    assert.equal(path.dirname(path.resolve(vaultPath)), temporaryRoot);
+    assert.ok(path.basename(vaultPath).startsWith("notdown-batches-"));
+    await fs.rm(vaultPath, { recursive: true, force: true });
+  });
+  const base = `http://127.0.0.1:${(server.address() as import("node:net").AddressInfo).port}/api`;
+  const post = (endpoint: string, body: unknown) => fetch(`${base}${endpoint}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  let result = await (await post("/notion/import/preview", { token: "test-secret-not-saved", pageId: notionRoot, batched: true })).json();
+  const continuationId = result.continuationId;
+  assert.equal(result.batch, 0);
+  assert.equal(calls.length, 0);
+  assert.equal((await post("/import/commit", { id: continuationId })).status, 410);
+  while (result.continuationId) {
+    assert.equal((await app.locals.vault.list()).length, 0);
+    result = await (await post("/notion/import/preview", { continuationId })).json();
+  }
+  assert.equal(result.pages, 3);
+  const count = calls.length;
+  assert.deepEqual(await (await post("/notion/import/preview", { continuationId })).json(), result);
+  assert.equal(calls.length, count, "a lost final response is recoverable without rereading");
+  assert.equal((await post("/import/commit", { id: result.id })).status, 200);
+  assert.equal((await app.locals.vault.list()).length, 3);
+  const duplicate = await (await post("/import/commit", { id: result.id })).json();
+  assert.equal(duplicate.alreadyImported, true);
+  const cancelled = await fetch(`${base}/notion/import/preview/${continuationId}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(cancelled.status, 200);
+  assert.equal((await post("/notion/import/preview", { continuationId })).status, 410);
 });

@@ -2,6 +2,7 @@ import { Buffer } from "buffer";
 import { gzipSync, Gunzip } from "fflate";
 import { hashBytes, randomUUID } from "../vault/crypto";
 import { canonical, validateRemote, validateItem, type SyncBatch, type SyncPushResult, type SyncRemote, type RemoteItem } from "./protocol";
+import { webDavFolders } from "./webdav-discovery";
 
 export const nutstoreUrl = "https://dav.jianguoyun.com/dav/";
 export type DavQuota = { startedAt: number; requests: number; blockedUntil?: number };
@@ -18,6 +19,7 @@ type Options = { now?: () => number; requestLimit?: number };
 const digest = /^[a-f0-9]{64}$/;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const windowMs = 30 * 60 * 1000;
+const requestLimit = 240;
 const maxJsonBytes = 16 * 1024 * 1024;
 const chunkSize = 1024 * 1024;
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
@@ -25,6 +27,13 @@ const object = (value: unknown): value is Record<string, any> => !!value && type
 
 export class WebDavError extends Error {
   constructor(message: string, readonly status = 0, readonly retryAt?: number) { super(message); }
+}
+export function webDavRetryAt(connection: WebDavConnection, timestamp = Date.now()) {
+  const quota = connection.quota;
+  if (!quota) return undefined;
+  const windowEnd = quota.requests >= requestLimit && timestamp >= quota.startedAt ? quota.startedAt + windowMs : 0;
+  const retryAt = Math.max(quota.blockedUntil ?? 0, windowEnd);
+  return retryAt > timestamp ? retryAt : undefined;
 }
 export function webDavAddress(raw: string, folder: string) {
   const url = new URL(raw);
@@ -53,14 +62,18 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
   const folders = new Set<string>(), cachedObjects = new Map<string, any>();
   let cachedHead: { value: Head; etag: string } | undefined;
   let cachedIndex: { hash: string | null; value: Index } | undefined;
-  const limit = options.requestLimit ?? 240;
+  const limit = options.requestLimit ?? requestLimit;
 
   async function request(relative: string, method = "GET", body?: Uint8Array | string, headers: Record<string, string> = {}) {
     const timestamp = now();
     let quota = connection.quota;
     if (quota?.blockedUntil && quota.blockedUntil > timestamp) throw new WebDavError("WebDAV is cooling down after a request limit. Local changes remain saved.", 429, quota.blockedUntil);
     if (!quota || timestamp - quota.startedAt >= windowMs || timestamp < quota.startedAt) quota = { startedAt: timestamp, requests: 0 };
-    if (quota.requests >= limit) throw new WebDavError("This device reached its WebDAV request budget. Sync will resume after the current window.", 429, quota.startedAt + windowMs);
+    if (quota.requests >= limit) {
+      connection.quota = { ...quota, blockedUntil: quota.startedAt + windowMs };
+      await save(connection);
+      throw new WebDavError("This device reached its WebDAV request budget. Sync will resume after the current window.", 429, connection.quota.blockedUntil);
+    }
     connection.quota = { ...quota, requests: quota.requests + 1 }; await save(connection);
     const target = new URL(relative, address.url);
     if (target.origin !== new URL(address.url).origin || !target.pathname.startsWith(new URL(address.url).pathname)) throw new Error("Invalid WebDAV request path");
@@ -111,12 +124,12 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
     if (exclusive && response.status === 405) return false;
     success(response, [201]); return false;
   }
-  function validateHead(value: any): asserts value is Head {
+  function validateHead(value: any, expectedId = connection.vaultId): asserts value is Head {
     if (!object(value) || value.format !== "notdown-webdav" || value.version !== 1 || !uuid.test(value.vaultId) ||
       typeof value.name !== "string" || !value.name || value.name.length > 200 || !Number.isSafeInteger(value.sequence) || value.sequence < 0 ||
       !(value.index === null || digest.test(value.index)) || value.sequence > 0 && value.index === null)
       throw new WebDavError("This folder does not contain a supported Notdown WebDAV notebook.");
-    if (connection.vaultId && value.vaultId !== connection.vaultId) throw new WebDavError("The remote notebook identity changed. Sync stopped without applying it.");
+    if (expectedId && value.vaultId !== expectedId) throw new WebDavError("The remote notebook identity changed. Sync stopped without applying it.");
   }
   async function head(optional = false) {
     const response = await request(`${root}head.json`);
@@ -278,6 +291,26 @@ export function createWebDavClient(connection: WebDavConnection, save: (value: W
   return {
     remote, probe,
     async vaults() { const current = await head(true); return current ? [{ id: current.value.vaultId, name: current.value.name }] : []; },
+    async discoverVaults() {
+      const parentFolder = connection.folder.split("/").slice(0, -1).join("/");
+      const parentPath = parentFolder ? parentFolder.split("/").map(encodeURIComponent).join("/") + "/" : "";
+      const response = success(await request(parentPath, "PROPFIND", '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>', { Depth: "1", "Content-Type": "application/xml" }), [207]);
+      const folders = webDavFolders(new TextDecoder().decode(await bytes(response, 1024 * 1024)), new URL(parentPath, address.url));
+      if (folders.length > 100) throw new WebDavError("This folder has more than 100 subfolders. Use a dedicated parent folder for your Notdown notebooks.");
+      const vaults: { id: string; name: string; folder: string }[] = [];
+      for (const child of folders) {
+        const folder = parentFolder ? `${parentFolder}/${child}` : child;
+        webDavAddress(address.url, folder);
+        const file = await request(folder.split("/").map(encodeURIComponent).join("/") + "/head.json");
+        if (file.status === 404) continue;
+        success(file, [200]);
+        let value: Head;
+        try { value = JSON.parse(new TextDecoder().decode(await bytes(file, 16384))); validateHead(value, ""); }
+        catch (error) { if (error instanceof WebDavError && error.status) throw error; continue; }
+        vaults.push({ id: value.vaultId, name: value.name, folder });
+      }
+      return vaults;
+    },
     async createVault(id: string, name: string) {
       if (!uuid.test(id) || !name.trim() || name.length > 200) throw new WebDavError("Invalid notebook name or ID");
       const pieces = root.split("/").filter(Boolean); let folder = "";

@@ -20,7 +20,7 @@ import { reconcileWikiMembership } from "./wiki.js";
 import { isWikiDatabase, type Database } from "../features/databases/database-model.js";
 import { createVaultSyncStore, isSyncLocalFile } from "./sync-store.js";
 import { canonical, type SyncConflict, type SyncItem } from "../sync/protocol.js";
-import { createSyncService } from "../sync/service.js";
+import { createSyncService, type SyncRunLifecycle } from "../sync/service.js";
 import { createAssets } from "./assets.js";
 import type { DatabaseResources } from "../features/databases/database-model.js";
 import type { ImportPlan } from "../../server/markdown-import.js";
@@ -161,6 +161,7 @@ type MetadataFile = { version: 1; pages: Record<string, Record<string, unknown>>
 /** Each mutation is serialized; Markdown files are re-read for every operation. */
 export function createVault(vaultPath: string, platform: VaultPlatform, options: {
   recycleFile?: (filename: string) => Promise<void>; syncFetch?: typeof fetch;
+  syncRunLifecycle?: SyncRunLifecycle;
   onChange?: () => void;
   /** App-managed mobile replicas use indexed page reads and independent attachment display reads. */
   privateReplica?: boolean;
@@ -1201,7 +1202,7 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         return persistWithChildEntries(current, proposed, pages);
       });
     },
-    sync: createSyncService(syncStore, `${platform.id}:${root}`, options.syncFetch),
+    sync: createSyncService(syncStore, `${platform.id}:${root}`, options.syncFetch, { privateReplica: options.privateReplica, runLifecycle: options.syncRunLifecycle }),
     syncStore,
     listAssets: assets.list,
     assetInfo: assets.info,

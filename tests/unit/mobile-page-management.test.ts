@@ -1,0 +1,38 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createVault } from "../../src/vault/vault";
+import { nodeVaultPlatform } from "../../server/vault-platform";
+import { mobileVaultApi } from "../../src/mobile/vault-api";
+import { ApiError, type Page } from "../../src/shared/types";
+import type { HistoryEntry, HistoryRecord } from "../../src/vault/history";
+
+test("mobile page duplication and history restore use the shared vault and retain CAS conflicts", async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-mobile-pages-"));
+  const vault = createVault(root, nodeVaultPlatform, { privateReplica: true });
+  t.after(async () => { vault.closeHistory(); await fs.rm(root, { recursive: true, force: true }); });
+  const transport = mobileVaultApi(() => vault);
+  const request = <T>(url: string, method = "GET", input?: unknown) => transport(url, { method, body: input ? JSON.stringify(input) : undefined }) as Promise<T>;
+  const page = await vault.create({ title: "Original", body: "Old source\n", properties: { future: { keep: true } } });
+  const edited = await vault.update(page.id, { body: "Current source\n" }, page.revision);
+  const copy = await request<Page>(`/pages/${page.id}/duplicate`, "POST", { baseRevision: edited.revision });
+  assert.notEqual(copy.id, page.id); assert.equal(copy.body, edited.body); assert.deepEqual(copy.properties, page.properties);
+  await assert.rejects(request(`/pages/${page.id}/duplicate`, "POST", { baseRevision: page.revision }), (error: unknown) => error instanceof ApiError && error.status === 409);
+  const entries = await request<HistoryEntry[]>(`/pages/${page.id}/history`);
+  const records = await Promise.all(entries.map(entry => request<HistoryRecord>(`/pages/${page.id}/history/snapshot/${entry.id}`)));
+  const entry = entries[records.findIndex(record => record.source === page.body)];
+  assert.ok(entry);
+  const endpoint = `/pages/${page.id}/history/snapshot/${entry.id}`;
+  const record = await request<HistoryRecord>(endpoint);
+  assert.equal(record.source, page.body);
+  await assert.rejects(request(`${endpoint}/restore`, "POST", { baseRevision: page.revision }), (error: unknown) => error instanceof ApiError && error.status === 409);
+  assert.equal((await vault.get(page.id)).body, edited.body);
+  assert.ok((await vault.listConflicts()).length);
+  const restored = await request<Page>(`${endpoint}/restore`, "POST", { baseRevision: edited.revision });
+  assert.equal(restored.body, page.body);
+  const versions = await request<HistoryEntry[]>(`/pages/${page.id}/history`);
+  assert.ok((await Promise.all(versions.map(entry => request<HistoryRecord>(`/pages/${page.id}/history/snapshot/${entry.id}`)))).some(version => version.source === edited.body));
+  await assert.rejects(request(`/pages/${page.id}/history/git/abc`), (error: unknown) => error instanceof ApiError && error.status === 400);
+});

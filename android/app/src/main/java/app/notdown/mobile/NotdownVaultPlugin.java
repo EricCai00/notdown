@@ -17,6 +17,7 @@ import java.util.*;
 @CapacitorPlugin(name = "NotdownVault")
 public class NotdownVaultPlugin extends Plugin {
     private VaultFileStore files;
+    private volatile boolean foreground = true;
     private interface Operation { JSObject run() throws Exception; }
     private void execute(PluginCall call, Operation operation) {
         try {
@@ -74,9 +75,16 @@ public class NotdownVaultPlugin extends Plugin {
             call.resolve();
         });
     }
+    @PluginMethod public void commitAutofill(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            android.view.autofill.AutofillManager manager = getContext().getSystemService(android.view.autofill.AutofillManager.class);
+            if (manager != null) manager.commit();
+            call.resolve();
+        });
+    }
     @PluginMethod public void exportDocument(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("application/zip");
+        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType(call.getString("mimeType", "application/zip"));
         intent.putExtra(Intent.EXTRA_TITLE, call.getString("name", "Notdown-backup.zip"));
         startActivityForResult(call, intent, "exportSelected");
     }
@@ -91,9 +99,10 @@ public class NotdownVaultPlugin extends Plugin {
                 output.write(bytes(call.getString("data"))); output.flush();
             }
             call.resolve(new JSObject().put("saved", true));
-        } catch (Exception error) { call.reject("Backup could not be exported. The vault remains saved on this device.", "EIO", error); }
+        } catch (Exception error) { call.reject("File could not be exported. The vault remains saved on this device.", "EIO", error); }
     }
-    @Override protected void handleOnPause() { notifyListeners("pause", new JSObject()); }
-    @Override protected void handleOnResume() { notifyListeners("resume", new JSObject()); }
+    @PluginMethod public void appState(PluginCall call) { call.resolve(new JSObject().put("foreground", foreground)); }
+    @Override protected void handleOnPause() { foreground = false; notifyListeners("pause", new JSObject()); }
+    @Override protected void handleOnResume() { foreground = true; notifyListeners("resume", new JSObject()); }
     @Override protected void handleOnDestroy() { if (files != null) try { files.close(); } catch (IOException ignored) {} }
 }

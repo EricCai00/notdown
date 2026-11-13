@@ -8,7 +8,9 @@ export function installInlineDatabaseLayout(host: HTMLElement) {
     data.style.width = ""; data.style.marginLeft = "";
     if (host.closest(".pm-columns, .pm-column")) return;
     const base = host.getBoundingClientRect(), bounds = viewport.getBoundingClientRect();
-    if (data.scrollWidth <= base.width + 24 || bounds.width <= base.width + 48) return;
+    // The row-control gutter already widens the scroll area beyond the prose.
+    // Expand only when columns overflow that area, not because of its reserved gutter.
+    if (data.scrollWidth <= data.clientWidth + 24 || bounds.width <= base.width + 48) return;
     const left = Math.max(bounds.left + 24, 0), right = Math.min(bounds.right - 24, innerWidth - 16);
     data.style.width = `${Math.max(base.width, right - left)}px`; data.style.marginLeft = `${left - base.left}px`;
   };

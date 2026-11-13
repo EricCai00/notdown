@@ -1,3 +1,5 @@
+import { exportFile } from "../../shared/file-export";
+
 /** Inline computed styles so a standalone SVG/PNG looks like the visible chart. */
 export async function downloadChart(plot: SVGSVGElement, title: string, legend: { label: string; color: string }[], format: "svg" | "png", background: string) {
   const ns = "http://www.w3.org/2000/svg";
@@ -51,7 +53,5 @@ export async function downloadChart(plot: SVGSVGElement, title: string, legend: 
       blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("PNG export failed")), "image/png"));
     } finally { URL.revokeObjectURL(url); }
   }
-  const url = URL.createObjectURL(blob), link = document.createElement("a");
-  link.href = url; link.download = `${title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 100) || "Chart"}.${format}`;
-  link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  await exportFile(blob, `${title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 100) || "Chart"}.${format}`);
 }

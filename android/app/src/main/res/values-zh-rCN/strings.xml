@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sync_channel">正在同步</string>
+    <string name="sync_running">Notdown 正在同步</string>
+    <string name="sync_continue">本次同步会在息屏后继续。</string>
+</resources>

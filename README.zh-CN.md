@@ -64,7 +64,7 @@ npm run dev
 
 ### Android 预览版
 
-Android 初版连接电脑已有的云端知识库，首次打开需要配置同步；初次下载完成后可离线使用笔记和附件。安装及当前限制见 [Android 指南](docs/features/ANDROID.zh-CN.md)。
+Android 初版连接电脑已有的云端知识库，并可复用已保存的登录切换知识库；首次打开需要配置同步，初次下载完成后可离线使用笔记和附件。安装及当前限制见 [Android 指南](docs/features/ANDROID.zh-CN.md)。
 
 ### 导入已有笔记
 
@@ -80,7 +80,7 @@ Android 初版连接电脑已有的云端知识库，首次打开需要配置同
 
 Notdown 是持续开发中的本地应用原型。
 
-- **多设备同步：** 桌面和 Android 提供可配置 Supabase 或 WebDAV 的实验性前台同步；尚无内置云服务、端到端加密或实时协作。见[配置与限制](docs/features/CLOUD-SYNC.zh-CN.md)。
+- **多设备同步：** 桌面和 Android 提供可配置 Supabase 或 WebDAV 的实验性同步；Android 正在进行的同步可在息屏后继续，尚无定期后台同步、内置云服务、端到端加密或实时协作。见[配置与限制](docs/features/CLOUD-SYNC.zh-CN.md)。
 - **格式兼容：** 支持范围随方言而异，复杂或不支持的内容可能需要源码编辑。
 - **数据库与导入：** 数据库提供十一种本地布局；导入的公式和汇总为只读快照。Notion 导入会将可访问的附件保存到本地；下载失败的附件和未支持的云端功能仍有缺失。
 - **平台支持：** Windows 构建尚未签名；Android 为仍需设备验收的早期开发版本。暂不提供自动更新和 macOS/Linux 安装包。

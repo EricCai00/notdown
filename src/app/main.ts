@@ -2029,7 +2029,9 @@ function showSettings() {
   mountLanguageSettings(groups.workspace);
   void mountRuntimeSettings(groups.advanced);
   void mountServiceSettings(groups.connections);
-  void mountSyncSettings(groups.sync, { beforeSync: save });
+  void mountSyncSettings(groups.sync, { beforeSync: save }, {
+    vaultName: vaultPath.split(/[\\/]/).filter(Boolean).pop(),
+  });
   void mountHistorySettings(groups.sync, save);
   void mountChildPageSettings(groups.editing, {
     beforeChange: save,

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import { zipSync, unzipSync } from "fflate";
 
@@ -37,7 +37,7 @@ test("mobile external references use English inert labels and preserve original 
   await expect(editor.locator(".page-mention .page-link-label")).toBeVisible();
   await expect(editor.locator('[data-mention-kind="user"]')).toHaveText("@Unknown user");
   await page.screenshot({ path: info.outputPath("external-unknowns-mobile.png") });
-  await page.locator('[data-view="source"]').click();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toContainText(`https://www.notion.so/${target}`);
   await expect(page.locator(".cm-content")).toContainText(`user://${user}`);
 });
@@ -68,6 +68,24 @@ async function create(page: Page, title: string) {
   await page.getByRole("textbox", { name: "Page title", exact: true }).fill(title);
 }
 async function saved(page: Page) { await expect(page.locator("#mobile-save-state")).toHaveText("Saved on this device"); }
+async function choosePageView(page: Page, view: "document" | "source" | "outline" | "mindmap") {
+  await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
+  const menu = page.locator("#mobile-menu");
+  if (!await menu.isVisible()) await page.getByRole("button", { name: "Notebook options", exact: true }).click();
+  await menu.getByRole("combobox", { name: "Page view", exact: true }).selectOption(view);
+  await expect(menu).toBeHidden();
+}
+async function expectNewButtonAligned(scope: Locator) {
+  const button = scope.locator(".database-new-button").first(), arrow = scope.locator(".database-new-menu-button").first();
+  const left = (await button.boundingBox())!, right = (await arrow.boundingBox())!;
+  expect(left.height).toBe(44); expect(right.height).toBe(44); expect(right.width).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(left.y - right.y)).toBeLessThan(0.5);
+  expect(Math.abs(left.x + left.width - right.x)).toBeLessThan(0.5);
+  const style = (element: Element) => { const css = getComputedStyle(element); return { background: css.backgroundColor, left: css.borderTopLeftRadius, right: css.borderTopRightRadius }; };
+  const mainStyle = await button.evaluate(style), arrowStyle = await arrow.evaluate(style);
+  expect(mainStyle.background).toBe(arrowStyle.background); expect(mainStyle.right).toBe("0px"); expect(arrowStyle.left).toBe("0px");
+  await arrow.tap(); await expect(scope.locator(".database-new-menu[open] .database-menu")).toBeVisible(); await arrow.tap();
+}
 async function exportZip(page: Page) {
   await saved(page);
   await page.getByRole("button", { name: "Notebook options", exact: true }).click();
@@ -75,12 +93,202 @@ async function exportZip(page: Page) {
   const file = await download; return new Uint8Array(await fs.readFile((await file.path())!));
 }
 
+test("mobile page view menu preserves pending input without offering split", async ({ page }, info) => {
+  await start(page); await create(page, "Mobile views");
+  await expect(page.locator(".mobile-modes")).toHaveCount(0);
+  await page.getByRole("button", { name: "Notebook options", exact: true }).click();
+  const fields = page.locator("#mobile-menu-items > :is(.mobile-view-field, .mobile-dialect-field)");
+  await expect(fields.nth(0)).toHaveClass("mobile-view-field");
+  await expect(fields.nth(1)).toHaveClass("mobile-dialect-field");
+  await expect(page.getByRole("combobox", { name: "Page view", exact: true }).locator("option")).toHaveCount(4);
+  await expect(page.locator('.mobile-view-field option[value="split"]')).toHaveCount(0);
+  await choosePageView(page, "source");
+  await page.locator(".cm-content").fill("# First branch\n\n- Detail one\n- Detail two\n\n## Second branch\n\nPending body");
+  await choosePageView(page, "outline");
+  await expect(page.locator("#mobile-page-view")).toContainText("First branch");
+  await expect(page.locator("#mobile-page-view")).toContainText("Detail one");
+  await expect(page.locator(".mobile-tools")).toBeHidden();
+  await choosePageView(page, "mindmap");
+  await expect(page.locator(".mindmap-view")).toBeVisible();
+  await page.getByRole("button", { name: "Expand all", exact: true }).click();
+  await expect(page.locator(".mindmap-scene")).toContainText("Pending body");
+  await page.screenshot({ path: info.outputPath("mobile-mindmap.png") });
+  await choosePageView(page, "source");
+  await expect(page.locator(".cm-content")).toBeVisible();
+  await expect(page.locator(".cm-content")).toContainText("Pending body");
+  await choosePageView(page, "document");
+  await expect(page.locator(".pm-document")).toBeVisible();
+  await expect(page.locator(".pm-document")).toContainText("Pending body");
+  await page.reload(); await expect(page.locator(".pm-document")).toContainText("Pending body");
+  await page.getByRole("button", { name: "Notebook options", exact: true }).click();
+  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await expect(page.locator(".graph-canvas")).toBeVisible();
+  await page.reload(); await expect(page.locator(".graph-canvas")).toBeVisible();
+  await page.locator('.graph-node[aria-label="Mobile views"]').click();
+  await expect(page.locator(".pm-document")).toContainText("Pending body");
+});
+
+test("mobile view menu preserves the current view and draft when saving conflicts", async ({ page, context }) => {
+  await start(page); await create(page, "View conflict"); await saved(page);
+  const second = await context.newPage(); await start(second);
+  await context.setOffline(true);
+  await page.bringToFront();
+  await page.locator(".pm-document").fill("Other window saved text"); await saved(page);
+  await second.bringToFront();
+  await second.locator(".pm-document").fill("Keep this pending view draft");
+  await expect(second.locator("#mobile-recovery")).toBeVisible();
+  await second.getByRole("button", { name: "Notebook options", exact: true }).click();
+  const picker = second.getByRole("combobox", { name: "Page view", exact: true });
+  await picker.selectOption("source");
+  await expect(picker).toHaveValue("document");
+  await expect(second.locator("#mobile-menu")).toBeVisible();
+  await second.getByRole("button", { name: "Close menu", exact: true }).click();
+  await expect(second.locator("#mobile-workspace")).toHaveAttribute("data-mode", "document");
+  await expect(second.locator(".pm-document")).toContainText("Keep this pending view draft");
+  await expect(page.locator(".pm-document")).toContainText("Other window saved text");
+});
+
+test("mobile switches cloud notebooks without signing in again and keeps independent offline copies", async ({ page }, info) => {
+  await start(page, "?name=First%20notebook"); await create(page, "First private page");
+  await page.locator(".pm-document").fill("Keep first pending text");
+  await page.request.post("/__mobile-test/notebook?name=Second%20notebook");
+  await page.getByRole("button", { name: "Switch notebook", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Switch notebook", exact: true });
+  await expect(picker.getByRole("button", { name: /Second notebook/ })).toBeVisible();
+  await picker.getByRole("button", { name: /Second notebook/ }).click();
+  await expect(page.locator(".mobile-header strong")).toHaveText("Second notebook");
+  await expect(page.locator(".mobile-sync-dialog[open]")).toHaveCount(0);
+  await create(page, "Second private page"); await page.locator(".pm-document").fill("Keep second text");
+  await page.getByRole("button", { name: "Switch notebook", exact: true }).click();
+  await picker.getByRole("button", { name: /First notebook/ }).click();
+  await expect(page.locator("#mobile-title")).toHaveValue("First private page");
+  await expect(page.locator(".pm-document")).toContainText("Keep first pending text");
+  await expect(page.locator(".mobile-sync-dialog[open]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Open pages", exact: true }).click();
+  await expect(page.locator("#mobile-page-list")).not.toContainText("Second private page");
+  await page.getByRole("button", { name: "Close pages", exact: true }).click();
+  await page.reload(); await expect(page.locator("#mobile-title")).toHaveValue("First private page");
+  await page.getByRole("button", { name: "Switch notebook", exact: true }).click();
+  await picker.getByRole("button", { name: /Second notebook/ }).click();
+  await expect(page.locator("#mobile-title")).toHaveValue("Second private page");
+  await expect(page.locator(".pm-document")).toContainText("Keep second text");
+  await page.screenshot({ path: info.outputPath("mobile-notebook-switch.png") });
+});
+
+test("disconnecting and connecting another notebook never imports the previous offline files", async ({ page }) => {
+  await start(page, "?name=Original%20notebook"); await create(page, "Original private page");
+  await page.locator(".pm-document").fill("Original text must stay in its own notebook"); await saved(page);
+  const originalId = await page.evaluate(() => localStorage.getItem("notdown-mobile-active-vault"));
+  const cloud = await (await page.request.post("/__mobile-test/notebook?name=Other%20notebook")).json();
+  await page.getByRole("button", { name: "Notebook options", exact: true }).click();
+  await page.getByRole("button", { name: "Cloud sync", exact: true }).click();
+  await page.getByRole("button", { name: "Disconnect", exact: true }).click();
+  const settings = page.getByRole("region", { name: "Cloud sync", exact: true });
+  await settings.getByLabel("WebDAV server URL").fill(cloud.url);
+  await settings.getByLabel("Remote notebook folder").fill(cloud.folder);
+  await settings.getByLabel("WebDAV account", { exact: true }).fill(cloud.email);
+  await settings.getByLabel("Application password", { exact: true }).fill(cloud.password);
+  await settings.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(settings.getByRole("combobox", { name: "Cloud notebook", exact: true })).toHaveValue(/.+/);
+  await expect(settings.locator("[data-sync-connect-help]")).toHaveText("Download your existing cloud notebook. Future edits sync with your computer in both directions.");
+  await settings.getByRole("button", { name: "Enable sync" }).click();
+  await expect(page.locator(".mobile-sync-dialog[open]")).toHaveCount(0);
+  await expect(page.locator(".mobile-header strong")).toHaveText("Other notebook");
+  expect(await page.evaluate(() => localStorage.getItem("notdown-mobile-active-vault"))).not.toBe(originalId);
+  await page.getByRole("button", { name: "Open pages", exact: true }).click();
+  await expect(page.locator("#mobile-page-list")).toHaveText("Your notebook is empty.");
+  await page.getByRole("button", { name: "Close pages", exact: true }).click();
+  await create(page, "Other private page"); await page.locator(".pm-document").fill("Other notebook text"); await saved(page);
+  const files = unzipSync(await exportZip(page));
+  const metadata = JSON.parse(new TextDecoder().decode(files["metadata.json"]));
+  expect(Object.values(metadata.pages).map((value: any) => value.title)).toEqual(["Other private page"]);
+  // Returning to the original copy must retain even edits not yet uploaded before disconnecting.
+  await page.getByRole("button", { name: "Switch notebook", exact: true }).click();
+  await page.getByRole("dialog", { name: "Switch notebook", exact: true }).getByRole("button", { name: /Original notebook/ }).click();
+  await expect(page.locator("#mobile-title")).toHaveValue("Original private page");
+  await expect(page.locator(".pm-document")).toContainText("Original text must stay in its own notebook");
+  expect(await page.evaluate(() => localStorage.getItem("notdown-mobile-active-vault"))).toBe(originalId);
+  await page.reload(); await expect(page.locator("#mobile-title")).toHaveValue("Original private page");
+});
+
+test("mobile login reads autofilled values without input events and retains failed credentials for correction", async ({ page }) => {
+  await page.goto("/"); await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
+  const cloud = await (await page.request.post("/__mobile-test/notebook")).json();
+  const settings = page.getByRole("region", { name: "Cloud sync", exact: true });
+  await settings.getByLabel("WebDAV server URL").fill(cloud.url);
+  await settings.getByLabel("Remote notebook folder").fill(cloud.folder);
+  await expect(settings.locator("#notdown-sync-username")).toHaveAttribute("autocomplete", "username");
+  await expect(settings.locator("#notdown-sync-password")).toHaveAttribute("autocomplete", "current-password");
+  await page.evaluate(({ email }) => {
+    (document.querySelector("#notdown-sync-username") as HTMLInputElement).value = email;
+    (document.querySelector("#notdown-sync-password") as HTMLInputElement).value = "incorrect-password";
+  }, cloud);
+  await settings.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(settings.locator("[data-sync-feedback]")).toContainText(/authentication|password/i);
+  await expect(settings.locator("#notdown-sync-password")).toHaveValue("incorrect-password");
+  await page.evaluate(({ password }) => { (document.querySelector("#notdown-sync-password") as HTMLInputElement).value = password; }, cloud);
+  await settings.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(settings.getByRole("combobox", { name: "Cloud notebook", exact: true })).toHaveValue(/.+/);
+  await settings.getByRole("button", { name: "Enable sync" }).click();
+  await expect(page.locator(".mobile-sync-dialog[open]")).toHaveCount(0);
+});
+
+test("mobile settings, favorites, history, duplicate, Markdown export and Trash persist", async ({ page }, info) => {
+  await start(page); await create(page, "Managed page");
+  await page.locator(".pm-document").fill("Original history text"); await saved(page);
+  const option = async (name: string) => {
+    await page.getByRole("button", { name: "Notebook options", exact: true }).click();
+    await page.getByRole("button", { name, exact: true }).click();
+  };
+  await option("Page settings");
+  const settings = page.getByRole("dialog", { name: "Page settings", exact: true });
+  await settings.getByLabel("Page icon", { exact: true }).fill("🌿");
+  await settings.getByLabel("Properties (JSON object)").fill('{"future":{"keep":true},"status":"Ready"}');
+  await settings.getByRole("button", { name: "Save properties", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  await option("Add to Favorites"); await option("Favorites");
+  await expect(page.locator("#mobile-page-list")).toContainText("Managed page");
+  await page.getByRole("button", { name: "Close pages", exact: true }).click();
+  await page.reload(); await expect(page.locator(".pm-document")).toContainText("Original history text");
+  await page.locator(".pm-document").fill("Edited history text"); await saved(page);
+  await option("Page history");
+  await expect(page.locator(".history-version").first()).toBeVisible();
+  const versions = page.locator(".history-version");
+  for (let index = 0; index < await versions.count(); index++) {
+    await versions.nth(index).click();
+    await expect(page.locator("[data-history-message]")).toContainText("Preview ready.");
+    await expect(page.locator("[data-history-source]")).toBeVisible();
+    if ((await page.locator("[data-history-source]").textContent())?.includes("Original history text")) break;
+  }
+  await expect(page.locator("[data-history-source]")).toContainText("Original history text");
+  await page.getByRole("button", { name: "Restore this version", exact: true }).click();
+  await expect(page.locator(".pm-document")).toContainText("Original history text");
+  await option("Duplicate page");
+  await expect(page.locator("#mobile-title")).toHaveValue(/Managed page.*copy/i);
+  const download = page.waitForEvent("download"); await option("Export Markdown");
+  const markdown = await download;
+  expect(await fs.readFile((await markdown.path())!, "utf8")).toContain("Original history text");
+  await option("Move to Trash");
+  await page.getByRole("dialog", { name: "Move to Trash?", exact: true }).getByRole("button", { name: "Move to Trash", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Move to Trash?", exact: true })).toHaveCount(0);
+  await option("Trash");
+  const trash = page.getByRole("dialog", { name: "Trash", exact: true });
+  await expect(trash).toContainText("Managed page");
+  await page.screenshot({ path: info.outputPath("mobile-trash.png") });
+  await trash.getByRole("button", { name: /Restore Managed page/ }).click();
+  await expect(trash).toContainText("Trash is empty.");
+  await trash.getByRole("button", { name: "Close dialog" }).click();
+  const files = unzipSync(await exportZip(page));
+  const metadata = JSON.parse(Buffer.from(files["metadata.json"]).toString());
+  expect(Object.values(metadata.pages).some((entry: any) => entry.icon === "🌿" && entry.properties?.future?.keep)).toBe(true);
+});
+
 test("mobile page dialect preserves pending source and unknown settings across reload", async ({ page }, testInfo) => {
   await start(page); await create(page, "Existing page"); await saved(page);
   const source = '---\nsyntax:\n  version: 1\n  variant: obsidian\n  future: keep\n  extensions:\n    highlight: false\n    future_extension: true\nfuture_note: preserve\n---\n# Dialect source\n\n<!-- unknown content -->\n\n```future\n::literal{keep=true}\n```\n';
   await page.locator("#mobile-import").setInputFiles({ name: "Dialect source.md", mimeType: "text/markdown", buffer: Buffer.from(source) });
   await expect(page.locator("#mobile-workspace")).toHaveAttribute("data-variant", "obsidian");
-  await page.locator('[data-view="source"]').click();
+  await choosePageView(page, "source");
   await page.locator(".cm-content").click(); await page.keyboard.press("Control+End");
   await page.keyboard.insertText("\nPending source survives dialect changes.\n");
   await page.getByRole("button", { name: "Notebook options", exact: true }).click();
@@ -118,7 +326,9 @@ test("mobile dialect switching stops on conflicts and retains both drafts", asyn
   await start(page); await create(page, "Dialect conflict"); await saved(page);
   const second = await context.newPage(); await start(second);
   await context.setOffline(true);
+  await page.bringToFront();
   await page.locator(".pm-document").fill("Other window saved text"); await saved(page);
+  await second.bringToFront();
   await second.locator(".pm-document").fill("Keep this pending dialect draft");
   await expect(second.locator("#mobile-recovery")).toBeVisible();
   await second.getByRole("button", { name: "Notebook options", exact: true }).click();
@@ -152,6 +362,33 @@ async function addDatabaseRow(page: Page, title: string) {
   await dialog.getByRole("button", { name: "Create row", exact: true }).click();
   await expect(dialog).toHaveCount(0);
 }
+
+test("mobile shared database layouts remain reachable and charts export files", async ({ page }, info) => {
+  await start(page);
+  await page.getByRole("button", { name: "Open pages", exact: true }).click();
+  await page.getByRole("button", { name: "New database", exact: true }).click();
+  await addDatabaseProperty(page, "Visit date", "date");
+  await addDatabaseProperty(page, "Location", "place");
+  await addDatabaseRow(page, "Mobile record");
+  for (const type of ["Chart", "Feed", "Timeline", "Calendar", "Form", "Map", "Dashboard"]) {
+    await page.getByRole("button", { name: "New view", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "New view", exact: true });
+    await dialog.getByRole("button", { name: type, exact: true }).click();
+    await dialog.getByLabel("View name", { exact: true }).fill(`Phone ${type}`);
+    await dialog.getByRole("button", { name: "Create view", exact: true }).click();
+    await expect(page.locator(`.database-layout-${type.toLowerCase()}`)).toBeVisible();
+    if (type === "Chart") {
+      await page.getByRole("button", { name: "Save chart as…", exact: true }).click();
+      const download = page.waitForEvent("download");
+      await page.getByRole("button", { name: "Download SVG", exact: true }).click();
+      expect(await fs.readFile((await (await download).path())!, "utf8")).toContain("<svg");
+      await page.keyboard.press("Escape");
+    }
+    expect(await page.locator("#mobile-content").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  await page.screenshot({ path: info.outputPath("mobile-dashboard.png") });
+  await page.reload(); await expect(page.locator(".database-layout-dashboard")).toBeVisible();
+});
 
 test("mobile full-page databases create fields, records, saved views and edit record pages", async ({ page }, testInfo) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
@@ -219,24 +456,26 @@ test("mobile inline databases edit in place, preserve source, open full pages an
   await page.getByRole("button", { name: "Create database", exact: true }).click();
   const inline = page.getByRole("region", { name: "Inline database", exact: true });
   await expect(inline.locator(".database-table")).toBeVisible();
+  await expectNewButtonAligned(inline);
   await addDatabaseProperty(page, "Note"); await addDatabaseRow(page, "Inline task");
   await inline.getByLabel("Note: Inline task", { exact: true }).fill("Saved before source");
-  await page.locator(".mobile-modes").getByRole("button", { name: "Source", exact: true }).click();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toBeVisible();
   await expect(page.locator(".cm-content")).toContainText('inline="true"');
   await expect(page.locator(".cm-content")).toContainText("Before inline database");
   const body = await page.locator(".cm-content .cm-line").allTextContents();
-  await page.locator(".mobile-modes").getByRole("button", { name: "Page", exact: true }).click();
+  await choosePageView(page, "document");
   await expect(inline.getByLabel("Note: Inline task", { exact: true })).toHaveValue("Saved before source");
   expect(await page.locator("#mobile-content").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("mobile-inline-database.png"), fullPage: true });
   await inline.getByRole("button", { name: "Open as page", exact: true }).click();
   await expect(page.locator("#mobile-databases")).toBeVisible();
+  await expectNewButtonAligned(page.locator("#mobile-databases"));
   await page.getByLabel("Database title", { exact: true }).fill("Renamed inline");
   await page.getByRole("button", { name: "Open pages", exact: true }).click();
   await page.getByRole("button", { name: "Inline parent", exact: true }).click();
   await expect(inline.getByLabel("Note: Inline task", { exact: true })).toHaveValue("Saved before source");
-  await page.locator(".mobile-modes").getByRole("button", { name: "Source", exact: true }).click();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toBeVisible();
   expect(await page.locator(".cm-content .cm-line").allTextContents()).toEqual(body);
   await page.reload();
@@ -355,7 +594,8 @@ test("an empty remote folder cannot be initialized as a new notebook on mobile",
   await expect(settings.locator("[data-sync-feedback]")).toContainText("Create and sync this notebook on your computer first");
   await expect(settings.getByLabel("New notebook name")).toBeHidden();
   await settings.getByRole("button", { name: "Enable sync" }).click();
-  await expect(settings.locator("[data-sync-feedback]")).toContainText("Choose an existing cloud notebook");
+  await expect(settings.getByRole("combobox", { name: "Cloud notebook", exact: true })).toHaveValue("");
+  await expect(settings.locator("[data-sync-feedback]")).toContainText("Create and sync this notebook on your computer first");
   await expect(page.locator(".pm-document")).toHaveCount(0);
   await page.reload(); await expect(page.locator(".mobile-sync-dialog[open]")).toBeVisible();
 });
@@ -376,13 +616,12 @@ test("empty notebook, Chinese editing, source switching and reload use persisten
   await start(page); await expect(page.locator(".mobile-empty")).toBeVisible();
   await create(page, "手机笔记"); await expect(page.locator(".pm-document")).toHaveText("");
   await page.locator(".pm-document").click(); await page.keyboard.insertText("中文输入与 Markdown 保存。");
-  await page.locator(".mobile-modes").getByRole("button", { name: "Source", exact: true }).click();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toContainText("中文输入与 Markdown 保存。");
-  await expect(page.locator('[data-view="source"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('[data-view="document"]')).toHaveAttribute("aria-pressed", "false");
-  await page.locator('[data-view="document"]').click();
+  await expect(page.locator('.mobile-view-field select')).toHaveValue("source");
+  await choosePageView(page, "document");
   await expect(page.locator(".pm-document")).toBeVisible();
-  await expect(page.locator('[data-view="document"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('.mobile-view-field select')).toHaveValue("document");
   await saved(page); await page.reload(); await expect(page.locator("#mobile-app")).toHaveAttribute("data-ready", "true");
   await expect(page.getByRole("textbox", { name: "Page title" })).toHaveValue("手机笔记");
   await expect(page.locator(".pm-document")).toContainText("中文输入与 Markdown 保存。");
@@ -464,7 +703,7 @@ test("keyboard dismissal keeps the current page and saves document, source and t
   await page.getByRole("button", { name: "Hide keyboard", exact: true }).click();
   await expect(editor).not.toBeFocused(); await saved(page);
   await expect(page.locator("#mobile-pages")).not.toBeVisible();
-  await page.locator('[data-view="source"]').click();
+  await choosePageView(page, "source");
   const source = page.locator(".cm-content");
   await source.click(); await page.keyboard.press("Control+End"); await page.keyboard.insertText("\nSource draft");
   await page.evaluate(() => window.dispatchEvent(new Event("notdown:back")));
@@ -545,7 +784,7 @@ test("page drawer refreshes hierarchy changes made in the source metadata", asyn
   await page.getByRole("button", { name: "Open pages", exact: true }).click();
   const parent = await page.getByRole("button", { name: "A first root", exact: true }).getAttribute("data-page-id");
   await page.getByRole("button", { name: "Z last root", exact: true }).click();
-  await page.locator('[data-view="source"]').click();
+  await choosePageView(page, "source");
   await page.locator(".cm-content").click(); await page.keyboard.press("Control+Home");
   await page.keyboard.insertText(`---\nparent: ${parent}\n---\n`);
   await page.getByRole("button", { name: "Hide keyboard", exact: true }).click(); await saved(page);
@@ -557,7 +796,7 @@ test("switching pages captures pending source input and keeps it after reopening
   await start(page, "?tree=1");
   await page.getByRole("button", { name: "Open pages", exact: true }).click();
   await page.getByRole("button", { name: "Grandchild", exact: true }).click();
-  await page.locator('[data-view="source"]').click();
+  await choosePageView(page, "source");
   await page.locator(".cm-content").click(); await page.keyboard.press("Control+End");
   await page.keyboard.insertText("\n切页前的待保存输入");
   await page.getByRole("button", { name: "Open pages", exact: true }).click();
@@ -610,7 +849,7 @@ test("slow attachments load after the text and cannot block editing or another p
   await page.getByRole("button", { name: "Image note", exact: true }).click();
   await expect(page.locator(".pm-document img")).toHaveAttribute("src", /^blob:/);
   await expect(page.locator(".pm-document")).toContainText("Edited while loading.");
-  await page.locator('[data-view="source"]').click();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toContainText("assets/");
   await expect(page.locator(".cm-content")).not.toContainText("blob:");
 });
@@ -669,10 +908,10 @@ test("touch formatting keeps the selected text, toggles marks, and source disabl
   await page.getByRole("button", { name: "Bold", exact: true }).tap();
   await expect(page.locator(".pm-document strong")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Bold", exact: true })).toHaveAttribute("aria-pressed", "false");
-  await page.locator('[data-view="source"]').tap();
+  await choosePageView(page, "source");
   await expect(page.getByRole("button", { name: "Block actions", exact: true })).toBeDisabled();
   await expect(page.locator(".cm-content")).toContainText("Format this");
-  await page.locator('[data-view="document"]').tap();
+  await choosePageView(page, "document");
   await page.locator(".pm-document p").last().tap(); await page.keyboard.press("End"); await page.keyboard.insertText("/");
   await expect(page.locator("#mobile-menu[open]")).toHaveCount(0);
 });
@@ -739,10 +978,10 @@ test("mobile italic displays CJK emphasis and colors can be chosen and reset ind
   await tap("Back to editing tools"); await tap("Undo");
   await expect(page.locator('.pm-document [data-bg-color="blue"]')).toHaveText("中文样式");
   await tap("Redo"); await expect(page.locator(".pm-document [data-bg-color]")).toHaveCount(0);
-  await page.locator('[data-view="source"]').tap();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toContainText('custom="keep"');
   await expect(page.locator(".cm-content")).not.toContainText("color=");
-  await page.locator('[data-view="document"]').tap();
+  await choosePageView(page, "document");
   await saved(page); await page.reload();
   await expect(page.locator(".pm-document em")).toHaveText("中文样式");
   await expect(page.locator(".pm-document > p").last()).toHaveText("Untouched");
@@ -767,7 +1006,9 @@ test("mobile caret colors can change and stop without changing previously typed 
   expect(await editor.locator("p").evaluate(element => element.lastChild?.nodeType)).toBe(3);
   await saved(page); await page.reload();
   await expect(editor.locator('[data-text-color="green"][data-bg-color="purple"]')).toHaveText("Both");
-  await expect(editor.locator('[data-text-color=""][data-bg-color="purple"]')).toHaveText("Background");
+  const background = editor.locator(':is([data-text-color=""][data-bg-color="purple"], [data-text-color="purple_bg"])');
+  await expect(background).toHaveText("Background");
+  await expect(background).toHaveCSS("background-color", "rgb(244, 240, 247)");
 });
 
 test("mobile v2 editing saves ordinary headings, lists and styles using Notion Markdown", async ({ page }) => {
@@ -779,7 +1020,7 @@ test("mobile v2 editing saves ordinary headings, lists and styles using Notion M
   await page.getByRole("button", { name: "Text formatting", exact: true }).tap();
   await page.getByRole("button", { name: "Bold", exact: true }).tap();
   await page.getByRole("button", { name: "Italic", exact: true }).tap();
-  await page.locator('[data-view="source"]').tap();
+  await choosePageView(page, "source");
   const source = page.locator(".cm-content");
   await expect(source).toContainText("## Heading!");
   await expect(source).toContainText("- First!");
@@ -787,7 +1028,7 @@ test("mobile v2 editing saves ordinary headings, lists and styles using Notion M
   await expect(source).not.toContainText("<h2>"); await expect(source).not.toContainText("<ul>");
   await expect(source).not.toContainText("<b>"); await expect(source).not.toContainText("<i>");
   await saved(page); await page.reload();
-  await page.locator('[data-view="document"]').tap();
+  await choosePageView(page, "document");
   await expect(page.locator(".pm-document h2")).toHaveText("Heading!");
   await expect(page.locator(".pm-document strong em, .pm-document em strong")).toHaveText("Style me");
 });
@@ -831,7 +1072,7 @@ test("conversion grid preserves content and its keyboard button returns to typin
   await expect(page.locator(".pm-document > p")).toHaveText("Keep this");
   await page.getByRole("button", { name: "Undo", exact: true }).tap();
   await expect(page.locator(".pm-document > p")).toHaveText(["Convert this", "Keep this"]);
-  await page.locator('[data-view="source"]').tap();
+  await choosePageView(page, "source");
   for (const name of ["Turn into", "Move up", "Move down", "Increase indent", "Decrease indent"])
     await expect(page.getByRole("button", { name, exact: true })).toBeDisabled();
 });
@@ -874,7 +1115,7 @@ test("touch table controls use the bottom sheet and stacked columns preserve sou
   await page.getByRole("button", { name: "Block actions", exact: true }).tap();
   await page.screenshot({ path: testInfo.outputPath("touch-block-sheet.png"), fullPage: true });
   await page.getByRole("button", { name: "Close menu", exact: true }).tap();
-  await page.locator('[data-view="source"]').tap();
+  await choosePageView(page, "source");
   await expect(page.locator(".cm-content")).toContainText("<columns>");
   await expect(page.locator(".cm-content")).toContainText("Right text");
 });

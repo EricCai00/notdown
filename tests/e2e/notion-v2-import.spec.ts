@@ -33,7 +33,7 @@ for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant} 
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
   await page.getByLabel("Import dialect").selectOption(variant);
-  const cache = page.getByLabel("Restore missing colors and Notdown reminders from this computer's Notion desktop cache");
+  const cache = page.getByLabel("Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache");
   await cache.uncheck();
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Id(82));
@@ -88,7 +88,7 @@ test("desktop cache reminder preview, commit and reload retain reminder appearan
   await page.goto(`/#page/${seed.id}`);
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
-  const cache = page.getByLabel("Restore missing colors and Notdown reminders from this computer's Notion desktop cache");
+  const cache = page.getByLabel("Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache");
   await expect(cache).toBeChecked();
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Id(80));
@@ -124,7 +124,7 @@ test("v2 import renders real objects, local attachments and transcript; template
   await page.goto(`/#page/${seed.id}`);
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Import from Notion API", exact: true })).toContainText("The API omits reminders");
+  await expect(page.getByRole("dialog", { name: "Import from Notion API", exact: true })).toContainText("the local Notion desktop cache can also restore missing colors, Notdown reminders");
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Root);
   await expect(page.getByLabel("Import files, media, covers and icons into Attachments")).toBeChecked();

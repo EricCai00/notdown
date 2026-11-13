@@ -160,6 +160,10 @@ npm run test:mobile
 
 `android:open` opens the Android Studio project; `test:mobile` uses a separate Chrome touch instance to test offline editing, recovery, attachments and backups. The mobile frontend build goes in `.run/android-frontend/`. The default test port is 4347, overridable with `NOTDOWN_MOBILE_E2E_PORT`. Browser tests do not establish acceptance for physical-device input methods, WebView, system file pickers or process reclamation.
 
+For opt-in active-sync device acceptance, first run `npm run android:sync`, then from `android/` run `gradlew assembleDebug -PnotdownAcceptance` to build the same sources. This uses the isolated application ID `app.notdown.mobile.syncacceptance`; install that APK separately and allow notifications. With the phone unlocked and idle, set `NOTDOWN_ANDROID_SERIAL` if needed and run `npx tsx tests/e2e/android-sync-device.ts`. By default, the harness uses a temporary WebDAV fixture over ADB reverse, including an injected HTTP failure. It checks a 120-page download after Home, another 120 pages with the screen off and no ADB polling for 45 seconds, exact Markdown byte hashes, released service/wake lock, and 65 seconds without a new background run.
+
+For optional real-provider acceptance, set `NOTDOWN_ANDROID_CONNECTION_FILE` to an existing HTTPS WebDAV `connection.json`. This explicitly uses that account to create an isolated notebook under `Notdown-checks/accept-*`. Credentials go directly into the acceptance app's private replica; the source configuration and production vault contents are not modified. Cleanup verifies the temporary notebook's identity before deleting it, clears the acceptance app's private data and removes local test files. A wireless address in `NOTDOWN_ANDROID_RECONNECT` allows reconnecting ADB after a dropped debugging connection without making the cloud transfer depend on an ADB tunnel. Results go in `.run/logs/android-active-sync-device.json`. Remove only the acceptance application afterward; never clear or uninstall the production package to run tests.
+
 <a id="工具与集成"></a>
 
 ## Tools and integrations

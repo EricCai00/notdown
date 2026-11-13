@@ -14,6 +14,7 @@ import {syntaxFiles} from './syntax-files.js';
 import {bibliographyEntries} from '../src/markdown-engine/bibliography.js';
 import { prepareMarkdownImport, importSummary, type ImportPlan } from "./markdown-import.js";
 import { prepareNotionImport } from "./notion-import.js";
+import { NotionImportSession } from "./notion-import-session.js";
 import { importResponse } from "./import-response.js";
 import { executeRMarkdown, rMarkdownCapabilities } from "./rmarkdown.js";
 import { RNotebook } from "./r-notebook";
@@ -31,6 +32,7 @@ export function createApp(options: {
   accessToken?: string;
   vaultManagement?: BrowserVaultManagement;
   notionImportTransport?: Parameters<typeof prepareNotionImport>[1];
+  notionImportBatchLimits?: ConstructorParameters<typeof NotionImportSession>[2];
   bookmarkProxyResolver?: BookmarkProxyResolver;
 }) {
   const app = express();
@@ -73,7 +75,7 @@ export function createApp(options: {
     if (origin && (sameOrigin || origins.has(origin))) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     }
     if (req.method === "OPTIONS") {
@@ -140,7 +142,7 @@ export function createApp(options: {
   const runtimeSettings = async () => (await vault.runtimeSettings.get()).settings;
   const notebook = new RNotebook(runtimeSettings);
   const quarto = new QuartoNotebook(runtimeSettings);
-  app.locals.closeRNotebook = () => { notebook.close(); quarto.close(); vault.closeHistory(); void gitHistory.close(); };
+  app.locals.closeRNotebook = () => { for (const session of notionSessions.values()) session.cancel(); notionSessions.clear(); notebook.close(); quarto.close(); vault.closeHistory(); void gitHistory.close(); };
   app.get("/api/history/settings", route(async (_req, res) => { res.setHeader("Cache-Control", "no-store"); return res.json(await gitHistory.status()); }));
   app.put("/api/history/settings", route(async (req, res) => res.json(await gitHistory.configure(req.body))));
   app.post("/api/history/checkpoint", route(async (req, res) => {
@@ -227,21 +229,38 @@ export function createApp(options: {
     finally { res.off("close", cancel); }
   }));
   // Plans contain the exact selected bytes. Commit never rereads a changing source folder.
-  const imports = new Map<string, { plan: ImportPlan; expires: number }>();
-  app.post("/api/import/preview", route(async (req, res) => {
-    for (const [key, value] of imports) if (value.expires < Date.now()) imports.delete(key);
+  // Completed snapshots remain usable for review, including after sleep. They
+  // already occupy memory until replaced; a wall-clock deadline only made an
+  // intact plan unusable. Bound retention by count and service lifetime instead.
+  const imports = new Map<string, ImportPlan>();
+  const rememberImportPlan = (plan: ImportPlan) => {
+    imports.delete(plan.id);
     if (imports.size >= 3) imports.delete(imports.keys().next().value!);
+    imports.set(plan.id, plan);
+  };
+  app.post("/api/import/preview", route(async (req, res) => {
     const plan = prepareMarkdownImport(req.body);
-    imports.set(plan.id, { plan, expires: Date.now() + 30 * 60_000 });
+    rememberImportPlan(plan);
     return res.json(importSummary(plan));
   }));
   app.post("/api/import/commit", route(async (req, res) => {
-    const entry = imports.get(req.body?.id);
-    if (!entry || entry.expires < Date.now()) throw new VaultError(410, "Import preview expired. Prepare a new preview.");
-    if (entry.plan.errors.length && req.body.skipInvalid !== true) throw new VaultError(400, "Review and explicitly skip invalid files before importing");
-    return importResponse(req, res, progress => vault.importBatch(entry.plan, progress));
+    const plan = imports.get(req.body?.id);
+    if (!plan) throw new VaultError(410, "Import preview is no longer available. Prepare a new preview.");
+    if (plan.errors.length && req.body.skipInvalid !== true) throw new VaultError(400, "Review and explicitly skip invalid files before importing");
+    return importResponse(req, res, progress => vault.importBatch(plan, progress));
   }));
   let readingNotion = false;
+  const notionSessions = new Map<string, NotionImportSession>();
+  const rememberNotionPlan = (plan: ImportPlan) => {
+    rememberImportPlan(plan);
+    return { ...importSummary(plan), documents: plan.pages.map(p => ({ id: p.id, title: p.metadata.title, source: p.source })) };
+  };
+  app.delete("/api/notion/import/preview/:id", route(async (req, res) => {
+    const id = String(req.params.id);
+    notionSessions.get(id)?.cancel();
+    notionSessions.delete(id);
+    return res.json({ cancelled: true });
+  }));
   app.post("/api/notion/import/preview", route(async (req, res) => {
     if (readingNotion) throw new VaultError(429, "A Notion preview is already being prepared. Please wait.");
     readingNotion = true;
@@ -250,14 +269,27 @@ export function createApp(options: {
     res.on("close", cancel); res.setHeader("Cache-Control", "no-store");
     return importResponse(req, res, async progress => {
       try {
+        if (req.body?.continuationId !== undefined) {
+          const session = notionSessions.get(req.body.continuationId);
+          if (!session) throw new VaultError(410, "Notion reading session expired. Prepare a new preview.");
+          const result = await session.read(progress, controller.signal);
+          if ("continuationId" in result) return result;
+          return rememberNotionPlan(result);
+        }
         progress({ phase: "reading", completed: 0, step: "Checking the local vault for existing Notion page links" });
         const existingPages = await vault.notionImportTargets();
         controller.signal.throwIfAborted();
+        if (req.body?.batched === true) {
+          if (notionSessions.size >= 3) {
+            const oldest = notionSessions.keys().next().value!;
+            notionSessions.get(oldest)!.cancel(); notionSessions.delete(oldest);
+          }
+          const session = new NotionImportSession({ ...req.body }, { ...options.notionImportTransport, existingPages }, options.notionImportBatchLimits);
+          notionSessions.set(session.id, session);
+          return { continuationId: session.id, batch: 0, progress: { phase: "reading", completed: 0 } };
+        }
         const plan = await prepareNotionImport(req.body, { ...options.notionImportTransport, signal: controller.signal, onProgress: progress, existingPages });
-        for (const [key, value] of imports) if (value.expires < Date.now()) imports.delete(key);
-        if (imports.size >= 3) imports.delete(imports.keys().next().value!);
-        imports.set(plan.id, { plan, expires: Date.now() + 30 * 60_000 });
-        return { ...importSummary(plan), documents: plan.pages.map(p => ({ id: p.id, title: p.metadata.title, source: p.source })) };
+        return rememberNotionPlan(plan);
       } catch (error) {
         if (controller.signal.aborted) return;
         if (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))

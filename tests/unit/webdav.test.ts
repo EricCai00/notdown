@@ -10,6 +10,7 @@ import { createWebDavFixture, davCredentials } from "./webdav-fixture";
 import { itemRevision } from "../../src/sync/protocol";
 import { hashBytes } from "../../src/vault/crypto";
 import { createApp } from "../../server/app";
+import { createSyncService } from "../../src/sync/service";
 import type { AddressInfo } from "node:net";
 
 async function setup(t: test.TestContext) {
@@ -137,8 +138,9 @@ test("concurrent publication never replaces another device's committed head", as
 test("rate limits persist a cooldown and revoked credentials do not auto-retry", async t => {
   const { a, dav, connect } = await setup(t); await connect();
   dav.flags.throttle = true; await assert.rejects(a.sync.run(), /requested a pause/);
-  assert.ok((await a.sync.status()).nextSyncAt! > Date.now()); const before = dav.requests.length;
-  await assert.rejects(createVault(a.vaultPath).sync.run(), /cooling down/); assert.equal(dav.requests.length, before);
+  const retryAt = (await a.sync.status()).retryAt!;
+  assert.ok(retryAt > Date.now()); const before = dav.requests.length;
+  await assert.rejects(createVault(a.vaultPath).sync.run(), { status: 429, retryAt }); assert.equal(dav.requests.length, before);
   const config = (await a.syncStore.readConnection<WebDavConnection>())!; config.quota!.blockedUntil = undefined; await a.syncStore.writeConnection(config);
   dav.flags.throttle = false; dav.flags.unauthorized = true; await assert.rejects(a.sync.run(), /authentication/);
   assert.equal((await a.sync.status()).needsSignIn, true); const count = dav.requests.length;
@@ -152,7 +154,39 @@ test("local request budget survives client recreation and resets after the windo
   await createWebDavClient(config, async () => {}, fetch, options).vaults();
   const before = dav.requests.length;
   await assert.rejects(createWebDavClient(config, async () => {}, fetch, options).vaults(), /request budget/); assert.equal(dav.requests.length, before);
+  assert.equal(config.quota!.blockedUntil, time + 1800000);
   time += 1800001; await createWebDavClient(config, async () => {}, fetch, options).vaults();
+});
+
+test("an exhausted WebDAV budget exposes its deadline after restart and preserves completed progress", async t => {
+  const { a, dav, connect } = await setup(t); await connect();
+  await a.create({ title: "Already synced", body: "saved before the request window filled" });
+  await a.sync.run();
+  const progress = (await a.sync.status()).progress;
+  assert.ok(progress!.uploaded > 0);
+  const config = (await a.syncStore.readConnection<WebDavConnection>())!;
+  const startedAt = Date.now();
+  // Older connections persist the exhausted count without a separate deadline.
+  config.quota = { startedAt, requests: 240 };
+  await a.syncStore.writeConnection(config);
+  const before = dav.requests.length;
+  const waiting = await a.sync.status();
+  assert.equal(waiting.retryAt, startedAt + 1800000);
+  assert.equal(waiting.nextSyncAt, waiting.retryAt);
+  await assert.rejects(a.sync.run(), /waiting for its request limit/);
+  assert.deepEqual((await a.sync.status()).progress, progress);
+  assert.equal(dav.requests.length, before);
+  const restarted = createSyncService(a.syncStore, a.vaultPath + "/restarted-budget");
+  assert.equal((await restarted.status()).retryAt, waiting.retryAt);
+  const polled = await restarted.handle("progress", "GET") as { retryAt: number };
+  assert.equal(polled.retryAt, waiting.retryAt);
+  await a.create({ title: "Queued locally", body: "upload after the window resets" });
+  config.quota = { startedAt: Date.now() - 1800001, requests: 240 };
+  await a.syncStore.writeConnection(config);
+  const result = await restarted.run();
+  assert.equal(result.phase, "complete");
+  assert.ok(result.uploaded > 0);
+  assert.equal((await restarted.status()).retryAt, undefined);
 });
 
 test("more than 750 resources use indexed pagination without directory enumeration", async t => {

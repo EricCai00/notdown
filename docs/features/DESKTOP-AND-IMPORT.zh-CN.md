@@ -16,7 +16,7 @@
 
 托盘驻留不增加后台云同步能力；云同步仍受[当前功能范围](CLOUD-SYNC.zh-CN.md)约束。
 
-更新安装或替换程序文件前，先使用 **Quit Notdown** 完整退出；关闭窗口本身不会退出驻留进程。
+在源码目录运行 `npm run desktop:update`，会构建 Windows 安装包，请求已安装的应用保存后退出，静默安装新版并重新启动 Notdown。保存冲突或退出超时会停止安装并保留窗口。从 0.1.16 起，已安装的 `Notdown.exe --quit-for-update` 会执行与 **Quit Notdown** 相同的全部窗口保存检查；没有运行实例时直接退出，不打开窗口。更早版本在首次使用脚本前仍需手动执行一次 **Quit Notdown**。关闭窗口本身只会隐藏到托盘。
 
 桌面版的 **Web bookmark** 自动读取系统对目标网址生效的 HTTP／HTTPS 代理、PAC 和绕过规则，无需在 Notdown 重复填写端口。Windows 上浏览器版的本地服务也读取 Windows 系统代理；其他系统的独立 Node 服务仍使用直连。调整系统代理后，可点击书签的 **Refresh bookmark** 重试。请求仍校验并固定目标公网地址，每次跳转重新校验；不共享浏览器登录态，代理也不能保证通过网站验证。仅配置 SOCKS 的代理目前不支持，应使用代理软件提供的 HTTP／混合端口。
 
@@ -45,7 +45,7 @@
 - 保留未知 YAML 字段和注释；规范化副本中的 `id`、`title`、`parent`、`icon`、`properties`、`bodyFormat`、`syntax`，清除旧的收藏、删除、排序、更新时间状态。所有原始字段与文件字节均保存在原件归档中。
 - 只修改解析得到的 Markdown 链接、图片及引用定义的目标范围；不全局替换正文、代码围栏或未知语法。标准相对页面链接改为 `#page/<id>`，新附件改为 `assets/<带连字符的 UUID>.<扩展名>`，与上传、Notion 下载使用相同的内容确定 UUIDv5 命名；附件查询及锚点保留。旧附件和原链接继续兼容，不批量迁移。页面锚点及查询参数暂不支持，会在预览提示并从副本链接中省略。
 - Wiki 链接和原始 HTML 保留原写法，需要手动检查；不会自动完成 Obsidian 工作区或 Notion 导出包迁移。未解析的目标保留原文并给出提示。附件原文件名登记到附件库；规范化常见扩展名，其他简单字母数字扩展名保留，无法识别时使用 `.bin`。相同内容及规范扩展名复用同一文件，已有附件不自动迁移。
-- 导入预览只在内存中保留，30 分钟过期，每个服务最多三批；提交时使用预览的内容快照，不重新读取变化中的源目录。
+- 完整预览只在内存中保留，不再按时间过期。每个服务保留最近准备的三份快照；再准备一份会替换最早的一份，重启服务会丢失快照。提交时使用已检查的快照，不重新读取源目录。快照丢失时禁用“导入副本”，需要重新选择文件夹并检查。
 - 同一导入格式版本下，相同名称、方言、相对路径和内容产生相同导入批次。已完成批次再次提交不会重复创建或覆盖导入后编辑的页面；源内容改变则形成新的导入副本，不作为同步更新。
 - 写入通过 `createVault.importBatch` 串行执行。导入只新建文件，不更新已有页面，因此不接受覆盖 revision；之后的编辑仍使用 `baseRevision` 与冲突分支。
 - `.history/imports/<批次 SHA-256>/manifest.json` 记录源路径与 `<编号>.source` 原件的对应、页面 ID、提示及完成状态。恢复原件时按 manifest 路径复制这些字节即可；目前没有专用恢复界面。
@@ -58,12 +58,15 @@ npm ci
 npm run desktop
 npm run desktop:pack
 npm run desktop:dist
+npm run desktop:update
 npm run test:desktop
 ```
 
 `desktop:build` 先通过 `desktop:runtime` 检查或下载 Electron 二进制，再将前端构建至 `desktop-dist/frontend/`，主进程、本地服务与 preload 构建至 `desktop-dist/`。桌面前端产物独立于浏览器的 `dist/`，避免开发时互相覆盖。首次源码启动需要网络；已有匹配版本时不会重复下载。需要代理的环境可为 Node 配置 `HTTPS_PROXY` 与 `NODE_USE_ENV_PROXY=1`。`desktop:pack` 输出解包应用，`desktop:dist` 输出 NSIS 安装包，均位于 `.run/desktop-release/`。安装包不携带仓库的用户 `vault/`；卸载不删除知识库目录。
 
 Desktop packaging excludes `node_modules/@capacitor/**`. Mobile-only native packages and generated Android build trees are not desktop runtime dependencies; including them can introduce paths that the Windows updater cannot rename while replacing an older installation.
+
+安装已构建的包可运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop.ps1`。脚本使用当前包版本和已注册的当前用户安装目录；`-InstallerPath`、`-AppPath` 可指定其他路径，`-WhatIf` 预览操作，`-NoRestart` 在更新后保持应用关闭。脚本不会强制结束 Notdown，并保留应用配置和知识库目录。这是本地更新命令，不会自动检查或下载远程版本。
 
 `tests/unit/markdown-import.test.ts` 覆盖原文、YAML、链接、重复导入、部分恢复和 HTTP 预览提交。`tests/e2e/import-folder.spec.ts` 使用独立 Chrome 与临时知识库。`tests/e2e/desktop.test.ts` 使用隔离的 Electron 用户配置与临时目录，验证首次建库、关闭保存、冲突阻止关闭、最近目录和多库隔离；可设置 `NOTDOWN_PACKAGED_EXE` 为解包后的 exe 以验证实际打包产物。
 

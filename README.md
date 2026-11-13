@@ -64,7 +64,7 @@ Create or switch vaults from the sidebar heading or Workspace settings. Custom p
 
 ### Android preview
 
-The early Android app connects to an existing cloud notebook from your computer. Configure sync on first launch; after the initial download, notes and attachments remain available offline. See the [Android guide](docs/features/ANDROID.md) for installation and limitations.
+The early Android app connects to cloud notebooks from your computer and switches between them using your saved sign-in. Configure sync on first launch; after the initial download, notes and attachments remain available offline. See the [Android guide](docs/features/ANDROID.md) for installation and limitations.
 
 ### Bring your notes
 
@@ -80,7 +80,7 @@ Use one running service per vault. Back up the whole vault folder to include att
 
 Notdown is an actively developed local application prototype.
 
-- **Device sync:** experimental foreground sync supports Supabase or WebDAV on desktop and Android. There is no bundled cloud service, end-to-end encryption, or real-time collaboration. See [setup and limits](docs/features/CLOUD-SYNC.md).
+- **Device sync:** experimental sync supports Supabase or WebDAV on desktop and Android. A running Android sync can continue with the screen off; there is no periodic background sync, bundled cloud service, end-to-end encryption, or real-time collaboration. See [setup and limits](docs/features/CLOUD-SYNC.md).
 - **Format support:** compatibility varies by dialect; complex or unsupported content may need source editing.
 - **Databases and imports:** databases support eleven local layouts; imported formulas and rollups are read-only snapshots. Notion imports save accessible attachments locally; failed downloads and unsupported cloud features remain incomplete.
 - **Platforms:** the Windows build is unsigned; Android is an early development build requiring device validation. Automatic updates and macOS/Linux installers are not available yet.

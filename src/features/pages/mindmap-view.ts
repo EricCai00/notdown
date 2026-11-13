@@ -13,10 +13,11 @@ const labels: Record<MindmapKind, string> = { root: "Mind map", heading: "Headin
 const marks: Record<MindmapKind, string> = { root: "", heading: "", paragraph: "", list: "•", task: "□", quote: "", code: "‹/›", table: "▦", media: "▧", block: "" };
 const tone = (node: MindmapNode) => node.kind === "root" ? "root" : node.kind !== "heading" ? "body" : (node.level ?? 1) <= 2 ? "main" : node.level === 3 ? "sub" : "detail";
 
-type MindmapOptions = Partial<Pick<ConstructorParameters<typeof BlockEditor>[1], "pages" | "currentPage" | "onOpenPage" | "onError">> & { syntax?: SyntaxConfig };
+type MindmapOptions = Partial<Pick<ConstructorParameters<typeof BlockEditor>[1], "pages" | "currentPage" | "onOpenPage" | "onError" | "interactionMode">> & { syntax?: SyntaxConfig };
 
 export function mountMindmap(host: HTMLElement, root: MindmapNode, context: MindmapOptions = {}) {
   const syntax = context.syntax ?? defaultSyntax("markdown");
+  const minimumFit = context.interactionMode === "touch" ? .15 : .55;
   let previewEditor: BlockEditor | undefined;
   const disposePreview = () => { previewEditor?.destroy(); previewEditor = undefined; };
   const states = new Map<string, MindmapExpansion>();
@@ -138,7 +139,7 @@ export function mountMindmap(host: HTMLElement, root: MindmapNode, context: Mind
       const mode = button.dataset.mapPreset as MindmapExpansion;
       nodes.forEach(node => states.set(node.id, mode));
       if (mode === "headings" && !root.hasHeading) expandMindmapNode(root, states);
-      render(); fit(.55);
+      render(); fit(minimumFit);
     } else if (button.hasAttribute("data-map-fit")) fit();
     else if (button.dataset.mapZoom) zoom(scale + (button.dataset.mapZoom === "in" ? .1 : -.1));
     else if (button.hasAttribute("data-map-close")) {
@@ -176,6 +177,6 @@ export function mountMindmap(host: HTMLElement, root: MindmapNode, context: Mind
   }, options);
   const observer = new ResizeObserver(schedule);
   observer.observe(scene); observer.observe(viewport);
-  render(); fit(.55);
+  render(); fit(minimumFit);
   return () => { disposePreview(); abort.abort(); observer.disconnect(); cancelAnimationFrame(frame); };
 }

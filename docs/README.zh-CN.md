@@ -73,6 +73,8 @@
 
 ## 审计与验证记录
 
+- [Android 正在进行的同步在后台和息屏后继续（2026-11-07）](verification/ANDROID-ACTIVE-SYNC-2026-11-07.zh-CN.md)
+
 - [Windows 0.1.15 数据库视图与桌面发布验证（2026-11-05）](verification/RELEASE-0.1.15-2026-11-05.zh-CN.md)
 - [Windows 0.1.14：双语工作区与知识库管理（2026-11-03）](verification/RELEASE-0.1.14-2026-11-03.zh-CN.md)
 

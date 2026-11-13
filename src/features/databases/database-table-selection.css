@@ -27,3 +27,4 @@
 .database-row-controls input:not(:checked),.database-select-all:not(:checked):not(:indeterminate) { appearance:none; border:1px solid #d3d3d0; border-radius:3px; background:#fff; }
 .database-workspace .database-table tbody tr.database-row-selected > td:not(.database-selection-gutter) { background:#e6effb; border-bottom-color:var(--database-rule,#eee); box-shadow:none; }
 .database-table-scroll:has(.database-selection-gutter) { margin-left:calc(-1 * min(104px, max(0px, calc(var(--database-gutter, 24px) - 8px)))); width:calc(100% + min(104px, max(0px, calc(var(--database-gutter, 24px) - 8px)))); }
+.database-table-scroll:has(.database-selection-gutter) > .database-add-row { margin-left:104px; width:calc(100% - 104px); }

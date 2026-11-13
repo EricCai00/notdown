@@ -28,8 +28,13 @@ export async function createWebDavFixture() {
       directories.add(path); res.writeHead(201); res.end(); return;
     }
     if (method === "PROPFIND") {
-      if (req.headers.depth !== "0") { res.writeHead(400); res.end("The adapter must not enumerate the entire disk"); return; }
+      if (!["0", "1"].includes(String(req.headers.depth))) { res.writeHead(400); res.end("The adapter must not enumerate the entire disk"); return; }
       if (!directories.has(path)) { res.writeHead(404); res.end(); return; }
+      if (req.headers.depth === "1") {
+        const children = [...directories].filter(folder => folder.startsWith(path) && !folder.slice(path.length).replace(/\/$/, "").includes("/"));
+        const xml = children.map(folder => `<d:response><d:href>${folder.replaceAll("&", "&amp;")}</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`).join("");
+        res.writeHead(207, { "Content-Type": "application/xml" }); res.end(`<d:multistatus xmlns:d="DAV:">${xml}</d:multistatus>`); return;
+      }
       res.writeHead(207, { "Content-Type": "application/xml" }); res.end('<d:multistatus xmlns:d="DAV:"><d:response><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>'); return;
     }
     if (method === "PUT") {

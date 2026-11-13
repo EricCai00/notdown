@@ -30,6 +30,9 @@ const digest = (value: string | Buffer) =>
 type Json = Record<string, any>;
 type ResolvePage = (id: string) => string | undefined;
 
+/** Only interrupted reads, rate limits and upstream outages can be resumed. */
+class NotionReadError extends VaultError {}
+
 /** Inspect a bounded error body without exposing its message, URLs or credentials. */
 async function notionReadError(response: Response): Promise<{ code?: string; unsupportedChildren?: string }> {
   const reader = response.body?.getReader();
@@ -240,6 +243,10 @@ export async function prepareNotionImport(
     readCache?: ReadNotionCache;
     existingPages?: readonly { id: string; pageId: string }[];
     onProgress?: (progress: ImportProgress) => void;
+    checkpoint?: () => Promise<void>;
+    retryRead?: (error: VaultError) => Promise<void>;
+    timeoutMs?: number;
+    largeImport?: boolean;
   } = {},
 ): Promise<ImportPlan> {
   const request = input as {
@@ -250,6 +257,7 @@ export async function prepareNotionImport(
     downloadAssets?: unknown;
     useDesktopCache?: unknown;
     copiedBlocks?: unknown;
+    snapshotMiB?: unknown;
   } | null;
   if (
     !request ||
@@ -266,6 +274,13 @@ export async function prepareNotionImport(
   )
     throw new VaultError(400, "Invalid child page selection.");
   const root = notionPageId(request.pageId);
+  const snapshotMiB = options.largeImport ? (request.snapshotMiB ?? 256) : 20;
+  if (typeof snapshotMiB !== "number" || ![20, 64, 128, 256, 512].includes(snapshotMiB))
+    throw new VaultError(400, "Choose a supported snapshot budget.");
+  const maxBytes = snapshotMiB * 1024 * 1024;
+  const maxPages = options.largeImport ? Infinity : 500;
+  const maxRequests = options.largeImport ? Infinity : 1500;
+  const capacityError = () => new VaultError(413, `Notion preview exceeds the ${snapshotMiB} MiB snapshot budget. Increase Snapshot budget or select a smaller page tree, then start a new preview.`);
   if (request.useDesktopCache !== undefined && typeof request.useDesktopCache !== "boolean") throw new VaultError(400, "Invalid desktop cache selection.");
   if (request.downloadAssets !== undefined && typeof request.downloadAssets !== "boolean") throw new VaultError(400, "Invalid attachment selection.");
   const variant = request.variant ?? "notion-markdown";
@@ -273,9 +288,9 @@ export async function prepareNotionImport(
   const copiedBlocks = variant === "notdown" ? parseCopiedNotionSnapshots(request.copiedBlocks) : undefined;
   let copiedButtons = 0;
   const token = request.token;
-  const signal = AbortSignal.any([
+  const signal = options.timeoutMs === 0 ? (options.signal ?? new AbortController().signal) : AbortSignal.any([
     options.signal ?? new AbortController().signal,
-    AbortSignal.timeout(15 * 60_000),
+    AbortSignal.timeout(options.timeoutMs ?? 15 * 60_000),
   ]);
   const transport = options.fetch ?? fetch;
   const wait =
@@ -306,14 +321,21 @@ export async function prepareNotionImport(
   const pagination = new Map<string, number>();
   const archive = (path: string, data: Buffer) => {
     bytes += data.length;
-    if (bytes > MAX_BYTES)
-      throw new VaultError(
-        413,
-        "Notion import exceeds 20 MB including original responses. Select a smaller page tree.",
-      );
+    if (bytes > maxBytes) throw capacityError();
     originals.push({ path, data });
   };
   async function get(endpoint: string, allowMissing: boolean | "probe" | "optional" = false, body?: Json): Promise<Json> {
+    let retry = false;
+    for (;;) {
+      try { return await read(endpoint, allowMissing, body, retry); }
+      catch (error) {
+        if (!(error instanceof NotionReadError) || !options.retryRead || signal.aborted) throw error;
+        await options.retryRead(error);
+        retry = true;
+      }
+    }
+  }
+  async function read(endpoint: string, allowMissing: boolean | "probe" | "optional", body?: Json, retry = false): Promise<Json> {
     if (body && !/^\/data_sources\/[0-9a-f-]+\/query$/.test(endpoint))
       throw new VaultError(400, "Only read-only Notion data source queries may use POST.");
     const pathname = endpoint.split("?")[0];
@@ -327,12 +349,13 @@ export async function prepareNotionImport(
       : pathname.startsWith("/blocks/") ? "Reading block details"
       : pathname === "/views" ? "Listing database views" : "Reading database view";
     const paginated = pathname.endsWith("/children") || pathname.endsWith("/query") || pathname.includes("/properties/") || pathname === "/views";
-    const pageNumber = endpoint.includes("start_cursor=") || body?.start_cursor ? (pagination.get(pathname) ?? 1) + 1 : 1;
+    const pageNumber = endpoint.includes("start_cursor=") || body?.start_cursor ? (pagination.get(pathname) ?? 1) + (retry ? 0 : 1) : 1;
     pagination.set(pathname, pageNumber);
     const step = `${operation}${paginated ? ` (page ${pageNumber})` : ""}`;
     for (let attempt = 0; attempt < 3; attempt++) {
+      await options.checkpoint?.();
       signal.throwIfAborted();
-      if (++calls > 1500)
+      if (++calls > maxRequests)
         throw new VaultError(
           413,
           "Notion import exceeds 1,500 API requests. Select a smaller page tree.",
@@ -355,16 +378,17 @@ export async function prepareNotionImport(
       } catch (error) {
         if (error instanceof VaultError) throw error;
         if (signal.aborted) throw error;
-        const detail = error instanceof Error && error.message ? ` (${error.message.slice(0, 120)})` : "";
-        throw new VaultError(502, `Could not connect to the Notion API${detail}. Check the connection and retry the preview.`);
+        throw new NotionReadError(502, "Could not connect to the Notion API. Check the connection and resume the preview.");
       }
-      if (response.status === 429 && attempt < 2) {
+      if (response.status === 429) {
         const seconds = Number(response.headers.get("retry-after") ?? "1");
         await response.body?.cancel();
-        if (!Number.isFinite(seconds) || seconds < 0 || seconds > 30)
-          throw new VaultError(
+        if (Number.isFinite(seconds) && seconds > 1800) throw new VaultError(429, "Notion requests a wait longer than 30 minutes. Retry the preview later.");
+        if (!Number.isFinite(seconds) || seconds < 0 || seconds > 30 || attempt >= 2)
+          throw new NotionReadError(
             429,
-            "Notion is rate limiting requests. Retry the preview later.",
+            "Notion returned HTTP 429 (rate limited). Retry the preview later.",
+            { retryAfterMs: Number.isFinite(seconds) && seconds >= 0 ? Math.max(1, seconds) * 1000 : 30_000 },
           );
         report({ step: `Notion rate limit: waiting ${Math.max(1, seconds)}s before retry ${attempt + 1}/2 — ${step}` });
         await wait(Math.max(1, seconds) * 1000, signal);
@@ -385,7 +409,8 @@ export async function prepareNotionImport(
               ? "Notion content is unavailable. Share the page and its children with the connection and enable Read content."
               : `Notion returned HTTP ${response.status}${detail.code ? ` (${detail.code})` : ""} at ${pathname}. ${response.status === 400 ? "The request was rejected; preview could not be prepared." : "Retry the preview later."}`;
         // Never echo upstream error bodies (which may contain credentials or private URLs).
-        throw new VaultError(response.status === 429 ? 429 : 502, reason);
+        const ErrorType = response.status === 429 || response.status >= 500 ? NotionReadError : VaultError;
+        throw new ErrorType(response.status === 429 ? 429 : 502, reason);
       }
       const reader = response.body?.getReader();
       if (!reader)
@@ -398,18 +423,15 @@ export async function prepareNotionImport(
           const { done, value } = await reader.read();
           if (done) break;
           size += value.length;
-          if (size + bytes > MAX_BYTES)
-            throw new VaultError(
-              413,
-              "Notion import exceeds 20 MB. Select a smaller page tree.",
-            );
+          if (size > MAX_BYTES) throw new VaultError(413, "A single Notion response exceeds 20 MiB. Select smaller source pages.");
+          if (size + bytes > maxBytes) throw capacityError();
           chunks.push(value);
         }
       } catch (error) {
         await reader.cancel().catch(() => {});
         throw error instanceof VaultError
           ? error
-          : new VaultError(
+          : new NotionReadError(
               502,
               "Notion response was interrupted. Retry the preview.",
             );
@@ -426,22 +448,23 @@ export async function prepareNotionImport(
       archive(`api/${String(originals.length).padStart(5, "0")}.json`, raw);
       return result;
     }
-    throw new VaultError(429, "Notion is rate limiting requests. Retry later.");
+    throw new NotionReadError(429, "Notion is rate limiting requests. Retry later.");
   }
   const queued = new Set<string>([root]);
   const queue: { id: string; parent: string | null; record?: Json; folder?: boolean; folderTitle?: string; database?: { title: string; icon: string } }[] = [
     { id: root, parent: null },
   ];
+  const queueById = new Map(queue.map(item => [item.id, item]));
   const enqueue = (id: string, parent: string | null, record?: Json) => {
-    const existing = queue.find(entry => entry.id === id);
+    const existing = queueById.get(id);
     if (existing) {
       if (parent) existing.parent = parent;
       if (record) existing.record = record;
       return existing;
     }
-    if (queued.size >= 500) throw new VaultError(413, "Notion import exceeds 500 pages. Select a smaller database or page tree.");
+    if (queued.size >= maxPages) throw new VaultError(413, "Notion import exceeds 500 pages. Select a smaller database or page tree.");
     const item: (typeof queue)[number] = { id, parent, record };
-    queued.add(id); queue.push(item);
+    queued.add(id); queue.push(item); queueById.set(id, item);
     return item;
   };
   const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue, includeChildren: request.includeChildren !== false,
@@ -529,20 +552,8 @@ export async function prepareNotionImport(
           const childId = block.id.toLowerCase();
           blocks.set(childId, block);
           if (block.type === "child_page") {
-            const existing = queue.find((entry) => entry.id === childId);
-            if (existing) {
-              // A page reference may have queued this page first. The block
-              // tree is authoritative for its parent relationship.
-              existing.parent = page;
-            } else {
-              if (queued.size >= 500)
-                throw new VaultError(
-                  413,
-                  "Notion import exceeds 500 pages. Select a smaller page tree.",
-                );
-              queued.add(childId);
-              queue.push({ id: childId, parent: page });
-            }
+            // The block tree is authoritative even if Markdown queued it first.
+            enqueue(childId, page);
           } else if (block.type === "child_database") {
             const database = await databaseImport.database(childId);
             if (database) enqueue(childId, page).database = database;
@@ -556,6 +567,7 @@ export async function prepareNotionImport(
     }
   }
   for (let index = 0; index < queue.length; index++) {
+    await options.checkpoint?.();
     const item = queue[index];
     report({ phase: "reading", completed: index, step: "Preparing page", currentTitle: item.database?.title ?? item.folderTitle ?? (item.record ? titleOf(item.record, "Untitled") : blocks.get(item.id)?.child_page?.title) ?? item.id });
     let databaseMarkdown: Json | undefined;
@@ -656,11 +668,10 @@ export async function prepareNotionImport(
         if (tag === "folder") { if (!queued.has(referencedId)) { const folder = enqueue(referencedId, item.folder ? item.id : null); folder.folder = true; folder.folderTitle = label; } continue; }
         // Links and mentions resolve later; they never authorize traversal.
         if (tag === "mention" || tag === "mention-page" || tag === "page-link") continue;
-        if (!queued.has(referencedId) && queued.size < 500) {
-          queued.add(referencedId);
+        if (!queued.has(referencedId)) {
           // A page tag is a link target, not evidence of a sidebar parent.
           // Only a child_page block from the Block API can assign a parent.
-          queue.push({ id: referencedId, parent: item.folder ? item.id : null });
+          enqueue(referencedId, item.folder ? item.id : null);
         }
       }
     }
@@ -672,13 +683,14 @@ export async function prepareNotionImport(
   const discoveredPageIds = new Set(pages.map(page => page.id));
   const unusedCopiedPages = new Set(copiedBlocks?.map(snapshot => snapshot.source.id).filter(id => !discoveredPageIds.has(id)));
   if (unusedCopiedPages.size) warnings.add(`Copied snapshots from ${unusedCopiedPages.size} page(s) are outside the selected import. Choose their common parent with descendants included, or import those pages separately.`);
-  for (const page of pages) page.parent = databaseImport.recordParent(page.id, discoveredPageIds) ?? queue.find(entry => entry.id === page.id)!.parent;
+  for (const page of pages) page.parent = databaseImport.recordParent(page.id, discoveredPageIds) ?? queueById.get(page.id)!.parent;
   report({ phase: "restoring", completed: pages.length, step: "Completing database record properties", currentTitle: undefined });
   const recordTitles = await databaseImport.completeProperties();
   for (const page of pages) if (recordTitles.get(page.id)) page.title = recordTitles.get(page.id)!;
   {
     const titles = new Map(pages.map(page => [page.id, page.title]));
     for (const page of pages) {
+      await options.checkpoint?.();
       report({ phase: "restoring", completed: pages.length, step: "Restoring unsupported blocks and page references", currentTitle: page.title });
       page.source = await enrichNotionBlocks(page.source, {
         normalizeId: notionPageId,
@@ -817,9 +829,10 @@ export async function prepareNotionImport(
     const data = block[block.type], url = data?.[data.type]?.url || (block.type === "embed" ? data?.url : undefined);
     if (typeof url === "string" && typeof data?.name === "string" && data.name.trim()) assetNames.set(notionAssetIdentity(url), data.name);
   }
-  const media = notionAssets({ signal, nameHints: assetNames, read: options.readAsset, remaining: () => MAX_BYTES - bytes, reserve: size => { bytes += size; }, warn: message => warnings.add(message), onRead: (name, attempt) => report({ step: `Downloading attachment ${attempt}${name ? `: ${name}` : ""}` }) });
+  const media = notionAssets({ signal, checkpoint: options.checkpoint, maxAttempts: options.largeImport ? Infinity : 500, nameHints: assetNames, read: options.readAsset, remaining: () => maxBytes - bytes, reserve: size => { bytes += size; }, warn: message => warnings.add(message), onRead: (name, attempt) => report({ step: `Downloading attachment ${attempt}${name ? `: ${name}` : ""}` }) });
   if (request.downloadAssets !== false) {
     for (const page of pages) {
+      await options.checkpoint?.();
       report({ phase: "attachments", completed: pages.length, step: "Downloading page attachments, cover and icon", currentTitle: page.title });
       page.source = await media.rewrite(page.source);
       if (page.cover) page.cover = await media.save(page.cover);
@@ -914,7 +927,7 @@ export async function prepareNotionImport(
   for (const page of pages) visit(page);
   const localizedPages = ordered.map(page => ({ ...page, source: localizePageReferences(page.source, resolvePage, databaseResult.resources.databases) }));
   const homePages = localizedPages.filter(page => databaseImport.hasHome(page.id));
-  if (localizedPages.length + homePages.length > 500) throw new VaultError(413, "Notion import exceeds 500 pages including database Home pages.");
+  if (localizedPages.length + homePages.length > maxPages) throw new VaultError(413, "Notion import exceeds 500 pages including database Home pages.");
   return {
     id,
     name: pages[0].title,

@@ -17,6 +17,15 @@ test("folder preview, import, editing and repeated import preserve existing page
     await page.locator("#import-files").setInputFiles(source);
     await expect(page.locator("#import-status")).toContainText("Ready");
     await expect(page.locator("#import-preview")).toContainText("nested/next.md");
+    for (let index = 0; index < 3; index++) {
+      const response = await request.post("/api/import/preview", { data: { name: `Other selection ${index}`, dialect: "gfm", files: [{ path: "note.md", data: Buffer.from(`Other ${index}`).toString("base64") }] } });
+      expect(response.ok()).toBeTruthy();
+    }
+    await page.getByRole("button", { name: "Import copies", exact: true }).click();
+    await expect(page.locator("#import-status")).toContainText("Select the folder again before importing");
+    await expect(page.getByRole("button", { name: "Import copies", exact: true })).toBeDisabled();
+    await page.locator("#import-files").setInputFiles(source);
+    await expect(page.locator("#import-status")).toContainText("Ready");
     await page.screenshot({ path: "test-results/import-folder-preview.png" });
     await page.getByRole("button", { name: "Import copies", exact: true }).click();
     await expect(page.locator(".import-dialog")).toHaveCount(0);

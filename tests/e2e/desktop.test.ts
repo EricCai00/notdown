@@ -151,6 +151,28 @@ test("packaged databases own JSON files, link shared sources, and keep Wiki Home
   expect(restored.pages.map((item: any) => item.id)).toEqual([record.id]);
 });
 
+test("packaged completed import snapshots remain committable after two days of review", async () => {
+  const vaultPath = path.join(root, "Long import review"); await fs.mkdir(vaultPath);
+  const page = await chooseFolder(vaultPath, "create");
+  const preview = await page.evaluate(async () => {
+    const response = await fetch("/api/import/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Reviewed snapshot", dialect: "gfm", files: [{ path: "note.md", data: btoa("Reviewed original bytes") }] }) });
+    return response.json();
+  });
+  // Only this isolated Electron process uses an advanced clock; the host clock
+  // and user's installed app are unchanged. afterEach terminates the process.
+  await desktop.evaluate(() => {
+    const originalNow = Date.now;
+    Date.now = () => originalNow() + 48 * 60 * 60_000;
+  });
+  const result = await page.evaluate(async id => {
+    const response = await fetch("/api/import/commit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    return { status: response.status, body: await response.json() };
+  }, preview.id);
+  expect(result.status).toBe(200);
+  expect(result.body.pageIds.length).toBeGreaterThan(0);
+  expect((await readNotes(vaultPath)).some(note => note.body === "Reviewed original bytes")).toBe(true);
+});
+
 test("Notion token is encrypted outside the vault and autofills after a desktop restart", async () => {
   const vaultPath = path.join(root, "Notion token"); await fs.mkdir(vaultPath);
   let page = await chooseFolder(vaultPath, "create");
@@ -159,6 +181,13 @@ test("Notion token is encrypted outside the vault and autofills after a desktop 
     await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
   };
   await openImport();
+  await expect(page.getByRole("checkbox", { name: "Import automatically after reading", exact: true })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "Import automatically after reading", exact: true }).check();
+  await page.getByText("Large import options", { exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Snapshot budget", exact: true })).toHaveValue("256");
+  await page.getByRole("combobox", { name: "Snapshot budget", exact: true }).selectOption("512");
+  await expect(page.getByRole("combobox", { name: "Snapshot budget", exact: true })).toHaveValue("512");
+  await expect(page.locator(".notion-import-dialog")).toContainText("no fixed total page or request count limit");
   const token = "desktop-notion-test-key";
   await page.getByLabel("Integration token", { exact: true }).fill(token);
   const filename = path.join(root, "profile", "notion-import-token.bin");
@@ -176,6 +205,7 @@ test("Notion token is encrypted outside the vault and autofills after a desktop 
   await expect(page.locator(".sidebar")).toBeVisible();
   await openImport();
   await expect(page.getByLabel("Integration token", { exact: true })).toHaveValue(token);
+  await expect(page.getByRole("checkbox", { name: "Import automatically after reading", exact: true })).not.toBeChecked();
   await page.getByLabel("Integration token", { exact: true }).clear();
   await expect.poll(() => fs.access(filename).then(() => true, () => false)).toBe(false);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -223,9 +253,9 @@ async function trayAction(action: "open" | "click" | "quit") {
   }, action);
 }
 
-async function launchAgain() {
+async function launchAgain(...args: string[]) {
   const executable = await desktop.evaluate(() => process.execPath);
-  const child = spawn(executable, launchArgs, { env: launchEnv, windowsHide: true, stdio: "ignore" });
+  const child = spawn(executable, [...launchArgs, ...args], { env: launchEnv, windowsHide: true, stdio: "ignore" });
   const code = await new Promise<number | null>((resolve, reject) => { child.once("error", reject); child.once("exit", resolve); });
   expect(code).toBe(0);
 }
@@ -481,6 +511,61 @@ test("quit keeps all windows frozen until all saves finish and preserves drafts 
   await closed;
   expect((await readNotes(secondPath))[0].body).toContain("Second pending quit body");
 });
+test("update exit saves pending input in every vault, including hidden windows", async () => {
+  const paths = [path.join(root, "Update first"), path.join(root, "Update second")];
+  let previous: Page | undefined;
+  for (const [index, vaultPath] of paths.entries()) {
+    await fs.mkdir(vaultPath);
+    let page: Page;
+    if (!previous) page = await chooseFolder(vaultPath, "create");
+    else {
+      const welcomePromise = desktop.waitForEvent("window");
+      await previous.evaluate(() => (window as any).notdownDesktop.openVaultWindow());
+      const welcome = await welcomePromise, next = desktop.waitForEvent("window");
+      await createFromPicker(welcome, vaultPath); page = await next;
+      await expect(page.locator(".sidebar")).toBeVisible();
+    }
+    await page.locator('#sidebar .section-label [data-action="new"]').click();
+    await page.locator("#page-title").fill(`Update note ${index}`);
+    await expect(page.locator("#save-status")).toHaveText("Saved locally");
+    await page.locator(".pm-document").evaluate((element, index) => { element.textContent = `Pending update body ${index}`; }, index);
+    await desktop.evaluate(({ BrowserWindow }, origin) => {
+      BrowserWindow.getAllWindows().find(window => window.webContents.getURL().startsWith(origin))!.hide();
+    }, new URL(page.url()).origin);
+    previous = page;
+  }
+  const closed = desktop.waitForEvent("close");
+  await launchAgain("--quit-for-update"); await closed;
+  for (const [index, vaultPath] of paths.entries()) expect((await readNotes(vaultPath))[0].body).toContain(`Pending update body ${index}`);
+});
+
+test("update exit stops on a save conflict and keeps the window and both versions", async () => {
+  const vaultPath = path.join(root, "Update conflict");
+  await fs.mkdir(path.join(vaultPath, "pages"), { recursive: true });
+  const file = path.join(vaultPath, "pages", "note.md");
+  const source = "---\nid: update-conflict\ntitle: Before update\n---\nOriginal body";
+  await fs.writeFile(file, source);
+  const page = await chooseFolder(vaultPath, "open");
+  await expect(page.locator("#page-title")).toHaveValue("Before update");
+  await page.locator(".pm-document").evaluate(element => { element.textContent = "Pending update conflict body"; });
+  await fs.writeFile(file, source.replace("Original body", "External newer body"));
+  await launchAgain("--quit-for-update");
+  await expect(page.locator("#save-status")).toContainText("Conflict");
+  expect(page.isClosed()).toBe(false);
+  expect(await desktop.evaluate(({ app }) => app.hasSingleInstanceLock())).toBe(true);
+  expect((await readNotes(vaultPath))[0].body).toBe("External newer body");
+  const conflicts = (await fs.readdir(path.join(vaultPath, ".history/conflicts"))).filter(file => file.endsWith(".md"));
+  expect(conflicts.length).toBeGreaterThan(0);
+  expect(await fs.readFile(path.join(vaultPath, ".history/conflicts", conflicts[0]), "utf8")).toContain("Pending update conflict body");
+});
+
+test("update exit without a running instance terminates without opening a window", async () => {
+  const executable = await desktop.evaluate(() => process.execPath);
+  await desktop.close();
+  const child = spawn(executable, [...launchArgs, "--quit-for-update"], { env: launchEnv, windowsHide: true, stdio: "ignore" });
+  expect(await new Promise<number | null>((resolve, reject) => { child.once("error", reject); child.once("exit", resolve); })).toBe(0);
+});
+
 test("failed conflict save prevents close and preserves both versions", async () => {
   const vaultPath = path.join(root, "Existing");
   await fs.mkdir(path.join(vaultPath, "pages"), { recursive: true });

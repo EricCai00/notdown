@@ -1,5 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <string name="sync_channel">Active sync</string>
+    <string name="sync_running">Notdown is syncing</string>
+    <string name="sync_continue">This sync continues with the screen off.</string>
     <string name="app_name">Notdown</string>
     <string name="title_activity_main">Notdown</string>
     <string name="package_name">app.notdown.mobile</string>

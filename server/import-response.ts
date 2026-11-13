@@ -25,7 +25,7 @@ export async function importResponse<T>(
     res.end();
   } catch (error) {
     if (!streaming) throw error;
-    send({ type: "error", error: error instanceof VaultError ? error.message : "Import failed. Original files are preserved; prepare a new preview or retry the same snapshot." });
+    send({ type: "error", status: error instanceof VaultError ? error.status : 500, retryable: false, error: error instanceof VaultError ? error.message : "Import failed. Original files are preserved; prepare a new preview or retry the same snapshot." });
     res.end();
   }
 }

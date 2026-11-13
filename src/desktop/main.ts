@@ -211,9 +211,13 @@ function requestSave(window: BrowserWindow): Promise<boolean> {
   return promise;
 }
 
-if (!app.requestSingleInstanceLock()) app.quit();
+const quitForUpdate = process.argv.includes("--quit-for-update");
+if (!app.requestSingleInstanceLock({ quitForUpdate }) || quitForUpdate) app.quit();
 else {
-  app.on("second-instance", () => { void startup.then(() => desktopLifecycle.restore()); });
+  app.on("second-instance", (_event, _argv, _cwd, data) => {
+    const requestedQuit = (data as { quitForUpdate?: unknown })?.quitForUpdate === true;
+    void startup.then(() => requestedQuit ? desktopLifecycle.requestQuit() : desktopLifecycle.restore());
+  });
   // The tray keeps the single process available even if all windows are destroyed.
   app.on("window-all-closed", () => {});
   startup = app.whenReady().then(async () => {

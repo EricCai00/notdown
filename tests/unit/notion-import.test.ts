@@ -332,7 +332,7 @@ test("non-advancing pagination and oversized bodies fail closed", async () => {
       fetch: async () => new Response(Buffer.alloc(20 * 1024 * 1024 + 1)),
       wait,
     }),
-    /20 MB/,
+    /20 MiB/,
   );
 });
 

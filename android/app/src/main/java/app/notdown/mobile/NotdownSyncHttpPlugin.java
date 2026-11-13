@@ -31,5 +31,6 @@ public class NotdownSyncHttpPlugin extends Plugin {
         });
     }
     @PluginMethod public void cancel(PluginCall call) { client.cancel(call.getString("id", "")); call.resolve(); }
+    void cancelActive() { client.cancelAll(); }
     @Override protected void handleOnDestroy() { client.close(); executor.shutdownNow(); }
 }

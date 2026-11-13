@@ -15,7 +15,7 @@ const server = http.createServer(async (req, res) => {
       const folder = `Notdown/${randomUUID()}`;
       const client = createWebDavClient({ provider: "webdav", url: dav.url, folder,
         username: davCredentials.email, password: davCredentials.password, enabled: false }, async () => {});
-      await client.createVault(randomUUID(), "Computer notebook");
+      await client.createVault(randomUUID(), new URL(req.url!, "http://localhost").searchParams.get("name") || "Computer notebook");
       let delayedChunk: string | undefined;
       if (new URL(req.url!, "http://localhost").searchParams.has("databases")) {
         const parent = randomUUID(), inline = randomUUID(), full = randomUUID(), source = randomUUID(), fullSource = randomUUID(), view = randomUUID(), fullView = randomUUID(), row = randomUUID(), note = randomUUID();

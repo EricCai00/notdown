@@ -55,7 +55,7 @@ test("progress-only status never reads or waits for local vault files", async t 
   const { a } = await setup(t);
   const unavailable = async (): Promise<never> => { throw new Error("Vault lock is busy"); };
   const service = createSyncService({ ...a.syncStore, readConnection: unavailable, readState: unavailable, conflicts: unavailable }, `${a.vaultPath}/progress-only`);
-  assert.deepEqual(await service.handle("progress", "GET"), { running: false, progress: undefined, error: undefined });
+  assert.deepEqual(await service.handle("progress", "GET"), { running: false, progress: undefined, error: undefined, retryAt: undefined });
 });
 
 test("a synced page write scans once within its lock and still rejects a later external edit", async t => {

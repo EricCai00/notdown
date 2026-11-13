@@ -10,6 +10,7 @@ import { v2Fixture, v2Asset, v2Id } from "../unit/notion-v2-fixture.js";
 import { privateFixture, privateRoot, privateSnapshot } from "../unit/notion-private-blocks-fixture.js";
 import { multipleButtonsFixture } from "../unit/notion-copied-blocks-fixture.js";
 import { setTimeout as delay } from "node:timers/promises";
+import { largeNotionFixture } from "../unit/notion-large-import-fixture.js";
 
 // This test server deliberately does not read VAULT_PATH, the normal seed, or
 // the application's user vault. A new temporary vault is created on every run.
@@ -26,8 +27,16 @@ const vaultPath = await fs.mkdtemp(path.join(temporaryRoot, "notdown-e2e-"));
 const recyclePath = path.join(vaultPath, "test-system-recycle-bin");
 await fs.mkdir(recyclePath);
 const notionFetch = multipleButtonsFixture(privateFixture(wikiFixture({}, v2Fixture(inlineDatabaseFixture(enrichmentFixture())))));
+const largeNotionFetch = largeNotionFixture(601, 40 * 1024);
+let interruptedBatch = false;
 const app = await createBrowserApp({ vaultPath, dataPath: path.join(vaultPath, "test-managed-vaults"), frontendDir, recycleFile: (file) => fs.rename(file, path.join(recyclePath, path.basename(file))),
+  notionImportBatchLimits: { pages: 1, requests: 2, milliseconds: 60_000, idleMs: 30 * 60_000 },
   notionImportTransport: { fetch: async (input, init) => {
+    if (/\/bbbbbbbb-bbbb-4bbb-8bbb-\d{12}(?:\/|\?|$)/.test(String(input))) return largeNotionFetch(input, init);
+    if (!interruptedBatch && new Headers(init?.headers).get("Authorization") === "Bearer batch-retry-notion-token" && String(input).includes("start_cursor=")) {
+      interruptedBatch = true;
+      throw new Error("Simulated connection failure");
+    }
     // Only the progress test simulates network latency; abort cancels its delay.
     if (new Headers(init?.headers).get("Authorization") === "Bearer progress-test-notion-token")
       await delay(new URL(String(input)).pathname.endsWith("/markdown") ? 1000 : 350, undefined, { signal: init?.signal ?? undefined });

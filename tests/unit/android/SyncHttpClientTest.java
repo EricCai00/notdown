@@ -10,8 +10,49 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.*;
+import okhttp3.mockwebserver.SocketPolicy;
 
 public class SyncHttpClientTest {
+    @Test public void staleReadConnectionsRecoverButMutationsAreNeverRetried() throws Exception {
+        for (String method : new String[]{"GET", "HEAD", "PUT", "POST", "DELETE"}) {
+            MockWebServer server = new MockWebServer(); server.start();
+            server.enqueue(new MockResponse().setResponseCode(200).setBody("warm socket"));
+            server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST));
+            server.enqueue(new MockResponse().setResponseCode(200));
+            try (SyncHttpClient client = new SyncHttpClient()) {
+                String url = "http://127.0.0.1:" + server.getPort() + "/sync";
+                client.request("warm", url, "GET", Collections.emptyMap(), null);
+                if (method.equals("GET") || method.equals("HEAD")) {
+                    assertEquals(200, client.request("read", url, method, Collections.emptyMap(), null).status);
+                    assertEquals(3, server.getRequestCount());
+                } else {
+                    try { client.request("write", url, method, Collections.emptyMap(), new byte[]{1}); fail("mutation was retried"); }
+                    catch (java.io.IOException expected) { }
+                    assertEquals(2, server.getRequestCount());
+                }
+            } finally { server.shutdown(); }
+        }
+    }
+    @Test public void endingASessionCancelsItsRequestsWithoutDisablingTheNextRun() throws Exception {
+        MockWebServer server = new MockWebServer(); server.start();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+        try (SyncHttpClient client = new SyncHttpClient()) {
+            String url = "http://127.0.0.1:" + server.getPort() + "/sync";
+            Future<?> first = executor.submit(() -> client.request("first", url, "GET", Collections.emptyMap(), null));
+            Future<?> second = executor.submit(() -> client.request("second", url, "GET", Collections.emptyMap(), null));
+            assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); assertNotNull(server.takeRequest(5, TimeUnit.SECONDS));
+            client.cancelAll();
+            for (Future<?> request : new Future<?>[]{first, second}) {
+                try { request.get(5, TimeUnit.SECONDS); fail("cancelled request succeeded"); }
+                catch (ExecutionException expected) { assertTrue(expected.getCause() instanceof java.io.IOException); }
+            }
+            server.enqueue(new MockResponse().setResponseCode(200).setBody("next run"));
+            assertEquals(200, client.request("next", url, "GET", Collections.emptyMap(), null).status);
+        } finally { executor.shutdownNow(); server.shutdown(); }
+    }
     @Test public void webDavVerbsAndBinaryBodiesRoundTripWithoutWebViewCors() throws Exception {
         MockWebServer server = new MockWebServer(); server.start();
         byte[] data = new byte[]{ 0, (byte)255, (byte)128, 13, 10 };

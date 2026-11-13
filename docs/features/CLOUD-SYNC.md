@@ -25,8 +25,11 @@ This version has no end-to-end encryption: bodies and attachments can be read in
 
 ## Usage and scope
 
+- On desktop, sync settings belong to the currently open local vault. Switch vaults from the sidebar heading, then configure **Workspace settings → Sync & history → Cloud sync** for each one. Supabase can hold multiple cloud notebooks under one account. WebDAV uses a separate remote folder for each independent notebook, as described in the [WebDAV guide](WEBDAV-SYNC.md#connection-steps).
+- On Android, tap the notebook name or **Notebook options → Switch notebook** to choose from the signed-in account's cloud notebooks. WebDAV discovers notebooks in the current folder's parent directory. Each choice has an isolated offline replica and reuses authentication. See the [Android guide](ANDROID.md) for first-download, directory-list and password-manager behavior.
 - While the app is open, sync runs after edits, reconnection, returning to the foreground and periodic checks. You can also click **Sync now**. Local save status and the latest sync time are shown separately.
 - The Cloud sync panel continuously shows the phase, current resource, downloaded/uploaded counts, conflicts and elapsed time. Reading cloud records, applying resources and transferring attachment chunks each have phase-specific progress bars. An indeterminate bar appears until a total is known; a phase percentage does not represent the whole vault. Long waits identify the pending step. Failures retain progress and errors, and a new sync starts fresh counters.
+- WebDAV request-limit pauses show the next automatic attempt time and a countdown. Attempts blocked during this wait preserve the previous progress counters.
 - **Pause sync** pauses synchronization on this device; local saves continue. **Disconnect** keeps both local and cloud notes; resolve outstanding sync conflicts first.
 - If the login session cannot refresh, use **Sign in again** with the same account. The notebook connection, pending uploads and conflicts are retained.
 - Page bodies, properties, databases, data sources, views, contacts and `assets/` attachments sync. Original Markdown, BOMs, line endings and unknown metadata fields are preserved.
@@ -60,7 +63,7 @@ Delete/edit conflicts and conflicts involving contacts, attachments or database 
 ## Current limitations
 
 - Multi-device sync is for personal accounts. There is no multi-user sharing, real-time collaboration or automatic three-way merge.
-- Android uses a foreground TypeScript engine. Network activity is not guaranteed after the app closes or the system reclaims it; sync resumes on the next launch. WorkManager background transfers are not integrated.
+- Android starts the shared TypeScript engine while the app is visible. An already-started run uses a native data-sync foreground service and CPU wake lock to continue after switching apps or turning the screen off; both are released on completion or failure. There is no periodic background sync. Force-stop, task removal, process reclamation, network loss and service time limits can interrupt a run; reopen to resume safely. See [Android usage and limits](ANDROID.md#installation-and-usage).
 - There is no end-to-end encryption, remote history recovery interface, remote garbage collection or provider migration wizard. Change history, tombstones and attachments are not currently cleaned up automatically.
 - Local scans detect external edits, and the first sync transfers all resources. Changes save recovery records in bounded batches, while files are still replaced individually; an intermediate state does not mean the entire vault has synced. Path collisions or case-only renames stop sync and request resolution.
 - Automation uses isolated Chrome, IndexedDB, temporary disk vaults and PostgreSQL/WASM. Hosted Supabase networking, real accounts, Android WebView and physical-device background behavior still require acceptance after deployment.

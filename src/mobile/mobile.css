@@ -14,14 +14,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 .mobile-header svg { width: 21px; height: 21px; stroke-width: 1.65; }
 .mobile-logo { width: 25px; height: 25px; object-fit: contain; }
 .mobile-header strong { font-size: 17px; letter-spacing: -.4px; font-weight: 650; }
+.mobile-header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-logo, .mobile-header > button { flex-shrink: 0; }
+.mobile-header > .mobile-notebook-name { display: flex; gap: 4px; flex: 1; min-width: 0; width: auto; text-align: left; }
+.mobile-header .mobile-notebook-name svg { flex-shrink: 0; width: 14px; }
 .mobile-offline { margin-left: auto; font-size: 11px; color: #818078; white-space: nowrap; }
 .mobile-page-meta { padding: 17px 20px 9px; flex-shrink: 0; }
 #mobile-title { width: 100%; padding: 0; border: 0; outline: none; font-weight: 700 !important; font-size: 26px !important; color: #37352f; background: transparent; box-sizing: border-box; }
 .mobile-page-info { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
 #mobile-save-state { font-size: 11px; color: #87847e; }
-.mobile-modes { display: flex; padding: 2px; background: #f4f3f0; border-radius: 7px; }
-#mobile-app .mobile-modes button { min-height: 34px; padding: 0 12px; font-size: 12px; border-radius: 5px; }
-#mobile-app .mobile-modes button[aria-pressed=true] { background: white; box-shadow: 0 1px 3px #00000012; }
+#mobile-page-view { padding: 12px 16px 32px; min-width: 0; }
+#mobile-page-view .mindmap-toolbar { padding: 8px; }
+#mobile-page-view .mindmap-presets, #mobile-page-view .mindmap-zoom { flex-wrap: wrap; }
+#mobile-page-view .mindmap-viewport { height: max(280px, calc(var(--mobile-height) - 350px)); touch-action: pan-x pan-y; }
+#mobile-page-view .mindmap-toggle { min-height: 32px; min-width: 32px; }
+.mobile-outline ul { padding-left: 20px; list-style: none; }
+.mobile-outline > ul { padding-left: 0; }
+.mobile-outline summary { padding: 12px 4px; overflow-wrap: anywhere; cursor: pointer; }
 #mobile-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; }
 .mobile-empty { min-height: 65%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 35px 24px; }
 .mobile-empty img { width: 60px; height: 60px; margin-bottom: 20px; }
@@ -61,11 +70,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 #mobile-databases .database-table-pane { overflow: visible; }
 #mobile-app #mobile-databases .database-workspace { padding-top: 8px; }
 #mobile-app #mobile-databases .database-back { position: static; margin-bottom: 8px; }
+#mobile-app #mobile-databases .database-heading { flex-direction: column; align-items: stretch; gap: 8px; }
+#mobile-app #mobile-databases .database-heading-actions { position: static; padding: 0; opacity: 1; pointer-events: auto; }
 #mobile-app .database-workspace { max-width: 100%; box-sizing: border-box; }
 #mobile-app .database-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 #mobile-app .database-toolbar-actions { flex-wrap: wrap; max-width: 100%; }
-#mobile-app .database-workspace button.database-new-button { background: #2f64ad; color: white; }
-#mobile-app .database-new-menu > summary { height: 44px; }
+#mobile-app .database-workspace :is(.database-new-group, .database-new-split, .database-new-control) { display: inline-flex; align-items: stretch; gap: 0; height: 44px; flex-shrink: 0; }
+#mobile-app .database-workspace .database-new-menu { height: 44px; margin: 0; padding: 0; border: 0; }
+#mobile-app .database-workspace :is(.database-new-button, .database-new-menu-button) { display: flex; align-items: center; justify-content: center; box-sizing: border-box; height: 44px; min-height: 44px; min-width: 44px; margin: 0; border: 0; background: var(--database-blue, #2f64ad); color: white; font: inherit; line-height: 1.3; }
+#mobile-app .database-workspace .database-new-button { padding: 0 12px; border-radius: 6px 0 0 6px; }
+#mobile-app .database-workspace .database-new-menu-button { width: 44px; padding: 0; border-left: 1px solid #ffffff40; border-radius: 0 6px 6px 0; }
 #mobile-app .database-view-tabs > button[aria-selected=true] { background: #f0f1ef; }
 #mobile-app .database-workspace .database-open-page { position: static; pointer-events: auto; opacity: 1; min-height: 36px; }
 #mobile-app .database-workspace [data-action=import-notion] { display: none; }
@@ -75,6 +89,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 #mobile-app .mobile-database-buttons { display: flex; gap: 8px; margin-bottom: 10px; }
 #mobile-app .mobile-database-buttons button { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .mobile-database-buttons svg { width: 18px; height: 18px; }
+#mobile-app .mobile-database-back { display: block; margin: 4px 16px; padding: 8px; font-size: 13px; color: #73736f; }
 #mobile-record-properties { margin: 0 20px; padding: 0 0 14px; border-bottom: 1px solid var(--mobile-line); }
 #mobile-record-properties > button { font-size: 13px; color: #73736f; }
 #mobile-record-properties .database-page-property { grid-template-columns: minmax(80px, 30%) minmax(0, 1fr); }
@@ -83,6 +98,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 .mobile-app .database-dialog :is(input, select, textarea) { box-sizing: border-box; min-width: 0; font-size: 16px; }
 .mobile-app .database-dialog button, .mobile-app .database-option-popover button { min-height: 44px; }
 #mobile-workspace .editing-panes { display: block; }
+#mobile-workspace[data-mode=split] .editing-panes { display: flex; flex-direction: column; }
+#mobile-workspace[data-mode=split] .source-pane { min-height: 220px; }
+#mobile-workspace[data-mode=split] .page-pane { height: auto; min-height: 300px; overflow: visible; }
+#mobile-workspace[data-mode=split] .page-pane .pm-document { padding-bottom: 80px; }
 #mobile-workspace .pane-title { display: none; }
 #mobile-workspace .page-pane { padding: 12px 20px 32px; border: 0; min-width: 0; }
 #mobile-workspace .source-pane { border: 0; min-width: 0; }
@@ -130,8 +149,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 #mobile-menu-items { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 #mobile-menu-items > button { text-align: left; padding: 10px 12px; font-size: 15px; min-height: 48px; }
 .mobile-sheet-note { margin: 0 12px 12px; font-size: 13px; color: #78756e; line-height: 1.5; overflow-wrap: anywhere; }
-.mobile-dialect-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 12px; font-size: 15px; }
-.mobile-dialect-field select { flex: 1; min-width: 0; max-width: 65%; min-height: 48px; padding: 10px 12px; font: inherit; font-size: 16px; color: inherit; background: #fff; border: 1px solid #dfdcd6; border-radius: 8px; }
+.mobile-dialect-field, .mobile-view-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 12px; font-size: 15px; }
+.mobile-dialect-field select, .mobile-view-field select { flex: 1; min-width: 0; max-width: 65%; min-height: 48px; padding: 10px 12px; font: inherit; font-size: 16px; color: inherit; background: #fff; border: 1px solid #dfdcd6; border-radius: 8px; }
 #mobile-app button.mobile-danger { color: #b73830; }
 .pm-touch-dragging, .pm-touch-dragging * { user-select: none !important; -webkit-user-select: none !important; }
 .pm-touch-drag-outline { position: fixed; z-index: 999; background: #2383e21a; outline: 1px solid #2383e24d; border-radius: 4px; pointer-events: none; }
@@ -144,3 +163,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", 
 #mobile-notice { position: fixed; z-index: 100; bottom: calc(75px + env(safe-area-inset-bottom)); left: 16px; right: 16px; max-width: 520px; margin: auto; background: #34322eee; color: #fff; border-radius: 9px; padding: 13px 16px; font-size: 13px; line-height: 1.6; box-shadow: 0 3px 20px #0002; pointer-events: none; }
 @media (min-width: 760px) { .mobile-page-meta, #mobile-workspace, .mobile-tools { width: 100%; max-width: 820px; margin-left: auto; margin-right: auto; box-sizing: border-box; } .mobile-page-meta { padding: 25px 34px 10px; } }
 @media (max-width: 360px) { .mobile-header { padding: 0 6px; gap: 5px; } .mobile-tools { padding-left: 5px; padding-right: 5px; gap: 0; } .mobile-page-meta { padding-left: 16px; padding-right: 16px; } }
+
+.mobile-page-dialog { width: min(600px, calc(100vw - 24px)); max-height: calc(var(--mobile-height) - 24px); margin: auto; border: 1px solid #e6e3dd; border-radius: 12px; padding: 16px; box-sizing: border-box; color: #37352f; overflow: auto; }
+.mobile-page-dialog::backdrop { background: #1d1b1766; }
+.mobile-page-dialog .mobile-dialog-heading { gap: 12px; }
+.mobile-page-dialog label { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; font-size: 14px; }
+.mobile-page-dialog :is(input, select, textarea) { width: 100%; min-width: 0; padding: 10px; border: 1px solid #dfdcd6; border-radius: 6px; box-sizing: border-box; font: inherit; font-size: 16px; }
+.mobile-page-dialog textarea { font-family: monospace; }
+.mobile-page-dialog p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.mobile-page-dialog button { min-height: 44px; padding: 8px 12px; font: inherit; cursor: pointer; }
+.mobile-page-dialog .mobile-danger { color: #b73830; }
+.mobile-trash-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #eeede9; }
+.mobile-trash-list span { min-width: 0; overflow-wrap: anywhere; }
+.mobile-trash-list button { flex-shrink: 0; }
+.mobile-notebook-list { display: flex; flex-direction: column; gap: 6px; }
+.mobile-notebook-list button { text-align: left; border: 1px solid #eeede9; background: #fff; border-radius: 6px; overflow-wrap: anywhere; }
+.mobile-notebook-list button[aria-current=true] { background: #edf4fc; }
+.mobile-notebook-list small { display: block; color: #78756e; margin-top: 4px; }
+.mobile-app :is(.database-popover, .database-place-dialog) { max-height: calc(var(--mobile-height) - 24px); }
+.mobile-app :is(.database-popover, .database-place-dialog) button { min-height: 44px; }
+.mobile-app :is(.database-popover, .database-place-dialog) :is(input, select, textarea) { font-size: 16px; }
+#mobile-page-view .graph-toolbar { flex-wrap: wrap; }
+#mobile-page-view .graph-canvas { height: max(320px, calc(var(--mobile-height) - 230px)); }

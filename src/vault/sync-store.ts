@@ -398,6 +398,17 @@ export function createVaultSyncStore(host: Host) {
     }),
     readConnection: <T>() => host.serialize(async () => { await ready(); return readJson<T>(path.join(local, "connection.json")); }),
     writeConnection: (value: unknown) => host.serialize(async () => { await ready(); await host.atomicWrite(path.join(local, "connection.json"), JSON.stringify(value)); }),
+    /** Replica ownership survives disconnects and is checked under the vault lock. */
+    bindReplica: (binding: string, currentBinding?: string) => host.serialize(async () => {
+      await ready();
+      const file = path.join(local, "replica.json"), owner = await readJson<{ binding: string }>(file);
+      const state = await readJson<SyncState>(path.join(local, "state.json"));
+      if (owner && owner.binding !== binding || state && state.binding !== binding || currentBinding && currentBinding !== binding)
+        throw new VaultError(409, "This offline copy belongs to another cloud notebook. Its files were preserved.");
+      if (!owner && !state && !currentBinding && (await listLocked()).length)
+        throw new VaultError(409, "This offline copy contains unbound notes. Its files were preserved.");
+      if (!owner) await host.atomicWrite(file, JSON.stringify({ binding }), null);
+    }),
     resetState: () => host.serialize(async () => {
       await ready(); const file = path.join(local, "state.json");
       if (await readBytes(file)) await fs.rename(file, path.join(history, `disconnected-${randomUUID()}.json`));

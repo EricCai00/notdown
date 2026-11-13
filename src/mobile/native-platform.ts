@@ -17,9 +17,11 @@ interface NativeStorage {
   replaceMany(options: { files: { path: string; expected: string | null; data: string }[] }): Promise<void>;
   acquire(options: { path: string }): Promise<{ token: string }>;
   release(options: { token: string }): Promise<void>;
-  exportDocument(options: { name: string; data: string }): Promise<{ saved: boolean }>;
+  exportDocument(options: { name: string; data: string; mimeType?: string }): Promise<{ saved: boolean }>;
   background(): Promise<void>;
   hideKeyboard(): Promise<void>;
+  commitAutofill(): Promise<void>;
+  appState(): Promise<{ foreground: boolean }>;
   addListener(event: "pause" | "resume", listener: () => void): Promise<PluginListenerHandle>;
 }
 export const NativeVault = registerPlugin<NativeStorage>("NotdownVault");

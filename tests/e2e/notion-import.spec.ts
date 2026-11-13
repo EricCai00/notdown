@@ -99,7 +99,7 @@ test("Notion API preview, exact Markdown import and duplicate snapshot preserve 
   await expect(page.locator(".notion-import-dialog")).toHaveCount(0);
   await expect(page.locator("#page-title")).toHaveValue("Notion API fixture");
   const imported = await (await request.get("/api/pages")).json();
-  const root = imported.find((p: any) => p.title === "Notion API fixture");
+  const root = imported.find((p: any) => p.id === new URL(page.url()).hash.slice(6));
   expect(root.id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
   expect(root.body).toBe(notionSource);
   expect(root.syntax.variant).toBe("notion-markdown");
@@ -174,7 +174,7 @@ test("changing selection or a failed preview invalidates the old Notion import",
   await expect(page.locator(".notion-import-dialog")).toHaveCount(0);
 });
 
-test("a failed pending-page save prevents committing a Notion preview", async ({
+for (const automatic of [false, true]) test(`a failed pending-page save prevents ${automatic ? "automatic" : "manual"} Notion import`, async ({
   page,
   request,
 }) => {
@@ -203,15 +203,16 @@ test("a failed pending-page save prevents committing a Notion preview", async ({
     .getByLabel("Integration token", { exact: true })
     .fill("test-secret-not-saved");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(notionRoot);
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.locator("#notion-status")).toContainText("Ready");
   let committed = false;
   page.on("request", (request) => {
     if (request.url().endsWith("/api/import/commit")) committed = true;
   });
-  await page
-    .getByRole("button", { name: "Import copies", exact: true })
-    .click();
+  if (automatic) await page.getByRole("checkbox", { name: "Import automatically after reading", exact: true }).check();
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  if (!automatic) {
+    await expect(page.locator("#notion-status")).toContainText("Ready");
+    await page.getByRole("button", { name: "Import copies", exact: true }).click();
+  }
   await expect(page.locator("#notion-status")).toContainText("Save or resolve");
   expect(committed).toBe(false);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();

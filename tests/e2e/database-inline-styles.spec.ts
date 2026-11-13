@@ -6,6 +6,39 @@ async function post(request: APIRequestContext, url: string, data: unknown) {
   return response.json();
 }
 
+for (const populated of [false, true]) test(`${populated ? "a populated" : "an empty"} narrow inline table stays with its title instead of expanding across the page`, async ({ page, request }, info) => {
+  const db = await post(request, "/api/databases", { title: "Narrow inline database" });
+  if (populated) await post(request, `/api/data-sources/${db.dataSources[0].id}/records`, {
+    title: "Local record", baseRevision: db.dataSources[0].revision,
+  });
+  const body = `Prose above the narrow table\n\n<database url="#page/${db.hostPage.id}" inline="true"></database>\n\nProse below the table\n`;
+  const parent = await post(request, "/api/pages", {
+    title: "Narrow inline host", syntax: { version: 1, variant: "notdown", extensions: {} }, body,
+  });
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto(`/#page/${parent.id}`);
+  const inline = page.getByRole("region", { name: "Inline database", exact: true });
+  const scroll = inline.locator(".database-table-scroll");
+  await expect(inline.locator("thead th[data-type='title']")).toBeVisible();
+  for (const width of [1920, 1440, 1100, 1920]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect.poll(async () => scroll.evaluate(element => ({ width: element.style.width, margin: element.style.marginLeft })))
+      .toEqual({ width: "", margin: "" });
+    const host = (await inline.boundingBox())!, bounds = (await scroll.boundingBox())!;
+    // The row controls may occupy up to 104px outside the prose; the table must stay beside it.
+    expect(bounds.x).toBeGreaterThanOrEqual(host.x - 105);
+    expect(bounds.width).toBeLessThanOrEqual(host.width + 105);
+    const title = (await inline.locator("thead th[data-type='title']").boundingBox())!;
+    const add = (await scroll.locator(":scope > .database-add-row").boundingBox())!;
+    expect(Math.abs(add.x - title.x)).toBeLessThan(1);
+    expect(await page.locator("#main").evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+  }
+  await page.screenshot({ path: info.outputPath(`narrow-inline-${populated ? "populated" : "empty"}.png`) });
+  await page.reload(); await expect(inline.locator("tbody tr[data-page-id]")).toHaveCount(populated ? 1 : 0);
+  await expect.poll(async () => scroll.evaluate(element => element.style.marginLeft)).toBe("");
+  expect((await (await request.get(`/api/pages/${parent.id}`)).json()).body).toBe(body);
+});
+
 test("inline database controls keep their styles and local scrolling in table and board views", async ({ page, request }, info) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   let db = await post(request, "/api/databases", { title: "Used note apps" });

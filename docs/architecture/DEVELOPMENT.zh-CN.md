@@ -144,6 +144,10 @@ npm run test:mobile
 
 `android:open` 打开 Android Studio 工程；`test:mobile` 使用独立 Chrome 触屏实例验证离线编辑、恢复、附件和备份。手机前端构建输出为 `.run/android-frontend/`，测试端口默认 4347，可由 `NOTDOWN_MOBILE_E2E_PORT` 覆盖。浏览器测试不代表已完成真机输入法、WebView、系统文件选择器和进程回收验收。
 
+如需主动运行正在进行的同步的真机验收，先执行 `npm run android:sync`，再从 `android/` 运行 `gradlew assembleDebug -PnotdownAcceptance`，以相同源码构建隔离包 `app.notdown.mobile.syncacceptance`；单独安装该 APK 并允许通知。手机解锁且空闲时，按需设置 `NOTDOWN_ANDROID_SERIAL`，运行 `npx tsx tests/e2e/android-sync-device.ts`。脚本默认通过 ADB reverse 访问临时 WebDAV 测试服务，并注入一次 HTTP 失败；验证返回桌面后下载 120 页、息屏后再下载 120 页且 45 秒内不通过 ADB 轮询、Markdown 字节哈希一致、服务与唤醒锁释放，以及完成后 65 秒内没有新后台同步。
+
+可选的真实服务验收需将 `NOTDOWN_ANDROID_CONNECTION_FILE` 指向现有 HTTPS WebDAV 的 `connection.json`，这会明确使用该账号在 `Notdown-checks/accept-*` 下创建独立测试库。凭据直接写入验收应用的私有副本，源配置和正式知识库内容不变。清理时会先验证临时知识库身份再删除，同时清除验收应用的私有数据和本地测试文件。`NOTDOWN_ANDROID_RECONNECT` 可指定无线地址，在调试连接断开后重连 ADB，而云端传输本身不依赖 ADB 隧道。结果写入 `.run/logs/android-active-sync-device.json`。完成后仅移除验收应用，不能为运行测试而清除或卸载正式包。
+
 ## 工具与集成
 
 | 工具 | 入口与用途 |

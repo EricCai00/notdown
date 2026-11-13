@@ -1,5 +1,5 @@
 import { setUIAttribute, setUIText } from "../../shared/i18n";
-import { api, escape as e } from "../../shared/types";
+import { api, ApiError, escape as e } from "../../shared/types";
 import "./import-dialog.css";
 
 type Summary = { id: string; name: string; pages: number; attachments: number; files: { path: string; id: string }[]; errors: string[]; warnings: string[] };
@@ -75,7 +75,12 @@ export function openImportDialog(options: { save: () => Promise<boolean>; comple
       const result = await api<{ pageIds: string[]; alreadyImported: boolean }>("/import/commit", { method: "POST", body: JSON.stringify({ id: summary.id, skipInvalid: skip.checked }) });
       await options.complete(result.pageIds);
       dialog.close();
-    } catch (error) { status.textContent = error instanceof Error ? error.message : String(error); }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 410) {
+        summary = null;
+        setUIText(status, "This preview is no longer available. Select the folder again before importing.");
+      } else status.textContent = error instanceof Error ? error.message : String(error);
+    }
     finally { setBusy(false); }
   });
   dialog.showModal();

@@ -51,13 +51,15 @@
 
 ## Markdown 文件夹导入
 
-`POST /api/import/preview`接受 `{ name, dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown" | "quarto", files: [{ path, data }] }` ，其中 `path` 是相对 POSIX 路径，而 `data` 是 base64。它返回 `{ id, name, pages, attachments, files, errors, warnings }` 而不写入 Vault 文件。限制：500 文件、20 MiB 总解码字节数和每个 Markdown 页面 10 MiB。预览快照在 30 分钟后过期；每次服务最多保留三个。
+`POST /api/import/preview`接受 `{ name, dialect: "gfm" | "obsidian" | "notdown" | "rmarkdown" | "quarto", files: [{ path, data }] }` ，其中 `path` 是相对 POSIX 路径，而 `data` 是 base64。它返回 `{ id, name, pages, attachments, files, errors, warnings }` 而不写入 Vault 文件。限制：500 文件、20 MiB 总解码字节数和每个 Markdown 页面 10 MiB。完整预览快照不再按时间过期；每个服务在内存中保留最近准备的三份快照。再准备一份会替换最早的一份，重启服务会丢失快照。重新预览相同快照会更新其保留顺序；无效预览请求不会替换有效快照。
 
-`POST /api/import/commit`接受 `{ id, skipInvalid?: true }` 并返回 `{ id, pageIds, alreadyImported }` 。无效文件需要显式 `skipInvalid` ；过期或未知的预览返回 410 。提交通过 `createVault.importBatch` ，创建新身份并且永远不会覆盖现有的不同内容。相同的已完成导入是幂等的。原始文件和路径映射存档在 `.history/imports/` 下。可以使用相同的选择来恢复部分写入；没有批量回滚或强制覆盖选项。请参阅 [ 导入和恢复边界 ](../features/DESKTOP-AND-IMPORT.zh-CN.md) 。
+`POST /api/import/commit`接受 `{ id, skipInvalid?: true }` 并返回 `{ id, pageIds, alreadyImported }` 。无效文件需要显式 `skipInvalid` ；缺失的快照（被替换或因服务重启丢失）返回 410 。提交通过 `createVault.importBatch` ，创建新身份并且永远不会覆盖现有的不同内容。相同的已完成导入是幂等的。原始文件和路径映射存档在 `.history/imports/` 下。可以使用相同的选择来恢复部分写入；没有批量回滚或强制覆盖选项。请参阅 [ 导入和恢复边界 ](../features/DESKTOP-AND-IMPORT.zh-CN.md) 。
 
 `POST /api/notion/import/preview`接受可选的布尔值 `useDesktopCache`（省略表示 false；导入对话框明确将其默认为 true）。在 `notdown` 变体中，可以从服务主机的固定 Windows Notion SQLite 缓存路径补充经过验证的内联提醒/日期格式属性。客户端无法选择数据库路径。缺失、不明确、过时或不受支持的缓存记录会保留 API 输出并发出警告。应用证据被存档并包含在批次标识中；没有更新现有的保管库页面。这不是仅限 SQLite 的导入器。请参阅 [ 概念 import ](../features/NOTION-IMPORT.zh-CN.md) 。
 
 `POST /api/notion/import/preview`并且 `POST /api/import/commit` 也接受 `Accept: application/x-ndjson` 以获取实时进度。请求正文仍为 JSON。响应发送换行符分隔的 `{type:"progress", phase, completed, total?, currentTitle?}` 事件，后跟 `{type:"result", result}` 或 `{type:"error", error}` 。预览阶段为 `reading` 、 `restoring` 、 `attachments` 和 `finalizing` ；  `completed` 计算读取的页数，而 `total` 被省略，因为在遍历过程中会发现后代。提交阶段是 `importing` 和 `finalizing` ；计数指的是同一完成批次中持续存在或已经存在的页面，并且 `total` 是已知的。在写入每一页后，最终确定可能会继续。发送流式标头后，失败使用错误事件；早期验证失败可能仍会返回带有 HTTP 错误状态的普通 JSON。断开预览会取消阅读；断开提交不会回滚写入。没有此 Accept 标头的调用者保留 JSON 响应格式。
+
+要继续分批读取 Notion，在初始预览请求中添加 `batched: true`，创建会话并返回 `{ continuationId, batch: 0, progress }`。向同一路径发送 `{ continuationId }` 读取下一批；凭据和导入选项仅在初始请求中传入。暂停的批次返回 `{ continuationId, batch, progress, error?, retryAfterMs? }`；可恢复的读取错误等待下一次显式继续请求。最终结果为普通完整导入摘要，包含文档和导入 `id`。继续读取的 ID 不能用于提交。会话达到 25 页、100 次 API 尝试或 60 秒后在安全边界交接，没有固定的总页数或请求次数上限。初始 `snapshotMiB` 接受 20、64、128、256、512，默认 256，限制原始响应、Markdown 和附件的合计容量，不是进程内存上限。对话框提供 64–512 MiB。单次响应仍限制 20 MiB，单页和单附件各限制 10 MiB。不可恢复的错误需要重新预览；对话框清除其无效会话。分批读取断开连接时，在下一边界暂停。重复继续请求可找回丢失的最终响应，无须重读。会话闲置 30 分钟或服务重启后过期；每个知识库服务最多保留三个。`DELETE /api/notion/import/preview/:continuationId` 携带 JSON 正文 `{}` 可取消并释放会话；更改选项时新建会话。完整预览 ID 与文件夹预览共用保留三份快照的规则；取消读取会话或读取会话过期不会使已保留的完整快照失效。对话框自动使用此协议。未设置 `batched: true` 的旧版预览仍限制 500 页、1,500 次请求和 20 MiB 总容量。
 
 进度事件还可能包括 `step`（可读操作、分页页面、响应等待/接收状态或速率限制重试）、`requestCount`（Notion API 尝试，包括重试）和 `discovered`（到目前为止排队的唯一页面/容器标识，不是最终总数）。 UI 在本地对当前步数和自上次事件以来的时间进行计时；计时器滴答声并不意味着上游进度。步骤消息省略授权标头、原始分页光标和签名附件 URL。
 

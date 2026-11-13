@@ -15,6 +15,14 @@ import { setApiTransport } from "../shared/types";
 import { setAssetDisplayResolver } from "../shared/asset-display";
 import { refreshIcons } from "../shared/icons";
 import { pageIconElement } from "../shared/page-icons";
+import { exportFile, setFileExporter } from "../shared/file-export";
+import { pageViews, type PageView } from "../features/pages/page-view-switcher";
+import { getOutline, type OutlineNode } from "../document/document-format";
+import { buildMindmap } from "../features/pages/mindmap-model";
+import { mountMindmap } from "../features/pages/mindmap-view";
+import { graphHTML, mountGraph } from "../features/pages/graph-view";
+import { openPageHistory } from "../features/pages/history-dialog";
+import { closeMobileDialog, mobileDialog, openMobilePageSettings, openMobileTrash } from "./page-dialogs";
 import { searchPages } from "../features/pages/page-search";
 import { setExternalLibrary } from "../features/references/external-client";
 import { openPeopleEvent, refreshPeople } from "../features/people/people-client";
@@ -23,10 +31,13 @@ import { mediaInsertMarkdown } from "../blocks/media-insert";
 import { mountSyncSettings, installSyncScheduler, type SyncHooks } from "../features/vault/sync-settings";
 import { createNativePlatform, NativeVault } from "./native-platform";
 import { nativeSyncFetch } from "./sync-fetch";
+import { nativeSyncRunLifecycle } from "./sync-run-lifecycle";
 import { MobileDraftSession } from "./draft-session";
 import { mobileVaultApi, type MobileVault } from "./vault-api";
 import { writeVaultZip, exportVaultZip } from "./backup";
 import { mobileNotebookReady } from "./notebook-policy";
+import { hashBytes } from "../vault/crypto";
+import type { CloudNotebook, SyncStatus } from "../sync/service";
 import { mobilePageTree } from "./page-tree";
 import { MobileAssetLoader, refreshMobileAssetDisplays } from "./asset-loader";
 import { MobileEditingToolbar } from "./editing-toolbar";
@@ -36,14 +47,17 @@ import "../editor/notion-blocks.css";
 import "./mobile.css";
 
 const native = Capacitor.isNativePlatform();
+if (native) setFileExporter(async (blob, name) => (await NativeVault.exportDocument({
+  name, mimeType: blob.type.split(";")[0] || "application/octet-stream", data: Buffer.from(await blob.arrayBuffer()).toString("base64"),
+})).saved);
 document.body.classList.add("mobile-app");
 let keyboardVisible = false;
 const app = document.querySelector<HTMLElement>("#mobile-app")!;
 app.dataset.connected = "false";
 const icon = (name: string) => `<i data-lucide="${name}" aria-hidden="true"></i>`;
 app.innerHTML = `
-  <header class="mobile-header"><button type="button" data-action="pages" aria-label="Open pages">${icon("panel-left")}</button><img src="${notdownIcon}" alt="" class="mobile-logo"><strong>Notdown</strong><span class="mobile-offline">${native ? "On device" : "Browser preview"}</span><button type="button" data-action="more" aria-label="Notebook options">${icon("ellipsis")}</button></header>
-  <div class="mobile-page-meta" hidden><input id="mobile-title" aria-label="Page title" maxlength="500" spellcheck="false"><div class="mobile-page-info"><span id="mobile-save-state" role="status" aria-live="polite"></span><div class="mobile-modes" role="group" aria-label="Editing view"><button type="button" data-view="document" aria-pressed="true">Page</button><button type="button" data-view="source" aria-pressed="false">Source</button></div></div></div>
+  <header class="mobile-header"><button type="button" data-action="pages" aria-label="Open pages">${icon("panel-left")}</button><img src="${notdownIcon}" alt="" class="mobile-logo"><button type="button" class="mobile-notebook-name" data-action="switch-notebook" aria-label="Switch notebook"><strong>Notdown</strong>${icon("chevron-down")}</button><span class="mobile-offline">${native ? "On device" : "Browser preview"}</span><button type="button" data-action="more" aria-label="Notebook options">${icon("ellipsis")}</button></header>
+  <div class="mobile-page-meta" hidden><input id="mobile-title" aria-label="Page title" maxlength="500" spellcheck="false"><div class="mobile-page-info"><span id="mobile-save-state" role="status" aria-live="polite"></span></div></div>
   <div id="mobile-recovery" hidden><span></span><button type="button" data-action="recover-copy">Save draft as new page</button><button type="button" data-action="retry">Retry save</button></div>
   <main id="mobile-content"><div class="mobile-empty"><img src="${notdownIcon}" alt=""><h1>Connect your cloud notebook</h1><p>Use the same cloud notebook as your computer.</p><button type="button" class="mobile-primary" data-action="sync">Set up cloud sync</button></div><div id="mobile-workspace" hidden></div></main>
   <nav class="mobile-tools" aria-label="Editing tools" hidden></nav>
@@ -59,10 +73,17 @@ const drawer = app.querySelector<HTMLDialogElement>("#mobile-pages")!;
 const menu = app.querySelector<HTMLDialogElement>("#mobile-menu")!;
 const mount = app.querySelector<HTMLElement>("#mobile-workspace")!;
 const search = app.querySelector<HTMLInputElement>("#mobile-search")!;
+const derivedMount = document.createElement("section"); derivedMount.id = "mobile-page-view"; derivedMount.hidden = true;
+mount.after(derivedMount);
+const viewSelect = document.createElement("select"); viewSelect.setAttribute("aria-label", "Page view");
+for (const [id, , label] of pageViews) if (id !== "split") viewSelect.append(new Option(label, id));
 const databaseMount = document.createElement("div"); databaseMount.id = "mobile-databases"; databaseMount.hidden = true;
+const databaseBack = document.createElement("button"); databaseBack.type = "button"; databaseBack.className = "mobile-database-back";
+databaseBack.textContent = "← All databases"; databaseBack.setAttribute("aria-label", "All databases"); databaseBack.hidden = true;
+databaseBack.onclick = () => { void enqueue(async () => { if (await leavePage()) await openDatabases(); }); };
 const wikiNavigation = document.createElement("nav"); wikiNavigation.className = "database-view-tabs wiki-home-tabs"; wikiNavigation.hidden = true;
 const recordProperties = document.createElement("section"); recordProperties.id = "mobile-record-properties"; recordProperties.hidden = true;
-mount.before(wikiNavigation, recordProperties); mount.after(databaseMount);
+mount.before(wikiNavigation, recordProperties); mount.after(databaseBack, databaseMount);
 const databaseButtons = document.createElement("div"); databaseButtons.className = "mobile-database-buttons";
 databaseButtons.innerHTML = `<button type="button" data-action="databases">${icon("table-2")} Databases</button><button type="button" data-action="new-database">${icon("plus")} New database</button>`;
 app.querySelector(".mobile-new-page")!.after(databaseButtons);
@@ -88,8 +109,12 @@ let noticeTimer: ReturnType<typeof setTimeout>;
 let operation = Promise.resolve();
 let attachmentPage: string | undefined;
 let stopSync: (() => void) | undefined;
+let mobileForeground = true;
 let syncDialog: HTMLDialogElement | undefined;
 let setupRequired = true;
+let derivedCleanup: (() => void) | undefined;
+let favoritesOnly = false;
+let graphActive = false;
 const assets = new MobileAssetLoader(key => vault.readAsset(key), (key, url) => refreshMobileAssetDisplays(app, key, url));
 const sessionId = native ? "android" : (() => {
   const key = "notdown-mobile-window", value = sessionStorage.getItem(key) || crypto.randomUUID();
@@ -189,7 +214,7 @@ function renderPages() {
   target.replaceChildren();
   const searching = !!search.value.trim();
   const tree = databaseTree(pages, databases).pages;
-  const rows = searching ? searchPages(tree, search.value).map(page => ({ page, depth: 0, hasChildren: false })) : mobilePageTree(tree, collapsedPages);
+  const rows = searching || favoritesOnly ? searchPages(tree, search.value).filter(page => !favoritesOnly || page.favorite).map(page => ({ page, depth: 0, hasChildren: false })) : mobilePageTree(tree, collapsedPages);
   for (const { page, depth, hasChildren } of rows) {
     const row = document.createElement("div"); row.className = "mobile-page-tree-row";
     row.dataset.depth = String(depth); row.style.setProperty("--depth", String(depth));
@@ -208,11 +233,11 @@ function renderPages() {
     button.append(pageIconElement(page.icon));
     const text = document.createElement("span"); text.textContent = page.title; button.append(text);
     button.onclick = () => enqueue(async () => {
-      if (await leavePage()) { if (session?.draft.id === page.id) closeDialogs(); else await openPage(page.id); }
+      if (await leavePage()) { if (session?.draft.id === page.id && !graphActive) closeDialogs(); else await openPage(page.id); }
     });
     row.append(button); target.append(row);
   }
-  if (!target.childElementCount) target.textContent = search.value ? "No matching pages." : "Your notebook is empty.";
+  if (!target.childElementCount) target.textContent = search.value || favoritesOnly ? "No matching pages." : "Your notebook is empty.";
   refreshIcons();
 }
 async function openPage(id: string): Promise<void> {
@@ -225,8 +250,9 @@ async function openPage(id: string): Promise<void> {
   const nextSession = new MobileDraftSession(page, draftKey(page.id), localStorage,
     async (id, input, revision, schemaRevision) => selectedVault.update(id, input, revision, schemaRevision),
     () => { if (session === nextSession) renderState(); }, source?.revision);
+  clearDerivedView();
   editingTools.reset(); workspace?.destroy(); databaseWorkspace?.destroy(); databaseWorkspace = undefined; databaseRoute = undefined;
-  databaseMount.hidden = true; databaseMount.replaceChildren(); recordSource = source; recordMetadata = "";
+  databaseBack.hidden = true; databaseMount.hidden = true; databaseMount.replaceChildren(); recordSource = source; recordMetadata = "";
   session = nextSession; title.value = session.draft.title;
   closeDialogs(); app.querySelector<HTMLElement>(".mobile-empty")!.hidden = true;
   mount.hidden = false; app.querySelector<HTMLElement>(".mobile-page-meta")!.hidden = false;
@@ -284,9 +310,11 @@ function renderRecordProperties() {
 async function openDatabases(id?: string, showPages = false): Promise<void> {
   // Resolve before destroying the current editor so a failed read keeps its draft visible.
   if (id) { const snapshot = await vault.databases.get(id); if (isWikiDatabase(snapshot.database) && !showPages && !snapshot.hostPage?.databaseProxy) return openPage(typeof snapshot.database.homePageId === "string" ? snapshot.database.homePageId : snapshot.database.pageId ?? id); }
+  clearDerivedView();
   editingTools.reset(); workspace?.destroy(); workspace = undefined; session = undefined; recordSource = undefined;
   databaseWorkspace?.destroy(); databaseRoute = { id };
   mount.hidden = true; recordProperties.hidden = true; databaseMount.hidden = false;
+  databaseBack.hidden = !id;
   wikiNavigation.hidden = true;
   for (const selector of [".mobile-page-meta", ".mobile-tools", "#mobile-recovery", ".mobile-empty"]) app.querySelector<HTMLElement>(selector)!.hidden = true;
   closeDialogs();
@@ -331,21 +359,131 @@ function updateMode(mode: EditMode) {
   // These are exclusive views; toolbar actions follow the visible pane even
   // before the user taps into its editor and triggers focusin.
   if (workspace && mode !== "split") workspace.activePane = mode;
-  for (const button of app.querySelectorAll<HTMLButtonElement>("[data-view]")) button.setAttribute("aria-pressed", String(button.dataset.view === mode));
+  viewSelect.value = mode;
   editingTools.reset();
+}
+function clearDerivedView() {
+  derivedCleanup?.(); derivedCleanup = undefined;
+  graphActive = false;
+  derivedMount.hidden = true; derivedMount.replaceChildren(); derivedMount.classList.remove("mobile-outline"); title.readOnly = false;
+}
+function outlineTree(nodes: OutlineNode[]): HTMLElement {
+  const list = document.createElement("ul");
+  for (const node of nodes) {
+    const item = document.createElement("li"), details = document.createElement("details"), summary = document.createElement("summary");
+    details.open = true; summary.textContent = node.text; details.append(summary);
+    if (node.children.length) details.append(outlineTree(node.children));
+    item.append(details); list.append(item);
+  }
+  return list;
+}
+async function switchPageView(view: PageView) {
+  if (view === "split") return false;
+  if (!workspace || !session) return false;
+  if (!await leavePage()) { viewSelect.value = derivedMount.hidden ? workspace.root.dataset.mode ?? "document" : viewSelect.dataset.current ?? "document"; return false; }
+  clearDerivedView(); editingTools.reset();
+  const derived = view === "outline" || view === "mindmap";
+  mount.hidden = derived; title.readOnly = derived;
+  app.querySelector<HTMLElement>(".mobile-tools")!.hidden = derived;
+  if (derived) {
+    dismissKeyboard(); derivedMount.hidden = false;
+    const page = session.draft;
+    if (view === "mindmap") derivedCleanup = mountMindmap(derivedMount, buildMindmap(page.title, page.body, page.bodyFormat, page.syntax), {
+      interactionMode: "touch",
+      syntax: page.syntax ?? defaultSyntax(page.bodyFormat), pages: () => pages, currentPage: () => session?.draft,
+      onOpenPage: id => { void enqueue(async () => { if (await leavePage()) await openPage(id); }); }, onError: tell,
+    });
+    else {
+      const outline = getOutline(page.body, page.bodyFormat, page.syntax);
+      derivedMount.classList.add("mobile-outline");
+      if (outline.length) derivedMount.append(outlineTree(outline));
+      else derivedMount.textContent = "Add headings or lists to see your outline here.";
+    }
+  } else {
+    if (!await workspace.setMode(view)) { viewSelect.value = workspace.root.dataset.mode ?? "document"; return false; }
+    updateMode(view);
+  }
+  viewSelect.value = view; viewSelect.dataset.current = view;
+  return true;
+}
+viewSelect.onchange = () => { const view = viewSelect.value as PageView; void enqueue(async () => { if (await switchPageView(view)) menu.close(); }); };
+async function openGraph() {
+  if (!await leavePage()) return;
+  clearDerivedView(); editingTools.reset(); closeDialogs();
+  graphActive = true; mount.hidden = true; databaseMount.hidden = true; databaseBack.hidden = true; recordProperties.hidden = true; wikiNavigation.hidden = true;
+  for (const selector of [".mobile-page-meta", ".mobile-tools", "#mobile-recovery", ".mobile-empty"]) app.querySelector<HTMLElement>(selector)!.hidden = true;
+  derivedMount.hidden = false; derivedMount.innerHTML = graphHTML(pages);
+  if (pages.length) derivedCleanup = mountGraph(derivedMount, pages, pages);
+  rememberRoute("#graph");
 }
 async function refreshNotebookName() {
   const status = await vault.sync.status();
   app.querySelector(".mobile-header strong")!.textContent = status.vaultName || "Notdown";
-
+  if (status.vaultId) localStorage.setItem(`notdown-mobile-replica:${replicaKey(status, { id: status.vaultId, name: status.vaultName ?? "", folder: status.folder })}`, vaultId);
+}
+function replicaKey(status: SyncStatus, notebook: CloudNotebook) {
+  return hashBytes(JSON.stringify([status.provider, status.url, status.email, notebook.folder ?? "", notebook.id])).slice(0, 24);
+}
+async function connectNotebook(notebook: CloudNotebook) {
+  const selectedVault = vault;
+  app.inert = true; stopSync?.(); stopSync = undefined;
+  try {
+    if (!await leavePage()) throw new Error("Save or recover the current edit before switching notebooks.");
+    const status = await selectedVault.sync.status(), key = replicaKey(status, notebook);
+    const previous = localStorage.getItem(`notdown-mobile-replica:${key}`);
+    const id = previous && /^[a-zA-Z0-9-]{1,64}$/.test(previous) ? previous : `cloud-${key}`;
+    const next = createVault(`/vaults/${id}`, platform, { syncFetch: native ? nativeSyncFetch : undefined, syncRunLifecycle: native ? nativeSyncRunLifecycle : undefined, privateReplica: true });
+    await selectedVault.sync.connectReplica(next.syncStore, notebook);
+    localStorage.setItem(`notdown-mobile-replica:${key}`, id);
+    await switchVault(id, next);
+    if (!mobileNotebookReady(await next.sync.status())) {
+      await next.sync.run(); await syncHooks(next).afterSync?.();
+    }
+  } finally {
+    app.inert = false;
+    if (vault === selectedVault && !setupRequired) stopSync = installSyncScheduler(syncHooks(vault));
+  }
+}
+async function showNotebookPicker() {
+  if (!await leavePage()) return;
+  const selectedVault = vault, status = await selectedVault.sync.status();
+  if (!status.signedIn) { await showSync(); return; }
+  if (status.vaultId) localStorage.setItem(`notdown-mobile-replica:${replicaKey(status, { id: status.vaultId, name: status.vaultName ?? "", folder: status.folder })}`, vaultId);
+  closeDialogs();
+  const dialog = mobileDialog("Switch notebook", `<p>Select a cloud notebook using your signed-in account. Each notebook keeps its own offline copy.</p><p role="status" data-message>Loading cloud notebooks…</p><div class="mobile-notebook-list"></div>`);
+  const message = dialog.querySelector<HTMLElement>("[data-message]")!, list = dialog.querySelector<HTMLElement>(".mobile-notebook-list")!;
+  try {
+    const notebooks = await selectedVault.sync.handle("notebooks", "GET") as CloudNotebook[];
+    if (!dialog.open || selectedVault !== vault) return;
+    message.textContent = notebooks.length ? status.provider === "webdav" ? "WebDAV notebooks in the same parent folder." : "Cloud notebooks for this account." : "No cloud notebooks found.";
+    for (const notebook of notebooks) {
+      const button = document.createElement("button"); button.type = "button"; button.textContent = notebook.name;
+      if (notebook.folder) { const folder = document.createElement("small"); folder.textContent = notebook.folder; button.append(folder); }
+      const current = notebook.id === status.vaultId && notebook.folder === status.folder;
+      button.setAttribute("aria-current", String(current)); button.disabled = current;
+      button.onclick = async () => {
+        list.querySelectorAll("button").forEach(control => control.disabled = true);
+        try {
+          await connectNotebook(notebook); dialog.close();
+        } catch (error) {
+          if (dialog.open) message.textContent = error instanceof Error ? error.message : String(error);
+          else tell(error);
+        } finally {
+          list.querySelectorAll("button").forEach(control => control.disabled = control.getAttribute("aria-current") === "true");
+        }
+      };
+      list.append(button);
+    }
+  } catch (error) { message.textContent = error instanceof Error ? error.message : String(error); }
 }
 async function switchVault(id: string, supplied?: MobileVault) {
-  stopSync?.();
-  const next = supplied ?? createVault(`/vaults/${id}`, platform, { syncFetch: native ? nativeSyncFetch : undefined, privateReplica: true });
+  stopSync?.(); stopSync = undefined; clearTimeout(timer);
+  const next = supplied ?? createVault(`/vaults/${id}`, platform, { syncFetch: native ? nativeSyncFetch : undefined, syncRunLifecycle: native ? nativeSyncRunLifecycle : undefined, privateReplica: true });
   const [loaded, resources, references] = await Promise.all([next.list(), next.databases.list(), next.externalEntities.list()]);
+  clearDerivedView();
   editingTools.reset(); workspace?.destroy(); workspace = undefined; session = undefined;
   databaseWorkspace?.destroy(); databaseWorkspace = undefined; databaseRoute = undefined; recordSource = undefined;
-  databaseMount.hidden = true; databaseMount.replaceChildren(); recordProperties.hidden = true;
+  databaseBack.hidden = true; databaseMount.hidden = true; databaseMount.replaceChildren(); recordProperties.hidden = true;
   assets.clear();
   if (vaultId !== id) collapsedPages.clear();
   vaultId = id; vault = next; pages = loaded; databases = resources;
@@ -367,7 +505,8 @@ async function switchVault(id: string, supplied?: MobileVault) {
   }
   const last = localStorage.getItem(`notdown-mobile-last-page:${id}`);
   const route = localStorage.getItem(`notdown-mobile-last-route:${id}`), databaseId = route?.match(/^#database\/([^#]+)(?:#pages)?$/)?.[1];
-  if (route === "#databases" || databaseId && databases.some(item => item.id === decodeURIComponent(databaseId))) await openDatabases(databaseId ? decodeURIComponent(databaseId) : undefined, route?.endsWith("#pages"));
+  if (route === "#graph") await openGraph();
+  else if (route === "#databases" || databaseId && databases.some(item => item.id === decodeURIComponent(databaseId))) await openDatabases(databaseId ? decodeURIComponent(databaseId) : undefined, route?.endsWith("#pages"));
   else if (pages.length) await openPage(pages.find(page => page.id === last)?.id ?? pages[0].id);
   else {
     closeDialogs(); mount.hidden = true; mount.replaceChildren();
@@ -377,7 +516,12 @@ async function switchVault(id: string, supplied?: MobileVault) {
 }
 function syncHooks(selectedVault: MobileVault): SyncHooks {
   return {
-    beforeSync: async () => selectedVault === vault && await save(),
+    canStartSync: () => !native || mobileForeground,
+    signedIn: async () => { if (native) await NativeVault.commitAutofill().catch(() => {}); },
+    beforeSync: async () => {
+      if (selectedVault !== vault || native && !(await NativeVault.appState()).foreground || !await save()) return false;
+      return selectedVault === vault && (!native || (await NativeVault.appState()).foreground);
+    },
     afterSync: async () => {
       if (selectedVault !== vault) return;
       if (setupRequired) {
@@ -387,25 +531,26 @@ function syncHooks(selectedVault: MobileVault): SyncHooks {
         }
         return;
       }
-      const active = session, activeDatabase = databaseRoute;
+      const active = session, activeDatabase = databaseRoute, activeGraph = graphActive, activeView = viewSelect.value as PageView;
       const [latest, resources, references] = await Promise.all([selectedVault.list(), selectedVault.databases.list(), selectedVault.externalEntities.list()]);
       if (selectedVault !== vault) return;
       setExternalLibrary(references);
       await refreshPeople();
-      if (selectedVault !== vault || session !== active || databaseRoute !== activeDatabase || !capture() || session?.dirty || session?.saving || session?.failure || databaseWorkspace?.dirty || workspace?.blocks.databaseViewsDirty) return;
+      if (selectedVault !== vault || session !== active || databaseRoute !== activeDatabase || graphActive !== activeGraph || viewSelect.value !== activeView || !capture() || session?.dirty || session?.saving || session?.failure || databaseWorkspace?.dirty || workspace?.blocks.databaseViewsDirty) return;
       pages = latest; databases = resources; pageListDirty = true; renderPages();
       const current = latest.find(page => page.id === active?.draft.id);
       // Inline databases and record schemas can change independently of their host page.
-      if (!activeDatabase && current && active && !current.dataSourceId && current.revision === active.base.revision && !mount.querySelector(".pm-object-database")) return;
-      if (!activeDatabase && !active && !latest.length) return;
+      if (!activeGraph && !activeDatabase && current && active && !current.dataSourceId && current.revision === active.base.revision && !mount.querySelector(".pm-object-database")) return;
+      if (!activeGraph && !activeDatabase && !active && !latest.length) return;
       // Only the short local reload is inert; typing during the network transfer remains editable and recoverable.
       mount.inert = true; databaseMount.inert = true; title.disabled = true;
       const reopenSync = syncDialog?.open;
       try {
         assets.clear();
-        if (activeDatabase && (!activeDatabase.id || resources.some(item => item.id === activeDatabase.id))) await openDatabases(activeDatabase.id);
+        if (activeGraph) await openGraph();
+        else if (activeDatabase && (!activeDatabase.id || resources.some(item => item.id === activeDatabase.id))) await openDatabases(activeDatabase.id);
         else if (activeDatabase) await openDatabases();
-        else if (current) await openPage(current.id);
+        else if (current) { await openPage(current.id); if (activeView !== "document") await switchPageView(activeView); }
         else if (!active && latest.length) await openPage(latest[0].id);
         else if (active) await switchVault(vaultId, selectedVault);
       } finally { mount.inert = false; databaseMount.inert = false; title.disabled = false; if (reopenSync && syncDialog?.isConnected && !syncDialog.open) syncDialog.showModal(); }
@@ -420,14 +565,18 @@ async function showSync() {
   const close = document.createElement("button"); close.type = "button"; close.className = "secondary-button"; close.textContent = "Close"; close.onclick = () => syncDialog?.close();
   close.hidden = setupRequired;
   syncDialog.append(close); app.append(syncDialog); syncDialog.showModal();
+  if ((await vault.sync.status()).signedIn) {
+    const choose = document.createElement("button"); choose.type = "button"; choose.textContent = "Switch notebook";
+    choose.onclick = () => { void enqueue(showNotebookPicker); }; syncDialog.prepend(choose);
+  }
   await mountSyncSettings(syncDialog, syncHooks(vault), { existingOnly: true, onStatus: async status => {
     if (!mobileNotebookReady(status) && !setupRequired) await switchVault(vaultId, vault);
-  } });
+  }, connectNotebook });
 }
-async function newPage() {
+async function newPage(parent?: Page) {
   if (setupRequired) { await showSync(); return; }
   if (!await leavePage()) return;
-  const page = await vault.create({ title: "Untitled page", body: "", syntax: { ...defaultSyntax(), variant: "notdown" } });
+  const page = await vault.create({ title: "Untitled page", body: "", syntax: { ...defaultSyntax(), variant: "notdown" }, ...(parent ? { parent: parent.id, parentRevision: parent.revision } : {}) });
   pages = await vault.list(); await openPage(page.id); workspace?.blocks.focus();
 }
 function showMenu(heading: string, buttons: { label: string; action: () => void; disabled?: boolean; danger?: boolean }[], note?: string) {
@@ -475,6 +624,12 @@ function mountDialectPicker() {
     });
   };
   field.append(select);
+  app.querySelector("#mobile-menu-items > button")!.before(field);
+}
+function mountPageViewPicker() {
+  if (!workspace || !session) return;
+  const field = document.createElement("label"); field.className = "mobile-view-field";
+  field.textContent = "Page view"; field.append(viewSelect);
   app.querySelector("#mobile-menu-items > button")!.before(field);
 }
 type TouchSelection = NonNullable<ReturnType<MarkdownWorkspace["blocks"]["touchSelection"]>>;
@@ -530,23 +685,74 @@ async function copyRecovery() {
   original.releaseCopiedDraft(); pages = await vault.list(); await openPage(copy.id);
   tell("Draft saved as a new page. The original page and conflict history are preserved.");
 }
+async function pageAction(action: "settings" | "favorite" | "duplicate" | "child" | "history" | "export" | "trash") {
+  if (!await leavePage() || !session) return;
+  const page = session.base, selectedVault = vault, schemaRevision = recordSource?.revision;
+  const changed = async (saved: Page) => {
+    await refreshPages(); await openPage(saved.id);
+  };
+  if (action === "settings") {
+    openMobilePageSettings(page, pages, async patch => {
+      app.inert = true;
+      try { await changed(await selectedVault.update(page.id, patch, page.revision, schemaRevision)); }
+      finally { app.inert = false; }
+    });
+  } else if (action === "history") {
+    await openPageHistory(page, { modal: mobileDialog, restored: async saved => {
+      document.querySelector<HTMLDialogElement>(".mobile-page-dialog[open]")?.close(); await changed(saved);
+    } });
+  } else if (action === "export") {
+    const extension = page.syntax?.variant === "rmarkdown" ? "Rmd" : page.syntax?.variant === "quarto" ? "qmd" : "md";
+    await exportFile(new Blob([page.body], { type: "text/markdown" }), `${page.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 100) || "Page"}.${extension}`);
+  } else if (action === "child" || action === "duplicate" || action === "favorite") {
+    app.inert = true;
+    try {
+      if (action === "child") await newPage(page);
+      else if (action === "duplicate") await changed(await selectedVault.duplicate(page.id, page.revision));
+      else await changed(await selectedVault.update(page.id, { favorite: !page.favorite }, page.revision, schemaRevision));
+    } finally { app.inert = false; }
+  } else {
+    const dialog = mobileDialog("Move to Trash?", `<p>The page and its child pages can be restored from Trash.</p><button type="button" class="mobile-danger" data-confirm-trash>Move to Trash</button><p role="status" data-message></p>`);
+    dialog.querySelector<HTMLButtonElement>("[data-confirm-trash]")!.onclick = async event => {
+      const button = event.currentTarget as HTMLButtonElement; button.disabled = true; app.inert = true;
+      try {
+        await selectedVault.update(page.id, { trashed: true }, page.revision, schemaRevision);
+        await refreshPages(); dialog.close(); await switchVault(vaultId, selectedVault);
+      } catch (error) { dialog.querySelector("[data-message]")!.textContent = error instanceof Error ? error.message : String(error); button.disabled = false; }
+      finally { app.inert = false; }
+    };
+  }
+}
 const actions: Record<string, () => void | Promise<unknown>> = {
-  pages: () => { editingTools.closePanel(); dismissKeyboard(); renderPages(); drawer.showModal(); }, new: newPage,
+  pages: () => { editingTools.closePanel(); dismissKeyboard(); renderPages(); drawer.showModal(); }, new: () => newPage(),
   databases: async () => { if (await leavePage()) await openDatabases(); },
   "new-database": () => createDatabase(),
+  "switch-notebook": showNotebookPicker,
   more: () => {
     showMenu("Notebook", [
       { label: "New page", action: () => enqueue(newPage) },
+      { label: "Switch notebook", action: () => enqueue(showNotebookPicker) },
       { label: "Databases", action: () => enqueue(async () => { if (await leavePage()) await openDatabases(); }) },
       { label: "New database", action: () => enqueue(() => createDatabase()) },
       { label: "New wiki", action: () => enqueue(() => createDatabase(undefined, "wiki")) },
+      { label: "Graph", action: () => enqueue(openGraph) },
+      ...(session && !graphActive ? [
+        { label: "Page settings", action: () => enqueue(() => pageAction("settings")) },
+        { label: session.draft.favorite ? "Remove from Favorites" : "Add to Favorites", action: () => enqueue(() => pageAction("favorite")) },
+        { label: "New subpage", action: () => enqueue(() => pageAction("child")) },
+        ...(!session.draft.databaseId ? [{ label: "Duplicate page", action: () => enqueue(() => pageAction("duplicate")) }, { label: "Page history", action: () => enqueue(() => pageAction("history")) }] : []),
+        { label: "Export Markdown", action: () => enqueue(() => pageAction("export")) },
+        { label: "Move to Trash", danger: true, action: () => enqueue(() => pageAction("trash")) },
+      ] : []),
+      { label: favoritesOnly ? "Show all pages" : "Favorites", action: () => { favoritesOnly = !favoritesOnly; pageListDirty = true; renderPages(); drawer.showModal(); } },
+      { label: "Trash", action: () => enqueue(async () => { if (await leavePage()) await openMobileTrash(vault, async () => { await refreshPages(); renderPages(); }); }) },
       ...(session && !session.draft.databaseId && !session.draft.dataSourceId ? [{ label: "Turn into wiki", action: () => enqueue(async () => { if (!await leavePage() || !session) return; const page = session.base; await vault.databases.turnIntoWiki(page.id, page.revision); await refreshPages(); await openPage(page.id); }) }] : []),
       ...(session?.draft.wiki ? [{ label: "Undo wiki", action: () => enqueue(async () => { if (!await leavePage() || !session) return; const page = session.base, snapshot = await vault.databases.get(page.databaseId!); await vault.databases.undoWiki(snapshot.database.id, { baseRevision: snapshot.database.revision, hostRevision: page.revision }); await refreshPages(); await openPage(page.id); }) }] : []),
       { label: "Import Markdown", action: () => actions.import() },
       { label: "Export notebook ZIP", action: () => enqueue(backup) },
       { label: "Cloud sync", action: () => enqueue(showSync) },
-    ], "Notes are saved on this device. Cloud sync runs while the app is open. Export a separate backup before uninstalling.");
-    mountDialectPicker();
+    ], "Notes are saved on this device. A running sync can continue with the screen off. Export a separate backup before uninstalling.");
+    mountPageViewPicker(); mountDialectPicker();
   },
   sync: showSync,
   save: async () => { await save(); }, retry: async () => { if (capture()) await session?.retry(); },
@@ -559,15 +765,6 @@ app.addEventListener("click", event => {
   const button = (event.target as Element).closest<HTMLButtonElement>("button"); if (!button) return;
   if (button.hasAttribute("data-close")) { button.closest("dialog")?.close(); return; }
   if (setupRequired && button.dataset.action && button.dataset.action !== "sync") { enqueue(showSync); return; }
-  if (button.dataset.view) {
-    const mode = button.dataset.view as EditMode;
-    enqueue(async () => {
-      if (!capture() || !workspace) return;
-      if (await workspace.setMode(mode)) updateMode(mode);
-      await session?.save();
-    });
-    return;
-  }
   const action = button.dataset.action && actions[button.dataset.action]; if (action) enqueue(async () => { await action(); });
 });
 search.oninput = renderPages;
@@ -625,6 +822,8 @@ window.addEventListener("notdown:back", () => {
   enqueue(async () => {
     if (setupRequired) { if (native) await NativeVault.background(); return; }
     if (syncDialog?.open) { syncDialog.close(); return; }
+    const pageDialog = document.querySelector<HTMLDialogElement>(".mobile-page-dialog[open]");
+    if (pageDialog) { closeMobileDialog(pageDialog); return; }
     const databaseDialog = document.querySelector<HTMLDialogElement>(".database-dialog[open]");
     if (databaseDialog) { databaseDialog.close(); return; }
     if (menu.open) { menu.close(); return; }
@@ -644,7 +843,8 @@ window.addEventListener("hashchange", () => {
   history.replaceState(null, "", viewHash || location.pathname);
   void enqueue(async () => {
     if (!await leavePage()) return;
-    if (requested === "#databases") await openDatabases();
+    if (requested === "#graph") await openGraph();
+    else if (requested === "#databases") await openDatabases();
     else {
       const route = requested.match(/^#(page|database)\/([^#]+)(?:#pages)?$/);
       if (route?.[1] === "database") await openDatabases(decodeURIComponent(route[2]), requested.endsWith("#pages"));
@@ -676,8 +876,9 @@ async function start() {
   // Preserve existing installs' selected cache; new installs use one cloud replica.
   await switchVault(active && /^[a-zA-Z0-9-]{1,64}$/.test(active) ? active : "main");
   if (native) {
-    await NativeVault.addListener("pause", () => { void save().catch(tell); });
-    await NativeVault.addListener("resume", () => { void refreshNotebookName().catch(tell); });
+    await NativeVault.addListener("pause", () => { mobileForeground = false; void save().catch(tell); });
+    await NativeVault.addListener("resume", () => { mobileForeground = true; void refreshNotebookName().catch(tell); window.dispatchEvent(new Event("notdown-sync-changed")); });
+    mobileForeground = (await NativeVault.appState()).foreground;
   }
   app.dataset.ready = "true";
 }

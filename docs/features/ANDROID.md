@@ -10,7 +10,8 @@ Notdown Android is located in the same repository as the desktop version and use
 
 ## Current capabilities
 
-- Connect to the cloud vault created on your computer and save an offline copy in the application private directory; after the connection is completed, create a blank page, edit the title and text, switch Page / Source, and search by title and content.
+- Connect to a cloud vault created on your computer and keep an offline copy in the application private directory. Create pages and subpages, edit titles and text, and search by title and content.
+- Browse Page, Source, Outline and Mind map views. Open the notebook Graph, manage page icons, parents and properties, use Favorites, duplicate pages, preview and restore local history, and restore pages or data sources from Trash.
 - Click-and-click formatting toolbar, block type selection, and image attachments; image previews use temporary display addresses, and relative attachment paths are still saved in the file.
 - Automatically save during editing and keep window-independent recovery drafts. If the versions do not match, the original text and proposal will be retained and automatic retry will be stopped; the interface can save the draft as a new page.
 - Import `.md`, `.markdown`, `.rmd`, `.qmd` files and keep the complete source code. Interpreter execution of R / Quarto requires desktop.
@@ -27,6 +28,20 @@ Target Android 8.0 / API 26 and above. The current product is development and de
 When opening for the first time, you must configure **Cloud sync**, use the same Supabase project or WebDAV account and remote directory as the computer, and then select the cloud vault created by the computer. The phone does not provide the option to create a cloud vault or an independent local vault; it is stuck on the settings page when it has not been configured or the first download fails, and the return key and closing settings cannot be bypassed. If there is no vault in the WebDAV directory, create it on your computer first and synchronize it.
 
 After the first synchronization is completed, enter the editor. Subsequent openings can directly use the local copy. You can still edit when the network is disconnected. After the network is connected, it will be synchronized in the foreground. Disconnecting synchronization will return to the connection settings, and the local files will be retained, but they cannot continue to be edited as an independent library. Already installed old libraries will not be automatically deleted or merged; clearing mobile application data requires the user to explicitly choose, and no deletion records will be sent to the cloud.
+
+Start sync while Notdown is visible. That running session continues when you switch to another app or turn the screen off. Android shows an ongoing sync notification (allow notifications when prompted); tapping it returns to Notdown. The service and CPU wake lock end on completion or failure. No periodic background sync is scheduled, and no new sync starts while the app is hidden. Keeping the display on is unnecessary.
+
+On phones that restrict background execution, set Notdown's app battery policy to **Unrestricted**.
+
+Force-stopping the app, removing its task, process reclamation, network loss or Android service limits can still interrupt a session. Open Notdown again to resume from its saved cursor and durable outbox; local revisions and conflicts remain protected. A session has a 90-minute safety limit and also obeys Android's foreground-service timeout. This does not guarantee completion under every manufacturer's battery restrictions.
+
+Tap the notebook name in the top bar, or **Notebook options → Switch notebook**, to select another cloud notebook with the current signed-in account. Supabase lists the account's notebooks. WebDAV lists supported Notdown notebooks in the current remote folder's parent directory, using a single-level directory listing and checking at most 100 child folders. Keep related WebDAV notebooks under the same parent directory. Selection requires cloud access and directory-list permission.
+
+Switching reuses the saved account authentication. Each cloud notebook has a separate private offline copy, sync cursor, conflict history and editor recovery drafts. Pending input is saved before switching. Returning to a downloaded notebook reopens its existing copy, while a new selection completes its first download before editing. Credentials remain in the private sync configuration. The switcher stores only replica identifiers in browser preferences. The Cloud sync screen also offers switching after a first-download failure.
+
+Connecting from Cloud sync after disconnecting also selects a separate offline copy for the chosen notebook. Disconnecting preserves the original copy's ownership and sync state; it does not make its pages, databases or attachments available for upload to another notebook. An unbound older copy with existing content is preserved separately. Previously mixed content is not deleted automatically.
+
+The sign-in form supports password-manager filling through stable username and current-password fields and reads their live values when submitted. Failed sign-in keeps the entered values available for correction. Successful Android sign-in commits the autofill context before clearing the password field. Password-manager and Android WebView combinations still require physical-device acceptance.
 
 During the first download, Cloud sync displays the progress bar, resource name, processed quantity and time taken at the current stage; the attachment displays the transferred size. The activity bar is displayed when the total amount of the stage is unknown, and the waiting time is still displayed when the waiting time is long. Failure to synchronize will display an error and retain the completed count, and can be retried via **Sync now**.
 
@@ -48,7 +63,15 @@ Clicking **+** or **Turn into** will hide the keyboard and display two columns o
 
 Source code mode displays the complete file, formatting and insertion still apply to the source code selection, and the single block operation button is disabled. **Import Markdown** Add a page to the currently connected vault; no independent database creation or vault switching entrance is provided. Mobile terminal interactive reference [ Notion official mobile editing instructions ](https://www.notion.com/help/writing-and-editing-basics#on-mobile), the implementation still reuses Notdown's own editor and save logic.
 
-The page list follows the page order saved on the computer and is arranged indented by the parent-child level; click the arrow on the left side of the page to expand or collapse sub-pages, and click the title to open the page. When searching, the results will be displayed based on title and text matching. After clearing the search, the hierarchy and folded state will be restored. List display does not overwrite page order or parent-child relationships; order adjustments are still made on the computer.
+The page list follows the saved page order and indents child pages. Tap the arrow to expand or collapse a branch and tap a title to open it. Search matches titles and text. **Notebook options → Favorites** filters the list to favorite pages, and **Show all pages** restores the full list. **Page settings → Parent page** moves an ordinary page with its descendants. Sibling reordering remains a desktop operation.
+
+Open the top-right **Notebook options** menu and use **Page view**, directly above **Page dialect**, to choose Page, Markdown source, Outline or Mind map. Android does not offer Split / Source and page. The title area shows the save status without separate Page/Source controls. A successful view selection closes the menu; composition or save conflicts keep the current view and recoverable draft. Outline and Mind map reuse the shared desktop models and display the saved page without editing it. Mind map supports branch expansion, zoom, fit and content previews. **Notebook options → Graph** opens the shared page-link graph, whose nodes open pages.
+
+**Notebook options** also provides **New subpage**, **Duplicate page**, **Page settings**, **Page history**, **Export Markdown** and **Move to Trash** for the current page. Page settings accepts an Emoji or icon name and a JSON properties object. Existing document YAML and Pandoc title blocks continue to override metadata defaults. Database records retain their collection membership and schema checks. Database containers use the database's own settings and cannot be duplicated as ordinary pages.
+
+**Page history** previews local snapshots, including Markdown, properties and differences. Restoring checks the page revision and preserves the current version. Snapshot creation follows the shared history interval and editing-session rules. Git history requires desktop services. **Trash** restores pages, their hidden descendants and deleted data sources. Android keeps these recoverable files in the vault.
+
+**Export Markdown** saves the complete page source with `.md`, `.Rmd` or `.qmd` as appropriate. Chart **Save chart as…** uses the same system saving channel for PNG and SVG. Android opens the system destination picker, while browser preview downloads the file. Cancelling leaves the page available to edit.
 
 When switching pages, the target page is read from the local file, the text is displayed first, and the images and other local media are loaded later; the unchanged page list reuses the existing content. When saving the title and text of ordinary notes, only the current page and necessary parent pages are read. The input to be saved is still collected before cutting the page, and the original version is verified, and the history and conflicts are retained. A full scan is retained when it comes to page levels, recycle bins, databases or old file identity searches; changes in the cloud are still downloaded and refreshed synchronously by the frontend.
 
@@ -60,8 +83,8 @@ App private files will be deleted when uninstalling or clearing app data. A back
 
 ## Known limitations
 
-- Cloud synchronization needs to configure Supabase or [ WebDAV ](WEBDAV-SYNC.md) and run during application opening; WebDAV and Android use native network requests. There is no background sync after the app is closed, multi-person collaboration, direct editing of external SAF folders or multi-folder synchronization.
-- The mobile phone supports editing of tables, attributes and records of full-page and inline databases, and can create new databases, fields and views, and use filtering, sorting and search. For operation details, see[Database Guide](DATABASES.md#mobile-usage). The map, Notion import wizard, system recycle bin and some desktop block operation entrances have not been covered yet.
+- Cloud synchronization requires Supabase or [WebDAV](WEBDAV-SYNC.md); Android uses native network requests. An active sync can finish in the background or with the screen off, but new runs start only while the app is visible. There is no periodic background sync, multi-person collaboration, direct editing of external SAF folders or multi-folder synchronization.
+- Mobile uses the shared database views, properties and record editor, with database, field and view creation, filtering, sorting and search. For details, see the [database guide](DATABASES.md#mobile-usage). Native desktop drag interactions, the Notion import wizard, the Windows system Recycle Bin and some block-operation entry points remain desktop capabilities.
 - Complex content that can be retained by shared codec can still be opened and edited through source code; citation processing, external transcription, AI settings and Python / R / Pandoc execution that rely on desktop services do not provide mobile running services. Remote attachments or web pages still require a network.
 - The browser preview uses independent IndexedDB file storage, and Android uses native private files. Their data are not interoperable; when the native plug-in fails, it will not be returned to the browser storage and pretend to be saved successfully.
 - Chrome touch screen simulation and JVM file testing cannot replace Android WebView, real Chinese input method, system file selector, process recycling and low memory device acceptance.
@@ -82,4 +105,10 @@ The body truth remains `pages/*.md`; `metadata.json` retains unknown fields, and
 
 The mobile terminal coordinates writing through native file locks, and temporary files are replaced atomically after they are written and synchronized; the interruption recovery of Markdown and metadata uses the same transaction log. Browser preview uses Web Locks and IndexedDB transactions. Both retain `baseRevision` verification and do not automatically refresh versions and force retries after conflicts.
 
+The native sync transport lets `GET` and `HEAD` recover stale pooled connections after idle periods. Mutation requests keep transport failure retries disabled; the shared engine retains its original revisions and durable outbox. The active-run service wraps that same engine and does not introduce a second sync implementation.
+
+Native activity pause/resume state gates new runs, including after pending editor saves. WebView visibility alone is insufficient on devices that still report a visible document with the screen off. This gate never cancels an already-running session.
+
 The boundaries of this construction, automation and equipment verification can be found in [ 2026-10-23 verification record ](../verification/ANDROID-2026-10-23.md).
+
+The [2026-11-07 active-sync device record](../verification/ANDROID-ACTIVE-SYNC-2026-11-07.md) covers continuation after Home and screen-off, content integrity, execution cleanup and absence of new background runs on one configured phone.
