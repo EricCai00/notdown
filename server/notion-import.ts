@@ -20,6 +20,7 @@ import { hasUnknownNotionCodeLanguage, supplementNotionCodeLanguages } from "./n
 import { blockifyNotionImages } from "./notion-image-import.js";
 import { recoverCachedNotionBlock } from "./notion-private-blocks.js";
 import { parseCopiedNotionSnapshots, recoverCopiedNotionButton } from "./notion-copied-blocks.js";
+import { notionViewName, readNotionViewNames, type ReadNotionViewNames } from "./notion-view-names.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -241,6 +242,7 @@ export async function prepareNotionImport(
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     readAsset?: ReadNotionAsset;
     readCache?: ReadNotionCache;
+    readViewNames?: ReadNotionViewNames;
     existingPages?: readonly { id: string; pageId: string }[];
     onProgress?: (progress: ImportProgress) => void;
     checkpoint?: () => Promise<void>;
@@ -468,6 +470,31 @@ export async function prepareNotionImport(
     return item;
   };
   const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue, includeChildren: request.includeChildren !== false,
+    resolveViewNames: request.useDesktopCache === true ? async views => {
+      const names = new Map<string, string>(), groups = new Map<string, Json[]>();
+      for (const view of views) {
+        if (view.name !== "Untitled" || !uuid.test(view.parent?.database_id)) continue;
+        const parent = notionPageId(view.parent.database_id);
+        if (!groups.has(parent)) groups.set(parent, []);
+        groups.get(parent)!.push(view);
+      }
+      for (const [parent, candidates] of groups) {
+        let snapshot;
+        try { snapshot = await (options.readViewNames ?? readNotionViewNames)(parent, candidates.map(view => notionPageId(view.id))); }
+        catch { warnings.add("Local Notion view names could not be read. API names are retained."); continue; }
+        if (snapshot.warning) warnings.add(snapshot.warning);
+        for (const view of candidates) {
+          const matches = snapshot.views.filter(cached => cached.id === notionPageId(view.id));
+          const cached = matches.length === 1 ? matches[0] : undefined;
+          const name = notionViewName(view, cached);
+          if (name === notionViewName(view)) continue;
+          names.set(notionPageId(view.id), name);
+          archive(`view-name-recovery/${notionPageId(view.id)}.json`, Buffer.from(JSON.stringify({ api: view, cached, appliedName: name })));
+          warnings.add("Unnamed view labels were restored from this computer's Notion cache. Cached view names have no edit timestamps; open the source in Notion and wait for sync before importing.");
+        }
+      }
+      return names;
+    } : undefined,
     enqueueDatabase: (id, parent, info) => { enqueue(id, parent).database = info; }, onResource: title => report({ currentTitle: title }) });
   report({ step: "Identifying the Notion page, database or data source" });
   const rootPage = await get(`/pages/${root}`, "probe");

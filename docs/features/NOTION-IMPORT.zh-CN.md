@@ -15,7 +15,7 @@
 
 如需读取完成后直接导入，可在点击 **Preview（预览）** 之前或读取期间，勾选按钮上方的 **读取完成后自动导入**。每次打开对话框默认不勾选，不记忆此选择。全部读取完成后，对完整快照执行一次导入，沿用 **Import copies（导入副本）** 的保存和冲突检查。读取期间可取消勾选，不丢弃读取进度。暂停或关闭对话框会阻止自动导入；暂停后点击 **Resume preview（继续预览）** 可按当前选择继续。读取已结束后才勾选不会立即写入，此时可点击 **Import copies** 或重新预览。此可选模式不会因警告停下，但读取错误、保存冲突和导入失败会停止流程；写入失败后须手动重试。
 
-公开 Markdown API 的日期标签不提供提醒配置。默认勾选 **Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache**：在 Windows 本地服务上，只读打开 `%APPDATA%/Notion/notion.db`，补充可核对的双颜色，并为 **Notdown** 副本补充行内 reminder、已知日期显示格式和受支持的 AI block。导入前先在这台电脑的 Notion 桌面端打开来源页并等待同步；浏览器访问其他电脑运行的 Notdown 服务时，读取的是服务所在电脑的缓存。关闭该选项时不读取缓存；**Notion Markdown** 可补全既有嵌套颜色，但不添加提醒或 AI block 等自定义内容。
+公开 Markdown API 的日期标签不提供提醒配置。默认勾选 **Restore missing colors, view names, Notdown reminders and AI blocks from this computer's Notion desktop cache**：在 Windows 本地服务上，只读打开 `%APPDATA%/Notion/notion.db`，补充可核对的双颜色，并为 **Notdown** 副本补充行内 reminder、已知日期显示格式和受支持的 AI block。导入前先在这台电脑的 Notion 桌面端打开来源页并等待同步；浏览器访问其他电脑运行的 Notdown 服务时，读取的是服务所在电脑的缓存。关闭该选项时不读取缓存；**Notion Markdown** 可补全既有嵌套颜色，但不添加提醒或 AI block 等自定义内容。
 
 补充只使用 API 已读取的当前页块 ID，并限定同一缓存账户与工作区。要求块编辑时间、该块的日期列表和日期值一致，而且目标日期在页面 Markdown 和 API 块中都唯一；当 API 时间只有分钟粒度时比对编辑分钟，返回更细粒度时须精确相等。重复日期、旧缓存、缺失记录及未知提醒格式保持 API 原文并提示检查。分钟粒度的时间不能证明缓存与云端完全同步。当前范围为块正文 `rich_text` 中、缓存 `properties.title` 对应的行内日期；数据库 Date 属性、表格单元格、题注及同步引用内的提醒尚不恢复。代码和未知容器内的示例不触发补充。
 
@@ -122,6 +122,7 @@ Block API 按页面、嵌套容器分页读取，不为每个代码块单独请�
 - People / Files preserve their source structures and remain read-only. People fields show linked contacts or non-clickable unknown users through the external reference library. Downloaded Files use local URLs and retain their source URLs. No local user accounts are created.
 - Formula / Rollup 保留定义与结果，作为只读快照，不执行 Notion 公式。无法完整获取的聚合不伪造结果。
 - 数据库容器、数据源和视图分别保存。一个数据库可以包含多个数据源；每个可读取的远端视图单独保存名称、身份和数据源绑定，同源视图共享字段及记录，不复制数据。链接视图引用的可访问数据源也按身份去重；直接输入数据源 ID 时，只导入该源及其视图。
+- 空视图名按来源布局显示为 Table、Calendar、Timeline 等，自定义名称原样保留。API 可能把未命名视图返回为 `Untitled`；启用桌面缓存补充后，只有存活记录的视图 ID、所属数据库、账户、工作区和类型精确匹配，才采用缓存确认其存储名称为空。采用的名称及缓存版本归档到 `view-name-recovery/<viewId>.json`，参与批次身份。这些缓存记录没有编辑时间，无法证明云端新鲜度；导入前应先在 Notion 打开来源并等待同步。缓存缺失、歧义或冲突时保留 API 名称。不自动重命名已有 vault；即使来源名称为 Map 或 Form，不支持的布局仍回退为表格并提示。
 - 视图列表和详情尽量读取并归档。Table、Board、Gallery、List、Calendar、Timeline、Chart、Feed 映射到对应本地布局，保留属性顺序及明确隐藏的非标题字段；其他类型回退为表格并提示。图表配置需要在本地设置；时间轴依赖、独立结束日期字段和动态流协作功能只归档，不复现，详见[本地视图能力](DATABASES.zh-CN.md#时间轴图表和动态流)。能映射的标题／文本 contains 条件（AND）和标题、文本、数字、复选框排序会应用到视图。无法完整映射的筛选／排序整组停用并显示提示。源没有可用视图时创建默认表格。原始字段、筛选、布局和视图 JSON 保留在归档中。
 - 新布局沿用本地视图的能力边界：Select、Status 选项及 Checkbox 分组和 Date 日历字段按身份绑定；无法映射的 Board／Calendar 保留类型并提示在 View settings 选择字段。Notion 状态组、二级分组、手工组序和精确卡片排版不模拟；页面正文图片预览显示为本地文字预览并提示差异，文件属性图片预览保留配置。子项显示配置仍归档；用户可以明确开启[本地子项](DATABASES.zh-CN.md#子项)，复用可按身份识别的导入关系字段。列宽等尚未映射的原始设置仍可从归档核对。
 - Wiki 查询返回的子数据库 `data_source` 按其 `parent.database_id` 归并为独立子数据库；不会当成 Wiki 自身的数据源或普通记录。Wiki、子数据库及其记录保留层级，子数据库的多个数据源和视图继续分别处理。子数据库显示在页面树和可恢复的 Home 引用中，不伪装成 Wiki 表格中的页面记录。

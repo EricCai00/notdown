@@ -17,6 +17,8 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   const databases = page.getByRole("region", { name: "Inline database", exact: true });
   await expect(databases).toHaveCount(2);
   const used = databases.nth(0), unused = databases.nth(1);
+  await expect(used.getByRole("tab", { name: "Table", exact: true })).toBeVisible();
+  await expect(used.getByRole("tab", { name: "Imported view", exact: true })).toHaveCount(0);
   await expect(used.getByRole("button", { name: "Open Xiaomi Notes", exact: true })).toBeVisible();
   await expect(unused.getByRole("button", { name: "Open Anytype", exact: true })).toBeVisible();
   await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2014");
@@ -54,6 +56,7 @@ for (const variant of ["notdown", "notion-markdown"]) test(`${variant} imports t
   await toolbar.getByRole("button", { name: "Page", exact: true }).click();
   await page.reload();
   await expect(databases).toHaveCount(2);
+  await expect(used.getByRole("tab", { name: "Table", exact: true })).toBeVisible();
   await expect(used.getByLabel("Since: Xiaomi Notes", { exact: true })).toHaveValue("2015");
   await expect(headers).toHaveText(["Name", "Since", "Markdown", "Comments"]);
   await unused.getByLabel("Name: Anytype", { exact: true }).hover();

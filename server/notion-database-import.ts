@@ -17,6 +17,7 @@ export function notionDatabaseImport(options: {
   enqueueDatabase: (id: string, parent: string, info: { title: string; icon: string }) => void;
   includeChildren?: boolean;
   onResource?: (title: string) => void;
+  resolveViewNames?: (views: Json[]) => Promise<Map<string, string>>;
 }) {
   const { read, normalizeId, warn, enqueue } = options;
   const databases = new Map<string, Json>();
@@ -25,6 +26,7 @@ export function notionDatabaseImport(options: {
   const records = new Map<string, Json>();
   const completedProperties = new Set<string>();
   const viewsByDatabase = new Map<string, Json[]>();
+  const viewNames = new Map<string, string>();
   const wikiIds = new Set<string>();
   const homeIds = new Set<string>();
   const sourceHosts = new Map<string, string>();
@@ -129,6 +131,7 @@ export function notionDatabaseImport(options: {
         }
       }
       viewsByDatabase.set(id, full);
+      for (const [viewId, name] of await options.resolveViewNames?.(full) ?? []) viewNames.set(viewId, name);
       if (full.some(view => !view.data_source_id)) warn(`Database ${title}: some views have no readable data source (including dashboard/Home views); their definitions are archived. Local tables show all records where view settings cannot be mapped.`);
     }
     activeDatabases.delete(id);
@@ -200,6 +203,7 @@ export function notionDatabaseImport(options: {
         const remoteSourceId = normalizeId(remote.data_source_id), sourceId = localId(remoteSourceId);
         if (!sourceIds.includes(sourceId)) continue;
         const mapped = importNotionView(remote, resources.dataSources[sourceId].properties, remoteSourceId);
+        mapped.name = viewNames.get(normalizeId(remote.id)) ?? mapped.name;
         const viewId = localId(`view-${id}-${normalizeId(remote.id)}`);
         if (viewIds.includes(viewId)) continue;
         for (const message of mapped.importWarnings) warn(`Database ${raw.localTitle}, view ${mapped.name}: ${message}`);

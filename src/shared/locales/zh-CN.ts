@@ -633,7 +633,7 @@ export const zhCN: Record<string, string> = {
   "Restart the local server to use child page settings.": "请重启本地服务以使用子页面设置。",
   "Restore": "恢复",
   "Restore default shortcuts": "恢复默认快捷入口",
-  "Restore missing colors, Notdown reminders and AI blocks from this computer's Notion desktop cache": "从此电脑的 Notion 缓存恢复缺失的颜色、Notdown 提醒和 AI 块",
+  "Restore missing colors, view names, Notdown reminders and AI blocks from this computer's Notion desktop cache": "从此电脑的 Notion 缓存恢复缺失的颜色、视图名称、Notdown 提醒和 AI 块",
   "Restore returns a page and its children to the vault. Delete moves their Markdown files and attachments that lose their last reference to the Windows Recycle Bin. Shared attachments are kept.": "恢复会将页面及其子页面放回知识库。删除会将 Markdown 文件和不再被引用的附件移至 Windows 回收站，保留共享附件。",
   "Restore this version": "恢复此版本",
   "Restoring version…": "正在恢复版本…",

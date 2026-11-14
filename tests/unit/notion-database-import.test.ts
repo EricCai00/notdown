@@ -37,7 +37,7 @@ function record(id: string) {
     Future: { id: "future", type: "future_property", future_property: { keep: true } },
   } };
 }
-function fixture(calls: { url: string; method: string; body?: any }[] = [], options: { loop?: boolean; viewsUnavailable?: boolean; incomplete?: boolean } = {}): typeof fetch {
+function fixture(calls: { url: string; method: string; body?: any }[] = [], options: { loop?: boolean; viewsUnavailable?: boolean; incomplete?: boolean; views?: Record<string, any>[] } = {}): typeof fetch {
   return async (input, init) => {
     const url = new URL(String(input));
     assert.equal(url.origin, "https://api.notion.com");
@@ -48,7 +48,9 @@ function fixture(calls: { url: string; method: string; body?: any }[] = [], opti
     if (pathname === `/v1/databases/${database}`) return Response.json({ object: "database", id: database, title: rich("Project"), data_sources: [{ id: source, name: "Tasks" }], future: { untouched: true } });
     if (pathname === `/v1/data_sources/${source}`) return Response.json(schema);
     if (pathname.endsWith("/query")) return Response.json({ object: "list", results: body.start_cursor ? [record(second)] : [record(first)], has_more: !body.start_cursor || options.loop === true, next_cursor: "next query", ...(options.incomplete ? { request_status: { type: "incomplete" } } : {}) });
-    if (pathname === "/v1/views") return options.viewsUnavailable ? Response.json({}, { status: 404 }) : Response.json({ results: [{ id: view, object: "view" }], has_more: false, next_cursor: null });
+    if (pathname === "/v1/views") return options.viewsUnavailable ? Response.json({}, { status: 404 }) : Response.json({ results: options.views?.map(value => ({ id: value.id, object: "view" })) ?? [{ id: view, object: "view" }], has_more: false, next_cursor: null });
+    const detail = options.views?.find(value => pathname === `/v1/views/${value.id}`);
+    if (detail) return Response.json(detail);
     if (pathname === `/v1/views/${view}`) return Response.json({ id: view, object: "view", type: "board", filter: { unknown: true } });
     if (pathname.includes("/properties/")) {
       assert.ok(pathname.endsWith("/r%3Ax"), "property IDs must be decoded once then URL encoded once");
@@ -63,6 +65,54 @@ function fixture(calls: { url: string; method: string; body?: any }[] = [], opti
 }
 const input = { token: "test-token-not-persisted", pageId: database, includeChildren: false };
 const wait = async () => {};
+
+test("default view names survive the complete import and reload; explicit names and source definitions are preserved", async t => {
+  const views = [
+    { id: view, type: "table", name: "Untitled" },
+    { id: "88888888-8888-4888-8888-888888888888", type: "calendar", name: "" },
+    { id: "99999999-9999-4999-8999-999999999999", type: "timeline", name: "" },
+    { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", type: "table", name: "Untitled" },
+    { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", type: "calendar", name: "Deadlines" },
+  ].map(value => ({ ...value, object: "view", parent: { type: "database_id", database_id: database }, data_source_id: source, configuration: { date_property_id: "date" }, future: { keep: true } }));
+  const fetch = fixture([], { views });
+  let reads = 0;
+  const readViewNames = async (parent: string, ids: readonly string[]) => {
+    reads++; assert.equal(parent, database); assert.deepEqual(ids, [view, views[3].id]);
+    return { views: ids.map(id => ({ id, type: "table", parentId: database, name: id === view ? null : "Untitled", version: 3 })) };
+  };
+  const plan = await prepareNotionImport({ ...input, useDesktopCache: true }, { fetch, wait, readViewNames });
+  assert.equal(reads, 1);
+  assert.deepEqual(Object.values(plan.databaseResources!.views).map(view => view.name), ["Table", "Calendar", "Timeline", "Untitled", "Deadlines"]);
+  assert.deepEqual(Object.values(plan.databaseResources!.views).map(view => view.notion), views);
+  assert.deepEqual(Object.values(plan.databaseResources!.databases)[0].notionViews, views);
+  const evidence = plan.originals.filter(file => file.path.startsWith("view-name-recovery/"));
+  assert.equal(evidence.length, 1);
+  assert.equal(JSON.parse(evidence[0].data.toString()).cached.name, null);
+  assert.ok(plan.warnings.some(message => message.includes("no edit timestamps")));
+  const changedCache = await prepareNotionImport({ ...input, useDesktopCache: true }, { fetch, wait, readViewNames: async () => ({ views: [{ id: view, type: "table", parentId: database, name: null, version: 4 }] }) });
+  assert.notEqual(changedCache.id, plan.id, "the adopted cache snapshot participates in import identity");
+  const directSource = await prepareNotionImport({ ...input, pageId: source, useDesktopCache: true }, { fetch, wait, readViewNames });
+  assert.equal(Object.values(directSource.databaseResources!.views)[0].name, "Table");
+  const apiOnly = await prepareNotionImport({ ...input, useDesktopCache: false }, { fetch, wait, readViewNames });
+  assert.equal(reads, 2, "opting out must not read the desktop cache");
+  assert.deepEqual(Object.values(apiOnly.databaseResources!.views).map(view => view.name), ["Untitled", "Calendar", "Timeline", "Untitled", "Deadlines"]);
+  const unavailable = await prepareNotionImport({ ...input, useDesktopCache: true }, { fetch, wait, readViewNames: async () => { throw new Error("private path"); } });
+  assert.equal(Object.values(unavailable.databaseResources!.views)[0].name, "Untitled");
+  assert.ok(!JSON.stringify(unavailable).includes("private path"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-view-import-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const vault = createVault(root); await vault.importBatch(plan);
+  const dbId = Object.keys(plan.databaseResources!.databases)[0];
+  const imported = await vault.databases.get(dbId);
+  const renamed = await vault.databases.updateView(imported.views[0].id, { name: "My tasks" }, imported.views[0].revision);
+  assert.equal(renamed.name, "My tasks");
+  const reloaded = await createVault(root).databases.get(dbId);
+  assert.deepEqual(reloaded.views.map(view => view.name), ["My tasks", "Calendar", "Timeline", "Untitled", "Deadlines"]);
+  assert.deepEqual(reloaded.views.map(view => view.notion), views);
+  assert.equal(reloaded.pages.length, 2);
+  await vault.importBatch(plan);
+  assert.equal((await vault.databases.get(dbId)).views[0].name, "My tasks");
+});
 
 test("database discovery reports titles and query pagination before any page body is read", async () => {
   const progress: import("../../src/shared/import-progress.js").ImportProgress[] = [];

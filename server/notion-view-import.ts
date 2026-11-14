@@ -2,6 +2,7 @@ import type { DatabaseProperty, DatabaseView } from "../src/features/databases/d
 import { notionTableProperties } from "../src/features/databases/database-columns.js";
 import { databaseViewTypes, type DatabaseLayout, type DatabaseViewType } from "../src/features/databases/database-model.js";
 import { groupable } from "../src/features/databases/database-query.js";
+import { notionViewName } from "./notion-view-names.js";
 
 type Json = Record<string, any>;
 const decoded = (id: string) => { try { return decodeURIComponent(id); } catch { return id; } };
@@ -59,5 +60,5 @@ export function importNotionView(raw: Json, fields: DatabaseProperty[], sourceId
   if (type === "feed") warnings.push("Notion comments, reactions and view counts are not available in the local feed.");
   const configured = Array.isArray(columns) ? columns.map((entry: Json) => fieldFor(entry?.property_id)).filter((field: DatabaseProperty | undefined): field is DatabaseProperty => !!field) : [];
   const displayFields = [...new Map([...configured, ...ordered].map(field => [field.id, field])).values()];
-  return { name: String(raw.name || "Imported view").slice(0, 500), type, layout, propertyIds: displayFields.filter(field => field.type === "title" || !hidden.has(field.id)).map(field => field.id), filters, sorts, notion: raw, importWarnings: warnings };
+  return { name: notionViewName(raw), type, layout, propertyIds: displayFields.filter(field => field.type === "title" || !hidden.has(field.id)).map(field => field.id), filters, sorts, notion: raw, importWarnings: warnings };
 }
