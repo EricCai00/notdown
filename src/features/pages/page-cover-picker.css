@@ -2,7 +2,7 @@
   padding-top: 0;
 }
 
-.page-emblem .page-link-icon.image { width: 96px; height: 96px; }
+.page-emblem .page-link-icon.image { width: 72px; height: 72px; }
 
 .page-cover-region:empty {
   display: none;
@@ -10,7 +10,7 @@
 
 .page-cover-region {
   position: relative;
-  height: 294px;
+  height: 234px;
   margin: 0 -70px;
   overflow: hidden;
   background: #f2f1ef;
@@ -95,15 +95,20 @@
 
 .document-wrap.has-page-cover .page-emblem {
   z-index: 1;
-  margin-top: -54px;
-  margin-bottom: 52px;
+  margin-top: -42px;
+  margin-bottom: 38px;
 }
 
 /* System emoji include extra font ascent/descent. Keep their complete glyph
    inside the hover target while aligning the visible icon to the cover edge. */
 .document-wrap.has-page-cover .page-emblem:has(.emoji) {
-  margin-top: -82px;
-  margin-bottom: 48px;
+  margin-top: -60px;
+  margin-bottom: 32px;
+}
+
+/* Segoe's emoji glyph includes side bearings outside the visible artwork. */
+html[data-emoji-style="system"] .document-wrap.has-page-cover .page-emblem:has(.emoji) {
+  margin-left: -18px;
 }
 
 .document-wrap:not(.has-page-cover) #page-decoration:has(.page-emblem) .page-emblem {
@@ -123,7 +128,7 @@
 }
 
 .document-wrap.has-page-cover .document {
-  max-width: 880px;
+  max-width: 708px;
 }
 
 .document-wrap.has-page-cover #page-decoration {

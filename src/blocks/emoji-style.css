@@ -21,11 +21,9 @@
 }
 
 html[data-emoji-style="noto"] {
-  font-family: "Notdown Noto Emoji", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Notdown Noto Emoji", var(--font-body, sans-serif);
 }
 
 html[data-emoji-style="openmoji"] {
-  font-family: "Notdown OpenMoji", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Notdown OpenMoji", var(--font-body, sans-serif);
 }

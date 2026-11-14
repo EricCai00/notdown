@@ -203,32 +203,32 @@
 .pm-document a.child-page-node {
   display: flex;
   width: 100%;
-  padding: 2px 2px;
+  padding: 1px 2px;
   margin: 1px 0;
-  min-height: 34px;
+  min-height: 26px;
 }
 .pm-document :is(a.child-page-node, a.page-mention[data-reference-kind="page"]) {
   font-weight: 500;
-  gap: 10px;
+  gap: 6px;
 }
 .pm-document .page-link-icon-slot {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 26px;
+  width: 20px;
+  height: 22px;
   flex: none;
 }
 .pm-document .page-link-reference-arrow {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  right: -1px;
-  bottom: -1px;
-  color: #787774;
-  background: var(--bg, #fff);
-  border-radius: 1px;
+  width: 15px;
+  height: 15px;
+  right: -3px;
+  bottom: -4px;
+  stroke-width: 1.5;
+  color: #202020;
+  background: transparent;
   pointer-events: none;
 }
 .pm-document .page-link-icon {
@@ -242,9 +242,9 @@
   line-height: 1;
 }
 .pm-document :is(a.child-page-node, a.page-mention[data-reference-kind="page"]) .page-link-icon {
-  width: 20px;
-  height: 20px;
-  font-size: 20px;
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
 }
 .pm-document .page-link-label {
   border-bottom: 1px solid #e1e1de;
@@ -1296,9 +1296,9 @@ dialog textarea {
   --font-body:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "PingFang SC",
     "Microsoft YaHei", sans-serif;
-  --font-size-page-title: 50px;
-  --font-size-body: 20px;
-  --font-size-ui: 16px;
+  --font-size-page-title: 40px;
+  --font-size-body: 16px;
+  --font-size-ui: 14px;
   --font-size-caption: 13px;
   --font-size-small: 12px;
   --font-size-h1: 30px;
@@ -1383,7 +1383,7 @@ kbd {
   flex-direction: column;
   overflow: auto;
   width: 240px;
-  padding: 10px 14px 8px;
+  padding: 6px 12px 8px;
   border: 0;
   background: var(--sidebar);
   box-shadow: inset -1px 0 #00000005;
@@ -1456,24 +1456,24 @@ kbd {
   align-items: center;
   text-align: left;
   gap: 10px;
-  min-height: 40px;
-  padding: 6px 10px;
-  font-size: 16px;
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 14px;
   color: #9b9a97;
   border: 1px solid #e1dfdc;
-  border-radius: 9px;
-  margin-bottom: 14px;
+  border-radius: 7px;
+  margin-bottom: 12px;
 }
 .search-launch:hover {
   background: var(--hover);
 }
 .search-launch svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 .search-launch kbd {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 10px;
   border: 0;
   background: #eeedeb;
   opacity: 1;
@@ -1493,17 +1493,17 @@ kbd {
   align-items: center;
   text-align: left;
   gap: 10px;
-  min-height: 40px;
-  padding: 7px 9px;
-  font-size: 18px;
-  border-radius: 8px;
+  min-height: 32px;
+  padding: 5px 7px;
+  font-size: 14px;
+  border-radius: 6px;
   color: #787774;
 }
 .main-nav > button:first-child {
   background: #eeedeb;
   color: #37352f;
 }
-.main-nav > button:not([data-action="home"]) { justify-content: center; width: 40px; }
+.main-nav > button:not([data-action="home"]) { justify-content: center; width: 32px; }
 /* Keep the shortcut names available to assistive technology. */
 .main-nav > button:not([data-action="home"]) > span {
   position: absolute;
@@ -1532,11 +1532,11 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
+  padding: 6px 4px;
   margin-bottom: 4px;
-  min-height: 28px;
+  min-height: 24px;
   color: #9b9a97;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -1614,11 +1614,11 @@ kbd {
 .trash-row-actions button:disabled { opacity: .5; cursor: wait; }
 #favorite-pages:not(:empty) { margin-bottom: 20px; }
 .tree-row {
-  --tree-inset: calc(8px + var(--depth) * 10px);
+  --tree-inset: calc(10px + var(--depth) * 10px);
   display: flex;
   align-items: center;
   position: relative;
-  min-height: 38px;
+  min-height: 30px;
   border-radius: 6px;
   padding-left: var(--tree-inset);
   margin-bottom: 1px;
@@ -1646,7 +1646,7 @@ kbd {
 .tree-toggle {
   position: absolute;
   left: calc(var(--tree-inset) - 1.5px);
-  top: 7px;
+  top: 3px;
   z-index: 1;
   opacity: 0;
   pointer-events: none;
@@ -1654,7 +1654,7 @@ kbd {
   place-items: center;
   padding: 0;
   flex-shrink: 0;
-  width: 23px;
+  width: 20px;
   height: 24px;
   border-radius: 3px;
   color: #9b9a97;
@@ -1686,27 +1686,27 @@ kbd {
   overflow: visible;
   text-align: left;
   flex: 1;
-  gap: 12px;
-  padding: 7px 0;
-  font-size: 18px;
-  line-height: 24px;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 14px;
+  line-height: 20px;
   min-width: 0;
 }
 .tree-page svg {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
   color: #9b9a97;
 }
 .tree-page .emoji {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  font-size: 18px;
+  width: 17px;
+  height: 17px;
+  font-size: 16px;
   line-height: 1;
 }
-.tree-page > :is(.page-link-icon, svg) { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+.tree-page > :is(.page-link-icon, svg) { width: 17px; height: 17px; flex-shrink: 0; margin-top: 1.5px; }
 .tree-add {
   display: grid;
   place-items: center;
@@ -1821,11 +1821,11 @@ kbd {
   white-space: nowrap;
   overflow: hidden;
   gap: 7px;
-  font-size: 18px;
+  font-size: 14px;
   color: #787774;
 }
 #breadcrumb button {
-  font-size: 18px;
+  font-size: 14px;
   padding: 3px 5px;
   border-radius: 4px;
 }
@@ -1889,7 +1889,7 @@ kbd {
 .document {
   margin: 0 auto;
   position: relative;
-  max-width: 880px;
+  max-width: 708px;
   padding: 0;
 }
 .page-emblem {
@@ -1908,12 +1908,12 @@ kbd {
   color: var(--text);
 }
 .page-emblem svg {
-  width: 96px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
   stroke-width: 1.25;
 }
 .page-emblem .emoji {
-  font-size: 96px;
+  font-size: 72px;
   line-height: normal;
 }
 .page-title {
@@ -1923,7 +1923,7 @@ kbd {
   outline: 0 !important;
   font-size: var(--font-size-page-title, 40px);
   font-weight: 700;
-  letter-spacing: -0.6px;
+  letter-spacing: 0.4px;
   color: var(--text);
   padding: 0;
   line-height: 1.2;
@@ -2010,7 +2010,8 @@ kbd {
   align-items: center;
   gap: 5px;
   width: fit-content;
-  padding: 4px 2px;
+  padding: 2px 2px;
+  line-height: 16px;
   list-style: none;
   cursor: pointer;
   border-radius: 3px;

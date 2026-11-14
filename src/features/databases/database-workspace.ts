@@ -18,7 +18,8 @@ import { databaseSourceView } from "./database-reference";
 import { openSourceMenu } from "./database-source-menu";
 import { renderSourceCatalog } from "./database-source-catalog";
 import type { DatabaseSourceSummary } from "./database-model";
-import { Database as DatabaseIcon, Maximize2, ArrowUpRight, MapPin } from "lucide";
+import { Database as DatabaseIcon, Maximize2, MapPin } from "lucide";
+import { referenceArrow } from "../../shared/reference-arrow";
 import { ChartNoAxesCombined, GanttChart, Rss } from "lucide";
 import { databasePropertyReadOnly, type Database, type DatabaseLayout, type DatabaseDataSource, type DatabaseProperty, type DatabasePropertyType, type DatabaseSnapshot, type DatabaseView } from "./database-model";
 import { isWikiDatabase } from "./database-model";
@@ -56,7 +57,7 @@ function linkedDatabaseIcon(icon = "table-2") {
   const mark = document.createElement("span"); mark.className = "database-linked-icon";
   mark.setAttribute("role", "img");
   setUIAttribute(mark, "aria-label", "Linked data source"); setUIAttribute(mark, "title", "Linked data source");
-  mark.append(pageIconElement(icon), createElement(ArrowUpRight, { class: "database-linked-heading", viewBox: "4 4 16 16", "aria-hidden": "true", focusable: "false" }));
+  mark.append(pageIconElement(icon), referenceArrow("database-linked-heading"));
   return mark;
 }
 const typeIcon = (type: string) => glyph(({ title: Type, text: AlignLeft, number: Hash, checkbox: SquareCheck, date: Calendar, select: CircleChevronDown, multi_select: CircleChevronDown, status: CircleChevronDown, url: Link, relation: Link, people: Users, files: FileText, place: MapPin } as Record<string, IconNode>)[type] ?? AlignLeft, "database-type-icon");

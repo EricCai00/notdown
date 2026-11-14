@@ -164,10 +164,10 @@ test("sidebar resizes, remembers width, clamps and cancels safely", async ({ pag
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect.poll(() => width(page)).toBe(480);
   await handle(page).dblclick();
-  await expect.poll(() => width(page)).toBe(336);
+  await expect.poll(() => width(page)).toBe(270);
   await handle(page).focus();
   await page.keyboard.press("ArrowRight");
-  await expect.poll(() => width(page)).toBe(346);
+  await expect.poll(() => width(page)).toBe(280);
   await page.keyboard.press("Home");
   await expect.poll(() => width(page)).toBe(200);
   await page.keyboard.press("End");

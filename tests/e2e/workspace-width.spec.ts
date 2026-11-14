@@ -15,7 +15,7 @@ for (const variant of ["commonmark", "notdown"]) {
     const article = page.locator(".document");
     const width = () => article.evaluate(el => el.getBoundingClientRect().width);
     const mode = (name: string) => page.locator(`.editing-modes [data-mode="${name}"]`).click();
-    await expect.poll(width).toBe(880);
+    await expect.poll(width).toBe(708);
     await mode("split");
     await expect.poll(width).toBeGreaterThan(1000);
     const expectAvailableWidth = async () => {
@@ -33,7 +33,7 @@ for (const variant of ["commonmark", "notdown"]) {
     await mode("source");
     await expectAvailableWidth();
     await mode("document");
-    await expect.poll(width).toBe(880);
+    await expect.poll(width).toBe(708);
     await mode("split");
     await page.setViewportSize({ width: 950, height: 1000 });
     await expectAvailableWidth();

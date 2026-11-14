@@ -15,8 +15,28 @@ for (const width of [1950, 1440, 390]) for (const cover of [true, false]) {
     const owned = page.locator('.pm-document [data-pm-node-type="block.child_page"]');
     const linked = page.locator('.pm-document [data-pm-node-type="block.link_to_page"]');
     await expect(linked.locator(".page-link-reference-arrow")).toBeVisible();
+    const arrow = linked.locator(".page-link-reference-arrow");
+    await expect(arrow).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(arrow).toHaveAttribute("viewBox", "4 4 16 16");
+    const strokes = await arrow.locator("path").evaluateAll(paths => paths.map(path => ({ color: getComputedStyle(path).stroke, width: parseFloat(getComputedStyle(path).strokeWidth) })));
+    const outline = strokes.find(stroke => stroke.color === "rgb(255, 255, 255)");
+    const center = strokes.find(stroke => stroke.color === "rgb(32, 32, 32)");
+    expect(outline).toBeTruthy(); expect(center).toBeTruthy();
+    expect(outline!.width).toBeGreaterThan(center!.width);
+    await linked.hover();
+    await expect(arrow).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(owned.locator(".page-link-reference-arrow")).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator(".pm-document")).toHaveCSS("font-size", "16px");
+    await expect(page.locator("#page-title")).toHaveCSS("font-size", width > 720 ? "40px" : "34px");
+    // Inspect the actual rendered Latin glyphs, not just the CSS font stack.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("DOM.enable"); await cdp.send("CSS.enable");
+    const { root } = await cdp.send("DOM.getDocument");
+    const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: '.child-page-node .page-link-label' });
+    const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+    if (process.platform === "win32") expect(fonts.some(font => /^Segoe UI(?: |$)/.test(font.familyName) && font.glyphCount > 0)).toBe(true);
+    await cdp.detach();
     const geometry = await page.evaluate(() => {
       const rect = (selector: string) => {
         const el = document.querySelector(selector)!;
@@ -39,8 +59,8 @@ for (const width of [1950, 1440, 390]) for (const cover of [true, false]) {
     expect(geometry.arrow.y).toBeGreaterThan(geometry.icon.y);
     expect(geometry.overflow).toBeLessThanOrEqual(1);
     if (width > 720) {
-      expect(geometry.editor.width).toBe(880);
-      expect(geometry.editor.x - geometry.main.x).toBeCloseTo((geometry.main.width - 880) / 2, 0);
+      expect(geometry.editor.width).toBe(708);
+      expect(geometry.editor.x - geometry.main.x).toBeCloseTo((geometry.main.width - 708) / 2, 0);
     }
     if (cover) {
       await expect.poll(() => page.locator('.page-cover').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
