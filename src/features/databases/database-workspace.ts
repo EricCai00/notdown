@@ -42,7 +42,8 @@ import { referencePicker } from "./database-reference-picker";
 import { dependencyValue, relationIds } from "./database-dependencies";
 import { scheduleDependencies, type RecordChange } from "./database-scheduling";
 import { placeInput } from "./database-place-editor";
-import { placeText } from "./database-place";
+import { importedPlaceText } from "./database-import-presentation";
+import { databasePageReference, databaseRecordIcon } from "./database-page-reference";
 
 import { externalEntitiesChanged, externalLibrary, resolveExternal } from "../references/external-client";
 import { requestPeople } from "../people/people-client";
@@ -72,7 +73,8 @@ export function documentOverrides(page: Page, field: DatabaseProperty): boolean 
 
 function displayValue(field: DatabaseProperty, value: unknown): string {
   if (value === null || value === undefined) return "";
-  if (field.type === "place") return placeText(value);
+  const place = importedPlaceText(field, value);
+  if (place !== undefined) return place;
   if (["select", "status"].includes(field.type)) return field.options?.find(option => option.id === value)?.name ?? String(value);
   if (field.type === "multi_select" && Array.isArray(value)) return value.map(item => field.options?.find(option => option.id === item)?.name ?? String(item)).join(", ");
   if (field.type === "date" && typeof value === "object") {
@@ -95,6 +97,7 @@ function displayValue(field: DatabaseProperty, value: unknown): string {
 }
 
 export function propertyInput(field: DatabaseProperty, page: Page, value: unknown, commit: (value: unknown) => void, wrap = false, pages?: Page[], optionHost?: HTMLElement): HTMLElement {
+  if (field.type === "title" && page.importedEmptyTitle && value === page.title) value = "";
   const label = `${field.name}: ${page.title}`;
   const wrapper = document.createElement("div");
   wrapper.className = "database-cell";
@@ -116,10 +119,10 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
         const entity = field.type === "people" ? resolveExternal(`user://${reference?.id}`)
           : reference?.notionPageId ? resolveExternal(`https://www.notion.so/${reference.notionPageId}`)
           : externalLibrary().entities.find(entity => entity.kind === "page" && entity.localId === reference?.pageId);
-        const localId = entity?.status === "resolved" ? entity.localId : !reference?.notionPageId && field.type === "relation" ? reference?.pageId : undefined;
+        const directPage = field.type === "relation" && pages?.find(page => page.id === reference?.pageId && !page.trashed);
+        const localId = directPage ? directPage.id : entity?.status === "resolved" ? entity.localId : !reference?.notionPageId && field.type === "relation" ? reference?.pageId : undefined;
         if (localId && field.type === "relation") {
-          const link = document.createElement("a"); link.href = `#page/${encodeURIComponent(localId)}`; link.textContent = entity?.label || reference.title || "Open linked page";
-          wrapper.append(link, document.createTextNode(" "));
+          wrapper.append(databasePageReference(directPage || pages?.find(page => page.id === localId), entity?.label || reference.title || "", `#page/${encodeURIComponent(localId)}`));
         } else if (localId) {
           const person = document.createElement("button"); person.type = "button"; person.className = "database-tag"; person.textContent = `@${entity?.label || reference.name}`;
           person.onclick = () => requestPeople({ selectedId: localId }); wrapper.append(person, document.createTextNode(" "));
@@ -132,7 +135,7 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
     wrapper.setAttribute("aria-label", label);
     const reason = override ? "Defined in document metadata — edit in source" : ["formula", "rollup"].includes(field.type) ? "Imported result — does not recalculate locally" : "Preserved value — editing is not available";
     wrapper.title = reason;
-    if (wrapper.textContent) { const note = document.createElement("small"); note.textContent = reason; wrapper.append(note); }
+    wrapper.setAttribute("aria-description", reason);
     return wrapper;
   }
   if (field.type === "place") return placeInput(value, label, commit, optionHost);
@@ -937,11 +940,6 @@ export class DatabaseWorkspace {
       home.addEventListener("click", () => { void (async () => { if (await this.flush()) await this.hooks.openDatabase(snapshot.database.id); })().catch(error => this.message(error.message)); });
       this.host.querySelector(".database-view-tabs")!.prepend(home);
     }
-    if (Array.isArray(view?.importWarnings) && view.importWarnings.length) {
-      const note = document.createElement("p"); note.className = "database-import-note";
-      note.textContent = view.importWarnings.filter((value): value is string => typeof value === "string").join(" ");
-      this.host.querySelector(".database-table-scroll")!.before(note);
-    }
     this.wireSaveControls();
     const act = (action: () => void) => void this.flush().then(async ok => { if (ok && await this.closePeek()) action(); });
     this.host.querySelectorAll<HTMLElement>("[data-db-tab]").forEach(button => {
@@ -1071,7 +1069,11 @@ export class DatabaseWorkspace {
     cell.addEventListener("change", () => void this.flush());
     cell.addEventListener("keydown", event => { if (event.key === "Enter" && event.target instanceof HTMLInputElement) { event.preventDefault(); void this.flush(); } });
     if (field.type === "title") {
-      const pageIcon = document.createElement("span"); pageIcon.className = "database-page-icon"; pageIcon.append(pageIconElement(page.icon || "file-text")); cell.prepend(pageIcon);
+      cell.classList.add("database-title-cell");
+      const input = cell.querySelector<HTMLInputElement | HTMLTextAreaElement>("input,textarea");
+      const updateEmpty = () => { cell.dataset.emptyTitle = String(!(input?.value ?? cell.textContent)?.trim()); };
+      updateEmpty(); input?.addEventListener("input", updateEmpty);
+      const pageIcon = document.createElement("span"); pageIcon.className = "database-page-icon"; pageIcon.append(pageIconElement(databaseRecordIcon(page))); cell.prepend(pageIcon);
       const open = document.createElement("button"); open.className = "database-open-page"; open.innerHTML = `${glyph(PanelRight)}<span data-i18n="OPEN">OPEN</span>`; open.setAttribute("aria-label", `Open ${page.title}`);
       open.addEventListener("click", () => void this.openPeek(page.id)); cell.append(open);
     }

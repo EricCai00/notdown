@@ -34,6 +34,7 @@ import {
 } from "../markdown-engine/config.js";
 
 export type Page = {
+  importedEmptyTitle?: boolean;
   dataSourceTrashed?: boolean;
   dataSourceId?: string;
   databaseId?: string;
@@ -198,9 +199,15 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
       if (typeof updated !== "string") throw new Error("updated");
       if (overlay.properties !== undefined && (!overlay.properties || typeof overlay.properties !== "object" || Array.isArray(overlay.properties))) throw new Error("properties");
     } catch { throw new VaultError(422, `Invalid page metadata in file: ${path.basename(filePath)}`); }
+    const notionProperties = defaults.notionProperties;
+    const emptyImportedTitle = title === "Untitled" && !own(overlay, "title") && !!defaults.notionImport
+      && notionProperties && typeof notionProperties === "object" && !Array.isArray(notionProperties)
+      && Object.values(notionProperties).some(value => value && typeof value === "object"
+        && value.type === "title" && Array.isArray(value.title) && value.title.length === 0);
     return {
       source, filePath, metadata: defaults,
       page: {
+        ...(emptyImportedTitle ? { importedEmptyTitle: true } : {}),
         ...(legacyIds.length ? { legacyIds } : {}),
         id: id as string, title: title as string, parent: parent as string | null,
         ...(typeof defaults.dataSourceId === "string" ? { dataSourceId: defaults.dataSourceId } : {}),

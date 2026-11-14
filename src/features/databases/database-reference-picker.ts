@@ -3,6 +3,7 @@ import { DatabasePopover, menuButton } from "./database-popover";
 import { allPeople, refreshPeople, requestPeople } from "../people/people-client";
 import type { Page } from "../../shared/types";
 import type { DatabaseProperty } from "./database-model";
+import { databasePageReference } from "./database-page-reference";
 
 type Reference = Record<string, unknown>;
 const identity = (value: Reference) => String(value.pageId ?? value.id ?? value.notionPageId ?? value.url);
@@ -14,7 +15,10 @@ export function referencePicker(field: DatabaseProperty, page: Page, value: unkn
   const label = (item: Reference) => String((field.type === "people" ? allPeople().find(person => person.id === item.id)?.name : pages?.find(page => page.id === item.pageId)?.title) ?? item.name ?? item.title ?? t("Unavailable reference"));
   const draw = () => {
     control.replaceChildren();
-    for (const item of selected.values()) { const tag = document.createElement("span"); tag.className = "database-tag"; tag.textContent = label(item); control.append(tag); }
+    for (const item of selected.values()) {
+      if (field.type === "relation") control.append(databasePageReference(pages?.find(page => page.id === item.pageId), label(item)));
+      else { const tag = document.createElement("span"); tag.className = "database-tag"; tag.textContent = label(item); control.append(tag); }
+    }
   };
   draw(); wrapper.append(control);
   control.onclick = () => {

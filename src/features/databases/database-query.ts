@@ -2,14 +2,15 @@ import type { Page } from "../../shared/types";
 import type { DatabaseProperty, DatabaseDataSource, DatabaseView } from "./database-model";
 import { projectDependencies, projectedDependencyValue } from "./database-dependencies";
 import { includeSubitems, projectSubitems, subitemValue } from "./database-subitems";
-import { placeText } from "./database-place";
+import { importedPlaceText } from "./database-import-presentation";
 
 export type ViewFilter = { propertyId: string; operator: string; value?: string };
 export const groupable = (field: DatabaseProperty) => ["select", "status", "checkbox"].includes(field.type);
 export const fieldValue = (page: Page, field: DatabaseProperty): unknown => field.type === "title" ? page.title : field.subitemRole === "children" ? subitemValue(page, field) : projectedDependencyValue(page, field);
 export function valueText(field: DatabaseProperty, value: unknown): string {
   if (value == null) return "";
-  if (field.type === "place") return placeText(value);
+  const place = importedPlaceText(field, value);
+  if (place !== undefined) return place;
   if (["select", "status"].includes(field.type)) return field.options?.find(option => option.id === value)?.name ?? String(value);
   if (field.type === "multi_select" && Array.isArray(value)) return value.map(id => field.options?.find(option => option.id === id)?.name ?? id).join(", ");
   if (field.type === "date" && typeof value === "object") return String((value as { start?: string }).start ?? "");

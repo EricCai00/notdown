@@ -1,5 +1,6 @@
 /** Application chrome only. Document content and stored values are never translated. */
 export const zhCN: Record<string, string> = {
+  "Import details": "导入详情",
   "Sub-items": "子项",
   "Sub-item": "子项",
   "Parent item": "父项",

@@ -3,6 +3,7 @@ import { notionTableProperties } from "../src/features/databases/database-column
 import { databaseViewTypes, type DatabaseLayout, type DatabaseViewType } from "../src/features/databases/database-model.js";
 import { groupable } from "../src/features/databases/database-query.js";
 import { notionViewName } from "./notion-view-names.js";
+import { hasNotionSubitemDisplay, notionSubitemWarning } from "../src/features/databases/database-import-presentation.js";
 
 type Json = Record<string, any>;
 const decoded = (id: string) => { try { return decodeURIComponent(id); } catch { return id; } };
@@ -56,7 +57,7 @@ export function importNotionView(raw: Json, fields: DatabaseProperty[], sourceId
   if (["calendar", "timeline"].includes(type) && !layout.datePropertyId) warnings.push("Choose a local Date property in View settings to display this date view.");
   if (type === "board" && !layout.groupBy && !config.group_by) warnings.push("Choose a supported local grouping property in View settings to display this board.");
   if (type === "calendar" && config.show_weekends === false) warnings.push("The local calendar includes weekends.");
-  if (config.subtasks && config.subtasks.display_mode !== "disabled") warnings.push("Notion sub-item display and filtering are archived; records are shown without that hierarchy.");
+  if (hasNotionSubitemDisplay(config)) warnings.push(notionSubitemWarning);
   if (type === "chart") warnings.push("Notion chart settings are archived. Configure local chart grouping, measure and style before using its results.");
   if (type === "timeline") warnings.push("Notion timeline scale, separate end-date properties and dependencies are archived; configure the local date range property and scale.");
   if (type === "feed") warnings.push("Notion comments, reactions and view counts are not available in the local feed.");

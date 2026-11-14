@@ -2,6 +2,8 @@ import type { ImportProgress } from "./import-progress";
 import { apiUrl } from "./vault-url";
 
 export interface Page {
+  /** Display-only projection of an unchanged empty imported database title. */
+  importedEmptyTitle?: boolean;
   dataSourceTrashed?: boolean;
   dataSourceId?: string;
   databaseId?: string;

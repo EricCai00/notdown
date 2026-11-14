@@ -14,6 +14,8 @@ import { chartControls } from "./database-chart-settings";
 import { timelineScales } from "./database-timeline-model";
 import { readQuerySettings, viewLabel, wireQuerySettings } from "./database-view-settings";
 import { routeHash } from "../pages/page-navigation";
+import { databaseImportWarnings } from "./database-import-presentation";
+import { Info } from "lucide";
 
 const viewIcons = Object.fromEntries(databaseViewTypes.map(type => [type, databaseViewIcon({ type })])) as Record<DatabaseViewType, IconNode>;
 const labels: Partial<Record<DatabasePropertyType, string>> = { text: "Text", title: "Title", number: "Number", select: "Select", multi_select: "Multi-select", status: "Status", date: "Date", checkbox: "Checkbox", url: "URL", email: "Email", phone: "Phone", people: "Person", files: "Files & media", formula: "Formula", rollup: "Rollup", relation: "Relation", place: "Place" };
@@ -212,6 +214,11 @@ export function openViewMenu(anchor: HTMLElement, hooks: ViewMenuHooks, section?
       const sourceSection = menuSection(panel, hooks.wiki ? "Page properties" : "Data source settings"); if (!hooks.wiki) sourceSection.append(menuButton("Source", Database, button => sourceMenu(button, 1), source.title, true));
       sourceSection.append(menuButton("Edit properties", List, button => { collect(); const child = pop.panel("Edit properties", button, 1); for (const field of source.properties) child.append(menuButton(field.name, propertyMenuIcon(field), async () => { if (await pop.save()) { const rect = button.getBoundingClientRect(); pop.destroy(); hooks.editProperty(field, anchor); } }, "", true, "database-popover-row", false)); child.append(menuButton("New property", Plus, async () => { if (await pop.save()) { pop.destroy(); hooks.addProperty(anchor); } })); }, "", true));
       if (hooks.manageSources) menuSection(panel).append(menuButton("Manage data sources", Database, async button => { if (await pop.save()) hooks.manageSources!(pop, button, 1); }, "", true));
+      const warnings = databaseImportWarnings(draft);
+      if (warnings.length) menuSection(panel).append(menuButton("Import details", Info, button => {
+        const details = pop.panel("Import details", button, 1, 320, false);
+        for (const warning of warnings) { const note = document.createElement("p"); note.className = "database-import-detail"; note.textContent = warning; details.append(note); }
+      }, "", true));
     }
     pop.footer(panel);
     if (hooks.create) setUIAttribute(panel.querySelector(".database-popover-done")!, "aria-label", "Create view");
