@@ -29,7 +29,7 @@ export function notionTableProperties(fields: DatabaseProperty[], views: unknown
 }
 
 export function databaseViewProperties(source: DatabaseDataSource, view: DatabaseView | undefined, database: Database): DatabaseProperty[] {
-  let fields = view?.propertyIds ? view.propertyIds.map(id => source.properties.find(field => field.id === id)).filter((field): field is DatabaseProperty => !!field) : [...source.properties];
+  let fields = view?.propertyIds ? view.propertyIds.map(id => source.properties.find(field => field.id === id)).filter((field): field is DatabaseProperty => !!field) : source.properties.filter(field=>!field.subitemRole);
   // Early imports stored the schema object's iteration order as the default view.
   // Project only that untouched default; never rewrite metadata while reading it.
   if (object(source.notion) && typeof source.notion.id === "string" && source.properties[0]?.type !== "title"

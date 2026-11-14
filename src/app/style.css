@@ -203,12 +203,12 @@
 .pm-document a.child-page-node {
   display: flex;
   width: 100%;
-  padding: 1px 2px;
+  padding: 2px 2px;
   margin: 1px 0;
-  min-height: 26px;
+  min-height: 34px;
 }
 .pm-document :is(a.child-page-node, a.page-mention[data-reference-kind="page"]) {
-  font-weight: 600;
+  font-weight: 500;
   gap: 10px;
 }
 .pm-document .page-link-icon-slot {
@@ -216,18 +216,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 22px;
+  width: 24px;
+  height: 26px;
   flex: none;
 }
 .pm-document .page-link-reference-arrow {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  right: -4px;
-  bottom: -5px;
-  color: currentColor;
-  /* Keep the icon visible: only the arrow strokes extend past its corner. */
+  width: 12px;
+  height: 12px;
+  right: -1px;
+  bottom: -1px;
+  color: #787774;
+  background: var(--bg, #fff);
+  border-radius: 1px;
   pointer-events: none;
 }
 .pm-document .page-link-icon {
@@ -241,9 +242,9 @@
   line-height: 1;
 }
 .pm-document :is(a.child-page-node, a.page-mention[data-reference-kind="page"]) .page-link-icon {
-  width: 16px;
-  height: 16px;
-  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
 }
 .pm-document .page-link-label {
   border-bottom: 1px solid #e1e1de;
@@ -253,7 +254,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   text-decoration: underline;
-  text-decoration-color: currentColor;
+  text-decoration-color: #deddd9;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
@@ -1295,9 +1296,9 @@ dialog textarea {
   --font-body:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "PingFang SC",
     "Microsoft YaHei", sans-serif;
-  --font-size-page-title: 40px;
-  --font-size-body: 16px;
-  --font-size-ui: 14px;
+  --font-size-page-title: 50px;
+  --font-size-body: 20px;
+  --font-size-ui: 16px;
   --font-size-caption: 13px;
   --font-size-small: 12px;
   --font-size-h1: 30px;
@@ -1311,7 +1312,7 @@ dialog textarea {
   --text: #37352f;
   --muted: #9b9a97;
   --line: #e9e9e7;
-  --sidebar: #f7f7f5;
+  --sidebar: #f8f7f6;
   --soft: #f1f1ef;
   --hover: #efefed;
   --green: #2383e2;
@@ -1382,7 +1383,7 @@ kbd {
   flex-direction: column;
   overflow: auto;
   width: 240px;
-  padding: 6px 8px 8px;
+  padding: 10px 14px 8px;
   border: 0;
   background: var(--sidebar);
   box-shadow: inset -1px 0 #00000005;
@@ -1424,7 +1425,7 @@ kbd {
   display: flex;
   align-items: center;
   text-align: left;
-  margin: 4px 0 12px;
+  margin: 4px 0 0;
   border: 0;
   box-shadow: none;
   min-height: 42px;
@@ -1455,11 +1456,13 @@ kbd {
   align-items: center;
   text-align: left;
   gap: 10px;
-  min-height: 30px;
-  padding: 5px 9px;
-  font-size: 14px;
-  color: #787774;
-  border-radius: 4px;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 16px;
+  color: #9b9a97;
+  border: 1px solid #e1dfdc;
+  border-radius: 9px;
+  margin-bottom: 14px;
 }
 .search-launch:hover {
   background: var(--hover);
@@ -1470,10 +1473,10 @@ kbd {
 }
 .search-launch kbd {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 12px;
   border: 0;
-  background: transparent;
-  opacity: 0;
+  background: #eeedeb;
+  opacity: 1;
 }
 .search-launch:hover kbd,
 .search-launch:focus-visible kbd {
@@ -1481,8 +1484,8 @@ kbd {
 }
 .main-nav {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  flex-wrap: wrap;
+  gap: 4px;
   padding: 0 0 16px;
 }
 .main-nav > button {
@@ -1490,15 +1493,25 @@ kbd {
   align-items: center;
   text-align: left;
   gap: 10px;
-  min-height: 30px;
-  padding: 5px 9px;
-  font-size: 14px;
-  border-radius: 4px;
+  min-height: 40px;
+  padding: 7px 9px;
+  font-size: 18px;
+  border-radius: 8px;
   color: #787774;
 }
 .main-nav > button:first-child {
-  background: transparent;
-  color: #787774;
+  background: #eeedeb;
+  color: #37352f;
+}
+.main-nav > button:not([data-action="home"]) { justify-content: center; width: 40px; }
+/* Keep the shortcut names available to assistive technology. */
+.main-nav > button:not([data-action="home"]) > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .main-nav > button:hover {
   background: var(--hover);
@@ -1523,7 +1536,7 @@ kbd {
   margin-bottom: 4px;
   min-height: 28px;
   color: #9b9a97;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -1601,15 +1614,15 @@ kbd {
 .trash-row-actions button:disabled { opacity: .5; cursor: wait; }
 #favorite-pages:not(:empty) { margin-bottom: 20px; }
 .tree-row {
-  --tree-inset: calc(3px + var(--depth) * 10px);
+  --tree-inset: calc(8px + var(--depth) * 10px);
   display: flex;
   align-items: center;
   position: relative;
-  min-height: 30px;
-  border-radius: 4px;
+  min-height: 38px;
+  border-radius: 6px;
   padding-left: var(--tree-inset);
   margin-bottom: 1px;
-  color: #787774;
+  color: #64635f;
 }
 .tree-row:hover {
   background: var(--hover);
@@ -1633,7 +1646,7 @@ kbd {
 .tree-toggle {
   position: absolute;
   left: calc(var(--tree-inset) - 1.5px);
-  top: 3px;
+  top: 7px;
   z-index: 1;
   opacity: 0;
   pointer-events: none;
@@ -1641,7 +1654,7 @@ kbd {
   place-items: center;
   padding: 0;
   flex-shrink: 0;
-  width: 20px;
+  width: 23px;
   height: 24px;
   border-radius: 3px;
   color: #9b9a97;
@@ -1673,27 +1686,27 @@ kbd {
   overflow: visible;
   text-align: left;
   flex: 1;
-  gap: 7px;
-  padding: 5px 0;
-  font-size: 14px;
-  line-height: 20px;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 18px;
+  line-height: 24px;
   min-width: 0;
 }
 .tree-page svg {
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
   color: #9b9a97;
 }
 .tree-page .emoji {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
-  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  font-size: 18px;
   line-height: 1;
 }
-.tree-page > :is(.page-link-icon, svg) { flex-shrink: 0; margin-top: 1.5px; }
+.tree-page > :is(.page-link-icon, svg) { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
 .tree-add {
   display: grid;
   place-items: center;
@@ -1808,11 +1821,11 @@ kbd {
   white-space: nowrap;
   overflow: hidden;
   gap: 7px;
-  font-size: 14px;
+  font-size: 18px;
   color: #787774;
 }
 #breadcrumb button {
-  font-size: 14px;
+  font-size: 18px;
   padding: 3px 5px;
   border-radius: 4px;
 }
@@ -1876,7 +1889,7 @@ kbd {
 .document {
   margin: 0 auto;
   position: relative;
-  max-width: 708px;
+  max-width: 880px;
   padding: 0;
 }
 .page-emblem {
@@ -1895,12 +1908,12 @@ kbd {
   color: var(--text);
 }
 .page-emblem svg {
-  width: 70px;
-  height: 70px;
+  width: 96px;
+  height: 96px;
   stroke-width: 1.25;
 }
 .page-emblem .emoji {
-  font-size: 72px;
+  font-size: 96px;
   line-height: normal;
 }
 .page-title {
@@ -3351,6 +3364,10 @@ dialog .muted,
   }
 }
 @media (max-width: 720px) {
+  :root {
+    --font-size-body: 16px;
+    --font-size-ui: 14px;
+  }
   .sidebar {
     width: 240px;
   }

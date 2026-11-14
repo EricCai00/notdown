@@ -60,7 +60,7 @@ npm run dev
 
 Open [localhost:4317](http://127.0.0.1:4317). Notes live in a separate vault folder; keep the terminal running while you use the app. On Windows, after installing dependencies, you can also double-click [start.cmd](start.cmd).
 
-Create or switch vaults from the sidebar heading or Workspace settings. Custom paths, service restarts and production builds are covered in the [running and development guide](docs/architecture/DEVELOPMENT.md).
+Create or switch vaults from the vault name at the bottom of the sidebar or Workspace settings. Custom paths, service restarts and production builds are covered in the [running and development guide](docs/architecture/DEVELOPMENT.md).
 
 ### Android preview
 

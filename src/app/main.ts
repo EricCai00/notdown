@@ -18,6 +18,7 @@ import { openNotionImportDialog } from "../features/vault/notion-import-dialog";
 import { refreshExternalEntities } from "../features/references/external-client";
 import { openExternalLibrary } from "../features/references/external-library-dialog";
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
+import { projectSubitems, subitemValue } from "../features/databases/database-subitems";
 import type { Database, DatabaseDataSource, DatabaseSnapshot, DatabaseView } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
 import { isWikiDatabase } from "../features/databases/database-model";
@@ -97,6 +98,7 @@ import { installSidebarLayout } from "./sidebar-layout";
 import { renderBreadcrumb } from "../blocks/breadcrumb-view";
 import { PageNavigation, parseRoute, type PageRoute } from "../features/pages/page-navigation";
 import { PageBacklinks } from "../features/pages/page-backlinks";
+import { WorkspacePageSnapshots } from "../features/pages/page-snapshots";
 import { isPageCoverPath, openPageCoverPicker } from "../features/pages/page-cover-picker";
 import "../features/pages/page-cover-picker.css";
 
@@ -140,10 +142,68 @@ async function readDatabaseList(): Promise<Database[]> {
     if (notice) notice.hidden = databaseApiAvailable;
   }
 }
+const pageSnapshots = new WorkspacePageSnapshots();
+let directPageNavigation = false;
+type WorkspaceOverview = { pages: Page[]; resources: Database[] };
+async function fetchWorkspacePages(): Promise<WorkspaceOverview>;
+async function fetchWorkspacePages(isCurrent: () => boolean): Promise<WorkspaceOverview | undefined>;
+async function fetchWorkspacePages(isCurrent?: () => boolean): Promise<WorkspaceOverview | undefined> {
+  let loaded: Page[], resources: Database[];
+  if (isCurrent) {
+    // Queue one background scan at a time so a new page read can get between
+    // them; stop obsolete work before queuing another expensive operation.
+    loaded = await pageSnapshots.load();
+    if (!isCurrent()) return;
+    resources = await readDatabaseList();
+    if (!isCurrent()) return;
+    await Promise.all([refreshExternalEntities(), refreshPeople()]);
+    if (!isCurrent()) return;
+  } else [loaded, resources] = await Promise.all([pageSnapshots.load(), readDatabaseList(), refreshExternalEntities(), refreshPeople()]);
+  return { resources, pages: loaded.map(page => page.databaseId && isWikiDatabase(resources.find(database => database.id === page.databaseId)) ? { ...page, wiki: true } : page) };
+}
 async function refreshWorkspacePages(): Promise<Page[]> {
-  const [loaded, resources] = await Promise.all([api<Page[]>("/pages"), readDatabaseList(), refreshExternalEntities(), refreshPeople()]);
-  databases = resources;
-  return loaded.map(page => page.databaseId && isWikiDatabase(resources.find(database => database.id === page.databaseId)) ? { ...page, wiki: true } : page);
+  cancelOverviewRefresh();
+  const loaded = await fetchWorkspacePages();
+  databases = loaded.resources;
+  return loaded.pages;
+}
+let overviewTimer: ReturnType<typeof setTimeout> | undefined;
+let overviewGeneration = 0;
+let overviewLoading = false;
+let overviewAgain = false;
+function cancelOverviewRefresh() {
+  clearTimeout(overviewTimer);
+  overviewGeneration++;
+  overviewAgain = false;
+}
+function scheduleOverviewRefresh() {
+  clearTimeout(overviewTimer);
+  if (overviewLoading) { overviewAgain = true; return; }
+  overviewTimer = setTimeout(() => void refreshOverview(), 300);
+}
+async function refreshOverview() {
+  if (navigation?.loading) { scheduleOverviewRefresh(); return; }
+  if (overviewLoading) return;
+  overviewLoading = true;
+  const generation = overviewGeneration, previousPages = pages, previousDatabases = databases;
+  const revisions = () => JSON.stringify([pages.map(page => [page.id, page.revision]), databases.map(database => [database.id, database.revision])]);
+  const before = revisions();
+  try {
+    const loaded = await fetchWorkspacePages(() => generation === overviewGeneration && !navigation?.loading);
+    if (!loaded) return;
+    // A save, a newer navigation or a database event wins over an older index.
+    if (pages !== previousPages || databases !== previousDatabases || revisions() !== before) { overviewAgain = true; return; }
+    pages = loaded.pages;
+    databases = loaded.resources;
+    renderSidebar();
+    if (current && !library) renderRelations();
+    // Never replace current, its body/revision, or its mounted editor here.
+  } catch (error) {
+    console.warn("Workspace overview refresh:", error);
+  } finally {
+    overviewLoading = false;
+    if (overviewAgain) { overviewAgain = false; scheduleOverviewRefresh(); }
+  }
 }
 let dirty = false;
 let saving: Promise<boolean> | null = null;
@@ -498,6 +558,12 @@ function shell() {
     <div class="sidebar-bottom"><button class="new-page" data-action="import">${icon("folder-input")}<span data-i18n="Import">Import</span></button><button class="new-page" data-action="trash" data-page-trash-drop>${icon("trash-2")}<span data-i18n="Trash">Trash</span></button><a class="markdown-lab-link" data-experimental="block-explorer" data-sidebar-hidden href="/block-catalog.html" target="_blank" rel="noopener">${icon("blocks")}<span data-i18n="Block Explorer">Block Explorer</span>${icon("arrow-up-right")}</a><a class="markdown-lab-link" data-experimental="markdown-lab" data-sidebar-hidden href="/markdown-lab.html" target="_blank" rel="noopener">${icon("code-xml")}<span data-i18n="Markdown Lab">Markdown Lab</span>${icon("arrow-up-right")}</a><div class="local-badge"><span></span><span data-i18n="Local Markdown vault">Local Markdown vault</span></div><button data-action="settings">${icon("settings-2")}<span data-i18n="Workspace settings">Workspace settings</span>${icon("chevron-right")}</button></div>
   </aside><div class="main-shell"><header class="topbar">${button("sidebar", "panel-left", "Toggle sidebar")}<nav class="page-history" aria-label="Page history" data-i18n-aria-label="Page history">${button("history-back", "arrow-left", "Back", "disabled")}${button("history-forward", "arrow-right", "Forward", "disabled")}</nav><div id="breadcrumb"></div><div class="top-actions"><span id="save-status"></span><details id="page-view-switcher" class="page-options page-view-switcher" name="topbar-menu" hidden></details>${sourceFileMenu()}<details id="page-options" class="page-options" name="topbar-menu">${pageOptions()}</details></div></header><main id="main"></main><footer class="statusbar"><span>${icon("hard-drive")}<span id="footer-location" data-i18n="Markdown · Local files">Markdown · Local files</span></span><span id="word-count"></span></footer></div>`;
   app.classList.add("workspace-layout");
+  // Keep the search and navigation at the top, with vault management in the footer.
+  app.querySelector(".sidebar-bottom")!.append(app.querySelector(".workspace-switch")!);
+  for (const shortcut of app.querySelectorAll<HTMLElement>(".main-nav > button")) {
+    shortcut.title = shortcut.querySelector("[data-i18n]")?.textContent ?? "";
+    shortcut.dataset.i18nTitle = shortcut.title;
+  }
   document.body.classList.toggle("desktop-window", !!window.notdownDesktop);
   const chrome = document.createElement("header"); chrome.className = "workspace-chrome";
   chrome.innerHTML = `<div class="workspace-chrome-tools"><button type="button" class="workspace-app-menu" aria-label="Notdown menu" title="Notdown menu" data-i18n-title="Notdown menu" data-i18n-aria-label="Notdown menu"><img src="${notdownIcon}" width="18" height="18" alt=""></button></div><div class="workspace-tab-area"><div id="workspace-tabs" role="tablist" aria-label="Workspace tabs" data-i18n-aria-label="Workspace tabs"></div><button type="button" class="workspace-new-tab" data-action="new-tab" aria-label="New tab" title="New tab" data-i18n-title="New tab" data-i18n-aria-label="New tab">+</button><div class="workspace-drag-space"></div></div>`;
@@ -616,20 +682,35 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   // A rapid Back then Forward can return to the still-mounted page. Keep its
   // editor/undo history instead of fetching a snapshot that could become stale.
   if (!library && current?.id === id) return true;
+  cancelOverviewRefresh();
   closeModal();
   closePageContextMenu();
-  const activePages = await refreshWorkspacePages();
-  if (!isCurrent()) return false;
   const requestedId = id;
-  const activePage = activePages.find(page => page.id === id || page.legacyIds?.includes(id));
-  id = activePage?.id ?? id;
-  if (!allowTrashed && !activePage) {
-    toast("This page is in Trash or no longer exists.");
-    return false;
+  let activePages: Page[] | undefined, page: Page;
+  if (directPageNavigation && !allowTrashed) {
+    try { page = await api<Page>(`/pages/${encodeURIComponent(id)}?active=true`); }
+    catch (error) {
+      if (!isCurrent()) return false;
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+      toast("This page is in Trash or no longer exists.");
+      scheduleOverviewRefresh();
+      return false;
+    }
+    if (!isCurrent()) return false;
+    id = page.id;
+    if (page.databaseId) databases = await readDatabaseList();
+  } else {
+    // Older servers and explicit Trash previews retain their full-list path.
+    activePages = await refreshWorkspacePages();
+    if (!isCurrent()) return false;
+    const activePage = activePages.find(page => page.id === id || page.legacyIds?.includes(id));
+    id = activePage?.id ?? id;
+    if (!allowTrashed && !activePage) {
+      toast("This page is in Trash or no longer exists.");
+      return false;
+    }
+    page = activePage ? structuredClone(activePage) : await api<Page>(`/pages/${encodeURIComponent(id)}`);
   }
-  // The list already contains full, fresh disk snapshots. A second GET would
-  // scan the whole vault again. Clone so edits cannot mutate the sidebar snapshot.
-  const page = activePage ? structuredClone(activePage) : await api<Page>(`/pages/${encodeURIComponent(id)}`);
   if (page.databaseProxy && page.databaseId && isWikiDatabase(databases.find(database => database.id === page.databaseId))) return loadDatabases(page.databaseId, isCurrent, databases.find(database => database.id === page.databaseId)?.viewIds[0]);
   if (page.databaseId && !allowTrashed && !isWikiDatabase(databases.find(database => database.id === page.databaseId))) return loadDatabases(page.databaseId, isCurrent);
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
@@ -638,7 +719,9 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   if (!isCurrent() || !(await save()) || !isCurrent()) return false;
   // Input may have arrived while fetching the destination. Save it before
   // destroying the outgoing DOM; never pair it with the destination revision.
-  pages = activePages;
+  pages = activePages ?? (pages.some(entry => entry.id === page.id)
+    ? pages.map(entry => entry.id === page.id ? structuredClone(page) : entry)
+    : [...pages, structuredClone(page)]);
   destroyEditor();
   current = page;
   wikiHomeSnapshot = homeSnapshot;
@@ -692,6 +775,7 @@ async function loadPage(id: string, allowTrashed = false, isCurrent = () => true
   renderDocument();
   renderSidebar();
   if (dirty) markDirty();
+  if (!activePages) scheduleOverviewRefresh();
   return true;
 }
 function refreshBreadcrumbs() {
@@ -1447,14 +1531,16 @@ async function renderDatabasePageProperties(page: Page) {
     databaseSchemaRevision = recoveredSchema ?? source.revision;
     host.className = "database-page-properties";
     const heading = document.createElement("h3"); heading.textContent = source.title; host.append(heading);
+    const references = [...pages.filter(item => item.id !== page.id), page];
+    projectSubitems(references, source);
     for (const field of source.properties.filter(field => field.type !== "title")) {
       const row = document.createElement("div"); row.className = "database-page-property";
       const label = document.createElement("span"); label.textContent = field.name;
-      const cell = propertyInput(field, page, page.properties[field.key], value => {
+      const cell = propertyInput(field, page, subitemValue(page, field), value => {
         if (current?.id !== page.id) return;
         current.properties[field.key] = value;
         markDirty();
-      });
+      }, false, references);
       row.append(label, cell); host.append(row);
     }
   } catch (error) { if (host.isConnected) { const note = document.createElement("p"); note.textContent = error instanceof Error ? error.message : "Database properties could not be loaded"; host.append(note); } }
@@ -3447,11 +3533,12 @@ async function boot() {
   if (vaultPrefix() === location.pathname) { location.replace(location.pathname + "/" + location.search + location.hash); return; }
   const [loaded, info] = await Promise.all([
     refreshWorkspacePages(),
-    api<{ vaultPath: string; vaultManagement?: boolean }>("/status"),
+    api<{ vaultPath: string; vaultManagement?: boolean; capabilities?: { pageNavigation?: number } }>("/status"),
   ]);
   pages = loaded;
   vaultPath = info.vaultPath;
   browserVaultManagement = !!info.vaultManagement;
+  directPageNavigation = info.capabilities?.pageNavigation === 1;
   void refreshPeople().catch(error => console.warn("People refresh:", error));
   const refreshReferences = () => { void Promise.all([refreshPeople(), refreshExternalEntities()]).catch(error => console.warn("Reference refresh:", error)); };
   window.addEventListener("focus", refreshReferences);

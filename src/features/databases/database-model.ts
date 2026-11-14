@@ -10,12 +10,13 @@ export interface DatabaseProperty {
   readOnly?: boolean;
   localRelation?: boolean;
   dependencyRole?: "blockedBy" | "blocking";
+  subitemRole?: "parent" | "children";
   inversePropertyId?: string;
   [key: string]: unknown;
 }
 export interface Database { id: string; title: string; kind?: "database" | "wiki"; icon?: string; pageId?: string; parent?: string | null; trashed?: boolean; dataSourceIds: string[]; viewIds: string[]; revision: string; [key: string]: unknown }
 export function isWikiDatabase(database: Database | undefined): boolean { return database?.kind === "wiki" || database?.notionWiki === true; }
-export interface DatabaseDataSource { id: string; title: string; ownerDatabaseId?: string; trashed?: boolean; properties: DatabaseProperty[]; dependencyAutoShift?: boolean; dependencyDatePropertyId?: string; revision: string; [key: string]: unknown }
+export interface DatabaseDataSource { id: string; title: string; ownerDatabaseId?: string; trashed?: boolean; properties: DatabaseProperty[]; subitems?: { enabled: boolean; parentPropertyId: string; childrenPropertyId: string }; dependencyAutoShift?: boolean; dependencyDatePropertyId?: string; revision: string; [key: string]: unknown }
 export const databaseViewTypes = ["table", "board", "gallery", "list", "calendar", "timeline", "chart", "feed", "dashboard", "form", "map"] as const;
 export type DatabaseViewType = typeof databaseViewTypes[number];
 export interface DatabaseView { id: string; databaseId: string; dataSourceId: string; name: string; icon?: string; type: DatabaseViewType; propertyIds?: string[]; rowOrder?: string[]; filters?: unknown[]; filterMode?: "and" | "or"; sorts?: unknown[]; layout?: DatabaseLayout; revision: string; [key: string]: unknown }
@@ -24,6 +25,9 @@ export interface DashboardWidget { id: string; viewId: string; databaseId: strin
 export interface DashboardRow { id: string; height: number; widgets: DashboardWidget[]; [key: string]: unknown }
 export interface DashboardFilter { sourceId: string; filters: unknown[]; filterMode?: "and" | "or" }
 export interface DatabaseLayout {
+  subitemDisplay?: "nested" | "flat" | "disabled";
+  subitemScope?: "parents" | "all" | "children";
+  subitemToggleOnTitle?: boolean;
   dashboardRows?: DashboardRow[];
   dashboardFilters?: DashboardFilter[];
   mapLatitudeId?: string; mapLongitudeId?: string;

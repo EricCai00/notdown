@@ -60,7 +60,7 @@ npm run dev
 
 打开 [localhost:4317](http://127.0.0.1:4317)。笔记存放在独立的知识库目录中，使用期间保持终端运行。Windows 用户安装依赖后，也可以双击 [start.cmd](start.cmd)。
 
-可从侧栏顶部或工作区设置中新建、切换知识库。自定义路径、服务重启和生产构建见[运行与开发指南](docs/architecture/DEVELOPMENT.zh-CN.md)。
+可从侧栏底部的知识库名称或工作区设置中新建、切换知识库。自定义路径、服务重启和生产构建见[运行与开发指南](docs/architecture/DEVELOPMENT.zh-CN.md)。
 
 ### Android 预览版
 

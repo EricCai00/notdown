@@ -2,7 +2,7 @@
   padding-top: 0;
 }
 
-.page-emblem .page-link-icon.image { width: 72px; height: 72px; }
+.page-emblem .page-link-icon.image { width: 96px; height: 96px; }
 
 .page-cover-region:empty {
   display: none;
@@ -10,7 +10,7 @@
 
 .page-cover-region {
   position: relative;
-  height: 280px;
+  height: 294px;
   margin: 0 -70px;
   overflow: hidden;
   background: #f2f1ef;
@@ -95,8 +95,15 @@
 
 .document-wrap.has-page-cover .page-emblem {
   z-index: 1;
-  margin-top: -40px;
-  margin-bottom: 38px;
+  margin-top: -54px;
+  margin-bottom: 52px;
+}
+
+/* System emoji include extra font ascent/descent. Keep their complete glyph
+   inside the hover target while aligning the visible icon to the cover edge. */
+.document-wrap.has-page-cover .page-emblem:has(.emoji) {
+  margin-top: -82px;
+  margin-bottom: 48px;
 }
 
 .document-wrap:not(.has-page-cover) #page-decoration:has(.page-emblem) .page-emblem {
@@ -116,7 +123,7 @@
 }
 
 .document-wrap.has-page-cover .document {
-  max-width: 730px;
+  max-width: 880px;
 }
 
 .document-wrap.has-page-cover #page-decoration {
@@ -323,9 +330,11 @@
 }
 
 @media (max-width: 720px) {
+  .page-emblem .page-link-icon.image { width: 60px; height: 60px; }
   .page-cover-region { height: 200px; margin: 0 -28px 0 -44px; }
   .page-cover-toolbar { right: 8px; top: 8px; }
-  .document-wrap.has-page-cover .page-emblem { margin-top: -32px; margin-bottom: 28px; }
+  .document-wrap.has-page-cover .page-emblem,
+  .document-wrap.has-page-cover .page-emblem:has(.emoji) { margin-top: -32px; margin-bottom: 28px; }
   .page-cover-picker-tabs { gap: 9px; padding: 0 8px; font-size: 12px; }
   .page-cover-picker-body { padding: 10px; }
   .page-cover-choice { height: 54px; }

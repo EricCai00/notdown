@@ -19,6 +19,7 @@ import { timelineEdit } from "./database-timeline-model";
 const layoutCleanup = new WeakMap<HTMLElement, () => void>();
 
 export type LayoutActions = {
+  subitems?: { expanded: ReadonlySet<string>; toggle(id: string): void; create(page: Page, properties: Record<string, unknown>): Promise<void> };
   dashboard?: {
     vaultKey: string;
     snapshot: import("./database-model").DatabaseSnapshot;
@@ -107,7 +108,7 @@ export function renderDatabaseLayout(host: HTMLElement, source: DatabaseDataSour
   if (view.type === "dashboard") { layoutCleanup.set(host, renderDashboard(host, source, rows, view, actions)); return; }
   const groupField = source.properties.find(field => field.id === view.layout?.groupBy);
   if (view.type === "calendar") { calendar(host, source, rows, fields, view, actions); return; }
-  if (view.type === "timeline") { renderTimeline(host, source, rows, fields, view, actions); return; }
+  if (view.type === "timeline") { const cleanup = renderTimeline(host, source, rows, fields, view, actions); if (cleanup) layoutCleanup.set(host, cleanup); return; }
   if (view.type === "chart") { layoutCleanup.set(host, renderChart(host, source, rows, view, actions)); return; }
   if (view.type === "board" && !groupField) {
     host.append(button("Choose a grouping property", "Choose a grouping property", actions.settings, "database-layout-setup")); return;

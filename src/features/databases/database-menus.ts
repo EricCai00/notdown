@@ -38,6 +38,7 @@ export function openGroupMenu(anchor: HTMLElement, hooks: { field: DatabasePrope
   return pop;
 }
 type ViewMenuHooks = {
+  subitems?(anchor: HTMLElement): void;
   allowedTypes?: DatabaseViewType[];
   wiki?: boolean;
   surface?: HTMLElement;
@@ -202,6 +203,7 @@ export function openViewMenu(anchor: HTMLElement, hooks: ViewMenuHooks, section?
     else {
       panel.append(menuButton("Layout", viewIcons[draft.type], button => { collect(); const render = () => { const child = pop.panel("Layout", button, 1); grid(child, render); layoutControls(child, 1); pop.footer(child); }; render(); }, viewLabel(draft.type), true));
       panel.append(menuButton("Property visibility", Eye, visibility, String(draft.propertyIds?.length ?? source.properties.length), true));
+      if (hooks.subitems) panel.append(menuButton("Sub-items", List, async () => { if (await pop.save()) { pop.destroy(); hooks.subitems!(anchor); } }, source.subitems?.enabled ? "On" : "Off", true));
       panel.append(menuButton("Filter", ListFilter, button => queries(button, "Filter"), "", true), menuButton("Sort", ArrowDownUp, button => queries(button, "Sort"), "", true));
       if (!["calendar", "chart"].includes(draft.type)) panel.append(menuButton("Group", Layers, grouping, "", true));
       panel.append(menuButton("Copy link to view", Link, async button => { try { const url = new URL(location.href); url.hash = routeHash({ kind: "database", id: draft.databaseId, viewId: draft.id }); await navigator.clipboard.writeText(url.href); setUIText(button.querySelector(".database-popover-label")!, "Link copied"); } catch { const p = pop.panel("Link to view", button, 1); const url = new URL(location.href); url.hash = routeHash({ kind: "database", id: draft.databaseId, viewId: draft.id }); const input = menuInput("View link", url.href, () => {}); (input.querySelector("input")!).readOnly = true; p.append(input); input.querySelector("input")!.select(); } }));

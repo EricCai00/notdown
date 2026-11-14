@@ -1,11 +1,12 @@
 import type { Page } from "../../shared/types";
 import type { DatabaseProperty, DatabaseDataSource, DatabaseView } from "./database-model";
 import { projectDependencies, projectedDependencyValue } from "./database-dependencies";
+import { includeSubitems, projectSubitems, subitemValue } from "./database-subitems";
 import { placeText } from "./database-place";
 
 export type ViewFilter = { propertyId: string; operator: string; value?: string };
 export const groupable = (field: DatabaseProperty) => ["select", "status", "checkbox"].includes(field.type);
-export const fieldValue = (page: Page, field: DatabaseProperty): unknown => field.type === "title" ? page.title : projectedDependencyValue(page, field);
+export const fieldValue = (page: Page, field: DatabaseProperty): unknown => field.type === "title" ? page.title : field.subitemRole === "children" ? subitemValue(page, field) : projectedDependencyValue(page, field);
 export function valueText(field: DatabaseProperty, value: unknown): string {
   if (value == null) return "";
   if (field.type === "place") return placeText(value);
@@ -56,6 +57,7 @@ function matches(page: Page, field: DatabaseProperty, filter: ViewFilter): boole
 }
 export function queryDatabase(pages: Page[], source: DatabaseDataSource, view: DatabaseView, search = ""): Page[] {
   pages = projectDependencies(pages, source);
+  projectSubitems(pages, source);
   const ranks = new Map((view.rowOrder ?? []).map((id, index) => [id, index]));
   const filters = (view.filters ?? []) as ViewFilter[];
   const query = search.trim().toLocaleLowerCase();
@@ -70,7 +72,7 @@ export function queryDatabase(pages: Page[], source: DatabaseDataSource, view: D
       return sort.direction === "descending" ? -order : order;
     });
   }
-  return rows;
+  return includeSubitems(rows, pages, source, view);
 }
 export function databaseGroups(rows: Page[], field: DatabaseProperty, view: DatabaseView) {
   const keys = field.type === "checkbox" ? ["true", "false"] : (field.options ?? []).map(option => option.id);

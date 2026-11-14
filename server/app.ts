@@ -1,4 +1,6 @@
 import express from "express";
+import { PageSnapshots } from "./page-snapshots";
+import { pageSnapshotHeader } from "../src/shared/page-snapshot";
 import { contentServices } from "./content-services";
 import { linkPreviews } from "./link-previews";
 import { bookmarks, bookmarkPageReader, type BookmarkProxyResolver } from "./bookmarks";
@@ -36,6 +38,7 @@ export function createApp(options: {
   bookmarkProxyResolver?: BookmarkProxyResolver;
 }) {
   const app = express();
+  const pageSnapshots = new PageSnapshots();
   let gitHistory: ReturnType<typeof createGitHistory>;
   const vault = createVault(options.vaultPath, { recycleFile: options.recycleFile, onChange: () => gitHistory?.changed() });
   gitHistory = createGitHistory(vault);
@@ -76,7 +79,7 @@ export function createApp(options: {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
       res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.setHeader("Access-Control-Allow-Headers", `Content-Type, ${pageSnapshotHeader}`);
     }
     if (req.method === "OPTIONS") {
       res.sendStatus(204);
@@ -362,13 +365,18 @@ export function createApp(options: {
         vaultManagement: !!options.vaultManagement,
         storage: "markdown",
         sync: "local-only",
-        capabilities: { pageActions: 1, sidebarDrag: 1, databases: 1, systemRecycleBin: process.platform === "win32" || !!options.recycleFile },
+        capabilities: { pageActions: 1, pageNavigation: 1, sidebarDrag: 1, databases: 1, systemRecycleBin: process.platform === "win32" || !!options.recycleFile },
       });
     }),
   );
   app.get(
     "/api/pages",
-    route(async (req, res) => res.json(await vault.list({ includeTrashed: req.query.includeTrashed === "true" }))),
+    route(async (req, res) => {
+      const pages = await vault.list({ includeTrashed: req.query.includeTrashed === "true" });
+      res.setHeader("Cache-Control", "no-store");
+      const previous = req.get(pageSnapshotHeader);
+      return res.json(previous ? pageSnapshots.encode(pages, previous) : pages);
+    }),
   );
   app.post(
     "/api/pages",
@@ -378,7 +386,10 @@ export function createApp(options: {
   );
   app.get(
     "/api/pages/:id",
-    route(async (req, res) => res.json(await vault.get(String(req.params.id)))),
+    route(async (req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      res.json(await vault.get(String(req.params.id), { activeOnly: req.query.active === "true" }));
+    }),
   );
   app.get("/api/pages/:id/source-file", route(async (req, res) => {
     const file = await vault.sourceFile(String(req.params.id));

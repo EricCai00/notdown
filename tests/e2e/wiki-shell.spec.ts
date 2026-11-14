@@ -15,6 +15,7 @@ for (const width of [1920, 1440]) test(`Home and collection preserve the same co
     return { cover: rect('.page-cover, .wiki-cover'), title: rect('#page-title, .database-title-input'), picker: rect('.wiki-view-trigger'), icon: rect('.page-emblem .page-link-icon, .database-title-icon .page-link-icon') };
   });
   await page.locator('.wiki-view-trigger').click();
+  await expect(page.locator('.wiki-view-menu')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('.wiki-view-trigger')).toBeFocused();
   await page.locator('#page-title').fill('Covered wiki revised');

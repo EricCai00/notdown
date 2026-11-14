@@ -10,6 +10,7 @@ import { isWikiDatabase } from "../features/databases/database-model.js";
 import { canonical } from "../sync/protocol.js";
 import { hasDependencyCycle, relationIds } from "../features/databases/database-dependencies.js";
 import { validCoordinates } from "../features/databases/database-place.js";
+import { subitemFields } from "../features/databases/database-subitems.js";
 
 type Index = { version: 1; pages: Record<string, Record<string, unknown>>; [key: string]: unknown };
 type PresentationInput = { title?: string; icon?: string; cover?: string; coverPosition?: number | null; baseRevision: string; hostRevision?: string };
@@ -58,6 +59,7 @@ function properties(value: unknown): asserts value is DatabaseProperty[] {
     if (field.readOnly !== undefined && typeof field.readOnly !== "boolean") throw new VaultError(400, "Invalid readOnly flag");
     if (field.localRelation !== undefined && (typeof field.localRelation !== "boolean" || field.type !== "relation")) throw new VaultError(400, "Invalid local relation");
     if (field.dependencyRole !== undefined && (field.type !== "relation" || !["blockedBy", "blocking"].includes(field.dependencyRole))) throw new VaultError(400, "Invalid dependency property");
+    if (field.subitemRole !== undefined && (field.type !== "relation" || !["parent", "children"].includes(field.subitemRole) || field.dependencyRole)) throw new VaultError(400, "Invalid sub-item property");
     if (field.options !== undefined) {
       if (!Array.isArray(field.options) || field.options.length > 1000) throw new VaultError(400, "Invalid field options");
       const seen = new Set();
@@ -71,8 +73,12 @@ function properties(value: unknown): asserts value is DatabaseProperty[] {
   if (value.filter(field => field.type === "title").length !== 1) throw new VaultError(400, "A data source must contain exactly one title property");
   for (const role of ["blockedBy", "blocking"]) if (value.filter(field => field.dependencyRole === role).length > 1) throw new VaultError(400, "A data source has one dependency pair");
   for (const field of value) if (field.dependencyRole === "blocking" && !value.some(forward => forward.id === field.inversePropertyId && forward.dependencyRole === "blockedBy" && forward.localRelation)) throw new VaultError(400, "Blocking requires its Blocked by property");
+  for (const role of ["parent", "children"]) if (value.filter(field => field.subitemRole === role).length > 1) throw new VaultError(400, "A data source has one sub-item pair");
+  for (const field of value) if (field.subitemRole === "children" && !value.some(parent => parent.id === field.inversePropertyId && parent.subitemRole === "parent" && parent.localRelation)) throw new VaultError(400, "Sub-items require their Parent item property");
 }
 export function validateDatabaseValue(field: DatabaseProperty, value: unknown) {
+  if (field.subitemRole === "children") throw new VaultError(422, "Sub-items are derived from Parent item");
+  if (field.subitemRole === "parent" && value !== null && (!Array.isArray(value) || value.length > 1)) throw new VaultError(422, "A sub-item can have only one parent");
   if (field.dependencyRole === "blocking") throw new VaultError(422, "Blocking is derived from Blocked by");
   if (databasePropertyReadOnly(field)) throw new VaultError(422, "This property is a read-only imported snapshot");
   if (value === null && field.type !== "title") return;
@@ -204,6 +210,9 @@ export function createDatabases(host: Host) {
     if (view.layout !== undefined) {
       const layout = view.layout;
       if (!object(layout)) throw new VaultError(400, "Invalid view layout");
+      if (layout.subitemDisplay !== undefined && !["nested", "flat", "disabled"].includes(layout.subitemDisplay)) throw new VaultError(400, "Invalid sub-item display");
+      if (layout.subitemScope !== undefined && !["parents", "all", "children"].includes(layout.subitemScope)) throw new VaultError(400, "Invalid sub-item scope");
+      if (layout.subitemToggleOnTitle !== undefined && typeof layout.subitemToggleOnTitle !== "boolean") throw new VaultError(400, "Invalid sub-item toggle position");
       for (const key of ["mapLatitudeId", "mapLongitudeId"] as const) if (layout[key] !== undefined && (typeof layout[key] !== "string" || layout[key] && !fields.some(field => field.id === layout[key] && field.type === "number"))) throw new VaultError(400, "Map coordinates require numeric properties");
       if (layout.mapPlaceId !== undefined && (typeof layout.mapPlaceId !== "string" || layout.mapPlaceId && !fields.some(field => field.id === layout.mapPlaceId && field.type === "place"))) throw new VaultError(400, "Map by requires a Place property");
       if (layout.mapColorBy !== undefined && (typeof layout.mapColorBy !== "string" || layout.mapColorBy && !fields.some(field => field.id === layout.mapColorBy && ["select", "status", "multi_select"].includes(field.type)))) throw new VaultError(400, "Map colors require a select, multi-select or status property");
@@ -507,6 +516,10 @@ export function createDatabases(host: Host) {
         return merged;
       });
       properties(proposed.properties);
+      if (proposed.subitems !== undefined) {
+        const pair = subitemFields(proposed);
+        if (!object(proposed.subitems) || typeof proposed.subitems.enabled !== "boolean" || !pair || pair.parent.id === pair.children.id || pair.parent.subitemRole !== "parent" || !pair.parent.localRelation || pair.children.subitemRole !== "children") throw new VaultError(400, "Choose a valid sub-item relation pair");
+      }
       for (const field of proposed.properties) {
         const previous = current.properties.find(item => item.id === field.id);
         if (previous && previous.key !== field.key) throw new VaultError(422, "A field key is stable; rename its display name instead");
@@ -591,7 +604,7 @@ export function createDatabases(host: Host) {
       if (field.localRelation) {
         const ids = relationIds(input.value);
         if (input.value !== null && (!Array.isArray(input.value) || ids.length !== input.value.length) || ids.some(id => id === pageId || !ctx.pages.some(target => target.id === id && target.dataSourceId === sourceId && !target.trashed))) throw new VaultError(422, "Choose other records in this data source");
-        if (field.dependencyRole === "blockedBy" && hasDependencyCycle(ctx.pages.filter(item => item.dataSourceId === sourceId), field, pageId, input.value)) throw new VaultError(422, "Dependencies cannot form a cycle");
+        if ((field.dependencyRole === "blockedBy" || field.subitemRole === "parent") && hasDependencyCycle(ctx.pages.filter(item => item.dataSourceId === sourceId), field, pageId, input.value)) throw new VaultError(422, "Parent and dependency relations cannot form a cycle");
       }
       const overlay = documentMetadata(page.body).values;
       if (field.type === "title" ? own(overlay, "title") : own(overlay, field.key) || object(overlay.properties) && own(overlay.properties, field.key)) throw new VaultError(422, "This value is defined in document metadata. Edit its YAML or Pandoc source.", { propertyId: field.id, source: "document" });
@@ -634,7 +647,7 @@ export function createDatabases(host: Host) {
         if (field.localRelation) {
           const pages = (await host.scanPages()).filter(item => item.dataSourceId === page.dataSourceId), ids = relationIds(value);
           if (value !== null && (!Array.isArray(value) || ids.length !== value.length) || ids.some(id => id === page.id || !pages.some(target => target.id === id && !target.trashed))) throw new VaultError(422, "Choose other records in this data source");
-          if (field.dependencyRole === "blockedBy" && hasDependencyCycle(pages, field, page.id, value)) throw new VaultError(422, "Dependencies cannot form a cycle");
+          if ((field.dependencyRole === "blockedBy" || field.subitemRole === "parent") && hasDependencyCycle(pages, field, page.id, value)) throw new VaultError(422, "Parent and dependency relations cannot form a cycle");
         }
       }
     },

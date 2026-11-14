@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PageBacklinks } from "../../src/features/pages/page-backlinks";
-import { extractLinks } from "../../src/document/document-format";
+import { extractPageReferences } from "../../src/document/document-format";
 import type { Page } from "../../src/shared/types";
 
 function page(id: string, title: string, body = ""): Page {
@@ -11,7 +11,7 @@ function page(id: string, title: string, body = ""): Page {
 
 test("backlinks reuse unchanged source across fresh snapshots and invalidate unsaved body or dialect edits", () => {
   let parses = 0;
-  const cache = new PageBacklinks((...args) => { parses++; return extractLinks(...args); });
+  const cache = new PageBacklinks((...args) => { parses++; return extractPageReferences(...args); });
   const target = page("target", "Target");
   const source = page("source", "Source", "[[Target]]");
   const pages = [target, source];
@@ -30,17 +30,20 @@ test("backlinks reuse unchanged source across fresh snapshots and invalidate uns
 });
 
 test("backlinks re-resolve title changes, duplicate names, removed pages and legacy aliases", () => {
-  const cache = new PageBacklinks();
+  let parses = 0;
+  const cache = new PageBacklinks((...args) => { parses++; return extractPageReferences(...args); });
   const target = page("target", "Target");
   const source = page("source", "Source", "[[Target]]");
   const pages = [target, source];
   assert.equal(cache.incoming(pages, target).length, 1);
+  assert.equal(parses, 1);
   target.title = "Renamed";
   assert.deepEqual(cache.incoming(pages, target), []);
   target.title = "Target";
   const duplicate = page("duplicate", "Target");
   assert.deepEqual(cache.incoming([...pages, duplicate], target), []);
   assert.equal(cache.incoming(pages, target).length, 1);
+  assert.equal(parses, 2); // Adding a page parsed only that new page.
   assert.deepEqual(cache.incoming([target], target), []);
   source.body = "[Legacy](#page/old-id)";
   assert.deepEqual(cache.incoming(pages, target), []);
@@ -48,4 +51,6 @@ test("backlinks re-resolve title changes, duplicate names, removed pages and leg
   assert.equal(cache.incoming(pages, target).length, 1);
   target.legacyIds = [];
   assert.deepEqual(cache.incoming(pages, target), []);
+  // The removed source is parsed once when re-added; title/alias changes reuse it.
+  assert.equal(parses, 3);
 });

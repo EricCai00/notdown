@@ -25,7 +25,7 @@ test("Notdown import restores unknown blocks and keeps a child page and link to 
   const linked = page.locator('.ProseMirror [data-pm-node-type="block.link_to_page"]');
   await expect(owned).toHaveAttribute("data-page-id", child.id);
   await expect(linked).toHaveAttribute("data-page-id", child.id);
-  await expect(linked.locator(".page-link-reference-arrow")).toHaveCount(0);
+  await expect(linked.locator(".page-link-reference-arrow")).toBeVisible();
   await expect(owned.locator(".page-link-reference-arrow")).toHaveCount(0);
   await page.getByRole("button", { name: "Source", exact: true }).click();
   await page.getByRole("group", { name: "Editing view", exact: true }).getByRole("button", { name: "Page", exact: true }).click();

@@ -32,6 +32,9 @@ import { queryDatabase, groupable, databaseGroups, fieldValue } from "./database
 import { renderDatabaseLayout, disposeDatabaseLayout, groupHeading } from "./database-layouts";
 import { openViewMenu, openPropertyMenu, openGroupMenu } from "./database-menus";
 import { DatabasePopover } from "./database-popover";
+import { nestedSubitems, subitemFields, subitemRows, projectSubitems, type SubitemRow } from "./database-subitems";
+import { subitemToggle, newSubitemButton, subitemSummary } from "./database-subitems-view";
+import { subitemSettings } from "./database-subitems-settings";
 import { referencePicker } from "./database-reference-picker";
 import { dependencyValue, relationIds } from "./database-dependencies";
 import { scheduleDependencies, type RecordChange } from "./database-scheduling";
@@ -213,6 +216,26 @@ function formDialog(title: string, content: string, submit: (form: FormData) => 
 
 export class DatabaseWorkspace {
   private selectedRows = new Set<string>();
+  private expandedSubitems = new Map<string, Set<string>>();
+  private subitemExpansion() { let set = this.expandedSubitems.get(this.view.id); if (!set) this.expandedSubitems.set(this.view.id, set = new Set()); return set; }
+  private toggleSubitem(id: string) { void this.flush().then(ok => { if (!ok) return; const set = this.subitemExpansion(); set.has(id) ? set.delete(id) : set.add(id); this.scheduleRows(); }); }
+  private addSubitem(page: Page) { void (async () => { if (!await this.flush() || !await this.closePeek()) return; const pair = subitemFields(this.source); if (!pair || !this.source.subitems?.enabled) return; this.subitemExpansion().add(page.id); this.addRow({ [pair.parent.key]: [{pageId:page.id,title:page.title}] }); })().catch(error=>this.message(error.message)); }
+  private editSubitems(anchor: HTMLElement) {
+    this.menu?.destroy(); const source = this.source, view = this.view;
+    const flush = async () => { if (!await this.flushRecords() || this.peek && !await this.peek.flush()) throw new Error("Save pending changes first"); };
+    this.menu = subitemSettings(anchor, this.host, source, view, {
+      source: async patch => {
+        await flush();
+        const saved = await api<DatabaseDataSource>(`/data-sources/${source.id}`, {method:"PUT",body:JSON.stringify({baseRevision:source.revision,...patch})});
+        this.snapshot!.dataSources = this.snapshot!.dataSources.map(item => item.id === saved.id ? saved : item); this.render();
+      },
+      view: async patch => {
+        await flush();
+        const saved = await api<DatabaseView>(`/database-views/${view.id}`, {method:"PUT",body:JSON.stringify({baseRevision:view.revision,layout:{...view.layout,...patch}})});
+        this.snapshot!.views = this.snapshot!.views.map(item => item.id === saved.id ? saved : item); this.render();
+      },
+    });
+  }
   private updateSelection?: () => void;
   private calendarAnchor = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
   private menu?: DatabasePopover;
@@ -263,7 +286,7 @@ export class DatabaseWorkspace {
     for (const element of this.host.querySelectorAll<HTMLElement>("[data-external-property]")) {
       const page = this.snapshot.pages.find(page => page.id === element.dataset.externalPage);
       const field = this.snapshot.dataSources.flatMap(source => source.properties).find(field => field.id === element.dataset.externalProperty);
-      if (page && field) element.replaceWith(propertyInput(field, page, page.properties[field.key], () => {}));
+      if (page && field) element.replaceWith(this.recordCell(page, field, fieldValue(page, field)));
     }
   };
   private pointerUp = () => { this.pointerDown = false; if (this.rowsNeedRefresh) this.scheduleRows(); };
@@ -662,6 +685,7 @@ export class DatabaseWorkspace {
     const mount = this.host.querySelector<HTMLElement>(".database-alternate-layout"); if (!mount) return;
     const source = this.source, view = this.view;
     renderDatabaseLayout(mount, source, this.rows(source), databaseViewProperties(source, view, this.snapshot!.database), view, {
+      subitems: {expanded:this.subitemExpansion(),toggle:id=>this.toggleSubitem(id),create:(page,properties)=>this.createTimelineSubitem(page,properties)},
       open: page => { if (this.snapshot!.dataSources.some(source => source.id === page.dataSourceId)) void this.openPeek(page.id); else void this.flush().then(ok => { if (ok) void this.hooks.openPage(page.id); }); },
       dashboard: {
         vaultKey: this.hooks.vaultKey,
@@ -723,12 +747,31 @@ export class DatabaseWorkspace {
       this.rowsNeedRefresh = false;
       const rows = this.rows(this.source), field = this.source.properties.find(field => field.id === this.view.layout?.groupBy);
       const groups = field ? databaseGroups(rows, field, this.view) : undefined;
-      const ordered = groups ? groups.flatMap(group => group.pages) : rows;
+      const nested = nestedSubitems(this.source,this.view);
+      const hierarchy = (pages: Page[]): SubitemRow[] => nested ? subitemRows(pages,this.source,this.subitemExpansion()) : pages.map(page=>({page,depth:0,children:0,expanded:false}));
+      const ordered = (groups ? groups.flatMap(group => hierarchy(group.pages)) : hierarchy(rows)).map(row=>row.page);
       const visible = new Set(ordered.filter(page => !field || !this.view.layout?.collapsedGroups?.includes(String(fieldValue(page, field) ?? ""))).map(page => page.id));
-      body.querySelectorAll(".database-table-group,.database-group-columns,.database-group-add").forEach(row => row.remove());
+      body.querySelectorAll(".database-table-group,.database-group-columns,.database-group-add,.database-subitem-add-row").forEach(row => row.remove());
       const elements = new Map(Array.from(body.querySelectorAll<HTMLTableRowElement>("tr[data-page-id]"), row => [row.dataset.pageId!, row]));
       for (const [id, element] of elements) element.hidden = !visible.has(id);
       const template = this.host.querySelector<HTMLTableRowElement>("thead tr")!, nodes: Element[] = [];
+      for (const row of elements.values()) { row.querySelectorAll(".database-subitem-toggle,.database-subitem-summary").forEach(button=>button.remove()); row.querySelector(".database-subitem-cell")?.classList.remove("database-subitem-cell"); delete row.dataset.subitemDepth; row.style.removeProperty("--subitem-depth"); }
+      const treeNodes = (pages: Page[]) => {
+        const result: Element[] = [], open: SubitemRow[] = [];
+        const add = (item: SubitemRow) => {
+          const tr=document.createElement("tr");tr.className="database-subitem-add-row";tr.style.setProperty("--subitem-depth",String(item.depth+1));
+          const gutter = document.createElement("td"); gutter.className = "database-selection-gutter"; tr.append(gutter);
+          const td=document.createElement("td");td.colSpan=template.children.length-1;const button=newSubitemButton(item.page.title,()=>this.addSubitem(item.page));button.disabled=!!this.source.unavailable||!!this.source.trashed;td.append(button);tr.append(td);result.push(tr);
+        };
+        for (const item of hierarchy(pages)) {
+          while (open.length && open.at(-1)!.depth >= item.depth) add(open.pop()!);
+          const row=elements.get(item.page.id);if(!row)continue;
+          if (nested) { row.dataset.subitemDepth=String(item.depth);row.style.setProperty("--subitem-depth",String(item.depth)); if(item.expanded)open.push(item); }
+          result.push(row);
+        }
+        while(open.length)add(open.pop()!);
+        return result;
+      };
       this.host.querySelector<HTMLElement>("thead")!.hidden = !!groups?.length;
       this.host.querySelector<HTMLElement>(".database-add-row")!.hidden = !!groups?.length;
       if (groups && field) for (const group of groups) {
@@ -743,18 +786,28 @@ export class DatabaseWorkspace {
         const columns = template.cloneNode(true) as HTMLTableRowElement; columns.className = "database-group-columns";
         for (const th of columns.querySelectorAll<HTMLElement>("[data-property-id]")) th.querySelector("button")!.onclick = () => { const property = this.source.properties.find(item => item.id === th.dataset.propertyId)!; void this.flush().then(async ok => { if (ok && await this.closePeek()) this.editProperty(property, undefined, th.querySelector("button")!); }); };
         columns.querySelector<HTMLButtonElement>(".database-add-column button")!.onclick = () => { void this.flush().then(ok => { if (ok) this.editProperty(); }); };
-        nodes.push(columns, ...group.pages.map(page => elements.get(page.id)!).filter(Boolean));
+        nodes.push(columns, ...treeNodes(group.pages));
         const footer = document.createElement("tr"); footer.className = "database-group-add"; const td = document.createElement("td"); td.colSpan = template.children.length;
         const add = document.createElement("button"); add.className = "database-add-row"; add.innerHTML = `${glyph(Plus)}New page`; add.setAttribute("aria-label", `New page in ${group.name}`);
         add.onclick = () => { void this.flush().then(ok => { if (ok) this.addRow({ [field.key]: group.key === "" ? null : field.type === "checkbox" ? group.key === "true" : group.key }); }); };
         td.append(add); footer.append(td); nodes.push(footer);
-      } else nodes.push(...ordered.map(page => elements.get(page.id)!).filter(Boolean));
+      } else nodes.push(...treeNodes(rows));
       nodes.forEach((node, index) => { if (body.children[index] !== node) body.insertBefore(node, body.children[index] ?? null); });
       this.updateSelection?.();
       const count = this.host.querySelector(".database-row-count"); if (count) count.textContent = `${ordered.length} ${ordered.length === 1 ? "page" : "pages"}`; this.updateLoadMore();
-      for (const page of ordered) for (const field of this.source.properties.filter(field => field.dependencyRole === "blocking")) {
+      for (const page of ordered) for (const field of this.source.properties.filter(field => field.dependencyRole === "blocking" || field.subitemRole === "children")) {
         const td = elements.get(page.id)?.querySelector<HTMLElement>(`td[data-property-id="${CSS.escape(field.id)}"]`);
-        td?.replaceChildren(this.recordCell(page, field, dependencyValue(page, field, this.source, this.snapshot!.pages)));
+        td?.replaceChildren(this.recordCell(page, field, field.subitemRole === "children" ? fieldValue(page,field) : dependencyValue(page, field, this.source, this.snapshot!.pages)));
+      }
+      const titleId = this.source.properties.find(field => field.type === "title")?.id;
+      for (const item of groups ? groups.flatMap(group => hierarchy(group.pages)) : hierarchy(rows)) {
+        const row = elements.get(item.page.id); if (!row) continue;
+        const title = titleId ? row.querySelector<HTMLElement>(`td[data-property-id="${CSS.escape(titleId)}"] .database-cell`) : null;
+        if (nested) {
+          const cell = this.view.layout?.subitemToggleOnTitle ? title : row.querySelector<HTMLElement>("td[data-property-id] .database-cell");
+          cell?.classList.add("database-subitem-cell"); cell?.prepend(subitemToggle(item, () => this.toggleSubitem(item.page.id)));
+        }
+        const summary = subitemSummary(item.page, this.source, this.view); if (summary) title?.append(summary);
       }
     }, 0);
   }
@@ -1021,7 +1074,7 @@ export class DatabaseWorkspace {
     if (!row) { this.renderAlternate(); return; }
     for (const td of row.querySelectorAll<HTMLElement>("td[data-property-id]")) {
       const field = this.source.properties.find(field => field.id === td.dataset.propertyId); if (!field) continue;
-      td.replaceChildren(this.recordCell(page, field, dependencyValue(page, field, this.source, this.snapshot!.pages) ?? fieldValue(page, field)));
+      td.replaceChildren(this.recordCell(page, field, field.subitemRole === "children" ? fieldValue(page, field) : dependencyValue(page, field, this.source, this.snapshot!.pages) ?? fieldValue(page, field)));
       td.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input,textarea,select,.database-select-control,.database-place-cell button").forEach(control => control.disabled = true);
     }
     this.scheduleRows();
@@ -1044,7 +1097,7 @@ export class DatabaseWorkspace {
       const mount = this.host.querySelector<HTMLElement>(".database-peek-mount")!;
       if (!this.peek) this.peek = new DatabasePeek(mount, {
         vaultKey: this.hooks.vaultKey, pages: () => this.snapshot!.pages,
-        propertyInput: (field, page, value, commit) => propertyInput(field.dependencyRole === "blocking" ? { ...field, readOnly: true } : field, page, dependencyValue(page, field, source, this.snapshot!.pages) ?? value, commit, false, this.snapshot!.pages),
+        propertyInput: (field, page, value, commit) => { projectSubitems([...this.snapshot!.pages.filter(item => item.id !== page.id), page], source); return propertyInput(field.dependencyRole === "blocking" ? { ...field, readOnly: true } : field, page, field.subitemRole === "children" ? fieldValue(page,field) : dependencyValue(page, field, source, this.snapshot!.pages) ?? value, commit, false, this.snapshot!.pages); },
         addProperty: async () => { if (await this.flush()) this.editProperty(undefined, this.peek?.pageId); },
         openFull: pageId => this.hooks.openPage(pageId),
         closed: () => { void this.closePeek(); },
@@ -1055,6 +1108,25 @@ export class DatabaseWorkspace {
       this.host.querySelectorAll<HTMLElement>("tr[data-page-id]").forEach(row => row.classList.toggle("database-row-peek", row.dataset.pageId === id));
       this.host.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".database-table input,.database-table textarea,.database-table select,.database-table .database-select-control,.database-table .database-place-cell button").forEach(input => input.disabled = true);
     } catch (error) { this.message(error instanceof Error ? error.message : "Could not open this record"); }
+  }
+  private async createTimelineSubitem(parent: Page, properties: Record<string, unknown>) {
+    if (this.layoutSaving) return;
+    const source = this.source, view = this.view, pair = subitemFields(source);
+    if (!source.subitems?.enabled || !pair || source.unavailable || source.trashed) return;
+    this.layoutSaving = true;
+    try {
+      if (!await this.flush() || !await this.closePeek()) throw new Error("Save pending changes before creating a page");
+      if (!this.alive || this.view.id !== view.id) return;
+      const saved = await api<Page>(`/data-sources/${source.id}/records`, { method: "POST", body: JSON.stringify({ title: "Untitled", properties: { ...properties, [pair.parent.key]: [{pageId:parent.id,title:parent.title}] }, baseRevision: source.revision }) });
+      const order = [...new Set([...(view.rowOrder ?? []), ...this.snapshot!.pages.filter(page => page.dataSourceId === source.id && !page.trashed).map(page => page.id), saved.id])];
+      this.snapshot!.pages.push(saved); this.hooks.changed(saved); this.subitemExpansion().add(parent.id);
+      this.orderDraft = { viewId: view.id, baseRevision: view.revision, rowOrder: order }; this.persist();
+      this.timelineTitleId = saved.id;
+      await this.flushOrder();
+    } finally {
+      this.layoutSaving = false;
+      if (this.alive) this.renderAlternate();
+    }
   }
   private async createTimelineSuccessor(predecessor: Page, properties: Record<string, unknown>) {
     if (this.layoutSaving) return;
@@ -1192,6 +1264,7 @@ export class DatabaseWorkspace {
     if (property && section === "Group") view.layout = { ...view.layout, groupBy: property.id };
     this.menu = openViewMenu(anchor ?? this.host.querySelector<HTMLElement>(section === "Filter" ? "[data-db-filter]" : section === "Sort" ? "[data-db-sort]" : "[data-db-view]")!, {
       sources: this.snapshot!.dataSources, view, surface: this.host, wiki: isWikiDatabase(this.snapshot!.database), manageSources: isWikiDatabase(this.snapshot!.database) ? undefined : (pop, button, level) => { void this.manageSources(pop, button, level).catch(error => this.message(error.message)); },
+      subitems: isWikiDatabase(this.snapshot!.database) ? undefined : anchor => this.editSubitems(anchor),
       save: async draft => {
         const saved = await api<DatabaseView>(`/database-views/${view.id}`, { method: "PUT", body: JSON.stringify({ baseRevision: view.revision, name: draft.name, icon: draft.icon, type: draft.type, layout: draft.layout, filterMode: draft.filterMode, propertyIds: draft.propertyIds, filters: draft.filters, sorts: draft.sorts }) });
         view.revision = saved.revision; draft.revision = saved.revision;

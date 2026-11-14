@@ -446,6 +446,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
   async function wikiParent(databaseId: string) {
     return isWikiDatabase(((await readMetadata()).databases as Record<string, Database> | undefined)?.[databaseId]);
   }
+  // Cache decoding, never disk reads: even same-size edits with restored mtimes
+  // must be visible to readers and to the revision checks before a write.
+  const decodedPages = new Map<string, { source: string; metadata: string; stored: StoredPage }>();
   async function scan(): Promise<Map<string, StoredPage>> {
     await prepareRead();
     const index = await readMetadata();
@@ -463,29 +466,44 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         candidates.push(entry); renamed.set(metadata.sourceHash, candidates);
       }
     }
-    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-      if (
-        !entry.isFile() ||
-        entry.isSymbolicLink() ||
-        !entry.name.toLowerCase().endsWith(".md")
-      )
-        continue;
-      const filePath = path.join(pagesPath, entry.name);
-      const stat = await fs.lstat(filePath);
-      if (!stat.isFile() || stat.isSymbolicLink()) continue;
-      const source = await fs.readFile(filePath, "utf8");
-      let metadataEntry = byFile.get(entry.name);
-      // An unambiguous byte-identical rename keeps its stable identity.
-      if (!metadataEntry) {
-        const candidates = renamed.get(hash(source)) ?? [];
-        if (candidates.length === 1) metadataEntry = candidates[0];
+    const files = entries.filter(entry => entry.isFile() && !entry.isSymbolicLink() && entry.name.toLowerCase().endsWith(".md"))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const liveFiles = new Set(files.map(entry => path.join(pagesPath, entry.name)));
+    for (const file of decodedPages.keys()) if (!liveFiles.has(file)) decodedPages.delete(file);
+    // Bound pending IO and preserve deterministic duplicate/rename resolution.
+    for (let offset = 0; offset < files.length; offset += 16) {
+      const batch = await Promise.allSettled(files.slice(offset, offset + 16).map(async entry => {
+        const filePath = path.join(pagesPath, entry.name);
+        const stat = await fs.lstat(filePath);
+        if (!stat.isFile() || stat.isSymbolicLink()) return undefined;
+        return { entry, filePath, source: await fs.readFile(filePath, "utf8") };
+      }));
+      for (const read of batch) {
+        if (read.status === "rejected") throw read.reason;
+        if (!read.value) continue;
+        const { entry, filePath, source } = read.value;
+        let metadataEntry = byFile.get(entry.name);
+        // An unambiguous byte-identical rename keeps its stable identity.
+        if (!metadataEntry) {
+          const candidates = renamed.get(hash(source)) ?? [];
+          if (candidates.length === 1) metadataEntry = candidates[0];
+        }
+        const defaults = metadataEntry ? { ...entryMetadata(metadataEntry[1]), id: metadataEntry[0] } : {};
+        const metadata = canonical(defaults), cached = decodedPages.get(filePath);
+        let decoded: StoredPage;
+        if (cached?.source === source && cached.metadata === metadata) decoded = cached.stored;
+        else {
+          decoded = decode(source, filePath, defaults);
+          decodedPages.set(filePath, { source, metadata, stored: decoded });
+        }
+        // Callers and the trash projection may mutate their snapshot, never the cache.
+        const stored = { ...decoded, metadata: structuredClone(decoded.metadata), page: structuredClone(decoded.page) };
+        const database = databaseFiles.document(stored.page.id);
+        if (database && (database.kind !== "wiki" || database.homePageId !== stored.page.id)) throw new VaultError(422, "Database identity collides with a Markdown file; both originals were preserved");
+        if (result.has(stored.page.id))
+          throw new VaultError(422, `Duplicate page ID: ${stored.page.id}`);
+        result.set(stored.page.id, stored);
       }
-      const stored = decode(source, filePath, metadataEntry ? { ...entryMetadata(metadataEntry[1]), id: metadataEntry[0] } : {});
-      const database = databaseFiles.document(stored.page.id);
-      if (database && (database.kind !== "wiki" || database.homePageId !== stored.page.id)) throw new VaultError(422, "Database identity collides with a Markdown file; both originals were preserved");
-      if (result.has(stored.page.id))
-        throw new VaultError(422, `Duplicate page ID: ${stored.page.id}`);
-      result.set(stored.page.id, stored);
     }
     for (const stored of databaseFiles.proxies(index, new Set(result.keys()))) result.set(stored.page.id, stored);
     const hiddenSources = new Set(Object.values(index.dataSources as Record<string, { id: string; trashed?: boolean }> ?? {}).filter(source => source.trashed).map(source => source.id));
@@ -494,9 +512,9 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     for (const id of hiddenMembers) { const stored = result.get(id)!; stored.page.trashed = true; stored.page.dataSourceTrashed = true; }
     return result;
   }
-  async function indexedPage(id: string): Promise<StoredPage | undefined> {
-    await prepareRead();
-    const index = await readMetadata(), entry = index.pages[id];
+  async function indexedPage(id: string, index?: MetadataFile): Promise<StoredPage | undefined> {
+    if (!index) { await prepareRead(); index = await readMetadata(); }
+    const entry = index.pages[id];
     const file = entry?.file;
     // Legacy identities, external renames and ambiguous file mappings use the full scanner.
     if (typeof file !== "string" || path.basename(file) !== file || /[/\\]/.test(file) || !file.toLowerCase().endsWith(".md") ||
@@ -504,6 +522,25 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
     const filePath = path.join(pagesPath, file), source = await readOptional(filePath);
     if (source === null) return;
     return decode(source, filePath, { ...entryMetadata(entry), id });
+  }
+  async function activePage(id: string): Promise<Page> {
+    await prepareRead();
+    const index = await readMetadata();
+    const target = await indexedPage(id, index);
+    // Ordinary pages need only their own bytes and live ancestors. Database
+    // membership, aliases, renames and uncertain mappings use the full scanner.
+    let ancestor = target;
+    const visited = new Set<string>();
+    while (ancestor && !ancestor.page.databaseId && !ancestor.page.dataSourceId && !visited.has(ancestor.page.id)) {
+      if (ancestor.page.trashed) throw new VaultError(404, "Page is in Trash or no longer exists");
+      visited.add(ancestor.page.id);
+      if (!ancestor.page.parent) return target!.page;
+      ancestor = await indexedPage(ancestor.page.parent, index);
+    }
+    const all = await scan(), result = findStoredPage(all, id);
+    if (!result || trashedPageIds([...all.values()].map(item => item.page)).has(result.page.id))
+      throw new VaultError(404, "Page is in Trash or no longer exists");
+    return result.page;
   }
   async function pagesForUpdate(id: string, input: PageInput) {
     if (options.privateReplica && childSettings(await readMetadata()).allowUninserted && Object.keys(input).every(key => ["body", "title", "syntax", "bodyFormat"].includes(key))) {
@@ -1489,9 +1526,10 @@ export function createVault(vaultPath: string, platform: VaultPlatform, options:
         });
       });
     },
-    async get(id: string): Promise<Page> {
+    async get(id: string, readOptions: { activeOnly?: boolean } = {}): Promise<Page> {
       return serialize(async () => {
       assertId(id);
+      if (readOptions.activeOnly) return activePage(id);
       const result = (options.privateReplica ? await indexedPage(id) : undefined) ?? findStoredPage(await scan(), id);
       if (!result) throw new VaultError(404, "Page not found");
       return result.page;

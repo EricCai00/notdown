@@ -22,7 +22,7 @@ export function referencePicker(field: DatabaseProperty, page: Page, value: unkn
     const pop = new DatabasePopover(control, field.name), panel = pop.panel(field.name, control, 0, 280);
     optionHost?.append(panel);
     const search = document.createElement("input"); search.type = "search"; search.placeholder = t(field.type === "people" ? "Search people…" : "Search records…"); search.setAttribute("aria-label", search.placeholder); search.className = "database-reference-search";
-    const choices = document.createElement("div"); choices.className = "database-reference-choices"; choices.setAttribute("role", "listbox"); choices.setAttribute("aria-multiselectable", "true"); panel.append(search, choices);
+    const choices = document.createElement("div"); choices.className = "database-reference-choices"; choices.setAttribute("role", "listbox"); choices.setAttribute("aria-multiselectable", String(field.subitemRole !== "parent")); panel.append(search, choices);
     const render = () => {
       const available: Reference[] = field.type === "people" ? allPeople().filter(person => !person.deleted).map(person => ({ id: person.id, name: person.name })) : (pages ?? []).filter(item => item.id !== page.id && item.dataSourceId === page.dataSourceId && !item.trashed).map(item => ({ pageId: item.id, title: item.title }));
       const items = new Map([...selected, ...available.map(item => [identity(item), item] as const)]);
@@ -30,7 +30,7 @@ export function referencePicker(field: DatabaseProperty, page: Page, value: unkn
       for (const [id, item] of items) {
         if (!label(item).toLocaleLowerCase().includes(search.value.toLocaleLowerCase())) continue;
         const option = menuButton(label(item), undefined, () => {
-          if (selected.has(id)) selected.delete(id); else selected.set(id, item);
+          if (selected.has(id)) selected.delete(id); else { if (field.subitemRole === "parent") selected.clear(); selected.set(id, item); }
           draw(); pop.destroy(); commit([...selected.values()]);
           wrapper.dispatchEvent(new Event("change", { bubbles: true }));
         }, selected.has(id) ? "✓" : "", false, "database-popover-row", false);

@@ -1,5 +1,5 @@
 import { editorKind, isEditorKind } from "./node-identity";
-import { nodeReference, markReference, referenceHref, referenceLabel, resolveReferencePage, type ReferencePage } from "./internal-reference";
+import { nodeReference, markReference, referenceHref, referenceLabel, resolveReferencePage, type ReferencePage, type InternalReference } from "./internal-reference";
 import { isListItem } from "./list-items";
 import { alertExportStyles } from "./alert-presentation";
 import { tocIncludes } from "../blocks/content-toc";
@@ -35,8 +35,18 @@ export function extractLinks(
   pages?: readonly ReferencePage[],
   currentId?: string,
 ): string[] {
-  syntax ??= defaultSyntax(format);
   const targets = new Set<string>();
+  for (const reference of extractPageReferences(source, format, syntax)) {
+    const target = pages ? resolveReferencePage(reference, pages, currentId)?.id : reference.address.replace(/\.(?:md|markdown)$/i, "");
+    if (target) targets.add(target);
+  }
+  return [...targets];
+}
+
+/** Parse independently of vault names so renames need only resolve references again. */
+export function extractPageReferences(source: string, format: BodyFormat = "markdown", syntax?: SyntaxConfig): InternalReference[] {
+  syntax ??= defaultSyntax(format);
+  const result: InternalReference[] = [];
   (syntax
     ? parseNative(source, syntax)
     : parseNotionMarkdown(source)
@@ -44,11 +54,10 @@ export function extractLinks(
     const references = [nodeReference(node), ...node.marks.map(markReference)];
     for (const reference of references) {
       if (!reference || reference.addressing === "url" || reference.addressing === "current") continue;
-      const target = pages ? resolveReferencePage(reference, pages, currentId)?.id : reference.address.replace(/\.(?:md|markdown)$/i, "");
-      if (target) targets.add(target);
+      result.push(reference);
     }
   });
-  return [...targets];
+  return result;
 }
 function label(node: PMNode): string {
   if (node.isText) return node.text || "";

@@ -20,18 +20,27 @@ async function append(page: Page, text: string) {
   await page.keyboard.type(text);
 }
 
-test('navigation uses one fresh list snapshot and refreshes changed backlinks', async ({ page, request }) => {
+test('navigation opens a fresh target before the incremental overview and refreshes changed backlinks', async ({ page, request }) => {
   const a = await create(request, 'Snapshot A');
   const b = await create(request, 'Snapshot B');
   const source = await create(request, 'Backlink source', `[Target](#page/${b.id})`);
   await open(page, a.id);
   const reads: string[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
+  const snapshotResponse = page.waitForResponse(res => new URL(res.url()).pathname === '/api/pages' && res.request().method() === 'GET');
   page.on('request', req => {
     if (req.method() === 'GET' && new URL(req.url()).pathname.startsWith('/api/pages')) reads.push(new URL(req.url()).pathname);
   });
   await visit(page, b.id, b.title);
+  expect(reads).toContain(`/api/pages/${b.id}`);
+  await expect(page.locator('#backlinks')).toContainText(source.title);
+  release();
+  const snapshot = await (await snapshotResponse).json();
+  expect(snapshot.pages).toContain(b.id);
+  expect(snapshot.pages.every((entry: unknown) => typeof entry === 'string')).toBe(true);
   expect(reads).toContain('/api/pages');
-  expect(reads).not.toContain(`/api/pages/${b.id}`);
   await expect(page.locator('#backlinks')).toContainText(source.title);
   await visit(page, a.id, a.title);
   expect((await request.put(`/api/pages/${source.id}`, { data: { body: 'Link removed externally', baseRevision: source.revision } })).ok()).toBeTruthy();
@@ -121,8 +130,8 @@ test('navigation saves input typed while loading and superseded responses cannot
   await open(page, a.id);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
-  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
+  await page.route(/\/api\/pages\/[^/?]+\?active=true$/, async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => new URL(request.url()).searchParams.get('active') === 'true' && request.method() === 'GET');
   await page.locator(`#page-tree [data-open="${b.id}"]`).click();
   await loading;
   await append(page, ' typed during navigation');
@@ -143,8 +152,8 @@ test('rapid native Back requests keep the final destination and save outgoing in
   await visit(page, c.id, c.title);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
-  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
+  await page.route(/\/api\/pages\/[^/?]+\?active=true$/, async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => new URL(request.url()).searchParams.get('active') === 'true' && request.method() === 'GET');
   await page.evaluate(() => history.back());
   await loading;
   await append(page, ' while going back');
@@ -163,8 +172,8 @@ test('Back immediately followed by Forward preserves the current editor and its 
   await visit(page, b.id, b.title);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
-  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
+  await page.route(/\/api\/pages\/[^/?]+\?active=true$/, async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => new URL(request.url()).searchParams.get('active') === 'true' && request.method() === 'GET');
   await page.evaluate(() => history.back());
   await loading;
   await append(page, ' keep current input');
@@ -184,8 +193,8 @@ test('consecutive hash links keep their real browser positions while requests ar
   await open(page, a.id);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/pages', async route => { await gate; await route.continue(); }, { times: 1 });
-  const loading = page.waitForRequest(request => request.url().endsWith('/api/pages') && request.method() === 'GET');
+  await page.route(/\/api\/pages\/[^/?]+\?active=true$/, async route => { await gate; await route.continue(); }, { times: 1 });
+  const loading = page.waitForRequest(request => new URL(request.url()).searchParams.get('active') === 'true' && request.method() === 'GET');
   await page.evaluate(id => { location.hash = `#page/${id}`; }, b.id);
   await loading;
   await page.evaluate(id => { location.hash = `#page/${id}`; }, c.id);
@@ -254,4 +263,49 @@ test('missing history destinations do not strand the URL; explicit hash links ar
   await expect(page.locator('#page-title')).toHaveValue(c.title);
   await page.evaluate(() => history.go(-2));
   await expect(page.locator('#page-title')).toHaveValue(a.title);
+});
+
+test('background overview never pairs live editor input with a newer disk revision', async ({ page, request }) => {
+  const a = await create(request, 'Overview origin'), b = await create(request, 'Overview draft');
+  await open(page, a.id);
+  let release!: () => void, ready!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const fetched = new Promise<void>(resolve => { ready = resolve; });
+  await page.route('**/api/pages', async route => {
+    expect((await request.put(`/api/pages/${b.id}`, { data: { body: 'New external body', baseRevision: b.revision } })).ok()).toBeTruthy();
+    expect((await request.put(`/api/pages/${a.id}`, { data: { title: 'Overview applied', baseRevision: a.revision } })).ok()).toBeTruthy();
+    const response = await route.fetch();
+    ready(); await gate; await route.fulfill({ response });
+  }, { times: 1 });
+  await visit(page, b.id, b.title);
+  await fetched;
+  // Pending DOM input must be captured only with the revision mounted above.
+  await page.locator('.pm-document').evaluate(el => { el.textContent = 'My unsaved local body'; });
+  release();
+  await expect(page.locator(`#page-tree [data-open="${a.id}"]`)).toContainText('Overview applied');
+  await expect(page.locator('.pm-document')).toContainText('My unsaved local body');
+  await page.locator(`#page-tree [data-open="${a.id}"]`).click();
+  await expect(page.locator('#save-status')).toContainText('Conflict');
+  await expect(page.locator('#page-title')).toHaveValue(b.title);
+  expect((await (await request.get(`/api/pages/${b.id}`)).json()).body).toBe('New external body');
+});
+
+test('a delayed overview cannot undo a saved title or a newer navigation', async ({ page, request }) => {
+  const a = await create(request, 'Old overview A'), b = await create(request, 'Old overview B'), c = await create(request, 'Old overview C');
+  await open(page, a.id);
+  let release!: () => void, ready!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const fetched = new Promise<void>(resolve => { ready = resolve; });
+  await page.route('**/api/pages', async route => {
+    const response = await route.fetch(); ready(); await gate; await route.fulfill({ response });
+  }, { times: 1 });
+  await visit(page, b.id, b.title);
+  await fetched;
+  await page.locator('#page-title').fill('Saved while refreshing');
+  await expect(page.locator('#save-status')).toHaveText('Saved locally');
+  await visit(page, c.id, c.title);
+  release();
+  await expect(page.locator('#page-title')).toHaveValue(c.title);
+  await expect(page.locator(`#page-tree [data-open="${b.id}"]`)).toContainText('Saved while refreshing');
+  await visit(page, b.id, 'Saved while refreshing');
 });

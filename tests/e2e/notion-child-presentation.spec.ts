@@ -28,7 +28,7 @@ test("page and page-link tags have distinct menus and navigate without rewriting
   await expect(owned).toHaveAttribute("data-pm-node-type", "block.child_page");
   await expect(owned.locator(".page-link-reference-arrow")).toHaveCount(0);
   await expect(linked).toHaveAttribute("data-page-relation", "reference");
-  await expect(linked.locator(".page-link-reference-arrow")).toHaveCount(0);
+  await expect(linked.locator(".page-link-reference-arrow")).toBeVisible();
   await owned.hover();
   await page.locator(".pm-block-handle").click();
   await expect(page.locator(".pm-block-type")).toHaveText("Child page");

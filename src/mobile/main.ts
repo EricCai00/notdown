@@ -4,6 +4,7 @@ import { Buffer } from "buffer";
 import { MarkdownWorkspace, type EditMode } from "../markdown-engine/workspace";
 import { commandEnabled, defaultSyntax, dialectGroups, resetExtensions, validSyntax, syntaxFormat, type SyntaxConfig } from "../markdown-engine/config";
 import { DatabaseWorkspace, propertyInput } from "../features/databases/database-workspace";
+import { projectSubitems, subitemValue } from "../features/databases/database-subitems";
 import type { Database, DatabaseDataSource } from "../features/databases/database-model";
 import { databaseTree } from "../features/databases/database-tree";
 import { isWikiDatabase } from "../features/databases/database-model";
@@ -293,17 +294,19 @@ function renderRecordProperties() {
     const back = document.createElement("button"); back.type = "button"; back.textContent = "← Back to database";
     back.onclick = () => { void enqueue(async () => { if (await leavePage()) await openDatabases(owner.id); }); }; recordProperties.append(back);
   }
+  const references = [...pages.filter(item => item.id !== draft.id), draft];
+  projectSubitems(references, recordSource);
   for (const field of recordSource.properties.filter(field => field.type !== "title")) {
     const row = document.createElement("div"); row.className = "database-page-property";
     const label = document.createElement("span"); label.textContent = field.name;
     const nested = metadata.properties && typeof metadata.properties === "object" ? metadata.properties as Record<string, unknown> : {};
-    const value = Object.hasOwn(nested, field.key) ? nested[field.key] : Object.hasOwn(metadata, field.key) ? metadata[field.key] : draft.properties[field.key];
+    const value = Object.hasOwn(nested, field.key) ? nested[field.key] : Object.hasOwn(metadata, field.key) ? metadata[field.key] : subitemValue(draft, field);
     const cell = propertyInput(field, draft, value, value => {
       if (session?.draft.id !== draft.id) return;
       const current = session.draft;
       session.change({ body: current.body, title: current.title, syntax: current.syntax, properties: { ...current.properties, [field.key]: value } });
       clearTimeout(timer); timer = setTimeout(() => { void save().catch(tell); }, 300);
-    });
+    }, false, references);
     row.append(label, cell); recordProperties.append(row);
   }
 }

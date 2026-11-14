@@ -1,6 +1,6 @@
 const WIDTH_KEY = "notdown-sidebar-width";
 const COLLAPSED_KEY = "notdown-sidebar-collapsed";
-const DEFAULT_WIDTH = 240;
+const DEFAULT_WIDTH = 336;
 const MIN_WIDTH = 200;
 
 function readPreference(key: string) {

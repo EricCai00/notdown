@@ -6,7 +6,7 @@ export function pageReferenceContent(label: string, icon?: string, reference = f
   const slot = document.createElement("span"); slot.className = "page-link-icon-slot"; slot.setAttribute("aria-hidden", "true");
   slot.append(pageIconElement(icon));
   if (reference) slot.append(createElement(ArrowUpRight, {
-    class: "page-link-reference-arrow", width: 18, height: 18, "stroke-width": 1.8, "aria-hidden": "true", focusable: "false",
+    class: "page-link-reference-arrow", width: 12, height: 12, "stroke-width": 1.8, "aria-hidden": "true", focusable: "false",
   }));
   const text = document.createElement("span"); text.className = "page-link-label"; text.textContent = label;
   return [slot, text];

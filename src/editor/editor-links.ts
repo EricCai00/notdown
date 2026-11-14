@@ -128,7 +128,7 @@ class PageLinkView implements NodeView {
     if (isBlock || reference?.kind === "page") {
       // UI identity must follow the actual PM type, never inferred ownership.
       if (isBlock) this.dom.dataset.pageRelation = isOwnedPageEntry(this.node) ? "child" : "reference";
-      this.dom.replaceChildren(...pageReferenceContent(label, page?.icon, !isBlock && !isOwnedPageEntry(this.node)));
+      this.dom.replaceChildren(...pageReferenceContent(label, page?.icon, !isOwnedPageEntry(this.node)));
     } else {
       this.dom.replaceChildren(icon, text);
     }

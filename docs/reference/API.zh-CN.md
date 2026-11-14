@@ -4,6 +4,10 @@
 
 ## 浏览器知识库管理
 
+`GET /api/pages/:id?active=true` 打开当前可见页面，页面不存在或被回收站隐藏时返回 404。状态接口通过 `capabilities.pageNavigation: 1` 声明支持此读取路径。已有索引的普通页面在正常知识库队列和恢复检查下，使用一次元数据投影读取自身和父级的当前文件字节。数据库成员关系、别名、外部重命名和不确定映射会回退到完整扫描。此接口不刷新无关页面；桌面和浏览器另外刷新概览，不会用后台结果替换当前编辑器的正文或修订号。默认 `GET /api/pages/:id` 保持原行为，供历史和显式回收站预览使用。两种响应均使用 `Cache-Control: no-store`；写入仍执行完整验证并要求 `baseRevision`。
+
+`GET /api/pages` 默认仍返回 `Page[]`。桌面和浏览器客户端可通过请求头 `X-Notdown-Page-Snapshot` 启用增量快照（首次传 `initial`，后续使用返回的令牌）。响应为 `{ snapshot: string, pages: (Page | string)[] }`：未变化的条目是对应请求快照中的页面 ID，变化的条目是完整页面；数组表示当前完整顺序，缺失的 ID 表示已移除。未知或被淘汰的令牌会返回全部完整页面。修订索引数量有上限，且仅作用于单个知识库服务；响应使用 `Cache-Control: no-store`。此机制减少重复正文传输，磁盘验证仍检查当前文件字节，包括大小和时间戳未变化的编辑，不改变 `baseRevision` 或冲突处理。客户端必须把快照与可编辑草稿分开，并让并发响应各自使用请求时的基线。
+
 浏览器服务状态包括 `vaultManagement: true`. `GET /api/vaults` 回报 `{ dataPath, createLocation, vaults: [{ name, path, url }] }`. `POST /api/vaults/open` 接收 `{ mode: "create", name, path? }` 或 `{ mode: "open", path }`返回 `{ name, path, url }`路径是本地服务计算机上的绝对路径;一个自定义创建路径必须是新的或空的,现有知识库必须包含一个真实的 `pages/` 目录. 开放不会改变默认的保险柜或任何其他请求的绑定. 保护本地源和JSON写字保护也保护这些终端点. 电子和安卓不暴露它们.
 
 每个返回的 URL 都是 `/v/<SHA-256 of canonical directory>/` 。其下方提供相同的 API 和附件路径（ `/v/<id>/api/pages` 、 `/v/<id>/assets/...` ）。未知或不可用的身份返回 404 ，而不是默认保管库。客户必须将所有特定于库的请求保留在该选项卡的前缀下，包括预览、源下载和附件。目录身份不提供身份验证；这些仍然是仅限本地的服务。打开的目录会记录在数据目录的`.browser-vaults.json`中，以便重启后恢复。
@@ -184,6 +188,8 @@ Markdown Lab 使用 `GET /api/markdown/capabilities` 报告已安装的 Pandoc �
 `DatabaseView`有 `{id,databaseId,dataSourceId,name,type:"table",propertyIds?,filters?,sorts?,rowOrder?,revision}` 。  `rowOrder` 是来自该视图数据源的页面 ID 的唯一有序数组；重复的和外国的身份证件将被拒绝。当前表格渲染支持过滤器 `{propertyId,operator:"contains",value}` 和排序 `{propertyId,direction:"ascending"|"descending"}` 。 UI编辑一种过滤器和一种排序；远程 Notion 视图定义单独保存，不作为本地视图配置应用。
 
 本地关联属性可设置 `localRelation:true`，值为同一数据源其他记录的 `{pageId,title?}` 引用数组。依赖字段对使用 `dependencyRole:"blockedBy"` 保存正向关系，使用 `dependencyRole:"blocking",inversePropertyId:"<forward-property-id>"` 定义反向关系。Blocking 由读取结果计算，不应写入页面属性。界面编辑反向关系时，会使用编辑开始时捕获的页面／字段版本逐条提交正向字段；失败后停止队列并保留未保存草稿。本地依赖写入拒绝自关联、其他数据源目标和循环依赖。原生 People 字段使用 `{id,name?}` 本地联系人引用数组。保留导入字段定义及引用中的未知字段。
+
+数据源接受 `subitems:{enabled,parentPropertyId,childrenPropertyId}`，可与 `properties` 一起通过 `PUT /api/data-sources/:id` 更新。父项关系使用 `localRelation:true,subitemRole:"parent"`；反向字段使用 `subitemRole:"children",inversePropertyId:<parent-id>`，且为只读。父项值最多包含同一数据源中的一条记录，自身关联和循环关系会被拒绝。推导的反向值不会回写记录。视图布局接受 `subitemDisplay:"nested"|"flat"|"disabled"`、`subitemScope:"parents"|"all"|"children"` 和 `subitemToggleOnTitle:boolean`。明确开启数据源子项后，默认值为 nested/all/false。数据源与视图修改各自需要 `baseRevision`；记录修改还需要 `schemaRevision`。关闭功能保留关联。这些数据库关系独立于页面树的 `parent` 字段。
 
 Timeline 布局接受 `timelineScale:"hours"|"day"|"week"|"bi-week"|"month"|"quarter"|"year"|"5-years"`、`timelineTable:boolean` 和 `datePropertyId`，布局修改使用视图版本。日历入口会创建或打开同一数据源的本地视图。
 

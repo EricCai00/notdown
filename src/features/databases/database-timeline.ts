@@ -8,6 +8,10 @@ import { calendarDate, databaseGroups, fieldValue, shiftDay, valueText } from ".
 import { appendFeedProperty } from "./database-feed";
 import { timelineEdit, timelineWindow, timelineViewport, timelineScales } from "./database-timeline-model";
 import { relationIds } from "./database-dependencies";
+import { nestedSubitems, visibleSubitems, subitemFields, subitemRows, type SubitemRow } from "./database-subitems";
+import { subitemToggle, subitemSummary } from "./database-subitems-view";
+import { timelineSubitemLane } from "./database-timeline-subitems";
+import { timelineUndatedButton } from "./database-timeline-undated";
 import { DatabasePopover, menuChoice } from "./database-popover";
 import { referencePicker } from "./database-reference-picker";
 import "./database-advanced-layouts.css";
@@ -25,6 +29,7 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
   const field = source.properties.find(field => field.id === view.layout?.datePropertyId && field.type === "date");
   if (!field) { host.append(button(t("Choose a date property"), actions.settings, "database-layout-setup")); return; }
   const referencePages = actions.pages?.() ?? rows;
+  const nested = nestedSubitems(source,view) && !!actions.subitems;
   const taskContent = (page: Page, title = page.title) => {
     const content = document.createElement("span"); content.className = "database-timeline-content";
     const name = document.createElement("span"); name.className = "database-timeline-task-name"; name.textContent = title; content.append(name);
@@ -53,6 +58,12 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
   const run = (operation: Promise<void>) => void operation.catch(error => { let status = host.querySelector<HTMLElement>(".database-timeline-error"); if (!status) { status = document.createElement("p"); status.className = "database-timeline-error"; status.setAttribute("role", "status"); host.append(status); } status.textContent = error.message; });
   const toolbar = document.createElement("div"); toolbar.className = "database-calendar-toolbar database-timeline-toolbar";
   const controls = document.createElement("div"); controls.className = "database-timeline-controls";
+  const undatedPages = rows.filter(page => !calendarDate(fieldValue(page, field)));
+  const undatedButton = timelineUndatedButton(undatedPages, field, actions, anchor => {
+    state.pop?.destroy(); const pop = new DatabasePopover(anchor, "No date"); state.pop = pop; return pop;
+  });
+  const mainToolbar = host.closest(".database-workspace")?.querySelector<HTMLElement>(".database-toolbar-actions");
+  if (mainToolbar) mainToolbar.prepend(undatedButton); else controls.append(undatedButton);
   const table = button("", () => { if (actions.configure) run(actions.configure({ timelineTable: !labelWidth })); }, "database-timeline-nav"); table.append(timelineIcon(labelWidth ? ChevronsLeft : ChevronsRight)); table.title = t(labelWidth ? "Hide table" : "Show table"); table.setAttribute("aria-label", table.title); table.setAttribute("aria-pressed", String(!!labelWidth)); toolbar.append(table);
   const title = document.createElement("h2"); title.textContent = periodLabel(actions.month); toolbar.append(title);
   if (actions.dependencies) {
@@ -136,7 +147,8 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
     const badge = document.createElement("span"); badge.className = "database-timeline-today-badge"; badge.textContent = String(now.getDate()); badge.style.left = `${x}px`; dates.append(badge);
   }
   const grouping = source.properties.find(field => field.id === view.layout?.groupBy);
-  const groups = grouping ? databaseGroups(rows, grouping, view) : [{ key:"", name:"", color:"gray", pages:rows }];
+  const datedPages = rows.filter(page => calendarDate(fieldValue(page, field)));
+  const groups = grouping ? databaseGroups(datedPages, grouping, view) : [{ key:"", name:"", color:"gray", pages:datedPages }];
   const bars = new Map<string, { bar: HTMLElement; page: Page; y: number }>(); let rowY = 0;
   const jumps: { button: HTMLButtonElement; start: number; end: number; bar?: HTMLElement }[] = [];
   const taskJump = (page: Page, range: NonNullable<ReturnType<typeof calendarDate>>, bar?: HTMLElement) => {
@@ -150,8 +162,24 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
   const insertion = document.createElement("i"); insertion.className = "database-timeline-insertion"; insertion.hidden = true; grid.append(insertion);
   const forward = source.properties.find(item => item.dependencyRole === "blockedBy");
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.classList.add("database-timeline-links"); svg.style.left = `${labelWidth}px`; svg.setAttribute("width", String(plotWidth));
+  const additions: { parentId: string; y: number; lane: ReturnType<typeof timelineSubitemLane> }[] = [];
   const drawLinks = () => {
     svg.replaceChildren(); svg.setAttribute("height", String(rowY)); svg.style.setProperty("--timeline-links-height", `${rowY}px`);
+    const parentLink = (id: string, x2: number, y2: number, childId?: string) => {
+      const parent = bars.get(id); if (!parent) return;
+      const x1 = parseFloat(parent.bar.style.left) + 14, y1 = parent.y + (y2 > parent.y ? 14 : -14);
+      const direction = y2 > y1 ? 1 : -1, horizontal = x2 >= x1 ? 1 : -1;
+      const link = document.createElementNS(svg.namespaceURI, "path"); link.classList.add("database-subitem-link"); link.setAttribute("data-parent", id);
+      if (childId) link.setAttribute("data-child", childId); else link.classList.add("database-subitem-preview-link");
+      link.setAttribute("d", `M${x1},${y1} L${x1},${y2-8*direction} Q${x1},${y2} ${x1+8*horizontal},${y2} L${x2},${y2}`); svg.append(link);
+    };
+    if (visibleSubitems(source, view)) {
+      const pair=subitemFields(source)!;
+      for (const target of bars.values()) for (const id of relationIds(target.page.properties[pair.parent.key])) {
+        parentLink(id, parseFloat(target.bar.style.left), target.y, target.page.id);
+      }
+      for (const item of additions) { const x = item.lane.x(); if (x !== undefined) parentLink(item.parentId, x, item.y); }
+    }
     if (!forward) return;
     for (const target of bars.values()) for (const id of relationIds(fieldValue(target.page, forward))) {
       const from = bars.get(id); if (!from) continue;
@@ -170,14 +198,27 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
   };
   for (const group of groups) {
     if (grouping) { grid.append(groupHeading(group, grouping, view, actions)); rowY += 36; if (view.layout?.collapsedGroups?.includes(group.key)) continue; }
-    for (const page of group.pages) {
+    const tree: SubitemRow[] = nested ? subitemRows(group.pages,source,actions.subitems!.expanded) : group.pages.map(page=>({page,depth:0,children:0,expanded:false}));
+    const openParents: SubitemRow[]=[];
+    const appendAdd = (item: SubitemRow) => {
+      const lane = timelineSubitemLane({ title: item.page.title, parentId: item.page.id, scroller, window, labelWidth,
+        disabled: !!source.unavailable || !!source.trashed || !!field.readOnly || !!subitemFields(source)?.parent.readOnly,
+        changed: date => { if (date) highlightRange(date); else clearHighlight(); drawLinks(); },
+        create: date => actions.subitems!.create(item.page, { ...(grouping ? { [grouping.key]: fieldValue(item.page, grouping) } : {}), [field.key]: date }),
+        error: error => run(Promise.reject(error)),
+      });
+      additions.push({parentId:item.page.id, y:rowY+18, lane}); grid.append(lane.row); rowY+=36;
+    };
+    for (const item of tree) {
+      while(openParents.length && openParents.at(-1)!.depth>=item.depth)appendAdd(openParents.pop()!);
+      const page=item.page;
       const row = document.createElement("div"); row.className = "database-timeline-row"; row.dataset.pageId = page.id;
+      if(nested){row.dataset.subitemDepth=String(item.depth);if(item.expanded)openParents.push(item);}
       const name = button("", () => actions.open(page), "database-timeline-label"); name.title = page.title;
       if (labelWidth) { const icon = pageIconElement(page.icon || "file-text"); if (icon && view.layout?.showPageIcon !== false) name.append(icon); const text = document.createElement("span"); text.textContent = page.title; name.append(text); } row.append(name);
       const lane = document.createElement("div"); lane.className = "database-timeline-lane";
-      const value = fieldValue(page,field), range = calendarDate(value);
-      if (!range) lane.append(button(`${page.title} · ${t("No date")}`, () => actions.open(page), "database-timeline-no-date"));
-      else if (range.end < window.start || range.start >= shiftDay(window.start,window.days)) lane.append(taskJump(page, range));
+      const value = fieldValue(page,field), range = calendarDate(value)!;
+      if (range.end < window.start || range.start >= shiftDay(window.start,window.days)) lane.append(taskJump(page, range));
       else {
         let start = Math.max(0, difference(range.start,window.start)), end = Math.min(window.days, difference(range.end,window.start)+1);
         // Preserve stored times and zones; use their written local time for display only.
@@ -193,7 +234,8 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
         bar.onpointerleave = () => { if (!interacting) clearHighlight(); };
         const open = button("", () => actions.open(page), "database-timeline-open"); open.title = `${page.title}: ${range.start} → ${range.end}`; open.setAttribute("aria-label", `${t("Open")} ${page.title}`);
         const content = taskContent(page); content.firstElementChild!.classList.add("database-timeline-bar-title"); open.append(content);
-        const titleEditor = actions.titleEditor?.(page); bar.append(titleEditor ?? open);
+        const summary = subitemSummary(page, source, view); if (summary) content.append(summary);
+        const titleEditor = actions.titleEditor?.(page); if(nested)bar.append(subitemToggle(item,()=>actions.subitems!.toggle(page.id))); bar.append(titleEditor ?? open);
         lane.append(taskJump(page, range, bar));
         bars.set(page.id, {bar, page, y:rowY+18});
         if (range.movable && actions.writable(page,field)) {
@@ -297,6 +339,7 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
       }
       row.append(lane); grid.append(row); rowY += 36;
     }
+    while(openParents.length)appendAdd(openParents.pop()!);
   }
   drawLinks(); grid.append(svg);
   const addRow = document.createElement("div"); addRow.className = "database-timeline-new"; addRow.append(button(t("+ New page"), () => actions.add({ [field.key]: {start: actions.month,end:null} }), "database-layout-add")); grid.append(addRow);
@@ -333,7 +376,7 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
   };
   resize();
   const observer = new ResizeObserver(() => { if (!scroller.isConnected) { observer.disconnect(); return; } resize(); });
-  observer.observe(scroller); state.cleanup = () => observer.disconnect();
+  observer.observe(scroller); state.cleanup = () => { state.pop?.destroy(); undatedButton.remove(); observer.disconnect(); additions.forEach(item => item.lane.cleanup()); };
   let rebasing = false;
   scroller.addEventListener("scroll", () => {
     if (!scroller.isConnected || !positioned) return;
@@ -346,4 +389,5 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
       actions.navigate(anchor);
     }
   }, {passive:true});
+  return state.cleanup;
 }
