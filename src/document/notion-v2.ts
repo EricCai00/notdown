@@ -119,7 +119,7 @@ const orderedStart = (value: string | undefined): number | undefined => {
   const number = Number(value);
   return Number.isSafeInteger(number) ? number : undefined;
 };
-const supported = new Set([...traversable, "image", "file", "audio", "video", "pdf", "bookmark", "embed", "link-preview", "page", "folder", "database", "table-of-contents", "equation", "custom-block", "external_object_instance", "unknown"]);
+const supported = new Set([...traversable, "image", "file", "audio", "video", "pdf", "bookmark", "embed", "link-preview", "page", "page-link", "folder", "database", "table-of-contents", "equation", "custom-block", "external_object_instance", "unknown"]);
 const localMediaFields: Record<string, readonly string[]> = {
   web_bookmark: ["title", "description", "image", "icon"],
   link_preview: ["title", "description", "image", "caption"],
@@ -140,6 +140,9 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
   if (!element) return preserve(end);
   const next = start + source.slice(0, element.to).split("\n").length;
   if (source.slice(element.to).split("\n")[0].trim()) return preserve(next);
+  // The v2 block rule also runs inside CommonMark lists and quotes, where the
+  // outer Notdown reader cannot recover a page-link from paragraph text.
+  if (tag.tag === "page-link" && !localProperties) return preserve(next);
   if (["custom-block", "unknown", "table-of-contents"].includes(tag.tag) && !element.selfClosing && source.slice(element.openEnd, element.bodyEnd).trim()) return preserve(next);
   const body = element.selfClosing ? "" : source.slice(element.openEnd, element.bodyEnd).replace(/^\r?\n/, "").replace(/\r?\n[ \t]*$/, "");
   const attrs = { nfmAttrs: tag.attrs, color: tag.attrs.color || "" };
@@ -188,6 +191,12 @@ export function readNotionV2Block(lines: string[], start: number, end: number,
   else if (tag.tag === "table") node = parseTable(body, attrs) ?? undefined;
   else if (tag.tag === "table-of-contents") node = schema.nodes["block.table_of_contents"].create(attrs);
   else if (tag.tag === "equation") node = schema.nodes["block.math_block"].create(attrs, body ? schema.text(decodeXml(body)) : undefined);
+  else if (tag.tag === "page-link") node = createEditorNode(schema, "child_page", {
+    ...attrs,
+    target: localPageTarget(tag.attrs.url || "") ?? tag.attrs.url ?? "",
+    url: tag.attrs.url || "",
+    label: decodeXml(body),
+  });
   else if (["page", "folder", "database"].includes(tag.tag)) node = createEditorNode(schema, tag.tag === "page" ? "owned_page" : tag.tag, {
     ...attrs,
     target: localPageTarget(tag.attrs.url || "") ?? tag.attrs.url ?? "",

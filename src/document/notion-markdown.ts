@@ -149,10 +149,21 @@ md.inline.ruler.before("html_inline", "notion_inline", (state, silent) => {
   return true;
 });
 installNotionRichText(md);
+const v2PageLinkOffsets = new WeakMap<object, Set<number>>();
 md.block.ruler.before("html_block", "notion_v2_block", (state, start, end, silent) => {
   if (!state.env.notionV2) return false;
   const first = state.src.slice(state.bMarks[start] + state.tShift[start], state.eMarks[start]);
   if (!first.startsWith("<")) return false;
+  if (/^<page-link(?:\s|\/?>)/.test(first)) {
+    // A list's block parser can reach a tag-looking line inside an unknown
+    // container. Use the lossless source scanner to keep such examples literal.
+    let offsets = v2PageLinkOffsets.get(state);
+    if (!offsets) {
+      offsets = new Set(notionSourceTags(state.src).filter(tag => tag.tag === "page-link").map(tag => tag.from));
+      v2PageLinkOffsets.set(state, offsets);
+    }
+    if (!offsets.has(state.bMarks[start] + state.tShift[start])) return false;
+  }
   const lines = state.getLines(start, end, state.blkIndent, false).split("\n");
   const parsed = readNotionV2Block(lines, 0, lines.length,
     source => parseNotionMarkdown(source, state.env.allowObject, state.env.extensions, "v2", (state.env.notionDepth || 0) + 1),

@@ -7,9 +7,36 @@ import { prepareNotionImport, notionPageId } from "../../server/notion-import.js
 import { enrichNotionBlocks } from "../../server/notion-block-import.js";
 import { createVault } from "../../server/vault.js";
 import { parseNative, serializeNative } from "../../src/markdown-engine/codec.js";
-import { enrichmentFixture, enrichmentRoot, enrichmentSource, unknownTag, blockId, enrichmentBlocks } from "./notion-block-import-fixture.js";
+import { enrichmentFixture, enrichmentRoot, enrichmentSource, unknownTag, blockId, enrichmentBlocks, nestedPageLinksRoot, nestedPageLinksSource } from "./notion-block-import-fixture.js";
 const request = { token: "test-token-example", pageId: enrichmentRoot, variant: "notdown" };
 const wait = async () => {};
+
+test("v2 import recovers a list-nested page link and reads existing copies without rewriting the Markdown", async t => {
+  const plan = await prepareNotionImport({ ...request, pageId: nestedPageLinksRoot }, { fetch: enrichmentFixture(), wait });
+  const root = plan.pages[0], child = plan.pages[1];
+  assert.equal(plan.pages.length, 2);
+  assert.equal(child.metadata.parent, root.id);
+  assert.equal((root.metadata.syntax as any).notionVersion, "v2");
+  assert.ok(root.source.includes(`<page-link future="keep" url="#page/${child.id}">Same title</page-link>`));
+  assert.equal(plan.originals.find(file => file.path === `pages/${nestedPageLinksRoot}.md`)!.data.toString(), nestedPageLinksSource);
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-page-link-import-"));
+  t.after(async () => {
+    assert.equal(path.dirname(temporary), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(temporary).startsWith("notdown-page-link-import-"));
+    await fs.rm(temporary, { recursive: true, force: true });
+  });
+  const vault = createVault(temporary);
+  await vault.importBatch(plan);
+  const saved = await vault.get(root.id), c = root.metadata.syntax as any;
+  const doc = parseNative(saved.body, c), item = doc.firstChild!.firstChild!;
+  doc.check();
+  assert.equal(item.child(1).type.name, "block.child_page");
+  assert.equal(item.child(2).type.name, "block.link_to_page");
+  assert.equal(item.child(2).attrs.target, child.id);
+  assert.equal(item.child(3).firstChild!.textContent, "Keep the nested idea");
+  assert.equal(serializeNative(doc, c), root.source);
+  assert.equal((await vault.get(root.id)).body, root.source);
+});
 
 test("Notdown imports five known unknown-block types, including a link to an actual child, with original archives", async t => {
   const calls: string[] = [], options = { fetch: enrichmentFixture(calls), wait };

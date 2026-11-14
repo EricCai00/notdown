@@ -4,6 +4,13 @@ export const blockId = (number: number) => `aaaaaaaa-aaaa-4aaa-8aaa-${number.toS
 export const unknownTag = (number: number, alt = "unreliable-label") => `<unknown url="https://www.notion.so/${enrichmentRoot}#${blockId(number).replace(/-/g, "")}" alt="${alt}" future="keep"/>`;
 export const crossLinksRoot = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const crossLinksTarget = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+export const nestedPageLinksRoot = "f0000000-0000-4000-8000-000000000001";
+export const nestedPageLinksSource = [
+  '- Develop a note app',
+  `  <page url="https://www.notion.so/${notionChild}">`, '  Child', '  </page>', '',
+  '  ' + unknownTag(1).replace(enrichmentRoot, nestedPageLinksRoot), '',
+  '  - Keep the nested idea', '', 'Tail', '',
+].join('\r\n');
 const crossLinksSource = `<mention-page url="https://www.notion.so/${crossLinksTarget}">Mentioned target</mention-page>\n\n${unknownTag(9).replace(enrichmentRoot, crossLinksRoot)}\n`;
 export const enrichmentSource = [
   `<page url="https://www.notion.so/${notionChild}">Child</page>`, '',
@@ -24,6 +31,12 @@ export const enrichmentFixture = (calls: string[] = []): typeof fetch => {
   const base = notionFixture(calls);
   return async (input, init) => {
     const response = await base(input, init), url = new URL(String(input));
+    if (url.pathname === `/v1/pages/${nestedPageLinksRoot}/markdown`) return Response.json({
+      object: "page_markdown", id: nestedPageLinksRoot, markdown: nestedPageLinksSource, truncated: false, unknown_block_ids: [blockId(1)],
+    });
+    if (url.pathname === `/v1/blocks/${nestedPageLinksRoot}/children`) return Response.json({
+      results: [{ object: "block", id: notionChild, type: "child_page", has_children: false }, enrichmentBlocks[0]], has_more: false, next_cursor: null,
+    });
     if (url.pathname === `/v1/pages/${crossLinksRoot}/markdown`) return Response.json({
       object: "page_markdown", id: crossLinksRoot, markdown: crossLinksSource, truncated: false, unknown_block_ids: [blockId(9)],
     });

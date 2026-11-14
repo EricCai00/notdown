@@ -80,3 +80,87 @@ test("nested page-link edits preserve sibling page tags, fences and unknown cont
   assert.ok(saved.includes('<page-link url="#page/child" future="keep">Edited</page-link>'));
   assert.ok(saved.endsWith(examples));
 });
+
+test("v2 page-link blocks inside space-indented lists retain identity, labels and source after edits", () => {
+  const c: SyntaxConfig = { ...config("notdown"), notionVersion: "v2" };
+  const source = [
+    '- Develop a note app',
+    '  <page url="#page/child">', '  Child', '  </page>', '',
+    '  ' + link, '',
+    '  - Nested idea', '',
+    'Tail', '',
+  ].join('\r\n');
+  const doc = parseNative(source, c);
+  doc.check();
+  const item = doc.firstChild!.firstChild!;
+  assert.equal(item.child(1).type.name, "block.child_page");
+  assert.equal(item.child(2).type.name, "block.link_to_page");
+  assert.equal(item.child(2).attrs.target, "child");
+  assert.equal(item.child(2).attrs.label, "Link to the same child");
+  assert.equal(item.child(2).attrs.nfmAttrs.future, "keep");
+  assert.equal(item.child(3).firstChild!.textContent, "Nested idea");
+  assert.equal(serializeNative(doc, c), source);
+  let position = -1;
+  doc.descendants((node, pos) => { if (node.type.name === "block.link_to_page") position = pos; });
+  const edited = EditorState.create({ doc }).tr.setNodeMarkup(position, undefined, { ...item.child(2).attrs, label: "Updated & [literal]" }).doc;
+  const saved = serializeNative(edited, c), reopened = parseNative(saved, c);
+  reopened.check();
+  const links: string[] = [];
+  reopened.descendants(node => { if (node.type.name === "block.link_to_page") links.push(node.attrs.label); });
+  assert.deepEqual(links, ["Updated & [literal]"]);
+  assert.ok(saved.includes('future="keep"'));
+  assert.ok(saved.includes('<page url="#page/child">'));
+  assert.ok(saved.endsWith('Tail\r\n'));
+});
+
+test("v2 page-link carriers remain Notdown-only and never consume literal or malformed examples", () => {
+  const source = [
+    '- Parent', '', '  ' + link, '',
+    '  ```xml', '  ' + link, '  ```', '',
+    '  `' + link + '`', '',
+    '  <future>', '  ' + link, '  </future>', '',
+    '  \\' + link, '',
+    '  <page-link url="#page/child">Unclosed',
+  ].join('\n');
+  for (const variant of ["notdown", "notion-markdown"] as const) {
+    const c: SyntaxConfig = { ...config(variant), notionVersion: "v2", extensions: { notion_pages: true } };
+    const doc = parseNative(source, c);
+    doc.check();
+    const links: string[] = [];
+    doc.descendants(node => { if (node.type.name === "block.link_to_page") links.push(node.attrs.label); });
+    assert.deepEqual(links, variant === "notdown" ? ["Link to the same child"] : []);
+    assert.equal(serializeNative(doc, c), source);
+    const edited = EditorState.create({ doc }).tr.insertText("!", 2).doc;
+    const reopened = parseNative(serializeNative(edited, c), c);
+    const examples: string[] = [], reopenedLinks: string[] = [];
+    reopened.descendants(node => {
+      if (node.type.name === "block.code_block") examples.push(node.textContent);
+      if (node.type.name === "block.link_to_page") reopenedLinks.push(node.attrs.label);
+    });
+    assert.deepEqual(examples, [link]);
+    assert.deepEqual(reopenedLinks, links);
+  }
+});
+
+test("v2 page links render in list and quote carriers while retaining literal titles", () => {
+  const label = "[Literal] **title** &amp; &lt;tag&gt;";
+  const carrier = `<page-link url="#page/child" future="keep">${label}</page-link>`;
+  const wrappers = [
+    carrier,
+    '- Parent\n\t' + carrier,
+    '1. Parent\n\n   ' + carrier,
+    '> Parent\n>\n> ' + carrier,
+    '<ul><li>Parent\n\n' + carrier + '</li></ul>',
+    '<callout>\n' + carrier + '\n</callout>',
+  ];
+  for (const source of wrappers) {
+    const c: SyntaxConfig = { ...config("notdown"), notionVersion: "v2" };
+    const doc = parseNative(source, c), labels: string[] = [];
+    doc.check();
+    doc.descendants(node => { if (node.type.name === "block.link_to_page") labels.push(node.attrs.label); });
+    assert.deepEqual(labels, ["[Literal] **title** & <tag>"], source);
+    assert.equal(serializeNative(doc, c), source);
+    const disabled = parseNative(source, { ...c, extensions: { notion_pages: false } });
+    disabled.descendants(node => { assert.notEqual(node.type.name, "block.link_to_page"); });
+  }
+});

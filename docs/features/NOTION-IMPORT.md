@@ -65,7 +65,7 @@ Token is automatically saved in the current device after input, and will be auto
 
 ## Reading and recovery order
 
-Markdown is the text base. Page/database API reads attributes, paging Block children API confirms the real subpage and database ownership.`<page>` is always Child page, Notdown `<page-link>` Always Link to page; the block type does not change for the same target. Normal Markdown links and inline mentions do not trigger unbounded page traversal.
+Markdown is the text base. Page/database API reads attributes, and the paginated Block children API confirms actual child-page and database ownership. `<page>` is always Child page, and Notdown `<page-link>` is always Link to page; the block type does not change for the same target. `<page-link>` is a Notdown extension, not official Notion v1 or v2 syntax, and requires `syntax.variant: notdown`. In Notdown v2, page links nested inside Markdown lists render as page references, including in existing imported copies, without rewriting the source or importing again. Code examples and unknown containers retain literal content. Normal Markdown links and inline mentions do not trigger unbounded page traversal.
 
 v2 accepts both single-line and multiline bodies in `<page>`, `<folder>` and `<database>` tags, including inside columns, and displays them according to the original block type. Formatting tags in titles provide readable names; unmodified original titles, line breaks and unknown attributes remain preserved. Previously imported multiline pages that appeared unsupported are recognized when reopened in the fixed application, without reimporting or bulk body rewrites.
 
