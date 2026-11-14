@@ -34,9 +34,11 @@ export function importNotionView(raw: Json, fields: DatabaseProperty[], sourceId
     }
     sorts.push({ propertyId: field.id, direction: sort.direction });
   }
-  const type: DatabaseViewType = databaseViewTypes.filter(type => !["dashboard", "form", "map"].includes(type)).includes(raw.type) ? raw.type : "table";
+  const type: DatabaseViewType = databaseViewTypes.filter(type => !["dashboard", "form"].includes(type)).includes(raw.type) ? raw.type : "table";
   if (type !== raw.type) warnings.push(`The Notion ${raw.type || "unknown"} layout is displayed as a local table.`);
   const config = raw.configuration ?? {}, layout: DatabaseLayout = {};
+  const map = fieldFor(config.map_by); if (type === "map" && map?.type === "place") layout.mapPlaceId = map.id;
+  if (type === "map" && !layout.mapPlaceId) warnings.push("Choose a local Place property in View settings to display this map.");
   const group = fieldFor(config.group_by?.property_id);
   if (["board", "list", "gallery", "feed", "timeline"].includes(type) && group && groupable(group) && config.group_by?.group_by !== "group") {
     layout.groupBy = group.id; layout.hideEmptyGroups = config.group_by.hide_empty_groups === true;

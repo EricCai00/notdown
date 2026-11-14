@@ -11,15 +11,21 @@ export function validCoordinates(latitude: unknown, longitude: unknown): boolean
     && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
 }
 export function readPlace(value: unknown): DatabasePlace | undefined {
+  value = placeValue(value);
   if (!value || typeof value !== "object" || Array.isArray(value)) return;
   const place = value as DatabasePlace;
   if (validCoordinates(place.latitude, place.longitude)) return place;
 }
 export function placeText(value: unknown): string {
+  value = placeValue(value);
   if (!value || typeof value !== "object") return typeof value === "string" ? value : "";
   const place = value as DatabasePlace;
   return [place.name, place.address].filter(item => typeof item === "string" && item).join(", ")
     || (readPlace(value) ? `${place.latitude}, ${place.longitude}` : "");
+}
+function placeValue(value: unknown): unknown {
+  const snapshot = value as Record<string, unknown> | null;
+  return snapshot && typeof snapshot === "object" && snapshot.type === "place" && snapshot.snapshot === true && Object.hasOwn(snapshot, "place") ? snapshot.place : value;
 }
 export function googleMapsUrl(place: DatabasePlace): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.latitude},${place.longitude}`)}`;

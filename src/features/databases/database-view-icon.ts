@@ -3,9 +3,12 @@ import { lucidePageIcon } from "../../shared/page-icons";
 import type { DatabaseView } from "./database-model";
 import { DatabasePopover, menuIcon } from "./database-popover";
 
-const defaults = { table: "table-2", board: "columns-3", gallery: "layout-grid", list: "list", calendar: "calendar", timeline: "gantt-chart", chart: "chart-no-axes-combined", feed: "rss", dashboard: "layout-dashboard", form: "clipboard-list", map: "map-pin" };
+const defaults = { table: "table-2", board: "columns-3", gallery: "layout-grid", list: "list", calendar: "calendar-days", timeline: "gantt-chart", chart: "chart-no-axes-combined", feed: "newspaper", dashboard: "layout-dashboard", form: "clipboard-list", map: "map" };
 export const databaseViewIconName = (view: Pick<DatabaseView, "type" | "icon">) => lucidePageIcon(view.icon) ? view.icon! : defaults[view.type] ?? "table-2";
-export const databaseViewIcon = (view: Pick<DatabaseView, "type" | "icon">) => lucidePageIcon(databaseViewIconName(view))!;
+export const databaseViewIcon = (view: Pick<DatabaseView, "type" | "icon">) => !lucidePageIcon(view.icon) && view.type === "timeline" ? [
+  ["rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }],
+  ["path", { d: "M7 8h6M10 12h7M7 16h7" }],
+] as import("lucide").IconNode : lucidePageIcon(databaseViewIconName(view))!;
 export const databaseViewIconHTML = (view: Pick<DatabaseView, "type" | "icon">) => {
   const icon = menuIcon(databaseViewIcon(view)); icon.setAttribute("data-view-icon", databaseViewIconName(view)); return icon.outerHTML;
 };

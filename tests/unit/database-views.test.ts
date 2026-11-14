@@ -47,7 +47,7 @@ test("Notion layouts map stable property identities while preserving unsupported
   const imported = importNotionView({ name: "Board", type: "board", configuration: { group_by: { property_id: "state" }, cover: { type: "page_cover" }, properties: [{ property_id: "points", visible: false }] } }, fields, "source");
   assert.equal(imported.type, "board"); assert.equal(imported.layout?.groupBy, "state"); assert.equal(imported.layout?.preview, "cover"); assert.ok(!imported.propertyIds?.includes("points"));
   assert.equal(importNotionView({ type: "calendar", configuration: { date_property_id: "date", view_range: "week" } }, fields, "source").layout?.calendarRange, "week");
-  const unsupported = importNotionView({ type: "map", configuration: { custom: 123 } }, fields, "source"); assert.equal(unsupported.type, "table"); assert.equal(unsupported.notion.configuration.custom, 123); assert.ok(unsupported.importWarnings.length);
+  const unsupported = importNotionView({ type: "form", configuration: { custom: 123 } }, fields, "source"); assert.equal(unsupported.type, "table"); assert.equal(unsupported.notion.configuration.custom, 123); assert.ok(unsupported.importWarnings.length);
 });
 test("view layouts round trip with CAS, field-reference protection and unknown-field preservation", async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-views-")); t.after(() => fs.rm(root, { recursive: true, force: true }));

@@ -524,7 +524,8 @@ export function createDatabases(host: Host) {
       for (const field of proposed.properties) {
         const previous = current.properties.find(item => item.id === field.id);
         if (previous && previous.key !== field.key) throw new VaultError(422, "A field key is stable; rename its display name instead");
-        if (previous && previous.type !== field.type && ctx.pages.some(page => page.dataSourceId === id && (previous.type === "title" || page.properties[field.key] != null))) throw new VaultError(422, "Changing a populated field type requires an explicit conversion; existing values were preserved");
+        const preservedPlace = previous?.type === "unknown" && field.type === "place" && previous.readOnly === true && field.readOnly === true && object(previous.notion) && previous.notion.type === "place" && canonical(previous.notion) === canonical(field.notion);
+        if (previous && previous.type !== field.type && !preservedPlace && ctx.pages.some(page => page.dataSourceId === id && (previous.type === "title" || page.properties[field.key] != null))) throw new VaultError(422, "Changing a populated field type requires an explicit conversion; existing values were preserved");
         if (previous?.options) {
           const removed = previous.options.filter(option => !field.options?.some(next => next.id === option.id)).map(option => option.id);
           if (removed.length && ctx.pages.some(page => page.dataSourceId === id && removed.some(option => page.properties[field.key] === option || Array.isArray(page.properties[field.key]) && (page.properties[field.key] as unknown[]).includes(option)))) throw new VaultError(422, "Options used by records cannot be removed; their values were preserved");
@@ -567,14 +568,17 @@ export function createDatabases(host: Host) {
       ctx.databases[database.id] = stamped({ ...database, viewIds: database.viewIds.filter(viewId => viewId !== id), dataSourceIds: database.dataSourceIds.filter(sourceId => owningDatabase(ctx, ctx.dataSources[sourceId])?.id === database.id || Object.values(ctx.views).some(view => view.databaseId === database.id && view.dataSourceId === sourceId)) });
       await save(ctx); return snapshot(await context(), database.id);
     }),
-    createView: (databaseId: string, input: Partial<DatabaseView>, baseRevision: string) => host.serialize(async () => {
+    createView: (databaseId: string, input: Partial<DatabaseView> & { beforeViewId?: string }, baseRevision: string) => host.serialize(async () => {
       base(baseRevision); const ctx = await context(), database = snapshot(ctx, databaseId).database;
       if (database.trashed) throw new VaultError(422, "Restore this database before adding views");
       if (database.revision !== baseRevision) return conflict(database, input, baseRevision);
       const id = randomUUID(), dataSourceId = input.dataSourceId ?? database.dataSourceIds[0];
       if (!database.dataSourceIds.includes(dataSourceId)) throw new VaultError(400, "The view data source must belong to this database");
-      const view = stamped({ rowOrder: [], ...input, id, databaseId, dataSourceId, name: input.name ?? "Table", type: input.type ?? "table", revision: "" } as DatabaseView);
-      validateView(view, ctx); ctx.views[id] = view; ctx.databases[databaseId] = stamped({ ...ctx.databases[databaseId], viewIds: [...database.viewIds, id] });
+      const { beforeViewId, ...definition } = input;
+      if (beforeViewId !== undefined && !database.viewIds.includes(beforeViewId)) throw new VaultError(400, "Choose a view in this database for insertion");
+      const view = stamped({ rowOrder: [], ...definition, id, databaseId, dataSourceId, name: input.name ?? "Table", type: input.type ?? "table", revision: "" } as DatabaseView);
+      const viewIds = [...database.viewIds]; viewIds.splice(beforeViewId ? viewIds.indexOf(beforeViewId) : viewIds.length, 0, id);
+      validateView(view, ctx); ctx.views[id] = view; ctx.databases[databaseId] = stamped({ ...ctx.databases[databaseId], viewIds });
       await save(ctx); return snapshot(await context(), databaseId);
     }),
     createRecord: (sourceId: string, input: { title?: string; properties?: Record<string, unknown> }, baseRevision: string) => host.serialize(async () => {

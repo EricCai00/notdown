@@ -33,7 +33,7 @@ for (const variant of ["notdown", "notion-markdown"] as const) test(`${variant} 
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
   await page.getByLabel("Import dialect").selectOption(variant);
-  const cache = page.getByLabel("Restore missing colors, view names, Notdown reminders and AI blocks from this computer's Notion desktop cache");
+  const cache = page.getByLabel("Restore missing colors, database views, Notdown reminders and AI blocks from this computer's Notion desktop cache");
   await cache.uncheck();
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Id(82));
@@ -88,7 +88,7 @@ test("desktop cache reminder preview, commit and reload retain reminder appearan
   await page.goto(`/#page/${seed.id}`);
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await page.getByRole("button", { name: "Import from Notion API", exact: true }).click();
-  const cache = page.getByLabel("Restore missing colors, view names, Notdown reminders and AI blocks from this computer's Notion desktop cache");
+  const cache = page.getByLabel("Restore missing colors, database views, Notdown reminders and AI blocks from this computer's Notion desktop cache");
   await expect(cache).toBeChecked();
   await page.getByLabel("Integration token", { exact: true }).fill("test-token-example");
   await page.getByLabel("Page URL or ID", { exact: true }).fill(v2Id(80));

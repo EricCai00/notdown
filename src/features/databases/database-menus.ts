@@ -1,6 +1,6 @@
-import { viewIconButton } from "./database-view-icon";
+import { databaseViewIcon, viewIconButton } from "./database-view-icon";
 import { databaseSymbolButton } from "./database-symbol-picker";
-import { databasePropertyIcon, databasePropertyIconName } from "./database-property-icon";
+import { databasePropertyIcon, databasePropertyIconName, databasePropertyTypeLabel } from "./database-property-icon";
 import { databaseOptionTag } from "./database-option-tag";
 import { cardPreviewChoices, defaultGalleryPreview } from "../pages/page-card-preview-model";
 import { setUIText, setUIAttribute } from "../../shared/i18n";
@@ -15,8 +15,8 @@ import { timelineScales } from "./database-timeline-model";
 import { readQuerySettings, viewLabel, wireQuerySettings } from "./database-view-settings";
 import { routeHash } from "../pages/page-navigation";
 
-const viewIcons = { table: Table2, board: Columns3, gallery: LayoutGrid, list: List, calendar: Calendar, timeline: GanttChart, chart: ChartNoAxesCombined, feed: Rss, dashboard: LayoutDashboard, form: ClipboardList, map: MapPin };
-const labels: Partial<Record<DatabasePropertyType, string>> = { text: "Text", title: "Title", number: "Number", select: "Select", multi_select: "Multi-select", status: "Status", date: "Date", checkbox: "Checkbox", url: "URL", email: "Email", phone: "Phone", people: "People", relation: "Relation", place: "Place" };
+const viewIcons = Object.fromEntries(databaseViewTypes.map(type => [type, databaseViewIcon({ type })])) as Record<DatabaseViewType, IconNode>;
+const labels: Partial<Record<DatabasePropertyType, string>> = { text: "Text", title: "Title", number: "Number", select: "Select", multi_select: "Multi-select", status: "Status", date: "Date", checkbox: "Checkbox", url: "URL", email: "Email", phone: "Phone", people: "Person", files: "Files & media", formula: "Formula", rollup: "Rollup", relation: "Relation", place: "Place" };
 const colors: Record<string, string> = { default: "#f4f4f2", gray: "#e5e5e3", brown: "#edddd1", orange: "#f8dec6", yellow: "#f4e4b0", green: "#d8e9df", blue: "#d3e6fa", purple: "#e8dcf1", pink: "#f5dce8", red: "#f6d9d5" };
 export const propertyMenuIcon = databasePropertyIcon;
 export function openGroupMenu(anchor: HTMLElement, hooks: { field: DatabaseProperty; key: string; view: DatabaseView; save(field: DatabaseProperty, view: DatabaseView): Promise<void>; edit(): void; trash(): void }) {
@@ -259,7 +259,7 @@ export function openPropertyMenu(anchor: HTMLElement, hooks: PropertyHooks) {
     const panel = pop.panel("Property settings"); panel.append(menuInput("Property name", draft.name, value => draft.name = value, propertyMenuIcon(draft)));
     panel.append(databaseSymbolButton(pop, { label: "Property icon", name: () => databasePropertyIconName(draft), icon: () => databasePropertyIcon(draft), choose: icon => { draft.icon = icon; } }));
     if (["select", "multi_select", "status"].includes(draft.type)) panel.append(menuButton("Edit property", SlidersHorizontal, button => { optionAnchor = button; drawOptions(); }, "", true));
-    if (draft.type !== "title" && !draft.dependencyRole) panel.append(menuButton("Change type", ArrowDownUp, button => { const child = pop.panel("Change type", button, 1); for (const [type, label] of Object.entries(labels)) if (type !== "title") child.append(menuChoice(label!, draft.type === type, () => { draft.type = type as DatabasePropertyType; if (type === "relation" && !draft.notion) draft.localRelation = true; else if (type !== "relation") delete draft.localRelation; if (["select", "multi_select", "status"].includes(type)) draft.options ??= []; mark(); draw(); }, databasePropertyIcon({ type: type as DatabasePropertyType }))); const hint = document.createElement("p"); hint.className = "database-popover-help"; setUIText(hint, "Populated properties keep their current type. Empty properties can change type."); child.append(hint); }, "", true));
+    if (draft.type !== "title" && !draft.dependencyRole) panel.append(menuButton("Change type", ArrowDownUp, button => { const child = pop.panel("Change type", button, 1); for (const [type, label] of Object.entries(labels)) if (type !== "title") child.append(menuChoice(label!, draft.type === type, () => { draft.type = type as DatabasePropertyType; if (type === "relation" && !draft.notion) draft.localRelation = true; else if (type !== "relation") delete draft.localRelation; if (["select", "multi_select", "status"].includes(type)) draft.options ??= []; mark(); draw(); }, databasePropertyIcon({ type: type as DatabasePropertyType }))); const hint = document.createElement("p"); hint.className = "database-popover-help"; setUIText(hint, "Populated properties keep their current type. Empty properties can change type."); child.append(hint); }, databasePropertyTypeLabel(draft), true));
     const section = menuSection(panel);
     for (const [label, icon] of [["Filter", ListFilter], ["Sort", ArrowDownUp], ["Group", Layers]] as const) if (label !== "Group" || groupable(draft)) section.append(menuButton(label, icon, async () => { if (await pop.save()) { pop.destroy(); hooks.query(label); } }, "", true));
     section.append(menuButton(view.layout!.frozenPropertyId === draft.id ? "Unfreeze" : "Freeze", ArrowLeftToLine, () => { view.layout!.frozenPropertyId = view.layout!.frozenPropertyId === draft.id ? "" : draft.id; mark(); draw(); }));

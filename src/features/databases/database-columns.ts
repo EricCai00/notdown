@@ -6,7 +6,7 @@ const sameSource = (left: string, right: string) => left.replace(/-/g, "").toLow
 
 /** Use the first available table for this source; all fields remain accessible locally. */
 export function notionTableProperties(fields: DatabaseProperty[], views: unknown, sourceId: string): DatabaseProperty[] {
-  const fallback = [...fields.filter(field => field.type === "title"), ...fields.filter(field => field.type !== "title")];
+  const fallback = [...fields.filter(field => field.type === "title"), ...fields.filter(field => field.type !== "title").sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }))];
   if (!Array.isArray(views)) return fallback;
   for (const view of views) {
     if (!object(view) || view.type !== "table" || typeof view.data_source_id !== "string" || !sameSource(view.data_source_id, sourceId)

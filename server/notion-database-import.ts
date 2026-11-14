@@ -2,6 +2,7 @@ import type { DatabaseResources, DatabaseProperty } from "../src/features/databa
 import { notionTableProperties } from "../src/features/databases/database-columns.js";
 import { VaultError } from "./vault.js";
 import { importNotionView } from "./notion-view-import.js";
+import { supplementNotionView, type ReadNotionViewCache } from "./notion-view-cache.js";
 
 type Json = Record<string, any>;
 type Read = (endpoint: string, allowMissing?: boolean | "probe" | "optional", body?: Json) => Promise<Json>;
@@ -18,6 +19,8 @@ export function notionDatabaseImport(options: {
   includeChildren?: boolean;
   onResource?: (title: string) => void;
   resolveViewNames?: (views: Json[]) => Promise<Map<string, string>>;
+  readViewCache?: ReadNotionViewCache;
+  archiveViewCache?: (databaseId: string, evidence: unknown) => void;
 }) {
   const { read, normalizeId, warn, enqueue } = options;
   const databases = new Map<string, Json>();
@@ -27,6 +30,7 @@ export function notionDatabaseImport(options: {
   const completedProperties = new Set<string>();
   const viewsByDatabase = new Map<string, Json[]>();
   const viewNames = new Map<string, string>();
+  const recoveredViews = new Map<string, NonNullable<ReturnType<typeof supplementNotionView>>>();
   const wikiIds = new Set<string>();
   const homeIds = new Set<string>();
   const sourceHosts = new Map<string, string>();
@@ -131,8 +135,24 @@ export function notionDatabaseImport(options: {
         }
       }
       viewsByDatabase.set(id, full);
+      if (options.readViewCache) {
+        const parent = raw.notionSourceOnly ? full.find(view => view.parent?.database_id)?.parent.database_id : id;
+        if (parent) {
+          let snapshot;
+          try { snapshot = await options.readViewCache(parent, full.map(view => normalizeId(view.id)), [...localSources]); }
+          catch { snapshot = { views: [], warning: "Local Notion view recovery could not be read. API view definitions are retained." }; }
+          if (snapshot.warning) warn(snapshot.warning);
+          for (const view of full) {
+            const matches = snapshot.views.filter(cached => sameId(cached.id, view.id));
+            if (matches.length !== 1) continue;
+            const recovered = supplementNotionView(view, matches[0], parent, [...localSources]);
+            if (recovered) { recoveredViews.set(normalizeId(view.id), recovered); options.archiveViewCache?.(normalizeId(view.id), { api: view, ...recovered }); }
+          }
+          if (full.some(view => recoveredViews.has(normalizeId(view.id)))) warn("Missing view settings and manual row order were supplemented from the local Notion desktop snapshot. Cache rows have no edit timestamps; review the recovered views before importing.");
+        }
+      }
       for (const [viewId, name] of await options.resolveViewNames?.(full) ?? []) viewNames.set(viewId, name);
-      if (full.some(view => !view.data_source_id)) warn(`Database ${title}: some views have no readable data source (including dashboard/Home views); their definitions are archived. Local tables show all records where view settings cannot be mapped.`);
+      if (full.some(view => !(recoveredViews.get(normalizeId(view.id))?.effective ?? view).data_source_id)) warn(`Database ${title}: some views have no readable data source (including dashboard/Home views); their definitions are archived. Local tables show all records where view settings cannot be mapped.`);
     }
     activeDatabases.delete(id);
     return { title, icon: raw.icon?.type === "emoji" ? raw.icon.emoji : "database" };
@@ -185,7 +205,7 @@ export function notionDatabaseImport(options: {
         const field: DatabaseProperty = {
           id: localId(`field-${id}-${remoteId}`), name, key: type === "title" ? "title" : localId(`field-${id}-${remoteId}`), type,
           ...(Array.isArray(property[property.type]?.options) ? { options: property[property.type].options.map((option: Json) => ({ ...option, id: String(option.id), name: String(option.name) })) } : {}),
-          ...(["formula", "rollup", "unknown", "people", "files", "relation"].includes(type) || ["created_time", "last_edited_time", "created_by", "last_edited_by", "unique_id"].includes(property.type) ? { readOnly: true } : {}),
+          ...(["formula", "rollup", "unknown", "place", "people", "files", "relation"].includes(type) || ["created_time", "last_edited_time", "created_by", "last_edited_by", "unique_id"].includes(property.type) ? { readOnly: true } : {}),
           notion: property,
         };
         fields.push(field); byName.set(name, field);
@@ -199,15 +219,19 @@ export function notionDatabaseImport(options: {
       const sourceIds = remoteSourceIds.map(localId);
       const viewIds: string[] = [];
       for (const remote of viewsByDatabase.get(id) ?? []) {
-        if (!remote.data_source_id) continue;
-        const remoteSourceId = normalizeId(remote.data_source_id), sourceId = localId(remoteSourceId);
+        const recovery = recoveredViews.get(normalizeId(remote.id)), effective = recovery?.effective ?? remote;
+        if (!effective.data_source_id) continue;
+        const remoteSourceId = normalizeId(effective.data_source_id), sourceId = localId(remoteSourceId);
         if (!sourceIds.includes(sourceId)) continue;
-        const mapped = importNotionView(remote, resources.dataSources[sourceId].properties, remoteSourceId);
+        const mapped = importNotionView(effective, resources.dataSources[sourceId].properties, remoteSourceId);
+        mapped.notion = remote;
         mapped.name = viewNames.get(normalizeId(remote.id)) ?? mapped.name;
         const viewId = localId(`view-${id}-${normalizeId(remote.id)}`);
         if (viewIds.includes(viewId)) continue;
         for (const message of mapped.importWarnings) warn(`Database ${raw.localTitle}, view ${mapped.name}: ${message}`);
-        resources.views[viewId] = { ...mapped, id: viewId, databaseId: localId(id), dataSourceId: sourceId, rowOrder: [...sourceByPage].filter(([pageId, source]) => importedPages.has(pageId) && source === remoteSourceId).map(([pageId]) => localId(pageId)), revision: "" };
+        const discovered = [...sourceByPage].filter(([pageId, source]) => importedPages.has(pageId) && source === remoteSourceId).map(([pageId]) => pageId);
+        const order = recovery ? [...new Set([...recovery.evidence.pageOrder.filter(pageId => discovered.includes(pageId)), ...discovered])] : discovered;
+        resources.views[viewId] = { ...mapped, ...(recovery ? { notionViewCache: recovery.evidence } : {}), id: viewId, databaseId: localId(id), dataSourceId: sourceId, rowOrder: order.map(localId), revision: "" };
         viewIds.push(viewId);
       }
       for (const sourceId of sourceIds) {
@@ -277,7 +301,7 @@ function fieldType(type: string): DatabaseProperty["type"] {
   if (type === "phone_number") return "phone";
   if (["created_time", "last_edited_time"].includes(type)) return "date";
   if (["created_by", "last_edited_by"].includes(type)) return "people";
-  return ["title", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "people", "relation", "files", "formula", "rollup"].includes(type) ? type as DatabaseProperty["type"] : "unknown";
+  return ["title", "number", "checkbox", "date", "select", "multi_select", "status", "url", "email", "place", "people", "relation", "files", "formula", "rollup"].includes(type) ? type as DatabaseProperty["type"] : "unknown";
 }
 function propertyValue(property: Json, localId: (id: string) => string, imported: Set<string>, normalizeId: (value: unknown) => string): unknown {
   const type = property.type, value = property[type];
@@ -291,6 +315,6 @@ function propertyValue(property: Json, localId: (id: string) => string, imported
   if (["created_time", "last_edited_time"].includes(type)) return value ? { start: value } : null;
   if (["created_by", "last_edited_by"].includes(type)) return value ? [value] : [];
   if (["formula", "rollup"].includes(type)) return { ...property, snapshot: true };
-  if (["number", "checkbox", "date", "url", "email", "phone_number", "people", "files"].includes(type)) return value ?? null;
+  if (["number", "checkbox", "date", "url", "email", "phone_number", "place", "people", "files"].includes(type)) return value ?? null;
   return { ...property, snapshot: true };
 }

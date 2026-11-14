@@ -21,6 +21,7 @@ import { blockifyNotionImages } from "./notion-image-import.js";
 import { recoverCachedNotionBlock } from "./notion-private-blocks.js";
 import { parseCopiedNotionSnapshots, recoverCopiedNotionButton } from "./notion-copied-blocks.js";
 import { notionViewName, readNotionViewNames, type ReadNotionViewNames } from "./notion-view-names.js";
+import { readNotionViewCache, type ReadNotionViewCache } from "./notion-view-cache.js";
 
 const API = "https://api.notion.com/v1";
 const VERSION = "2026-03-11";
@@ -243,6 +244,7 @@ export async function prepareNotionImport(
     readAsset?: ReadNotionAsset;
     readCache?: ReadNotionCache;
     readViewNames?: ReadNotionViewNames;
+    readViewCache?: ReadNotionViewCache;
     existingPages?: readonly { id: string; pageId: string }[];
     onProgress?: (progress: ImportProgress) => void;
     checkpoint?: () => Promise<void>;
@@ -470,6 +472,8 @@ export async function prepareNotionImport(
     return item;
   };
   const databaseImport = notionDatabaseImport({ read: get, normalizeId: notionPageId, warn: message => warnings.add(message), enqueue, includeChildren: request.includeChildren !== false,
+    readViewCache: request.useDesktopCache === true ? options.readViewCache ?? readNotionViewCache : undefined,
+    archiveViewCache: (viewId, evidence) => archive(`view-recovery/${viewId}.json`, Buffer.from(JSON.stringify(evidence))),
     resolveViewNames: request.useDesktopCache === true ? async views => {
       const names = new Map<string, string>(), groups = new Map<string, Json[]>();
       for (const view of views) {

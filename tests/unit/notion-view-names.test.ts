@@ -18,7 +18,7 @@ test("unnamed views use source layout labels while explicit names and raw defini
       const result = importNotionView(source, [], "source");
       assert.equal(result.name, label);
       assert.deepEqual(result.notion, source);
-      if (type === "map") assert.equal(result.type, "table", "the name does not claim the unsupported layout was imported");
+      if (type === "map") assert.equal(result.type, "map");
     }
   }
   assert.equal(notionViewName({ type: "__proto__" }), "Table");
