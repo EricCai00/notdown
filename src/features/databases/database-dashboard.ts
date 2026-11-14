@@ -1,3 +1,4 @@
+import { databaseOptionTag } from "./database-option-tag";
 import {
   createElement,
   Plus,
@@ -957,12 +958,7 @@ export function renderDashboard(
                   const option = field.options?.find(
                       (option) => option.id === id,
                     ),
-                    tag = el(
-                      "span",
-                      "database-tag",
-                      option?.name ?? String(id),
-                    );
-                  tag.dataset.color = option?.color ?? "gray";
+                    tag = databaseOptionTag(option ?? { name: String(id) }, field.type);
                   cell.append(tag);
                 }
               } else

@@ -1,3 +1,4 @@
+import { databaseOptionTag } from "./database-option-tag";
 import { t, setUIText, uiLanguage } from "../../shared/i18n";
 import type { Page } from "../../shared/types";
 import { pageIconElement } from "../../shared/page-icons";
@@ -42,8 +43,8 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
       if (appendFeedProperty(prop, property, value, referencePages)) { /* Shared date/reference formatting. */ }
       else if (["select", "status", "multi_select"].includes(property.type)) {
         for (const id of Array.isArray(value) ? value : [value]) {
-          const option = property.options?.find(item => item.id === id), tag = document.createElement("span");
-          tag.className = "database-tag"; tag.dataset.color = option?.color ?? "gray"; tag.textContent = option?.name ?? String(id); prop.append(tag);
+          const option = property.options?.find(item => item.id === id);
+          prop.append(databaseOptionTag(option ?? { name: String(id) }, property.type));
         }
       } else prop.textContent = property.type === "checkbox" ? value ? "☑" : "☐" : valueText(property, value);
       content.append(prop);

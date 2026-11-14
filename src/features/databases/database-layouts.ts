@@ -15,6 +15,7 @@ import { renderChart } from "./database-chart";
 import { appendFeedContent, appendFeedHeader, appendFeedProperty } from "./database-feed";
 import { calendarWindow, calendarSegments } from "./database-calendar-model";
 import { timelineEdit } from "./database-timeline-model";
+import { databaseOptionTag } from "./database-option-tag";
 
 const layoutCleanup = new WeakMap<HTMLElement, () => void>();
 
@@ -49,7 +50,7 @@ export function groupHeading(group: DatabaseGroup, field: DatabaseProperty, view
   const header = document.createElement("header"); header.className = "database-group-heading";
   const collapsed = view.layout?.collapsedGroups?.includes(group.key) ?? false;
   const toggle = button(collapsed ? "▸" : "▾", `${collapsed ? "Expand" : "Collapse"} group ${group.name}`, () => actions.collapseGroup(group.key), "database-group-toggle"); toggle.setAttribute("aria-expanded", String(!collapsed)); header.append(toggle);
-  const label = document.createElement("span"); label.className = "database-tag"; label.dataset.color = group.color; label.textContent = group.name; header.append(label);
+  const label = databaseOptionTag({ name: group.name, color: group.color }, field.type); header.append(label);
   if (view.layout?.showGroupCount !== false) { const count = document.createElement("span"); count.className = "database-group-count"; count.textContent = String(group.pages.length); header.append(count); }
   const more = button("···", `Group options: ${group.name}`, () => actions.groupMenu(field, group.key, more), "database-group-more"); more.setAttribute("aria-haspopup", "dialog"); header.append(more);
   header.append(button("+", `Add page to ${group.name}`, () => actions.add({ [field.key]: group.key === "" ? null : field.type === "checkbox" ? group.key === "true" : group.key }), "database-group-more"));
@@ -78,7 +79,7 @@ function card(page: Page, source: DatabaseDataSource, fields: DatabaseProperty[]
     prop.dataset.propertyId = field.id; prop.dataset.propertyType = field.type;
     if (["feed", "calendar"].includes(view.type) && appendFeedProperty(prop, field, value, actions.pages?.() ?? [], actions.open)) { /* Readable dates and local references. */ }
     else if (["select", "status", "multi_select"].includes(field.type)) {
-      for (const id of value == null || value === "" ? [] : Array.isArray(value) ? value : [value]) { const option = field.options?.find(option => option.id === id); const tag = document.createElement("span"); tag.className = "database-tag"; tag.dataset.color = option?.color ?? "gray"; tag.textContent = option?.name ?? String(id); prop.append(tag); }
+      for (const id of value == null || value === "" ? [] : Array.isArray(value) ? value : [value]) { const option = field.options?.find(option => option.id === id); prop.append(databaseOptionTag(option ?? { name: String(id) }, field.type)); }
     } else prop.textContent = field.type === "checkbox" ? value ? "☑" : "☐" : valueText(field, value);
     properties.append(prop);
   }

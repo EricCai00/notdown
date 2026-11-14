@@ -57,6 +57,7 @@ function properties(value: unknown): asserts value is DatabaseProperty[] {
     if (field.type === "title" && field.key !== "title") throw new VaultError(400, "The title property must bind title");
     if (field.type !== "title" && field.key === "title") throw new VaultError(400, "The title key is reserved");
     if (field.readOnly !== undefined && typeof field.readOnly !== "boolean") throw new VaultError(400, "Invalid readOnly flag");
+    if (field.icon !== undefined && (typeof field.icon !== "string" || field.icon.length > 100)) throw new VaultError(400, "Property icon must be a string of at most 100 characters");
     if (field.localRelation !== undefined && (typeof field.localRelation !== "boolean" || field.type !== "relation")) throw new VaultError(400, "Invalid local relation");
     if (field.dependencyRole !== undefined && (field.type !== "relation" || !["blockedBy", "blocking"].includes(field.dependencyRole))) throw new VaultError(400, "Invalid dependency property");
     if (field.subitemRole !== undefined && (field.type !== "relation" || !["parent", "children"].includes(field.subitemRole) || field.dependencyRole)) throw new VaultError(400, "Invalid sub-item property");

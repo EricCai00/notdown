@@ -6,6 +6,7 @@ export interface DatabaseProperty {
   name: string;
   key: string;
   type: DatabasePropertyType;
+  icon?: string;
   options?: { id: string; name: string; color?: string; [key: string]: unknown }[];
   readOnly?: boolean;
   localRelation?: boolean;

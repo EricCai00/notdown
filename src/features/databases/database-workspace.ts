@@ -1,4 +1,6 @@
 import { databaseViewIconHTML } from "./database-view-icon";
+import { databasePropertyIconHTML } from "./database-property-icon";
+import { databaseOptionTag } from "./database-option-tag";
 import { installTableSelection } from "./database-table-selection";
 import { installDatabaseTableResize } from "./database-table-resize";
 import { setUIText, setUIAttribute } from "../../shared/i18n";
@@ -60,10 +62,7 @@ function linkedDatabaseIcon(icon = "table-2") {
   mark.append(pageIconElement(icon), referenceArrow("database-linked-heading"));
   return mark;
 }
-const typeIcon = (type: string) => glyph(({ title: Type, text: AlignLeft, number: Hash, checkbox: SquareCheck, date: Calendar, select: CircleChevronDown, multi_select: CircleChevronDown, status: CircleChevronDown, url: Link, relation: Link, people: Users, files: FileText, place: MapPin } as Record<string, IconNode>)[type] ?? AlignLeft, "database-type-icon");
-const optionColors = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"];
 let closeOptions: (() => void) | undefined;
-function optionTag(option: { name: string; color?: string }) { return `<span class="database-tag" data-color="${optionColors.includes(option.color ?? "") ? option.color : "gray"}">${e(option.name)}</span>`; }
 
 export function documentOverrides(page: Page, field: DatabaseProperty): boolean {
   const values = documentMetadata(page.body).values;
@@ -105,7 +104,12 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
   const readOnly = databasePropertyReadOnly(field) || ["people", "files", "relation"].includes(field.type) || override;
   if (readOnly) {
     wrapper.classList.add("database-cell-readonly");
-    wrapper.textContent = displayValue(field, value) || "—";
+    wrapper.textContent = displayValue(field, value);
+    if (["select", "multi_select", "status"].includes(field.type)) {
+      wrapper.replaceChildren();
+      for (const id of value == null || value === "" ? [] : Array.isArray(value) ? value : [value])
+        wrapper.append(databaseOptionTag(field.options?.find(option => option.id === id) ?? { name: String(id) }, field.type));
+    }
     if (["relation", "people"].includes(field.type) && Array.isArray(value) && value.length) {
       wrapper.replaceChildren();
       for (const reference of value) {
@@ -128,7 +132,7 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
     wrapper.setAttribute("aria-label", label);
     const reason = override ? "Defined in document metadata — edit in source" : ["formula", "rollup"].includes(field.type) ? "Imported result — does not recalculate locally" : "Preserved value — editing is not available";
     wrapper.title = reason;
-    const note = document.createElement("small"); note.textContent = reason; wrapper.append(note);
+    if (wrapper.textContent) { const note = document.createElement("small"); note.textContent = reason; wrapper.append(note); }
     return wrapper;
   }
   if (field.type === "place") return placeInput(value, label, commit, optionHost);
@@ -136,7 +140,7 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
     const control = document.createElement("button"); control.type = "button"; control.className = "database-select-control";
     control.setAttribute("aria-label", label); control.setAttribute("aria-haspopup", "listbox"); control.setAttribute("aria-expanded", "false");
     let selected = new Set<string>(Array.isArray(value) ? value : typeof value === "string" ? [value] : []);
-    const draw = () => { control.innerHTML = [...selected].map(id => optionTag(field.options?.find(option => option.id === id) ?? { name: id })).join("") || `<span class="database-empty-value" data-i18n="Empty">Empty</span>`; };
+    const draw = () => { control.replaceChildren(...[...selected].filter(Boolean).map(id => databaseOptionTag(field.options?.find(option => option.id === id) ?? { name: id }, field.type))); };
     draw();
     control.addEventListener("click", () => {
       closeOptions?.();
@@ -150,7 +154,7 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
       const outside = (event: PointerEvent) => { if (!popover.contains(event.target as Node) && !control.contains(event.target as Node)) dismiss(); };
       for (const option of [{ id: "", name: "Clear", color: "gray" }, ...(field.options ?? [])]) {
         const button = document.createElement("button"); button.type = "button"; button.className = "database-option";
-        button.setAttribute("role", "option"); button.setAttribute("aria-selected", String(selected.has(option.id))); button.innerHTML = option.id ? optionTag(option) : "Clear";
+        button.setAttribute("role", "option"); button.setAttribute("aria-selected", String(selected.has(option.id))); if (option.id) button.append(databaseOptionTag(option, field.type)); else button.textContent = "Clear";
         button.addEventListener("click", () => {
           if (!option.id) selected.clear();
           else if (field.type === "multi_select") { if (selected.has(option.id)) selected.delete(option.id); else selected.add(option.id); }
@@ -176,12 +180,15 @@ export function propertyInput(field: DatabaseProperty, page: Page, value: unknow
   if (field.type === "date") {
     const date = value && typeof value === "object" ? value as { start?: string; end?: string } : { start: typeof value === "string" ? value : "" };
     const start = document.createElement("input"), end = document.createElement("input");
+    wrapper.classList.add("database-date-cell"); start.className = "database-date-start"; end.className = "database-date-end";
+    const separator = document.createElement("span"); separator.className = "database-date-separator"; separator.textContent = "→"; separator.setAttribute("aria-hidden", "true");
     start.value = date.start ?? ""; end.value = date.end ?? "";
     start.placeholder = "YYYY-MM-DD"; end.placeholder = "End date (optional)";
     start.setAttribute("aria-label", label); end.setAttribute("aria-label", `End ${label}`);
-    const update = () => commit(start.value.trim() ? { ...date, start: start.value.trim(), end: end.value.trim() || null } : null);
+    const draw = () => wrapper.dataset.hasEnd = String(!!end.value);
+    const update = () => { draw(); commit(start.value.trim() ? { ...date, start: start.value.trim(), end: end.value.trim() || null } : null); };
     start.addEventListener("input", update); end.addEventListener("input", update);
-    wrapper.append(start, end); return wrapper;
+    draw(); wrapper.append(start, separator, end); return wrapper;
   }
   if (wrap && ["title", "text"].includes(field.type)) {
     const input = document.createElement("textarea"); input.rows = 1; input.setAttribute("aria-label", label); input.value = value == null ? "" : String(value);
@@ -984,7 +991,7 @@ export class DatabaseWorkspace {
     const fields = databaseViewProperties(source, view, snapshot.database);
     const heading = this.host.querySelector("thead tr")!;
     for (const field of fields) {
-      const th = document.createElement("th"), button = document.createElement("button"); th.dataset.type = field.type; th.dataset.propertyId = field.id; th.classList.toggle("database-frozen-column", field.id === view.layout?.frozenPropertyId); th.setAttribute("aria-label", field.name); button.innerHTML = `${typeIcon(field.type)}<span>${e(field.name)}</span>`; button.title = `Edit ${field.name} property`; button.setAttribute("aria-label", `Edit ${field.name} property`);
+      const th = document.createElement("th"), button = document.createElement("button"); th.dataset.type = field.type; th.dataset.propertyId = field.id; th.classList.toggle("database-frozen-column", field.id === view.layout?.frozenPropertyId); th.setAttribute("aria-label", field.name); button.innerHTML = `${databasePropertyIconHTML(field)}<span>${e(field.name)}</span>`; button.title = `Edit ${field.name} property`; button.setAttribute("aria-label", `Edit ${field.name} property`);
       button.addEventListener("click", () => act(() => this.editProperty(field, undefined, this.host.querySelector<HTMLElement>(`th[data-property-id="${CSS.escape(field.id)}"] button`) ?? button))); th.append(button); heading.append(th);
     }
     const addColumn = document.createElement("th"); addColumn.className = "database-add-column"; addColumn.innerHTML = `<button class="database-icon-button" aria-label="Add property" title="Add property" data-i18n-title="Add property" data-i18n-aria-label="Add property">${glyph(Plus)}</button>`; addColumn.querySelector("button")!.addEventListener("click", () => act(() => this.editProperty())); heading.append(addColumn);

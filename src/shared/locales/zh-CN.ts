@@ -587,6 +587,7 @@ export const zhCN: Record<string, string> = {
   "Properties (JSON object)": "属性（JSON 对象）",
   "Properties are stored in vault metadata.json. YAML and Pandoc title blocks in the document override these defaults. Edit document overrides in source or Metadata details.": "属性保存在知识库的 metadata.json 中。文档内的 YAML 或 Pandoc 标题块覆盖这些默认值，可在源码或元数据详情中编辑覆盖值。",
   "Property name": "属性名称",
+  "Property icon": "属性图标",
   "Property type": "属性类型",
   "Publishable key": "可发布密钥",
   "Python also connects to Julia through Jupyter. Install jupyter_client and ipykernel in the selected Python environment; Julia needs IJulia. A named Python kernel uses its own interpreter. With no named kernel, Python cells use the selected Python executable.": "Python 也通过 Jupyter 连接 Julia。请在所选 Python 环境安装 jupyter_client 和 ipykernel，Julia 需要 IJulia。指定的 Python 内核使用自身解释器；未指定内核时，Python 单元使用所选可执行文件。",

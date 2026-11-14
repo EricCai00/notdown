@@ -1,0 +1,31 @@
+.database-status-tag,
+:is(.database-workspace, .database-popover, .database-option-popover, .database-peek, .database-page-properties) .database-tag.database-status-tag {
+  gap: 5px;
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 20px;
+}
+.database-status-tag::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--database-status-dot, #91918e);
+}
+.database-status-tag[data-color="brown"] { --database-status-dot: #a5785c; }
+.database-status-tag[data-color="orange"] { --database-status-dot: #db8b34; }
+.database-status-tag[data-color="yellow"] { --database-status-dot: #c7a448; }
+.database-status-tag[data-color="green"] { --database-status-dot: #4c9e7e; }
+.database-status-tag[data-color="blue"] { --database-status-dot: #328cdb; }
+.database-status-tag[data-color="purple"] { --database-status-dot: #a775c6; }
+.database-status-tag[data-color="pink"] { --database-status-dot: #cd75a0; }
+.database-status-tag[data-color="red"] { --database-status-dot: #d5736d; }
+
+/* Blank cells stay visually blank while their labelled controls remain focusable. */
+.database-table .database-cell input:not(:focus)::placeholder { color: transparent; }
+.database-table .database-empty-value { display: none; }
+.database-date-separator { color: var(--database-muted, #73736f); flex: none; }
+.database-date-cell[data-has-end="false"]:not(:focus-within) :is(.database-date-end, .database-date-separator) { display: none; }
+.database-table .database-date-cell:not(:focus-within) input { flex: 0 1 106px; width: 106px; padding-right: 0; }
+.database-table .database-date-cell:not(:focus-within) .database-date-end { padding-left: 4px; }

@@ -29,8 +29,6 @@
 .database-timeline-task-name { display:block; flex:none; }
 .database-timeline-property { display:inline-flex; align-items:center; gap:4px; flex:none; font-size:12px; font-weight:400; }
 .database-workspace .database-timeline-property .database-tag { font-size:12px; line-height:19px; }
-.database-workspace .database-timeline-property[data-property-type=status] .database-tag { border-radius:12px; gap:5px; padding:0 8px; }
-.database-timeline-property[data-property-type=status] .database-tag::before { content:""; width:7px; height:7px; flex:none; border-radius:50%; background:currentColor; opacity:.65; }
 .database-workspace .database-timeline-handle { position:absolute; top:4px; bottom:4px; width:6px; border:0; padding:0; background:transparent; cursor:ew-resize; touch-action:none; z-index:2; }
 .database-timeline-handle.is-start { left:0; } .database-timeline-handle.is-end { right:0; }
 .database-timeline-handle::after { content:""; display:none; position:absolute; width:3px; inset:0 auto 0 1px; border-radius:2px; background:var(--text,#37352f); }
@@ -137,8 +135,7 @@
 .database-layout-feed .database-card-properties { padding:0 var(--feed-edge) 10px var(--feed-inset); gap:8px 18px; align-items:center; color:inherit; font-size:14px; }
 .database-layout-feed .database-card-properties:empty { display:none; }
 .database-layout-feed .database-card-property { align-items:center; white-space:normal; flex-wrap:wrap; overflow-wrap:anywhere; }
-.database-workspace .database-layout-feed .database-tag { border-radius:12px; padding:1px 10px; font-size:13px; line-height:20px; }
-.database-layout-feed [data-property-type=status] .database-tag::before { content:""; width:8px; height:8px; margin-right:6px; border-radius:50%; background:currentColor; opacity:.65; flex:none; }
+.database-workspace .database-layout-feed .database-tag { padding:1px 6px; font-size:13px; line-height:20px; }
 .database-layout-feed .database-feed-relations { gap:5px 12px; }
 .database-workspace .database-feed-reference { display:inline-flex; align-items:center; justify-content:flex-start; gap:6px; min-width:0; max-width:100%; border:0; padding:0; background:none; color:inherit; font:inherit; text-align:left; }
 .database-feed-reference>svg,.database-feed-reference>.page-icon { width:18px; height:18px; flex:none; color:var(--database-muted); }

@@ -15,7 +15,6 @@ export function referencePicker(field: DatabaseProperty, page: Page, value: unkn
   const draw = () => {
     control.replaceChildren();
     for (const item of selected.values()) { const tag = document.createElement("span"); tag.className = "database-tag"; tag.textContent = label(item); control.append(tag); }
-    if (!selected.size) { const hint = document.createElement("span"); hint.className = "database-empty-value"; hint.textContent = t("Empty"); control.append(hint); }
   };
   draw(); wrapper.append(control);
   control.onclick = () => {

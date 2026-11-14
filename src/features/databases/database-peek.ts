@@ -4,6 +4,7 @@ import { defaultSyntax, syntaxFormat, type SyntaxConfig } from "../../markdown-e
 import { documentMetadata } from "../metadata/document-metadata";
 import { documentPageTitle } from "../metadata/pandoc-page-title";
 import type { DatabaseDataSource, DatabaseProperty } from "./database-model";
+import { databasePropertyIconHTML } from "./database-property-icon";
 import { createElement, ChevronsRight, Maximize2, Save, SquareCheck, CircleChevronDown, Hash, Calendar, AlignLeft, Plus } from "lucide";
 import "./database-peek.css";
 
@@ -17,7 +18,6 @@ type Options = {
   propertyInput: (field: DatabaseProperty, page: Page, value: unknown, commit: (value: unknown) => void) => HTMLElement;
 };
 const glyph = (icon: typeof Save) => createElement(icon, { width: 18, height: 18, "stroke-width": 1.6, "aria-hidden": "true" }).outerHTML;
-const propertyGlyph = (type: string) => glyph(type === "checkbox" ? SquareCheck : ["select", "multi_select", "status"].includes(type) ? CircleChevronDown : type === "number" ? Hash : type === "date" ? Calendar : AlignLeft);
 
 /** An isolated page editor. Its revision and draft always belong to the opened row. */
 export class DatabasePeek {
@@ -222,7 +222,7 @@ export class DatabasePeek {
     for (const field of this.source.properties.filter(field => field.type !== "title").sort((left, right) => left.name.localeCompare(right.name))) {
       const row = document.createElement("div"); row.className = "database-peek-property";
       const label = document.createElement("span"); label.className = "database-peek-property-name";
-      label.innerHTML = propertyGlyph(field.type) + `<span>${e(field.name)}</span>`;
+      label.innerHTML = databasePropertyIconHTML(field) + `<span>${e(field.name)}</span>`;
       const value = Object.prototype.hasOwnProperty.call(nested, field.key) ? nested[field.key] : Object.prototype.hasOwnProperty.call(values, field.key) ? values[field.key] : this.page.properties[field.key];
       const cell = this.options.propertyInput(field, this.page, value, value => {
         if (!this.page) return;
