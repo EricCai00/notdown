@@ -8,7 +8,7 @@ import { groupHeading } from "./database-layouts";
 import { calendarDate, databaseGroups, fieldValue, shiftDay, valueText } from "./database-query";
 import { appendFeedProperty } from "./database-feed";
 import { timelineEdit, timelineWindow, timelineViewport, timelineScales } from "./database-timeline-model";
-import { relationIds } from "./database-dependencies";
+import { relationIds, timelineDependencyBinding, timelineDependencyEdges } from "./database-dependencies";
 import { nestedSubitems, visibleSubitems, subitemFields, subitemRows, type SubitemRow } from "./database-subitems";
 import { subitemToggle, subitemSummary } from "./database-subitems-view";
 import { timelineSubitemLane } from "./database-timeline-subitems";
@@ -26,6 +26,7 @@ const monthLabel = (day: string, year = true) => new Date(day + "T12:00:00Z").to
 const states = new WeakMap<HTMLElement, { anchor: string; scale: string; left: number; pop?: DatabasePopover; cleanup?: () => void }>();
 const timelineIcon = (node: IconNode) => createElement(node, { width: 16, height: 16, "stroke-width": 1.6, "aria-hidden": "true", focusable: "false" });
 export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, rows: Page[], fields: DatabaseProperty[], view: DatabaseView, actions: LayoutActions) {
+  const dependency = timelineDependencyBinding(source, view);
   const previous = states.get(host); previous?.pop?.destroy(); previous?.cleanup?.();
   const field = source.properties.find(field => field.id === view.layout?.datePropertyId && field.type === "date");
   if (!field) { host.append(button(t("Choose a date property"), actions.settings, "database-layout-setup")); return; }
@@ -69,10 +70,10 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
   const title = document.createElement("h2"); title.textContent = periodLabel(actions.month); toolbar.append(title);
   if (actions.dependencies) {
     const dependencyButton = button(t("Dependencies"), () => {
-      const forward = source.properties.find(item => item.dependencyRole === "blockedBy");
+      const forward = dependency?.field;
       if (!forward) { run(actions.dependencies!()); return; }
       state.pop?.destroy(); const pop = new DatabasePopover(dependencyButton, "Dependencies"); state.pop = pop; const panel = pop.panel("Dependencies");
-      if (actions.dependencySettings) {
+      if (!dependency?.imported && actions.dependencySettings) {
         for (const [enabled, label] of [[true, "Shift only when dates overlap"], [false, "Do not shift automatically"]] as const) panel.append(menuChoice(label, (source.dependencyAutoShift !== false) === enabled, () => { void pop.perform(() => actions.dependencySettings!({ dependencyAutoShift: enabled })); }));
         const dateLabel = document.createElement("label"); dateLabel.className = "database-dependency-date"; setUIText(dateLabel, "Shift using");
         const select = document.createElement("select"); select.setAttribute("aria-label", t("Shift using"));
@@ -83,7 +84,7 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
       for (const page of (actions.pages?.() ?? rows).filter(page => page.dataSourceId === source.id && !page.trashed)) {
         const name = document.createElement("p"); name.className = "database-dependency-task"; name.textContent = page.title; panel.append(name);
         const picker = referencePicker(forward, page, fieldValue(page, forward), value => actions.reference?.(page, forward, value), actions.pages?.() ?? rows);
-        if (!actions.writable(page, forward)) picker.querySelector<HTMLButtonElement>("button")!.disabled = true;
+        if (dependency?.imported || !actions.writable(page, forward)) picker.querySelector<HTMLButtonElement>("button")!.disabled = true;
         panel.append(picker);
       }
       pop.footer(panel);
@@ -161,10 +162,11 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
     viewport.append(jump); return viewport;
   };
   const insertion = document.createElement("i"); insertion.className = "database-timeline-insertion"; insertion.hidden = true; grid.append(insertion);
-  const forward = source.properties.find(item => item.dependencyRole === "blockedBy");
+  const forward = dependency?.imported ? undefined : dependency?.field;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.classList.add("database-timeline-links"); svg.style.left = `${labelWidth}px`; svg.setAttribute("width", String(plotWidth));
   const additions: { parentId: string; y: number; lane: ReturnType<typeof timelineSubitemLane> }[] = [];
   const drawLinks = () => {
+    for (const {bar} of bars.values()) bar.style.setProperty("--timeline-card-text-width", `${Math.max(0, parseFloat(bar.style.width) - 9)}px`);
     svg.replaceChildren(); svg.setAttribute("height", String(rowY)); svg.style.setProperty("--timeline-links-height", `${rowY}px`);
     const parentLink = (id: string, x2: number, y2: number, childId?: string) => {
       const parent = bars.get(id); if (!parent) return;
@@ -181,9 +183,9 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
       }
       for (const item of additions) { const x = item.lane.x(); if (x !== undefined) parentLink(item.parentId, x, item.y); }
     }
-    if (!forward) return;
-    for (const target of bars.values()) for (const id of relationIds(fieldValue(target.page, forward))) {
-      const from = bars.get(id); if (!from) continue;
+    for (const edge of timelineDependencyEdges(source, view, actions.pages?.() ?? rows)) {
+      const from = bars.get(edge.from), target = bars.get(edge.to); if (!from || !target) continue;
+      const id = edge.from;
       const x1 = parseFloat(from.bar.style.left) + parseFloat(from.bar.style.width), x2 = parseFloat(target.bar.style.left), y1 = from.y, y2 = target.y;
       const path = document.createElementNS(svg.namespaceURI, "path"), bend = Math.max(18, Math.abs(x2 - x1) / 2);
       // When date ranges overlap, approach the target from the row boundary,
@@ -192,7 +194,11 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
       const route = x2 >= x1 ? `M${x1},${y1} C${x1+bend},${y1} ${x2-bend},${y2} ${x2-5},${y2}`
         : `M${x1},${y1} C${x1+18},${y1} ${x1+18},${boundary} ${x1+18},${boundary} L${x2-17},${boundary} Q${x2-9},${boundary} ${x2-9},${boundary+direction*8} L${x2-9},${y2-direction*4} Q${x2-9},${y2} ${x2-5},${y2}`;
       path.setAttribute("d", `${route} M${x2-10},${y2-4} L${x2-5},${y2} L${x2-10},${y2+4}`);
-      path.setAttribute("data-from", id); path.setAttribute("data-to", target.page.id); path.setAttribute("role", "button"); path.setAttribute("tabindex", "0"); path.setAttribute("aria-label", `${t("Remove dependency")}: ${from.page.title} → ${target.page.title}`);
+      path.setAttribute("data-from", id); path.setAttribute("data-to", target.page.id);
+      if (!forward || !actions.writable(target.page, forward)) {
+        path.setAttribute("data-readonly", "true"); path.setAttribute("role", "img"); path.setAttribute("aria-label", `${from.page.title} → ${target.page.title}`); svg.append(path); continue;
+      }
+      path.setAttribute("role", "button"); path.setAttribute("tabindex", "0"); path.setAttribute("aria-label", `${t("Remove dependency")}: ${from.page.title} → ${target.page.title}`);
       const remove = () => { if (actions.writable(target.page, forward)) actions.reference?.(target.page, forward, (fieldValue(target.page, forward) as {pageId?:string}[]).filter(ref => ref.pageId !== id)); };
       path.addEventListener("click", remove); path.addEventListener("keydown", event => { if (["Enter", "Delete", "Backspace"].includes((event as KeyboardEvent).key)) { event.preventDefault(); remove(); } }); svg.append(path);
     }
@@ -279,7 +285,16 @@ export function renderTimeline(host: HTMLElement, source: DatabaseDataSource, ro
           if (!titleEditor) bind(open,"move");
           for (const edge of ["start","end"] as const) { const handle = button("", () => {}, `database-timeline-handle is-${edge}`); handle.setAttribute("aria-label", `${t(edge === "start" ? "Adjust start date" : "Adjust end date")}: ${page.title}`); handle.onpointerenter = () => { if (!interacting) showDate(value,edge); }; handle.onpointerleave = () => { if (!interacting) tooltip.hidden = true; }; handle.onfocus = () => showDate(value,edge); handle.onblur = () => { tooltip.hidden = true; }; bind(handle,edge); bar.append(handle); }
         }
-        if (forward && actions.writable(page, forward)) {
+        if (dependency?.imported) {
+          const connector = button("", () => {
+            state.pop?.destroy(); const pop = new DatabasePopover(connector, dependency.field.name); state.pop = pop;
+            const panel = pop.panel(dependency.field.name);
+            const picker = referencePicker(dependency.field, page, fieldValue(page, dependency.field), () => {}, actions.pages?.() ?? rows);
+            picker.querySelector<HTMLButtonElement>("button")!.disabled = true; panel.append(picker); pop.footer(panel);
+          }, "database-timeline-connector is-readonly");
+          connector.setAttribute("aria-label", `${t("View dependencies")}: ${page.title}`);
+          connector.title = t("Imported relation — read-only"); bar.append(connector);
+        } else if (forward && actions.writable(page, forward)) {
           const connector = button("", () => { state.pop?.destroy(); const pop = new DatabasePopover(connector, "Blocked by"); state.pop = pop; const panel = pop.panel("Blocked by"); panel.append(referencePicker(forward,page,fieldValue(page,forward), value => actions.reference?.(page,forward,value),actions.pages?.() ?? rows)); pop.footer(panel); }, "database-timeline-connector");
           connector.setAttribute("aria-label", `${t("Edit dependencies")}: ${page.title}`); connector.title = t("Drag to connect a task, or drop on empty space to create a page");
           connector.onpointerdown = event => {

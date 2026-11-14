@@ -1,5 +1,7 @@
 /** Application chrome only. Document content and stored values are never translated. */
 export const zhCN: Record<string, string> = {
+  "View dependencies": "查看依赖关系",
+  "Imported relation — read-only": "导入的关联关系（只读）",
   "Import details": "导入详情",
   "Sub-items": "子项",
   "Sub-item": "子项",

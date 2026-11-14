@@ -14,7 +14,7 @@ export const fidelitySchema = { object: "data_source", id: fidelitySource, title
 } };
 export const fidelityRawViews = ["timeline", "table", "calendar", "feed", "map"].map((type, index) => index === 3 ? { object: "view", id: fidelityViews[index] } : {
   object: "view", id: fidelityViews[index], type, name: index === 0 ? "Timeline view" : "", data_source_id: fidelitySource,
-  parent: { type: "database_id", database_id: fidelityDatabase }, configuration: { type, ...(type === "map" ? { map_by: "KHBf" } : ["timeline", "calendar"].includes(type) ? { date_property_id: "yjkW" } : { subtasks: { toggle_column_id: "title" } }) },
+  parent: { type: "database_id", database_id: fidelityDatabase }, configuration: { type, ...(type === "timeline" ? { arrows_by: { property_id: "fyS]" } } : {}), ...(type === "map" ? { map_by: "KHBf" } : ["timeline", "calendar"].includes(type) ? { date_property_id: "yjkW" } : { subtasks: { toggle_column_id: "title" } }) },
 });
 export const fidelityCache = (): CachedNotionView[] => ["timeline", "table", "calendar", "feed", "map"].map((type, index) => ({
   id: fidelityViews[index], parentId: fidelityDatabase, sourceId: fidelitySource, type, name: index === 0 ? "Timeline view" : null, version: 8,
@@ -33,6 +33,7 @@ export function fidelityFixture(fallback?: typeof fetch): typeof fetch {
       Assign: { id: "_unc", type: "people", people: [] }, Place: { id: "KHBf", type: "place", place: null },
       Status: { id: "bUwW", type: "status", status: { id: "todo", name: "Not started" } },
       Date: { id: "yjkW", type: "date", date: { start: "2026-11-14" } },
+      Blocking: { id: "fyS%5D", type: "relation", relation: index === 3 ? [{ id: fidelityPages[1] }] : index === 2 ? [{ id: fidelityPages[4] }] : [] },
     } }; };
     if (p.endsWith("/query")) return Response.json({ results: [...fidelityPages].reverse().map(record), has_more: false, next_cursor: null });
     if (p === "/v1/views") return Response.json({ results: fidelityViews.map(id => ({ object: "view", id })), has_more: false, next_cursor: null });

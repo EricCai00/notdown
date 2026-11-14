@@ -8,6 +8,7 @@ import { prepareNotionImport } from "../../server/notion-import.js";
 import { readNotionViewCache, supplementNotionView } from "../../server/notion-view-cache.js";
 import { createVault } from "../../server/vault.js";
 import { stablePageUuid } from "../../src/vault/page-id.js";
+import { timelineDependencyBinding, timelineDependencyEdges } from "../../src/features/databases/database-dependencies.js";
 import { fidelityDatabase as dbId, fidelitySource as sourceId, fidelityViews, fidelityPages, fidelityCache, fidelityRawViews, fidelityFixture } from "./notion-view-fidelity-fixture.js";
 const options = { fetch: fidelityFixture(), wait: async () => {}, readViewNames: async () => ({ views: [] }), readViewCache: async () => ({ views: fidelityCache() }) };
 const input = { token: "test-view-fidelity-token", pageId: dbId, useDesktopCache: true };
@@ -28,7 +29,22 @@ test("unreadable Feed, native Map/Place, default table order and source row orde
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "notdown-fidelity-")); t.after(() => fs.rm(root, { recursive: true, force: true }));
   const vault = createVault(root); await vault.importBatch(plan); const snapshot = await createVault(root).databases.get(Object.keys(resources.databases)[0]);
   assert.equal(snapshot.pages.length, 7); assert.deepEqual(snapshot.views.map(v => v.type), views.map(v => v.type));
+  assert.deepEqual(timelineDependencyEdges(snapshot.dataSources[0], snapshot.views[0], snapshot.pages).map(edge => `${edge.from}/${edge.to}`).sort(), [
+    `${local(fidelityPages[3])}/${local(fidelityPages[1])}`, `${local(fidelityPages[2])}/${local(fidelityPages[4])}`,
+  ].sort());
   assert.deepEqual(snapshot.views[1].rowOrder, views[1].rowOrder);
+});
+
+test("imported dependency binding requires exact property and same-source identities; names alone never enable it", () => {
+  const source: any = { id: "local-source", notion: { id: sourceId }, properties: [{ id: "out", key: "out", name: "Any translated label", type: "relation", readOnly: true, notion: { id: "fyS%5D", relation: { data_source_id: sourceId } } }] };
+  const view: any = { dataSourceId: source.id, notion: { data_source_id: sourceId, configuration: { arrows_by: { property_id: "fyS]" } } } };
+  const original = JSON.stringify({ source, view });
+  assert.deepEqual(timelineDependencyBinding(source, view), { field: source.properties[0], imported: true });
+  for (const changed of [{ ...view, dataSourceId: "other" }, { ...view, notion: { ...view.notion, data_source_id: dbId } }, { ...view, notion: { configuration: { arrows_by: { property_id: "Blocking" } } } }, { ...view, notion: {} }]) assert.equal(timelineDependencyBinding(source, changed), undefined);
+  assert.equal(timelineDependencyBinding({ ...source, properties: [{ ...source.properties[0], notion: { id: "fyS]", relation: { data_source_id: dbId } } }] }, view), undefined);
+  const page = (id: string, props = {}, extra = {}) => ({ id, dataSourceId: source.id, properties: props, ...extra } as any);
+  assert.deepEqual(timelineDependencyEdges(source, view, [page("a", {out:[{pageId:"b"},{pageId:"b"},{pageId:"a"},{pageId:"foreign"},{pageId:"deleted"},{notionPageId:"unknown"}]}),page("b"),page("foreign",{},{dataSourceId:"other"}),page("deleted",{},{trashed:true})]), [{ from: "a", to: "b" }]);
+  assert.equal(JSON.stringify({source,view}),original);
 });
 
 test("cache supplements only missing settings; conflicting types, sources and explicit properties remain intact", () => {

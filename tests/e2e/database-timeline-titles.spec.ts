@@ -75,7 +75,7 @@ test("edge arrows stay pinned during continuous scrolling with and without the n
   for (const record of distant) expect((await (await request.get(`/api/pages/${record.id}`)).json()).properties.date).toEqual(record.properties.date);
 });
 
-test("short date bars retain full clickable titles at coarse scales", async ({ page, request }, info) => {
+test("short date bars show full titles but only the card responds to hover and clicks", async ({ page, request }, info) => {
   const data = await fixture(request);
   await page.clock.setFixedTime(new Date("2026-11-03T12:00:00Z"));
   await page.goto(`/#database/${data.snapshot.database.id}?view=${data.view.id}`);
@@ -95,13 +95,23 @@ test("short date bars retain full clickable titles at coarse scales", async ({ p
   await page.getByRole("button", { name: "Show table", exact: true }).click();
   await expect(title).toBeInViewport();
   const text = (await title.boundingBox())!;
-  // Click the extended part of the title, well outside the date bar and handles.
-  await page.mouse.click(text.x + text.width - 20, text.y + text.height / 2);
+  const spill = { x: text.x + text.width - 20, y: text.y + text.height / 2 };
+  await page.mouse.move(spill.x, spill.y);
+  expect(await bar.evaluate(el => el.matches(":hover"))).toBe(false);
+  await expect(row.locator(".database-timeline-content")).toHaveCSS("mask-image", "none");
+  await page.mouse.click(spill.x, spill.y);
+  await expect(page.locator(".database-peek-mount")).not.toBeVisible();
+  const card = (await bar.boundingBox())!;
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+  expect(await bar.evaluate(el => el.matches(":hover"))).toBe(true);
+  await expect(row.locator(".database-timeline-content")).not.toHaveCSS("mask-image", "none");
+  await page.screenshot({ path: info.outputPath("hover-card-dims-overflow.png") });
+  await page.mouse.click(card.x + card.width / 2, card.y + card.height / 2);
   await expect(page.locator(".database-peek-mount")).toBeVisible();
   expect((await (await request.get(`/api/pages/${data.records[1].id}`)).json()).properties.date).toEqual(data.records[1].properties.date);
 });
 
-test("extended titles drag the short bar without moving its resize or dependency anchors", async ({ page, request }) => {
+test("overflow text cannot drag a card; dragging the card retains resize and dependency anchors", async ({ page, request }) => {
   const data = await fixture(request, "month");
   await page.clock.setFixedTime(new Date("2026-11-03T12:00:00Z"));
   await page.goto(`/#database/${data.snapshot.database.id}?view=${data.view.id}`);
@@ -111,6 +121,10 @@ test("extended titles drag the short bar without moving its resize or dependency
   const text = (await title.boundingBox())!;
   await page.mouse.move(text.x + text.width - 20, text.y + text.height / 2);
   await page.mouse.down(); await page.mouse.move(text.x + text.width + 16, text.y + text.height / 2, { steps: 5 }); await page.mouse.up();
+  expect((await (await request.get(`/api/pages/${data.records[1].id}`)).json()).properties.date).toEqual(data.records[1].properties.date);
+  const originalCard = (await bar.boundingBox())!;
+  await page.mouse.move(originalCard.x + originalCard.width / 2, originalCard.y + originalCard.height / 2);
+  await page.mouse.down(); await page.mouse.move(originalCard.x + originalCard.width / 2 + 36, originalCard.y + originalCard.height / 2, { steps: 5 }); await page.mouse.up();
   await expect.poll(async () => (await (await request.get(`/api/pages/${data.records[1].id}`)).json()).properties.date.start).toBe("2026-11-04");
   const bounds = (await bar.boundingBox())!;
   const end = (await row.locator(".database-timeline-handle.is-end").boundingBox())!;
@@ -118,7 +132,7 @@ test("extended titles drag the short bar without moving its resize or dependency
   await page.mouse.move(end.x + 3, end.y + 10); await page.mouse.down();
   await page.mouse.move(end.x + 39, end.y + 10, { steps: 5 }); await page.mouse.up();
   await expect.poll(async () => (await (await request.get(`/api/pages/${data.records[1].id}`)).json()).properties.date.end).toBe("2026-11-05");
-  await title.hover();
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   const connector = (await row.locator(".database-timeline-connector").boundingBox())!;
   const resized = (await bar.boundingBox())!;
   expect(connector.x).toBeCloseTo(resized.x + resized.width - 1, 0);

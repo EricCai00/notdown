@@ -1,0 +1,31 @@
+import { test, expect } from "@playwright/test";
+import { fidelityDatabase } from "../unit/notion-view-fidelity-fixture";
+import { stablePageUuid } from "../../src/vault/page-id";
+
+test("imported timeline reuses outgoing relations for gold arrows and read-only circles without adding fields", async ({ page, request }, info) => {
+  const response = await request.post("/api/notion/import/preview", { data: { token: "dependency-test", pageId: fidelityDatabase, useDesktopCache: true } });
+  expect(response.ok()).toBeTruthy(); const preview = await response.json();
+  expect((await request.post("/api/import/commit", { data: { id: preview.id } })).ok()).toBeTruthy();
+  const id = stablePageUuid(`notion-${preview.id.slice(0,24)}-${fidelityDatabase}`);
+  const before = await (await request.get(`/api/databases/${id}`)).json();
+  await page.clock.setFixedTime(new Date("2026-11-14T12:00:00Z"));
+  await page.goto(`/#database/${id}`);
+  const lines = page.locator('.database-timeline-links path[data-readonly=true]');
+  await expect(lines).toHaveCount(2);
+  await expect(lines.first()).toHaveAttribute("role", "img");
+  const card = page.getByRole("button", { name: "Open Card 4", exact: true }); await card.hover();
+  const circle = page.getByRole("button", { name: "View dependencies: Card 4", exact: true });
+  await expect(circle).toHaveCSS("opacity", "1");
+  await circle.click();
+  const relation = page.getByRole("dialog", { name: "Blocking", exact: true });
+  await expect(relation.locator('.database-page-reference-label')).toHaveText("Card 2");
+  await expect(relation.locator('.database-select-control')).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Dependencies", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Dependencies", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Shift only when dates overlap", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.screenshot({ path: info.outputPath("imported-dependency-arrows.png") });
+  await page.reload(); await expect(lines).toHaveCount(2);
+  expect(await (await request.get(`/api/databases/${id}`)).json()).toEqual(before);
+});

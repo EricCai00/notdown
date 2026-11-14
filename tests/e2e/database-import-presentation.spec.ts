@@ -51,8 +51,9 @@ test("imported cells remain compact, legacy empty Place is blank, and compatibil
   await expect(page).toHaveURL(new RegExp(`#page/${card2.id}$`));
   const relation = schema.properties.find((field: any) => field.id === "relation"); relation.readOnly = false; relation.localRelation = true;
   await page.goto(`/#database/${database.database.id}`);
-  await expect(page.locator('.database-reference-cell .database-page-reference-label').first()).toHaveText("Card 2");
-  await expect(page.locator('.database-reference-cell .database-page-reference .page-link-icon').first()).toBeVisible();
+  const localRelation = page.locator(`tr[data-page-id="${snapshot.pages.find((record: any) => record.title === "Card 1").id}"] .database-reference-cell`);
+  await expect(localRelation.locator('.database-page-reference-label')).toHaveText("Card 2");
+  await expect(localRelation.locator('.database-page-reference .page-link-icon')).toBeVisible();
   await expect(page.locator('.database-reference-cell .database-tag')).toHaveCount(0);
   view.importWarnings.push("Notion sorting could not be applied; source query order is used.");
   await page.goto(`/#database/${database.database.id}`);
