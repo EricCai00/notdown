@@ -38,6 +38,8 @@ The application menu updates its enabled commands when a tab transition finishes
 
 Desktop and browser versions share the top tab bar, left vault navigation and page breadcrumbs. The desktop main window integrates system window controls into the tab bar while retaining window dragging, minimize, maximize and close. It has no separate system title bar or File / Edit menu bar. The browser retains its own address bar and tabs; application tabs manage only the current vault.
 
+Page-link rows center emoji within the same icon slot as Lucide symbols so their title spacing stays consistent.
+
 The top Vault and Databases reuse the same breadcrumb layout with the page path; the icon is centered in the unified placeholder and maintains a fixed distance from the title. emoji, line icons and uploaded images in the page path follow the same alignment rules; the body Breadcrumb block also uses this set of icon layouts.
 
 The only Notdown icon in the upper left corner of the top bar is the entrance to the application menu, which provides new pages/tabs, import, vault management, settings, sidebar display and navigation history. Supports arrow keys, Home/End, Enter and Escape, and can be closed by clicking outside; menu operations continue to use save and conflict protection. The sidebar footer displays the current vault name, and the up and down double arrows on the right represent the vault switching entrance; click on the name to manage the vault, and the application icon or fixed "Notdown workspace" title will not be repeatedly displayed.

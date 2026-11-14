@@ -1,5 +1,27 @@
 import { test, expect } from "@playwright/test";
 
+test("document page links keep emoji glyphs centered with Lucide title spacing", async ({ page, request }, info) => {
+  const targets = [];
+  for (const icon of ["📝", "file-text", "🗒️", "file"]) targets.push(await (await request.post("/api/pages", { data: { title: "Same title", icon, body: "" } })).json());
+  const body = targets.map(target => `<page-link url="#page/${target.id}">Same title</page-link>`).join("\n\n");
+  const parent = await (await request.post("/api/pages", { data: { title: "Page link spacing", body, bodyFormat: "notion-markdown", syntax: { version:1,variant:"notdown",notionVersion:"v2",extensions:{} } } })).json();
+  await page.goto(`/#page/${parent.id}`);
+  const links = page.locator('.pm-document a.child-page-node'); await expect(links).toHaveCount(4);
+  for (const style of ["system", "noto", "openmoji"]) {
+    await page.evaluate(style => document.documentElement.dataset.emojiStyle = style, style);
+    await page.evaluate(() => document.fonts.ready);
+    const metrics = await links.evaluateAll(links => links.map(link => {
+      const icon = link.querySelector('.page-link-icon')!, label = link.querySelector('.page-link-label')!.getBoundingClientRect();
+      const range = document.createRange(); range.selectNodeContents(icon);
+      const glyph = icon.classList.contains('emoji') ? range.getBoundingClientRect() : icon.getBoundingClientRect();
+      return { x:label.left, gap:label.left-glyph.right };
+    }));
+    for (const metric of metrics) { expect(metric.x).toBeCloseTo(metrics[1].x, 1); expect(Math.abs(metric.gap-metrics[1].gap)).toBeLessThan(2); }
+    await page.screenshot({ path: info.outputPath(`page-link-spacing-${style}.png`) });
+  }
+  expect((await (await request.get(`/api/pages/${parent.id}`)).json()).body).toBe(body);
+});
+
 test("child page rows align mixed icons, titles and arrows across emoji styles and window widths", async ({ page, request }) => {
   const parent = await (await request.post("/api/pages", { data: { title: "Child icon alignment", body: "" } })).json();
   const upload = await request.post("/api/assets", { data: {

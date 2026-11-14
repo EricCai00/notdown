@@ -43,6 +43,15 @@ test("imported cells remain compact, legacy empty Place is blank, and compatibil
   await expect(emptyTitle.locator(".database-page-icon")).not.toBeVisible();
   const titleWeight = await page.getByLabel("Name: Card 1", { exact: true }).evaluate(node => getComputedStyle(node).fontWeight);
   expect(await namedRelation.evaluate(node => getComputedStyle(node).fontWeight)).toBe(titleWeight);
+  const titleGap = () => page.getByLabel("Name: Card 1", { exact: true }).evaluate(input => {
+    const style = getComputedStyle(input), icon = input.parentElement!.querySelector(".database-page-icon")!.getBoundingClientRect();
+    return input.getBoundingClientRect().left + parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth) - icon.right;
+  });
+  const relationGap = await namedRelation.evaluate(link => link.querySelector(".database-page-reference-label")!.getBoundingClientRect().left - link.querySelector(".page-link-icon")!.getBoundingClientRect().right);
+  expect(await titleGap()).toBeCloseTo(relationGap, 1);
+  view.layout = { ...view.layout, wrapContent: true }; await page.reload();
+  expect(await titleGap()).toBeCloseTo(relationGap, 1);
+  view.layout.wrapContent = false; await page.reload();
   const heights = await page.locator("tbody tr").evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height));
   expect(Math.max(...heights)).toBeLessThanOrEqual(36);
   expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);

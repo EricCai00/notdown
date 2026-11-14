@@ -246,6 +246,12 @@
   height: 16px;
   font-size: 16px;
 }
+.pm-document :is(a.child-page-node, a.page-mention[data-reference-kind="page"]) .page-link-icon.emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
 .pm-document .page-link-label {
   border-bottom: 1px solid #e1e1de;
 }
